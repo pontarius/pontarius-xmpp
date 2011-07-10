@@ -1,0 +1,192 @@
+#LyX 2.0 created this file. For more info see http://www.lyx.org/
+\lyxformat 413
+\begin_document
+\begin_header
+\textclass article
+\use_default_options true
+\maintain_unincluded_children false
+\language english
+\language_package default
+\inputencoding auto
+\fontencoding global
+\font_roman default
+\font_sans default
+\font_typewriter default
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_osf false
+\font_sf_scale 100
+\font_tt_scale 100
+
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command default
+\index_command default
+\paperfontsize default
+\use_hyperref false
+\papersize default
+\use_geometry false
+\use_amsmath 1
+\use_esint 1
+\use_mhchem 1
+\use_mathdots 1
+\cite_engine basic
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\use_refstyle 1
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\quotes_language english
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Title
+Software Design Description for Pontarius XMPP 1.0 (First Draft)
+\end_layout
+
+\begin_layout Author
+The Pontarius Project
+\end_layout
+
+\begin_layout Date
+15th of June, 2011
+\end_layout
+
+\begin_layout Standard
+\begin_inset CommandInset toc
+LatexCommand tableofcontents
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Introduction
+\end_layout
+
+\begin_layout Standard
+Purpose
+\end_layout
+
+\begin_layout Standard
+Scope
+\end_layout
+
+\begin_layout Standard
+Definitions and acronyms
+\end_layout
+
+\begin_layout Section
+References
+\end_layout
+
+\begin_layout Section
+Decomposition description
+\end_layout
+
+\begin_layout Subsection
+Module decomposition
+\end_layout
+
+\begin_layout Subsection
+Concurrent process decomposition
+\end_layout
+
+\begin_layout Subsection
+Data decomposition
+\end_layout
+
+\begin_layout Section
+Dependency description
+\end_layout
+
+\begin_layout Subsection
+Intermodule dependencies
+\end_layout
+
+\begin_layout Subsection
+Interprocess dependencies
+\end_layout
+
+\begin_layout Subsection
+Data dependencies
+\end_layout
+
+\begin_layout Section
+Interface description
+\end_layout
+
+\begin_layout Subsection
+Module interface
+\end_layout
+
+\begin_layout Subsubsection
+Module 1 description
+\end_layout
+
+\begin_layout Subsubsection
+Module 2 description
+\end_layout
+
+\begin_layout Subsection
+Process interface
+\end_layout
+
+\begin_layout Subsubsection
+Process 1 description
+\end_layout
+
+\begin_layout Subsubsection
+Process 2 description
+\end_layout
+
+\begin_layout Section
+Detailed design
+\end_layout
+
+\begin_layout Subsection
+Module detailed design
+\end_layout
+
+\begin_layout Subsubsection
+Module 1 detail
+\end_layout
+
+\begin_layout Subsubsection
+Module 2 detail
+\end_layout
+
+\begin_layout Subsection
+Data detailed design
+\end_layout
+
+\begin_layout Subsubsection
+Module 1 detail
+\end_layout
+
+\begin_layout Subsubsection
+Module 2 detail
+\end_layout
+
+\end_body
+\end_document

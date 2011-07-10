@@ -1,0 +1,69 @@
+Name:               pontarius-xmpp
+Version:            0.0.6.0
+Cabal-Version:      >= 1.6
+Build-Type:         Simple
+License:            LGPL-3
+License-File:       LICENSE
+Copyright:          Copyright © 2011, Jon Kristensen
+Author:             Jon Kristensen, Mahdi Abdinejadi
+Maintainer:         jon.kristensen@pontarius.org
+Stability:          alpha
+Homepage:           http://www.pontarius.org/
+Bug-Reports:        mailto:info@pontarius.org
+-- Package-URL:
+Synopsis:           A prototyped and incomplete implementation of RFC 6120:
+                    XMPP: Core
+Description:        A work in progress of an implementation of RFC 6120: XMPP:
+                    Core, as well as RFC 6122: XMPP: Address Format and other
+                    depending standards. A new version of Pontarius XMPP is
+                    released every three weeks.
+Category:           Network
+Tested-With:        GHC ==7.0.2
+-- Data-Files:
+-- Data-Dir:
+-- Extra-Source-Files:
+-- Extra-Tmp-Files:
+
+Library
+  Exposed-Modules:   Network.XMPP, Network.XMPP.Address, Network.XMPP.SASL,
+                     Network.XMPP.Session, Network.XMPP.Stanza,
+                     Network.XMPP.Stream, Network.XMPP.TLS, Network.XMPP.Types,
+                     Network.XMPP.Utilities
+  Exposed:           True
+  Build-Depends:     base >= 2 && < 5, parsec, enumerator, crypto-api,
+                     base64-string, pureMD5, utf8-string, network, xml-types,
+                     text, transformers, bytestring, binary, random,
+                     xml-enumerator, tls ==0.4.1, containers, mtl, text-icu,
+                     stringprep, idna2008 ==0.0.1.0
+  -- Other-Modules:
+  -- HS-Source-Dirs:
+  -- Extensions:
+  -- Build-Tools:
+  -- Buildable:
+  -- GHC-Options:
+  -- GHC-Prof-Options:
+  -- Hugs-Options:
+  -- NHC98-Options:
+  -- Includes:
+  -- Install-Includes:
+  -- Include-Dirs:
+  -- C-Sources:
+  -- Extra-Libraries:
+  -- Extra-Lib-Dirs:
+  -- CC-Options:
+  -- LD-Options:
+  -- Pkgconfig-Depends:
+  -- Frameworks:
+
+Source-Repository head
+  Type:     darcs
+  -- Module:
+  Location: https://patch-tag.com/r/jonkri/pontarius-xmpp
+  -- Subdir:
+
+Source-Repository this
+  Type:     darcs
+  -- Module:
+  Location: https://patch-tag.com/r/jonkri/pontarius-xmpp
+  Tag:      0.0.6.0
+  -- Subdir:

@@ -1,0 +1,324 @@
+#LyX 2.0 created this file. For more info see http://www.lyx.org/
+\lyxformat 413
+\begin_document
+\begin_header
+\textclass article
+\use_default_options true
+\maintain_unincluded_children false
+\language english
+\language_package default
+\inputencoding auto
+\fontencoding global
+\font_roman default
+\font_sans default
+\font_typewriter default
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_osf false
+\font_sf_scale 100
+\font_tt_scale 100
+
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command default
+\index_command default
+\paperfontsize default
+\use_hyperref false
+\papersize default
+\use_geometry false
+\use_amsmath 1
+\use_esint 1
+\use_mhchem 1
+\use_mathdots 1
+\cite_engine basic
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\use_refstyle 1
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\quotes_language english
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Title
+Software Quality Assurance Plan for Pontarius XMPP 1.0
+\end_layout
+
+\begin_layout Author
+Jon Kristensen
+\end_layout
+
+\begin_layout Date
+6th of June, 2011
+\end_layout
+
+\begin_layout Standard
+\begin_inset CommandInset toc
+LatexCommand tableofcontents
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Purpose
+\end_layout
+
+\begin_layout Standard
+The purpose of writing this SQAP is not only to increase the quality of
+ Pontarius XMPP, but also to evaluate the use of the IEEE Standard for Software
+ Quality Assurance Plans (IEEE Std 730-1998) standard as well as meeting
+ the goals of a university course in IT quality management.
+ For information on the intended use of the software, please consult the
+ Pontarius XMPP 1.0 Software Requirement Specification.
+ The applicable portions of the software's life cycle from its first beta
+ until its disposal phase.
+\end_layout
+
+\begin_layout Section
+Reference documents
+\end_layout
+
+\begin_layout Enumerate
+IEEE Standard for Software Quality Assurance Plans (IEEE Std 730-1998)
+\end_layout
+
+\begin_layout Enumerate
+Pontarius XMPP 1.0 Software Requirement Specification
+\end_layout
+
+\begin_layout Section
+Legal notice
+\end_layout
+
+\begin_layout Standard
+Pontarius XMPP is a free and open source software project.
+ The 
+\begin_inset Quotes eld
+\end_inset
+
+Pontarius project
+\begin_inset Quotes erd
+\end_inset
+
+ is not a legal entity, but is like a synonym for Jon Kristensen.
+ Jon Kristensen does DOES NOT TAKE ANY RESPONSIBILITY OR OFFER ANY GUARANTEES
+ in regards to the software, its quality or this document.
+ Furthermore, the software is provided 
+\begin_inset Quotes eld
+\end_inset
+
+WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+ or FITNESS FOR A PARTICULAR PURPOSE
+\begin_inset Quotes erd
+\end_inset
+
+.
+ Consult the GNU General Public License for more information.
+ This aspect particularly influences the next section of this document.
+\end_layout
+
+\begin_layout Section
+Management
+\end_layout
+
+\begin_layout Standard
+The 
+\begin_inset Quotes eld
+\end_inset
+
+organization
+\begin_inset Quotes erd
+\end_inset
+
+ behind the software is the project founder, project leader, and copyright
+ holder Jon Kristensen, which acts in a 
+\begin_inset Quotes eld
+\end_inset
+
+benevolent dictator
+\begin_inset Quotes erd
+\end_inset
+
+ position for the free and open source project.
+ The Pontarius project hopes that Pontarius XMPP will grow to become the
+ de-facto XMPP library for Haskell, and that we will get voluntary feedback
+ from multiple testers from different communities, such as the Haskell and
+ XMPP communities, as well as the free and open source software community
+ as a whole.
+ We will do what we can to organize and act on that feedback; however, the
+ only person that has currently even 
+\emph on
+planned
+\emph default
+ to perform software quality assurance activities is Jon Kristensen.
+\end_layout
+
+\begin_layout Standard
+[Lifecycle of software, Sequence of tasks (with emphasis on activities),
+ relationships between tasks and major checkpoints]
+\end_layout
+
+\begin_layout Standard
+(Testing API, extending Pontarius XMPP with a set of RFCs and/or XEPs, unit
+ testing, performance testing, stress testing, code (un)coverage...)
+\end_layout
+
+\begin_layout Section
+Documentation
+\end_layout
+
+\begin_layout Subsection
+Purpose
+\end_layout
+
+\begin_layout Subsection
+Minimum documentation requirements
+\end_layout
+
+\begin_layout Subsubsection
+Software Requirements Specification
+\end_layout
+
+\begin_layout Subsubsection
+Software Design Description
+\end_layout
+
+\begin_layout Subsubsection
+Software Verification and Validation Plan
+\end_layout
+
+\begin_layout Subsubsection
+User Documentation
+\end_layout
+
+\begin_layout Subsubsection
+Software Configuration Management Plan
+\end_layout
+
+\begin_layout Section
+Standards, practices, conventions, and metrics
+\end_layout
+
+\begin_layout Subsection
+Purpose
+\end_layout
+
+\begin_layout Subsection
+Content
+\end_layout
+
+\begin_layout Section
+Reviews and audits
+\end_layout
+
+\begin_layout Subsection
+Purpose
+\end_layout
+
+\begin_layout Subsection
+Minimum requirements
+\end_layout
+
+\begin_layout Subsection
+Software Requirements Review
+\end_layout
+
+\begin_layout Subsection
+Preliminary Design Review
+\end_layout
+
+\begin_layout Subsection
+Critical Design Review
+\end_layout
+
+\begin_layout Subsection
+Software Verification and Validation Plan Review
+\end_layout
+
+\begin_layout Subsubsection
+Functional audit
+\end_layout
+
+\begin_layout Subsubsection
+Physical audit
+\end_layout
+
+\begin_layout Subsubsection
+In-process audits
+\end_layout
+
+\begin_layout Subsubsection
+Manegerial reviews
+\end_layout
+
+\begin_layout Subsubsection
+Software Configuration Management Plan Review
+\end_layout
+
+\begin_layout Subsubsection
+Post-mortem review
+\end_layout
+
+\begin_layout Subsubsection
+User Documentation Review
+\end_layout
+
+\begin_layout Subsection
+Test
+\end_layout
+
+\begin_layout Section
+Problem reporting and corrective actions
+\end_layout
+
+\begin_layout Section
+Tools, technologies, and methodologies
+\end_layout
+
+\begin_layout Section
+Code control
+\end_layout
+
+\begin_layout Section
+Media control
+\end_layout
+
+\begin_layout Section
+Supplier control
+\end_layout
+
+\begin_layout Section
+Records collection, maintainance, and retention
+\end_layout
+
+\begin_layout Section
+Training
+\end_layout
+
+\begin_layout Section
+Risk management
+\end_layout
+
+\end_body
+\end_document

@@ -1,0 +1,1459 @@
+#LyX 2.0 created this file. For more info see http://www.lyx.org/
+\lyxformat 413
+\begin_document
+\begin_header
+\textclass article
+\use_default_options true
+\maintain_unincluded_children false
+\language english
+\language_package default
+\inputencoding auto
+\fontencoding global
+\font_roman default
+\font_sans default
+\font_typewriter default
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_osf false
+\font_sf_scale 100
+\font_tt_scale 100
+
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command default
+\index_command default
+\paperfontsize default
+\spacing single
+\use_hyperref false
+\papersize default
+\use_geometry false
+\use_amsmath 1
+\use_esint 1
+\use_mhchem 1
+\use_mathdots 1
+\cite_engine basic
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\use_refstyle 1
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\quotes_language english
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Title
+Software Requirements Specification for Pontarius XMPP 0.1 (Second Draft)
+\end_layout
+
+\begin_layout Author
+The Pontarius Project
+\end_layout
+
+\begin_layout Date
+6th of July 2011
+\end_layout
+
+\begin_layout Standard
+\begin_inset CommandInset toc
+LatexCommand tableofcontents
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Introduction
+\end_layout
+
+\begin_layout Subsection
+Purpose
+\end_layout
+
+\begin_layout Standard
+The goal of this document is to clarify---for Pontarius
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+For more information about the Pontarius project, see http://www.pontarius.org/.
+\end_layout
+
+\end_inset
+
+ developers, the XMPP community, and to some extent the Haskell community---what
+ we are implementing.
+ We hope that it will help us in the Pontarius project to keep track of
+ functionality and requirements, provide a basis for scheduling, and help
+ us with our validation and verification processes.
+\end_layout
+
+\begin_layout Subsection
+Scope
+\end_layout
+
+\begin_layout Standard
+Pontarius XMPP 0.1 will implement the client capabilities of RFC 6120: XMPP:
+ Core and the depending specifications (such as RFC 6122: XMPP: Address
+ Format), as well as be easily extendable for different XMPP extensions
+ (such as XEPs and RFCs).
+\end_layout
+
+\begin_layout Standard
+Support for common extensions such as Instant Messaging, Data Forms, Service
+ Discovery, etc.
+ will 
+\emph on
+not
+\emph default
+ be included in the 0.1 version, but will be added in later (
+\begin_inset Quotes eld
+\end_inset
+
+0.x
+\begin_inset Quotes erd
+\end_inset
+
+) versions.
+ Server components and XMPP server capabilities could also be added later.
+\end_layout
+
+\begin_layout Standard
+While it is the goal of the Pontarius project to develop secure and privacy-awar
+e 
+\begin_inset Quotes eld
+\end_inset
+
+personal cloud
+\begin_inset Quotes erd
+\end_inset
+
+ solutions on top of Pontarius XMPP, we want Pontarius XMPP to be a general-purp
+ose---and de facto---XMPP library for Haskell.
+ It should be correct, flexible and efficient to work in.
+\end_layout
+
+\begin_layout Standard
+We will not repeat the specifics of the requirements from the RFC 6120:
+ XMPP Core specification or other specifications in this document.
+\end_layout
+
+\begin_layout Subsection
+Legal notice
+\end_layout
+
+\begin_layout Standard
+Pontarius XMPP is a free and open source software project.
+ 
+\begin_inset Quotes eld
+\end_inset
+
+The Pontarius project
+\begin_inset Quotes erd
+\end_inset
+
+ is not a legal entity, but is like a synonym for Jon Kristensen.
+ Jon Kristensen does DOES NOT TAKE ANY RESPONSIBILITY OR OFFER ANY GUARANTEES
+ in regards to the software, its requirements or this document.
+ Furthermore, the software is provided 
+\begin_inset Quotes eld
+\end_inset
+
+WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+ or FITNESS FOR A PARTICULAR PURPOSE
+\begin_inset Quotes erd
+\end_inset
+
+.
+ Consult the GNU General Public License for more information.
+\end_layout
+
+\begin_layout Subsection
+Definitions, acronyms, and abbrevations
+\end_layout
+
+\begin_layout Description
+JID JabberID: An address for XMPP entities
+\end_layout
+
+\begin_layout Description
+Pontarius A free and open source software project that aims to produce XMPP-base
+d, uncentralized, and privacy-aware software solutions
+\end_layout
+
+\begin_layout Description
+REQ Requirement
+\end_layout
+
+\begin_layout Description
+RFC Request for Comments: A memorandum published by the Internet Engineering
+ Task Force; some of these, including XMPP: Core and XMPP: Address Format,
+ are published as Internet standards
+\end_layout
+
+\begin_layout Description
+TCP Transmission Control Protocol: A reliable network transport protocol
+\end_layout
+
+\begin_layout Description
+TLS Transport Layer Security: A secure network protocol, a successor to
+ Secure Sockets Layer (SSL)
+\end_layout
+
+\begin_layout Description
+XMPP Extendable Messaging and Presence Protocol: An uncentralized, open,
+ and near-real-time presence and messaging protocol
+\end_layout
+
+\begin_layout Subsection
+References
+\end_layout
+
+\begin_layout Itemize
+Extensible Messaging and Presence Protocol (XMPP): Core, RFC 6120, March
+ 2011, Internet Engineering Task Force
+\end_layout
+
+\begin_layout Itemize
+Extensible Messaging and Presence Protocol (XMPP): Address Format, RFC 6122,
+ March 2011, Internet Engineering Task Force
+\end_layout
+
+\begin_layout Subsection
+Overview
+\end_layout
+
+\begin_layout Standard
+The second section provides an overall description of the requirements of
+ Pontarius XMPP 0.1, going through the features in a non-strict fashion,
+ talking shortly about the product functions, as well as some constraints
+ and assumptions.
+\end_layout
+
+\begin_layout Standard
+The third section simply lists the requirements, categorized by external
+ interfaces, functions, performance requirements, design constraints, and
+ software system (quality) attributes.
+\end_layout
+
+\begin_layout Section
+Overall Description
+\end_layout
+
+\begin_layout Subsection
+Product perspective
+\end_layout
+
+\begin_layout Standard
+Pontarius XMPP 0.1 will be used by XMPP clients to manage presence and messaging
+ in a uncentralized near-real-time environments.
+ For this first milestone of the library, we have chosen to implement only
+ the XMPP: Core specification, and only the client capabilities of it.
+ The reason for this is that we want to get the library out quickly, and
+ want to have the core functionality of the library particularly well tested.
+ The X in XMPP stands for extendable, and Pontarius XMPP must be flexible
+ in regards for extensions, such as RFCs and XEPs; we might end up implementing
+ hundreds of them.
+ This is one of the most important quality attribute of the software.
+\end_layout
+
+\begin_layout Standard
+Pontarius XMPP 0.1 is designed to be used with Haskell.
+\end_layout
+
+\begin_layout Standard
+Pontarius XMPP 0.1 must work on GNU/Linux, the main Free Software operating
+ system.
+ However, due to the platform support and high-level nature of Haskell,
+ running it on other common operating systems is likely to work as well.
+\end_layout
+
+\begin_layout Standard
+Pontarius XMPP 0.1 must work with (at least) the (estimated) most popular
+ free and open source software XMPP server.
+\end_layout
+
+\begin_layout Standard
+The only software using Pontarius XMPP (that we know of) is the (currently
+ paused) Pontarius XPMN library, which currently in (very early) development.
+ However, as mentioned above, the goal for Pontarius XMPP is to serve as
+ a general-purpose library, so we are trying not to be customizing the library
+ to be somehow specially tailored for Pontarius XPMN.
+\end_layout
+
+\begin_layout Standard
+Pontarius XMPP 0.1 depends on the below (free and open source software) Haskell
+ packages.
+ I have omitted specification number [...].
+ I have also omitted the source, as they are all available on Hackage.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space \space{}
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Tabular
+<lyxtabular version="3" rows="20" columns="3">
+<features tabularvalignment="middle">
+<column alignment="center" valignment="top" width="0">
+<column alignment="center" valignment="top" width="0">
+<column alignment="center" valignment="top" width="0">
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Name (Mnemonic)
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Version Number
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Purpose
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+base
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+N/A
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+N/A
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+base64-string
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+N/A
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+N/A
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+binary
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+N/A
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+N/A
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+bytestring
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+N/A
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+N/A
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+containers
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+N/A
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+N/A
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+crypto-api
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+N/A
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+N/A
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+enumerator
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+N/A
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+N/A
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+hslogger
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+N/A
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+N/A
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+network
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+N/A
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+N/A
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+pureMD5
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+N/A
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+N/A
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+QuickCheck
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+N/A
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+N/A
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+random
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+N/A
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+N/A
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+regex-posix
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+N/A
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+N/A
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+text
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+N/A
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+N/A
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+tls
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.4.1
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+N/A
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+transformers
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+N/A
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+N/A
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+utf8-string
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+N/A
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+N/A
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+xml-enumerator
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+N/A
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+N/A
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+xml-types
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+N/A
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+N/A
+\end_layout
+
+\end_inset
+</cell>
+</row>
+</lyxtabular>
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset space \space{}
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Every Pontarius XMPP 0.1 client will open up at most one TCP port on the
+ system.
+ Pontarius XMPP in itself does not write anything to the file system storage
+ of the operating system, with the exception of the optional logging facility,
+ disabled by default, which may be configured to write to disk.
+\end_layout
+
+\begin_layout Standard
+Pontarius XMPP 0.1 will not provide any spam protection.
+ However, we will utilize 
+\emph on
+at least
+\emph default
+ Transport Layer Security to help protect clients using the library from
+ attacks.
+\end_layout
+
+\begin_layout Standard
+As we expect a very limited amount of concurrent XMPP clients, and a (relatively
+) limited actitivity over XMPP streams--even when they are being fully active--w
+e are not specifying any detailed memory or (process) performance requirements
+ for Pontarius XMPP 0.1.
+ However, we will stress test the library.
+\end_layout
+
+\begin_layout Standard
+We see no hardware or user interfaces to take into account.
+\end_layout
+
+\begin_layout Subsection
+Product functions
+\end_layout
+
+\begin_layout Standard
+Pontarius XMPP 0.1 implements XMPP: Core and allow clients to do roughly
+ the following: Open a TCP connection to a server, exchange XML information
+ with the server to configure the (XML) stream, handle stream errors and
+ encoding issues, have the connection secured by TLS, authenticate using
+ a SASL mechanism and binding a resource to the stream, as well as sending
+ and receiving so-called XMPP stanzas, certain 
+\begin_inset Quotes eld
+\end_inset
+
+top level
+\begin_inset Quotes erd
+\end_inset
+
+ XML elements in the stream for communicating messages and presence.
+\end_layout
+
+\begin_layout Subsection
+User characteristics
+\end_layout
+
+\begin_layout Standard
+We expect developers using Pontarius XMPP 0.1 to understand the XMPP: Core
+ specification (and its depending specifications), Haskell, and monads,
+ including the StateT monad transformer.
+\end_layout
+
+\begin_layout Subsection
+Constraints
+\end_layout
+
+\begin_layout Standard
+In addition to the requirements in XMPP: Core, XMPP applications should
+ be reliable in that they should be able to be online (active or inactive)
+ for a very long period of time, without problems of memory leaks, unnecessary
+ CPU usage, or similar, arising.
+\end_layout
+
+\begin_layout Subsubsection
+Assumptions and dependencies
+\end_layout
+
+\begin_layout Standard
+We assume that the Glasgow Haskell Compiler (GHC) is available on the system
+ where Pontarius XMPP 0.1 applications are built.
+\end_layout
+
+\begin_layout Subsubsection
+Apportioning of requirements 
+\end_layout
+
+\begin_layout Standard
+If IDNA2008 or the other stringprep-replacing specifications are not finished
+ or otherwise not suitable to implement, we will fall back to implementing
+ stringprep for Pontarius XMPP 0.1.
+\end_layout
+
+\begin_layout Section
+Specific requirements
+\end_layout
+
+\begin_layout Subsection
+External interfaces
+\end_layout
+
+\begin_layout Standard
+The software is accessible from Haskell and may be configured to do logging.
+\end_layout
+
+\begin_layout Description
+REQ-1 The system shall be importable and fully functional from Haskell through
+ a full import of the Network.XMPP namespace.
+\end_layout
+
+\begin_layout Description
+REQ-2 The system shall be able to log information through arbitrary and
+ flexible log handlers.
+\end_layout
+
+\begin_layout Description
+REQ-3 The system shall run under GNU/Linux.
+\end_layout
+
+\begin_layout Description
+REQ-4 The system shall work against (at least) the (estimated) most popular
+ free and open source software XMPP server.
+\end_layout
+
+\begin_layout Subsection
+Functions
+\end_layout
+
+\begin_layout Standard
+If an error arises due to a bug in the software, the system shall throw
+ a runtime exception and the process should exit.
+ If an 
+\begin_inset Quotes eld
+\end_inset
+
+acceptable
+\begin_inset Quotes erd
+\end_inset
+
+ exception is possible to arise, such as the XMPP server times out, then
+ the related functions should reflect that by being able to return values
+ such as Nothing or null.
+ This allows the XMPP clients to take the appropriate actions.
+\end_layout
+
+\begin_layout Description
+REQ-5 The system shall be validating input from all functions exposed through
+ any of the system's APIs.
+ 
+\end_layout
+
+\begin_layout Description
+REQ-6 Each incoming stanza should move through a stack of (client) handlers,
+ where each handler may block the stanza from being delivered to handlers
+ further up in the stack.
+ The exceptions to this rule is stanza errors and IQ result stanzas, which
+ may be delivered directly to a callback provided when generating the stanza
+ (and possibly surpressed there).
+\end_layout
+
+\begin_layout Standard
+Rationale: We have so far found it useful to stack XMPP client handlers
+ on top of each other, letting them all manage their particular responsibilities
+ and surpress their messages to handlers further up the stack.
+\end_layout
+
+\begin_layout Description
+REQ-7 When the client is disconnected, a 
+\begin_inset Quotes eld
+\end_inset
+
+disconnect event
+\begin_inset Quotes erd
+\end_inset
+
+ is generated in a way similar to in REQ-5.
+ It is moved through the stack handlers; however, these events move down
+ the stacks completely and can't be surpressed.
+ The same thing applies for incoming stream errors, which can either be
+ recoverable or unrecoverable.
+ (?)
+\end_layout
+
+\begin_layout Standard
+Rationale: We want the handlers to all do the appropriate clean-up activities.
+\end_layout
+
+\begin_layout Description
+REQ-8 The API shall allow for opening a stream to a given IP or host name
+ on a given port, returning either a success value or the reason for failing.
+\end_layout
+
+\begin_layout Description
+REQ-9 The API shall allow for securing an opened stream with TLS, returning
+ either a success value or the reason for failing.
+\end_layout
+
+\begin_layout Description
+REQ-10 The API shall allow for authenticating an opened (possibly TLS secured)
+ stream, returning either a success value of the reason for failing.
+ If the credentials were wrong, the system shall allow the client to make
+ as many retries as allowed by the server, without restarting the stream.
+ Resource binding should be taken cared of in this step, and the client
+ should be able to try to set a resource as well as have one generated by
+ the server.
+\end_layout
+
+\begin_layout Standard
+Rationale: Even though most clients wants to do REQ-9, REQ-10, and REQ-11
+ in one action, some uses of XMPP (such as In-Band Registration) demands
+ more flexibility.
+\end_layout
+
+\begin_layout Description
+REQ-11 The API shall provide a convenience function for opening a stream,
+ securing the stream with TLS, and authenticating an XMPP account in one
+ function call, returning either a success value or the reason for failing.
+\end_layout
+
+\begin_layout Standard
+Rationale: This makes the library easier and more efficient to use for most
+ uses cases.
+\end_layout
+
+\begin_layout Description
+REQ-12 The API shall provide the possibility for clients to close the stream.
+\end_layout
+
+\begin_layout Description
+REQ-13 The API shall provide the possibility for clients to send stream
+ errors.
+\end_layout
+
+\begin_layout Description
+REQ-14 The API shall allow a convenient way for 
+\begin_inset Quotes eld
+\end_inset
+
+standard disconnect
+\begin_inset Quotes erd
+\end_inset
+
+ the client.
+\end_layout
+
+\begin_layout Description
+REQ-15 The API shall provide a facility for convenient stanza (message,
+ presence, info/query) creation, eliminating the risk of illegal stanzas
+ where feasible.
+\end_layout
+
+\begin_layout Description
+REQ-16 The API shall allow for convenient construction of JabberIDs.
+\end_layout
+
+\begin_layout Description
+REQ-17 The API shall provide utility functions to check whether or not a
+ JID is full or bare.
+\end_layout
+
+\begin_layout Description
+REQ-18 The API shall provide conversion functions to convert from a string
+ to (
+\begin_inset Quotes eld
+\end_inset
+
+Maybe
+\begin_inset Quotes erd
+\end_inset
+
+) JID, and JID to string.
+\end_layout
+
+\begin_layout Description
+REQ-19 The API shall provide an optional way for clients to receive time-out
+ events on requests made, such as an IQ or connection attempt.
+ The time-out interval should be customizable.
+\end_layout
+
+\begin_layout Description
+REQ-20 The library should generate an internal infinite list of unique stanza
+ IDs; the API should provide a way for application developers to acquire
+ any amount of such IDs
+\end_layout
+
+\begin_layout Subsection
+Performance requirements
+\end_layout
+
+\begin_layout Standard
+There is only one XMPP client per instance of the system.
+\end_layout
+
+\begin_layout Description
+REQ-21 Regular desktop computers should be able to run hundreds of Pontarius
+ XMPP 0.1 clients.
+\end_layout
+
+\begin_layout Description
+REQ-22 Pontarius XMPP 0.1 should support virtually as many stanzas per second
+ as (non-throttled) XMPP servers are able to route.
+ This goes for both lightweight, heavy and mixed stanzas.
+\end_layout
+
+\begin_layout Description
+REQ-23 Processing (parsing, generating, and firing the event) a received
+ stanza should take at most 0.01 seconds.
+\end_layout
+
+\begin_layout Subsection
+Design constraints
+\end_layout
+
+\begin_layout Subsubsection
+RFC 6120: XMPP: Core
+\end_layout
+
+\begin_layout Description
+REQ-24 The system shall support one persistant TCP stream/connection between
+ the XMPP client and the XMPP server.
+\end_layout
+
+\begin_layout Description
+REQ-25 The system shall determine the proper IPv4 or IPv6 address of the
+ XMPP server, using the SRV Lookup process as explained in the 3.2.1 section
+ of XMPP: Core, the fallback process defined i 3.2.2, with the exception of
+ the case explained in 3.2.3.
+\end_layout
+
+\begin_layout Description
+REQ-26 The system shall try to reconnect after a disconnection with a random
+ delay between 0 and 60 seconds.
+\end_layout
+
+\begin_layout Description
+REQ-27 The system shall try to reconnect with increased delays, in accordance
+ with the 
+\begin_inset Quotes eld
+\end_inset
+
+truncated binary exponential backoff
+\begin_inset Quotes erd
+\end_inset
+
+
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+See the "Information technology - Telecommunications and information exchange
+ between systems - Local and metropolitan area networks - Specific requirements
+ - Part 3: Carrier sense multiple access with collision detection (CSMA/CD)
+ access method and physical layer specifications" section of IEEE Standard
+ 802.3, September 1998.
+\end_layout
+
+\end_inset
+
+, if the first reconnection attempt fails.
+\end_layout
+
+\begin_layout Description
+REQ-28 The system shall make use of TLS session resumption when reconnecting
+ to the server, if the connection was TLS secured.
+\end_layout
+
+\begin_layout Description
+REQ-29 The system shall support stream management, as described in section
+ 4 of XMPP: Core.
+ This includes opening the stream, make the appropriate stream configurations
+ (such as stream properties and features), parse incoming data, restart
+ the stream when needed, determine the XMPP client's address, and properly
+ close the stream.
+\end_layout
+
+\begin_layout Description
+REQ-30 The system shall support securing the stream with TLS, as described
+ in section 5 of XMPP: Core.
+\end_layout
+
+\begin_layout Description
+REQ-31 The system shall support authenticating with SASL, as described in
+ section 6 of XMPP: Core.
+\end_layout
+
+\begin_layout Description
+REQ-32 Being a client library, the system shall support the 'jabber:client'
+ namespace.
+ The 'jabber:server' namespace shall be out of scope for the client.
+ The client may use other namespaces if necessary, such as the ones for
+ TLS and SASL.
+\end_layout
+
+\begin_layout Description
+REQ-33 XML namespaces for stanzas should always be known to the client.
+\end_layout
+
+\begin_layout Description
+REQ-34 The system shall always check for the appropriate features before
+ trying to use them.
+\end_layout
+
+\begin_layout Description
+REQ-35 The system shall support and utilize the 
+\begin_inset Quotes eld
+\end_inset
+
+whitespace keep-alive
+\begin_inset Quotes erd
+\end_inset
+
+ mechanism to signal and verify that the TCP connection is alive.
+\end_layout
+
+\begin_layout Description
+REQ-36 The system shall support a distributed network of clients and servers.
+ Clients on one XMPP server should be able to communicate with server and
+ clients on other networks.
+\end_layout
+
+\begin_layout Description
+REQ-37 The system shall support the <presence/> primitive, a specialized
+ 
+\begin_inset Quotes eld
+\end_inset
+
+publish-subscribe
+\begin_inset Quotes erd
+\end_inset
+
+ mechanism for network availability.
+ End-to-end presence or anything else presence-related defined outside of
+ XMPP: Core (such as in XMPP: Instant Messaging) is 
+\emph on
+not
+\emph default
+ supported.
+\end_layout
+
+\begin_layout Description
+REQ-38 The system shall support the <message/> primitive, a 
+\begin_inset Quotes eld
+\end_inset
+
+push
+\begin_inset Quotes erd
+\end_inset
+
+ mechanism.
+\end_layout
+
+\begin_layout Description
+REQ-39 The system shall support the <iq/>, or Info/Query, primitive, a 
+\begin_inset Quotes eld
+\end_inset
+
+request-response
+\begin_inset Quotes erd
+\end_inset
+
+ mechanism for exchanges of data.
+\end_layout
+
+\begin_layout Description
+REQ-40 The system must offer timeout callbacks to be called if an asynchronous
+ result is not guaranteed to be produced in a timely fashion.
+\end_layout
+
+\begin_layout Description
+REQ-41 The system must a convenient API to deal with stanza and stream errors.
+\end_layout
+
+\begin_layout Subsubsection
+RFC 6122: XMPP: Address Format
+\end_layout
+
+\begin_layout Standard
+As can be read in Section 1 of RFC 6122, the XMPP community has started
+ discussions about moving from the 2003 version of IDNA (Internationalized
+ Domain Names in Applications) to the new IDNA2008 standard.
+ Unlike its predecessor, this new standard is not based on Stringprep, and
+ RFC 6122 will be obsoleted when an alternative to the Nodeprep and Resourceprep
+ profiles has been completed.
+ XMPP software implementations are in encouraged by RFC 6122 to follow IDNA2008
+ instead, and Pontarius XMPP should try to do that.
+\end_layout
+
+\begin_layout Description
+REQ-42 JIDs should be validated, transformed, and internationalized in accordanc
+e with the successor to the stringprep profiles
+\end_layout
+
+\begin_layout Description
+REQ-43 JIDs should support internationalization of node names, domain names,
+ and resource names, through IDNA2008.
+\end_layout
+
+\begin_layout Description
+REQ-44 Dealing with JIDs should adhere to the security recommendations as
+ mentioned in section 4 of the standard.
+\end_layout
+
+\begin_layout Subsubsection
+Standards compliance
+\end_layout
+
+\begin_layout Description
+REQ-45 The project and its source code shall adhere to the guidelines prestented
+ in the guidelines found at http://www.haskell.org/haskellwiki/Programming_guideli
+nes.
+\end_layout
+
+\begin_layout Subsection
+Software system attributes
+\end_layout
+
+\begin_layout Description
+REQ-46 The system shall be 
+\emph on
+extendable
+\emph default
+; it must be flexible in regards for extensions, such as RFCs and XEPs.
+\end_layout
+
+\begin_layout Description
+REQ-47 The system shall be 
+\emph on
+reliable
+\emph default
+; it should produce not crash, lag behind, or get some data corruption under
+ very heavy and lengthy use.
+\end_layout
+
+\begin_layout Description
+REQ-48 The system shall be 
+\emph on
+secure
+\emph default
+; steps should be taken to protect the clients against man-in-the-middle
+ attacks and the like.
+\end_layout
+
+\end_body
+\end_document
