@@ -1,5 +1,5 @@
 Name:               pontarius-xmpp
-Version:            0.0.6.0
+Version:            0.0.7.0
 Cabal-Version:      >= 1.6
 Build-Type:         Simple
 License:            LGPL-3
@@ -33,7 +33,7 @@ Library
   Build-Depends:     base >= 2 && < 5, parsec, enumerator, crypto-api,
                      base64-string, pureMD5, utf8-string, network, xml-types,
                      text, transformers, bytestring, binary, random,
-                     xml-enumerator, tls ==0.4.1, containers, mtl, text-icu,
+                     xml-enumerator, tls, tls-extra, containers, mtl, text-icu,
                      stringprep, idna2008 ==0.0.1.0
   -- Other-Modules:
   -- HS-Source-Dirs:
@@ -65,5 +65,5 @@ Source-Repository this
   Type:     darcs
   -- Module:
   Location: https://patch-tag.com/r/jonkri/pontarius-xmpp
-  Tag:      0.0.6.0
+  Tag:      0.0.7.0
   -- Subdir:
