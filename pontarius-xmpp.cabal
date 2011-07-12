@@ -25,10 +25,7 @@ Tested-With:        GHC ==7.0.2
 -- Extra-Tmp-Files:
 
 Library
-  Exposed-Modules:   Network.XMPP, Network.XMPP.Address, Network.XMPP.SASL,
-                     Network.XMPP.Session, Network.XMPP.Stanza,
-                     Network.XMPP.Stream, Network.XMPP.TLS, Network.XMPP.Types,
-                     Network.XMPP.Utilities
+  Exposed-Modules:   Network.XMPP
   Exposed:           True
   Build-Depends:     base >= 2 && < 5, parsec, enumerator, crypto-api,
                      base64-string, pureMD5, utf8-string, network, xml-types,

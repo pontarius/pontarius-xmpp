@@ -20,6 +20,8 @@ with Pontarius XMPP. If not, see <http://www.gnu.org/licenses/>.
 -}
 
 
+{-# OPTIONS_HADDOCK hide #-}
+
 -- TODO: Move away from stringprep for all three profiles.
 
 -- TODO: When no longer using stringprep, do appropriate testing. (Including
@@ -28,16 +30,6 @@ with Pontarius XMPP. If not, see <http://www.gnu.org/licenses/>.
 -- TODO: Unicode 3.2 should be used.
 
 
--- |
--- Module:      $Header$
--- Description: Data type and utility functions for XMPP addresses (JIDs)
--- Copyright:   Copyright © 2010-2011 Jon Kristensen
--- License:     LGPL-3
---
--- Maintainer:  info@pontarius.org
--- Stability:   unstable
--- Portability: portable
---
 -- This module deals with XMPP addresses (also known as JIDs and JabberIDs). For
 -- more information on XMPP addresses, see RFC 6122: XMPP: Address Format.
 --

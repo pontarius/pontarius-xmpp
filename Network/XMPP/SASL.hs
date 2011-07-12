@@ -19,6 +19,9 @@ with Pontarius XMPP. If not, see <http://www.gnu.org/licenses/>.
 
 -}
 
+
+{-# OPTIONS_HADDOCK hide #-}
+
 -- TODO: Make it possible to include host.
 -- TODO: Host is assumed to be ISO 8859-1; make list of assumptions.
 -- TODO: Can it contain newline characters?
@@ -57,7 +60,7 @@ stringToList s' = let (next, rest) = break' s' ','
     break' :: String -> Char -> (String, String)
     break' s' c = let (first, second) = break ((==) c) s'
                   in (first, removeCharIfPresent second c)
-    
+
     -- Removes the first character, if present; "=hello" with '=' becomes
     -- "hello".
     removeCharIfPresent :: String -> Char -> String
@@ -114,11 +117,11 @@ replyToChallenge1 s h u p c =
              qop       = lookupDirectiveWithDefault "qop" list "auth"
              charset   = lookupDirectiveWithDefault "charset" list "utf-8"
              algorithm = lookupDirective "algorithm" list
-         
+
          -- Verify that all necessary directives has been set.
          in case (nonce, qop, charset, algorithm) of
               (Just nonce', qop', charset', Just algorithm') ->
-                
+
                 -- Strip quotations of the directives that need it.
                 let -- realm'' = stripQuotations realm'
                     nonce'' = stripQuotations nonce'
@@ -127,7 +130,7 @@ replyToChallenge1 s h u p c =
                 -- -- Verify that the realm is the same as the Jabber host.
                 -- case realm'' == h of
                 --      True ->
-                       
+
                        -- Verify that QOP is "auth", charset is "utf-8" and that
                        -- the algorithm is "md5-sess".
                        case qop'' == "auth" of
@@ -136,10 +139,10 @@ replyToChallenge1 s h u p c =
                              True ->
                                case algorithm' == "md5-sess" of
                                  True ->
-                                 
+
                                    -- All data is valid; generate the reply.
                                    Left (reply nonce'' qop'')
-                                 
+
                                  -- Errors are caught and reported below.
                                  False -> Right C1UnsupportedAlgorithm
                              False -> Right C1UnsupportedCharset
@@ -150,7 +153,7 @@ replyToChallenge1 s h u p c =
     reply n q =
       let -- We start with what's in RFC 2831 is referred to as "A1", a 16 octet
           -- MD5 hash.
-          
+
           -- If the username or password values are in ISO-8859-1, we convert
           -- them to ISO-8859-1 strings.
           username = case all isLatin1 u of
@@ -159,10 +162,10 @@ replyToChallenge1 s h u p c =
           password = case all isLatin1 p of
             True -> DBL.pack $ map c2w p
             False -> DBLC.pack p
-          
+
           nc = "00000001"
           digestUri = "xmpp/" ++ h
-          
+
           -- Build the "{ username-value, ":", realm-value, ":", passwd }"
           -- bytestring, the rest of the bytestring and then join them.
           a1a = DBi.encode $ md5 $ DBLC.append
@@ -173,24 +176,24 @@ replyToChallenge1 s h u p c =
                 password)
           a1b = DBLC.pack (":" ++ n ++ ":" ++ c)
           a1 = DBLC.append a1a a1b
-          
+
           -- Generate the "A2" value.
           a2 = DBLC.pack ("AUTHENTICATE:" ++ digestUri)
-          
+
           -- Produce the responseValue.
           k = DBLC.pack (show $ md5 a1)
           colon = DBLC.pack ":"
           s0 = DBLC.pack (n ++ ":" ++ nc ++ ":" ++ c ++ ":" ++
                           q ++ ":")
           s1 = DBLC.pack $ show $ md5 a2
-          
+
           s_ = DBLC.append s0 s1
           -- append k:d and 16 octet hash it
           kd = md5 (DBLC.append k (DBLC.append colon s_))
-          
+
           lol0 = DBLC.unpack s_
           lol1 = show kd
-          
+
           response = show kd
       in "username=\"" ++ u ++ "\",realm=\"" ++ h ++ "\",nonce=\"" ++ n ++
          "\",cnonce=\"" ++ c ++ "\",nc=" ++ nc ++ ",digest-uri=\"" ++

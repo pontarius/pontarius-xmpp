@@ -19,18 +19,8 @@ with Pontarius XMPP. If not, see <http://www.gnu.org/licenses/>.
 
 -}
 
--- |
--- Module:      $Header$
--- Description: Utility functions for Pontarius XMPP; currently only random ID
---              generation functions
--- Copyright:   Copyright © 2010-2011 Jon Kristensen
--- License:     LGPL-3
---
--- Maintainer:  info@pontarius.org
--- Stability:   unstable
--- Portability: portable
---
--- This module will be documented soon.
+
+{-# OPTIONS_HADDOCK hide #-}
 
 -- TODO: Document this module
 -- TODO: Make is possible to customize characters

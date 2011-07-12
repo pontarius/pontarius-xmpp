@@ -19,24 +19,22 @@ with Pontarius XMPP. If not, see <http://www.gnu.org/licenses/>.
 
 -}
 
--- | Module:      $Header$
---   Description: A minimalistic and easy-to-use XMPP library
---   Copyright:   Copyright © 2010-2011 Jon Kristensen
---   License:     LGPL-3
+-- |
+-- Module:      $Header$
+-- Description: Pontarius XMPP API
+-- Copyright:   Copyright © 2010-2011 Jon Kristensen
+-- License:     LGPL-3
 --
---   Maintainer:  info@pontarius.org
---   Stability:   unstable
---   Portability: portable
-
---   Pontarius XMPP aims to be a secure, concurrent/event-based and easy-to-use
---   XMPP library for Haskell. It is being actively developed.
+-- Maintainer:  info@pontarius.org
+-- Stability:   unstable
+-- Portability: portable
 --
---   Note that we are not recommending anyone to use Pontarius XMPP at this time
---   as it's still in an experimental stage and will have its API and data types
---   modified frequently. See the project's web site at
---   <http://www.pontarius.org/> for more information.
+-- This module will be documented soon.
 --
---   This module will be documented soon.
+-- Note that we are not recommending anyone to use Pontarius XMPP at this time
+-- as it's still in an experimental stage and will have its API and data types
+-- modified frequently. See the project's web site at
+-- <http://www.pontarius.org/> for more information.
 
 module Network.XMPP ( -- Network.XMPP.JID
                       Address (..)

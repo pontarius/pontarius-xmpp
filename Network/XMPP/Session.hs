@@ -19,11 +19,6 @@ with Pontarius XMPP. If not, see <http://www.gnu.org/licenses/>.
 
 -}
 
--- TODO: Better functions and events for stanzas, IncomingIQ, OutgoingIQ, etc. (ClientSession, ClientStanza)
-
--- TODO: IO function to do everything related to the handle, instead of just connecting.
-
--- TODO: Enumerate in the same thread? Enumerate one element at the time, non-blocking?
 
 -- I believe we need to use the MultiParamTypeClasses extension to be able to
 -- work with arbitrary client states (solving the problem that the ClientState
@@ -31,16 +26,8 @@ with Pontarius XMPP. If not, see <http://www.gnu.org/licenses/>.
 
 {-# LANGUAGE MultiParamTypeClasses #-}
 
--- |
--- Module:      $Header$
--- Description: XMPP client session management module
--- Copyright:   Copyright © 2010-2011 Jon Kristensen
--- License:     LGPL-3
---
--- Maintainer:  info@pontarius.org
--- Stability:   unstable
--- Portability: portable
---
+{-# OPTIONS_HADDOCK hide #-}
+
 -- This module provides the functions used by XMPP clients to manage their XMPP
 -- sessions.
 --
@@ -54,6 +41,12 @@ with Pontarius XMPP. If not, see <http://www.gnu.org/licenses/>.
 -- Typically, clients will use the IO monad.
 --
 -- For more information, see the Pontarius XMPP Manual.
+
+-- TODO: Better functions and events for stanzas, IncomingIQ, OutgoingIQ, etc. (ClientSession, ClientStanza)
+
+-- TODO: IO function to do everything related to the handle, instead of just connecting.
+
+-- TODO: Enumerate in the same thread? Enumerate one element at the time, non-blocking?
 
 module Network.XMPP.Session ( ClientHandler (..)
                             , ClientState (..)
