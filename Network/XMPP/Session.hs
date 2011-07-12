@@ -83,6 +83,8 @@ import qualified Network as N
 
 -------------
 
+import Crypto.Random (newGenIO, SystemRandom)
+
 import Control.Concurrent.MVar
 
 import Codec.Binary.UTF8.String
@@ -489,10 +491,13 @@ processEvent e = get >>= \ state ->
   -- might not have exited?
   IEE (EnumeratorXML XEProceed) -> do
     let Connected (ServerAddress hostName _) handle = stateConnectionState state
-    tlsCtx <- lift $ liftIO $ handshake' handle hostName
-    let tlsCtx_ = fromJust tlsCtx
-    put $ (defaultState (stateChannel state) (stateThreadID state) (stateClientHandlers state) (stateClientState state) (stateIDGenerator state)) { stateTLSState = PostHandshake tlsCtx_, stateConnectionState = (stateConnectionState state), stateSecureWithTLSCallback = (stateSecureWithTLSCallback state) }
-    threadID <- lift $ liftIO $ forkIO $ xmlEnumerator (stateChannel state) (Right tlsCtx_) -- double code
+    tlsCtx <- lift $ liftIO $ do
+        gen <- newGenIO :: IO SystemRandom -- TODO: Investigate limitations
+        clientContext <- client tlsParams gen handle
+        handshake clientContext
+        return clientContext
+    put $ (defaultState (stateChannel state) (stateThreadID state) (stateClientHandlers state) (stateClientState state) (stateIDGenerator state)) { stateTLSState = PostHandshake tlsCtx, stateConnectionState = (stateConnectionState state), stateSecureWithTLSCallback = (stateSecureWithTLSCallback state) }
+    threadID <- lift $ liftIO $ forkIO $ xmlEnumerator (stateChannel state) (Right tlsCtx) -- double code
     lift $ liftIO $ putStrLn "00000000000000000000000000000000"
     lift $ liftIO $ swapMVar (stateThreadID state) threadID -- return value not used
     lift $ liftIO $ putStrLn "00000000000000000000000000000000"
@@ -500,7 +505,7 @@ processEvent e = get >>= \ state ->
     lift $ liftIO $ putStrLn "00000000000000000000000000000000"
     lift $ liftIO $ send ("<?xml version='1.0'?><stream:stream to='" ++
       hostName ++ "' xmlns='jabber:client' xmlns:stream='http://etherx.jabber.org/" ++
-      "streams' version='1.0'>") (Right tlsCtx_)
+      "streams' version='1.0'>") (Right tlsCtx)
     lift $ liftIO $ putStrLn "00000000000000000000000000000000"
     return Nothing
 

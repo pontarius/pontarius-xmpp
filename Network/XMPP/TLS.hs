@@ -22,34 +22,20 @@ with Pontarius XMPP. If not, see <http://www.gnu.org/licenses/>.
 
 {-# OPTIONS_HADDOCK hide #-}
 
-module Network.XMPP.TLS (
-getTLSParams,
-handshake'
-) where
+module Network.XMPP.TLS (tlsParams) where
 
-import Crypto.Random (newGenIO, SystemRandom)
 import Network.TLS
 import Network.TLS.Extra (cipher_AES128_SHA1)
 import Network.TLS.Cipher
 import GHC.IO.Handle (Handle, hPutStr, hFlush, hSetBuffering, hWaitForInput)
 
-
-getTLSParams :: TLSParams
-getTLSParams = TLSParams { pConnectVersion    = TLS10
-                         , pAllowedVersions   = [TLS10,TLS11]
-                         , pCiphers           = [cipher_AES128_SHA1] -- Check the rest
-                         , pCompressions      = [nullCompression]
-                         , pWantClientCert    = False
-                         , pUseSecureRenegotiation = False -- TODO: No renegotiation
-                         , pCertificates      = []
-                         , pLogging           = defaultLogging
-                         , onCertificatesRecv = \_ -> return CertificateUsageAccept } -- Verify cert chain
-
-handshake' :: Handle -> String -> IO (Maybe TLSCtx)
-handshake' h s = do
-  let t = getTLSParams
-  r <- newGenIO :: IO SystemRandom -- Investigate limitations
-  c <- client t r h
-  handshake c
-  putStrLn ">>>>TLS data sended<<<<"
-  return (Just c)
+tlsParams :: TLSParams
+tlsParams = TLSParams { pConnectVersion    = TLS10 -- TODO: TLS12 when supported in tls; TODO: TLS11 results in a read error - bug?
+                      , pAllowedVersions   = [SSL3, TLS10,TLS11] -- TODO: TLS12 when supported in tls
+                      , pCiphers           = [cipher_AES128_SHA1] -- TODO: cipher_AES128_SHA1 = TLS_RSA_WITH_AES_128_CBC_SHA?
+                      , pCompressions      = [nullCompression] -- TODO
+                      , pWantClientCert    = False -- Used for servers
+                      , pUseSecureRenegotiation = False -- TODO: No renegotiation!
+                      , pCertificates      = [] -- TODO
+                      , pLogging           = defaultLogging -- TODO
+                      , onCertificatesRecv = \_ -> return CertificateUsageAccept } -- TODO
