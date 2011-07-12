@@ -61,7 +61,7 @@
 \begin_body
 
 \begin_layout Title
-Software Requirements Specification for Pontarius XMPP 0.1 (Second Draft)
+Software Requirements Specification for Pontarius XMPP 0.1 (Third Draft)
 \end_layout
 
 \begin_layout Author
@@ -69,7 +69,7 @@ The Pontarius Project
 \end_layout
 
 \begin_layout Date
-6th of July 2011
+27th of July 2011
 \end_layout
 
 \begin_layout Standard
@@ -1275,11 +1275,6 @@ See the "Information technology - Telecommunications and information exchange
 \end_layout
 
 \begin_layout Description
-REQ-28 The system shall make use of TLS session resumption when reconnecting
- to the server, if the connection was TLS secured.
-\end_layout
-
-\begin_layout Description
 REQ-29 The system shall support stream management, as described in section
  4 of XMPP: Core.
  This includes opening the stream, make the appropriate stream configurations
@@ -1294,8 +1289,23 @@ REQ-30 The system shall support securing the stream with TLS, as described
 \end_layout
 
 \begin_layout Description
+REQ-28 The system shall make use of TLS session resumption when reconnecting
+ to the server, if the connection was TLS secured.
+\end_layout
+
+\begin_layout Description
+REQ-XX The system shall implement (at least) the TLS_RSA_WITH_AES_128_CBC_SHA
+ cipher suite for TLS.
+\end_layout
+
+\begin_layout Description
 REQ-31 The system shall support authenticating with SASL, as described in
  section 6 of XMPP: Core.
+\end_layout
+
+\begin_layout Description
+REQ-XX The system shall support (at least) the SHA-1 variant of SASL Salted
+ Challenge Response Authentication Mechanism (SCRAM-SHA-1).
 \end_layout
 
 \begin_layout Description
