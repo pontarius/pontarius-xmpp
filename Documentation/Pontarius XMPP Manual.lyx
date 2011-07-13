@@ -98,8 +98,7 @@ Features and Implementation Specifics
 \end_layout
 
 \begin_layout Standard
-Pontarius XMPP 0.1 implements the client capabilities of the XMPP Core specificat
-ion (RFC 6120)
+Pontarius XMPP 0.1 implements the XMPP Core specification (RFC 6120)
 \begin_inset Foot
 status open
 
@@ -114,11 +113,20 @@ http://tools.ietf.org/html/rfc6120
 \end_layout
 
 \begin_layout Itemize
-The client is always the initiating entity
+Pontarius XMPP is a client library; the application using Pontarius XMPP
+ is always the 
+\begin_inset Quotes eld
+\end_inset
+
+initiating entity
+\begin_inset Quotes erd
+\end_inset
+
+
 \end_layout
 
 \begin_layout Itemize
-A client-of-server connection always consists of exactly one TCP connection
+A client-to-server connection always consists of exactly one TCP connection
 \end_layout
 
 \begin_layout Itemize
@@ -127,8 +135,16 @@ For stream security through TLS, only the TLS_RSA_WITH_AES_128_CBC_SHA cipher
 \end_layout
 
 \begin_layout Itemize
-For authentication through SASL, only the SHA-1 variant of SASL Salted Challenge
- Response Authentication Mechanism (SCRAM-SHA-1) is supported
+TLS renegotiation is not supported
+\end_layout
+
+\begin_layout Itemize
+TLS channel binding is not supported
+\end_layout
+
+\begin_layout Itemize
+For (SASL) authentication, the SHA-1 variant of SASL Salted Challenge Response
+ Authentication Mechanism (SCRAM-SHA-1) is the only supported mechanism
 \end_layout
 
 \begin_layout Standard
