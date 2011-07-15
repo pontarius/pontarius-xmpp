@@ -114,6 +114,8 @@ import qualified Data.List as DL
 import qualified Data.Text as DT
 import qualified Data.Text.Lazy as DTL
 
+import Data.Certificate.X509 (X509)
+
 
 
 -- =============================================================================
@@ -227,8 +229,13 @@ defaultState c t h s i = State { stateClientHandlers = h
                                , stateIDGenerator = i } -- TODO: Prefix
 
 
+-- |
+-- Convenience function for calling "openStream" and "secureWithTLS" and\/or
+-- "authenticate". See the documentation for the three separate functions for
+-- details on how they operate.
+
 connect :: MonadIO m => Session s m -> HostName -> PortNumber ->
-           Maybe (Certificate, (Certificate -> Bool)) ->
+           Maybe (Maybe ([X509], Bool), ([X509] -> Bool), Maybe [String]) ->
            Maybe (UserName, Password, Maybe Resource) ->
            (ConnectResult -> StateT s m ()) -> StateT s m ()
 
@@ -236,8 +243,8 @@ connect s h p t a c = openStream s h p connect'
   where
     connect' r = case r of
       OpenStreamSuccess _ _ -> case t of -- TODO: Check for TLS support?
-        Just (certificate, certificateValidator) ->
-          secureWithTLS s certificate certificateValidator connect''
+        Just (certificate, certificateValidator, paths) ->
+          secureWithTLS s certificate certificateValidator paths connect''
         Nothing -> connect'' (SecureWithTLSSuccess 1.0 "") -- TODO
       OpenStreamFailure -> c ConnectOpenStreamFailure
     connect'' r = case r of
@@ -260,14 +267,29 @@ openStream s h p c = CMS.get >>=
                                  (IEC (CEOpenStream h p c)))
 
 
-secureWithTLS :: MonadIO m => Session s m -> Certificate ->
-                 (Certificate -> Bool) ->
+-- |
+-- Tries to secure the connection with TLS.
+--
+-- If the list of certificates is provided, they will be presented to the
+-- server; the boolean value controls whether the client will show its
+-- certificates before the server has authed.
+--
+-- The third parameter is an optional custom validation function for the server
+-- certificates. Note that Pontarius XMPP will perform its own validation
+-- according to the RFC 6120, including comparing the domain name specified in
+-- the certificate against the connected server, as well as checking the
+-- integrity, the certificate authority, and CRL and\/or OCSP repositories of
+-- the certificate chain. The fourth parameter is a list of directories that
+-- contains trusted certificate authorities.
+
+secureWithTLS :: MonadIO m => Session s m -> Maybe ([X509], Bool) ->
+                 ([X509] -> Bool) -> Maybe [String] ->
                  (SecureWithTLSResult -> StateT s m ()) -> StateT s m ()
 
-secureWithTLS s c a c_ = CMS.get >>=
+secureWithTLS s c a p c_ = CMS.get >>=
                          (\ state -> lift $ liftIO $
                                      writeChan (sessionChannel s)
-                                     (IEC (CESecureWithTLS c a c_)))
+                                     (IEC (CESecureWithTLS c a p c_)))
 
 
 -- |
@@ -430,7 +452,7 @@ processEvent e = get >>= \ state ->
         put $ state { stateShouldExit = True }
         return $ Just e
 
-  IEC (CESecureWithTLS certificate verifyCertificate callback) -> do
+  IEC (CESecureWithTLS certificate verifyCertificate paths callback) -> do
     -- CEB.assert (not $ isTLSSecured (stateStreamState state)) (return ())
     let Connected _ handle = stateConnectionState state
     lift $ liftIO $ send "<starttls xmlns='urn:ietf:params:xml:ns:xmpp-tls'/>" (Left handle)

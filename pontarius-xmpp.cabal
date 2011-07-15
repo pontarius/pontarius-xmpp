@@ -31,7 +31,8 @@ Library
                      base64-string, pureMD5, utf8-string, network, xml-types,
                      text, transformers, bytestring, binary, random,
                      xml-enumerator, tls, tls-extra, containers, mtl, text-icu,
-                     stringprep, idna2008 ==0.0.1.0
+                     stringprep, idna2008 ==0.0.1.0, asn1-data, cryptohash,
+                     time, certificate
   -- Other-Modules:
   -- HS-Source-Dirs:
   -- Extensions:

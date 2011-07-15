@@ -58,7 +58,6 @@ ConnectionState (..),
 ClientEvent (..),
 StreamState (..),
 AuthenticationState (..),
-Certificate,
 ConnectResult (..),
 OpenStreamResult (..),
 SecureWithTLSResult (..),
@@ -88,6 +87,7 @@ import qualified Control.Monad.Error as CME
 
 import Data.IORef
 
+import Data.Certificate.X509 (X509)
 
 
 -- =============================================================================
@@ -377,7 +377,7 @@ data AuthenticationState = NoAuthentication | AuthenticatingPreChallenge1 String
 
 data ClientEvent s m = CEOpenStream N.HostName PortNumber
                        (OpenStreamResult -> StateT s m ()) |
-                       CESecureWithTLS Certificate (Certificate -> Bool)
+                       CESecureWithTLS (Maybe ([X509], Bool)) ([X509] -> Bool) (Maybe [String])
                        (SecureWithTLSResult -> StateT s m ()) |
                        CEAuthenticate UserName Password (Maybe Resource)
                        (AuthenticateResult -> StateT s m ()) |
@@ -388,7 +388,7 @@ data ClientEvent s m = CEOpenStream N.HostName PortNumber
 
 instance Show (ClientEvent s m) where
   show (CEOpenStream h p _) = "CEOpenStream " ++ h ++ " " ++ (show p)
-  show (CESecureWithTLS c _ _) = "CESecureWithTLS " ++ c
+  show (CESecureWithTLS c _ _ _) = "CESecureWithTLS " ++ (show c)
   show (CEAuthenticate u p r _) = "CEAuthenticate " ++ u ++ " " ++ p ++ " " ++
                                     (show r)
   show (CEIQ s _ _ _) = "CEIQ"
@@ -424,8 +424,6 @@ data OpenStreamResult = OpenStreamSuccess StreamProperties StreamFeatures |
 data SecureWithTLSResult = SecureWithTLSSuccess StreamProperties StreamFeatures | SecureWithTLSFailure
 
 data AuthenticateResult = AuthenticateSuccess StreamProperties StreamFeatures Resource | AuthenticateFailure
-
-type Certificate = String -- TODO
 
 -- Address is a data type that has to be constructed in this module using either
 -- address or stringToAddress.

@@ -50,7 +50,6 @@ module Network.XMPP ( -- Network.XMPP.JID
                     , replyToChallenge1
 
                       -- Network.XMPP.Session
-                    , Certificate
                     , ClientHandler (..)
                     , ClientState (..)
                     , ConnectResult (..)
