@@ -2,7 +2,7 @@ Name:               pontarius-xmpp
 Version:            0.0.7.0
 Cabal-Version:      >= 1.6
 Build-Type:         Simple
-License:            LGPL-3
+License:            BSD-3
 License-File:       LICENSE
 Copyright:          Copyright © 2011, Jon Kristensen
 Author:             Jon Kristensen, Mahdi Abdinejadi
