@@ -198,9 +198,7 @@ presenceToXML p = "<presence" ++ from ++ id' ++ to ++ type' ++ ">" ++
       Nothing -> ""
 
     type' :: String
-    type' = case presenceType p of
-      Available -> ""
-      t -> " type='" ++ (presenceTypeToString t) ++ "'"
+    type' = " type='" ++ (presenceType p) ++ "'"
 
 iqToXML :: IQ -> String
 iqToXML (IQReq (IQGet { iqRequestID = i, iqRequestPayload = p, iqRequestFrom = f, iqRequestTo = t })) =
@@ -287,9 +285,7 @@ messageToXML Message { messageID = i, messageFrom = f, messageTo = t, messagePay
       Nothing -> ""
 
     type' :: String
-    type' = case ty of
-      Normal -> ""
-      t -> " type='" ++ (messageTypeToString t) ++ "'"
+    type' = " type='" ++ ty ++ "'"
 
 
 parseIQ :: Element -> IQ
@@ -351,8 +347,8 @@ parsePresence e = Presence idAttr fromAttr toAttr Nothing typeAttr (elementChild
 
     typeAttr :: PresenceType
     typeAttr = case attributeText typeName e of
-      Just t -> stringToPresenceType $ DT.unpack t
-      Nothing -> Available
+      Just t -> DT.unpack t
+      Nothing -> ""
 
     fromAttr :: Maybe Address
     fromAttr = case attributeText fromName e of
@@ -388,8 +384,8 @@ parseMessage e = Message idAttr fromAttr toAttr Nothing typeAttr (elementChildre
 
     typeAttr :: MessageType
     typeAttr = case attributeText typeName e of
-      Just t -> stringToMessageType $ DT.unpack t
-      Nothing -> Normal
+      Just t -> DT.unpack t
+      Nothing -> ""
 
     fromAttr :: Maybe Address
     fromAttr = case attributeText fromName e of
@@ -417,51 +413,3 @@ parseMessage e = Message idAttr fromAttr toAttr Nothing typeAttr (elementChildre
 
     idName :: Name
     idName = fromString "id"
-
--- stringToPresenceType "available" = Available
--- stringToPresenceType "away" = Away
--- stringToPresenceType "chat" = Chat
--- stringToPresenceType "dnd" = DoNotDisturb
--- stringToPresenceType "xa" = ExtendedAway
-
-stringToPresenceType "available" = Available -- TODO: Some client sent this
-
-stringToPresenceType "probe" = Probe
--- stringToPresenceType "error" = PresenceError -- TODO: Special case
-
-stringToPresenceType "unavailable" = Unavailable
-stringToPresenceType "subscribe" = Subscribe
-stringToPresenceType "subscribed" = Subscribed
-stringToPresenceType "unsubscribe" = Unsubscribe
-stringToPresenceType "unsubscribed" = Unsubscribed
-
--- presenceTypeToString Available = "available"
-
--- presenceTypeToString Away = "away"
--- presenceTypeToString Chat = "chat"
--- presenceTypeToString DoNotDisturb = "dnd"
--- presenceTypeToString ExtendedAway = "xa"
-
-presenceTypeToString Unavailable = "unavailable"
-
-presenceTypeToString Probe = "probe"
--- presenceTypeToString PresenceError = "error" -- TODO: Special case
-
-presenceTypeToString Subscribe = "subscribe"
-presenceTypeToString Subscribed = "subscribed"
-presenceTypeToString Unsubscribe = "unsubscribe"
-presenceTypeToString Unsubscribed = "unsubscribed"
-
-stringToMessageType "chat" = Chat
-stringToMessageType "error" = Error
-stringToMessageType "groupchat" = Groupchat
-stringToMessageType "headline" = Headline
-stringToMessageType "normal" = Normal
-stringToMessageType s = OtherMessageType s
-
-messageTypeToString Chat = "chat"
-messageTypeToString Error = "error"
-messageTypeToString Groupchat = "groupchat"
-messageTypeToString Headline = "headline"
-messageTypeToString Normal = "normal"
-messageTypeToString (OtherMessageType s) = s
