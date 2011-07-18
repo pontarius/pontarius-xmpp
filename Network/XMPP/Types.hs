@@ -49,7 +49,7 @@ Success (..),
 TLSState (..),
 Address (..),
 Localpart,
-Serverpart,
+Domainpart,
 Resourcepart,
 XMLLang,
 InternalEvent (..),
@@ -429,12 +429,12 @@ data AuthenticateResult = AuthenticateSuccess StreamProperties StreamFeatures Re
 -- address or stringToAddress.
 
 data Address = Address { localpart :: Maybe Localpart
-                       , serverpart :: Serverpart
+                       , domainpart :: Domainpart
                        , resourcepart :: Maybe Resourcepart }
                        deriving (Eq)
 
 instance Show Address where
-    show (Address { localpart = n, serverpart = s, resourcepart = r })
+    show (Address { localpart = n, domainpart = s, resourcepart = r })
         | n == Nothing && r == Nothing = s
         | r == Nothing                 = let Just n' = n in n' ++ "@" ++ s
         | n == Nothing                 = let Just r' = r in s ++ "/" ++ r'
@@ -442,7 +442,7 @@ instance Show Address where
                                          in n' ++ "@" ++ s ++ "/" ++ r'
 
 type Localpart = String
-type Serverpart = String
+type Domainpart = String
 type Resourcepart = String
 
 data ServerAddress = ServerAddress N.HostName N.PortNumber deriving (Eq)

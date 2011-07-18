@@ -62,25 +62,25 @@ import qualified Data.Text as DT (pack, unpack)
 
 fromString :: String -> Maybe Address
 
-fromString s = fromStrings localpart serverpart resourcepart
+fromString s = fromStrings localpart domainpart resourcepart
     where
-        Right (localpart, serverpart, resourcepart) =
+        Right (localpart, domainpart, resourcepart) =
             parse addressParts "" (DBC.pack s)
 
 
 -- |
--- Converts localpart, serverpart, and resourcepart strings to an XMPP address.
+-- Converts localpart, domainpart, and resourcepart strings to an XMPP address.
 
 -- Runs the appropriate stringprep profiles and validates the parts.
 
 fromStrings :: Maybe String -> String -> Maybe String -> Maybe Address
 
 fromStrings l s r
-    | serverpart == Nothing = Nothing
-    | otherwise = if validateNonServerpart localpart &&
-                     isJust serverpart' &&
-                     validateNonServerpart resourcepart
-                  then Just (Address localpart (fromJust serverpart') resourcepart)
+    | domainpart == Nothing = Nothing
+    | otherwise = if validateNonDomainpart localpart &&
+                     isJust domainpart' &&
+                     validateNonDomainpart resourcepart
+                  then Just (Address localpart (fromJust domainpart') resourcepart)
                   else Nothing
     where
 
@@ -92,10 +92,10 @@ fromStrings l s r
                 Nothing -> Nothing
             Nothing -> Nothing
 
-        -- Applies the nameprep profile on the serverpart string.
+        -- Applies the nameprep profile on the domainpart string.
         -- TODO: Allow unassigned?
-        serverpart :: Maybe String
-        serverpart = case runStringPrep (namePrepProfile False) (DT.pack s) of
+        domainpart :: Maybe String
+        domainpart = case runStringPrep (namePrepProfile False) (DT.pack s) of
             Just s' -> Just $ DT.unpack s'
             Nothing -> Nothing
 
@@ -107,16 +107,16 @@ fromStrings l s r
                 Nothing -> Nothing
             Nothing -> Nothing
 
-        -- Returns the serverpart if it was a valid IP or if the toASCII
+        -- Returns the domainpart if it was a valid IP or if the toASCII
         -- function was successful, or Nothing otherwise.
-        serverpart' :: Maybe String
-        serverpart' | isIPv4address s || isIPv6address s = Just s
+        domainpart' :: Maybe String
+        domainpart' | isIPv4address s || isIPv6address s = Just s
                     | otherwise = toASCII s
 
-        -- Validates that non-serverpart strings have an appropriate length.
-        validateNonServerpart :: Maybe String -> Bool
-        validateNonServerpart Nothing = True
-        validateNonServerpart (Just l) = validPartLength l
+        -- Validates that non-domainpart strings have an appropriate length.
+        validateNonDomainpart :: Maybe String -> Bool
+        validateNonDomainpart Nothing = True
+        validateNonDomainpart (Just l) = validPartLength l
             where
                 validPartLength :: String -> Bool
                 validPartLength p = length p > 0 && length p < 1024
@@ -148,7 +148,7 @@ addressParts = do
     -- Read until we reach an '@', a '/', or EOF.
     a <- many $ noneOf ['@', '/']
 
-    -- Case 1: We found an '@', and thus the localpart. At least the serverpart
+    -- Case 1: We found an '@', and thus the localpart. At least the domainpart
     -- is remaining. Read the '@' and until a '/' or EOF.
     do
         char '@'
@@ -163,13 +163,13 @@ addressParts = do
             return (Just a, b, Just c)
 
         -- Case 1B: We have reached EOF; the address is in the form
-        -- localpart@serverpart.
+        -- localpart@domainpart.
             <|> do
                 eof
                 return (Just a, b, Nothing)
 
         -- Case 2: We found a '/'; the address is in the form
-        -- serverpart/resourcepart.
+        -- domainpart/resourcepart.
         <|> do
             char '/'
             b <- many $ anyToken
@@ -177,7 +177,7 @@ addressParts = do
             return (Nothing, a, Just b)
 
         -- Case 3: We have reached EOF; we have an address consisting of only a
-        -- serverpart.
+        -- domainpart.
         <|> do
             eof
             return (Nothing, a, Nothing)

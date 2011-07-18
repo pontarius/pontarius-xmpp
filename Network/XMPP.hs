@@ -39,7 +39,7 @@ with Pontarius XMPP. If not, see <http://www.gnu.org/licenses/>.
 module Network.XMPP ( -- Network.XMPP.JID
                       Address (..)
                       , Localpart
-                      , Serverpart
+                      , Domainpart
                       , Resourcepart
                     , isFull
                     , isBare
