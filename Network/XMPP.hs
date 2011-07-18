@@ -29,6 +29,12 @@ with Pontarius XMPP. If not, see <http://www.gnu.org/licenses/>.
 -- Stability:   unstable
 -- Portability: portable
 --
+-- XMPP is an open standard, extendable, and secure communications protocol
+-- designed on top of XML, TLS, and SASL. Pontarius XMPP is an XMPP client
+-- library, implementing the core capabilities of XMPP (RFC 6120).
+--
+-- Developers using this library are assumed to understand how XMPP works.
+--
 -- This module will be documented soon.
 --
 -- Note that we are not recommending anyone to use Pontarius XMPP at this time
