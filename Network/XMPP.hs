@@ -70,8 +70,8 @@ module Network.XMPP ( -- Network.XMPP.JID
                     , sendPresence
                     , sendMessage
                     , connect
-                    , openStream
-                    , secureWithTLS
+                    , openStreams
+                    , tlsSecureStreams
                     , authenticate
                     , session
                     , OpenStreamResult (..)

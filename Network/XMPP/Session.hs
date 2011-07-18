@@ -60,8 +60,8 @@ module Network.XMPP.Session ( ClientHandler (..)
                             , sendIQ
                             , sendMessage
                             , connect
-                            , openStream
-                            , secureWithTLS
+                            , openStreams
+                            , tlsSecureStreams
                             , authenticate
                             , session
                             , injectAction
@@ -215,8 +215,8 @@ defaultState c t h s i = State { stateClientHandlers = h
                                , stateConnectionState = Disconnected
                                , stateStreamState = PreStream
                                , stateTLSState = NoTLS
-                               , stateOpenStreamCallback = Nothing
-                               , stateSecureWithTLSCallback = Nothing
+                               , stateOpenStreamsCallback = Nothing
+                               , stateTLSSecureStreamsCallback = Nothing
                                , stateAuthenticateCallback = Nothing
                                , stateAuthenticationState = NoAuthentication
                                , stateResource = Nothing
@@ -230,7 +230,7 @@ defaultState c t h s i = State { stateClientHandlers = h
 
 
 -- |
--- Convenience function for calling "openStream" and "secureWithTLS" and\/or
+-- Convenience function for calling "openStreams" and "tlsSecureStreams" and\/or
 -- "authenticate". See the documentation for the three separate functions for
 -- details on how they operate.
 
@@ -239,12 +239,12 @@ connect :: MonadIO m => Session s m -> HostName -> PortNumber ->
            Maybe (UserName, Password, Maybe Resource) ->
            (ConnectResult -> StateT s m ()) -> StateT s m ()
 
-connect s h p t a c = openStream s h p connect'
+connect s h p t a c = openStreams s h p connect'
   where
     connect' r = case r of
       OpenStreamSuccess _ _ -> case t of -- TODO: Check for TLS support?
         Just (certificate, certificateValidator, paths) ->
-          secureWithTLS s certificate certificateValidator paths connect''
+          tlsSecureStreams s certificate certificateValidator paths connect''
         Nothing -> connect'' (SecureWithTLSSuccess 1.0 "") -- TODO
       OpenStreamFailure -> c ConnectOpenStreamFailure
     connect'' r = case r of
@@ -259,10 +259,10 @@ connect s h p t a c = openStream s h p connect'
       AuthenticateFailure -> c ConnectAuthenticateFailure
 
 
-openStream :: MonadIO m => Session s m -> HostName -> PortNumber ->
+openStreams :: MonadIO m => Session s m -> HostName -> PortNumber ->
               (OpenStreamResult -> StateT s m ()) -> StateT s m ()
 
-openStream s h p c = CMS.get >>=
+openStreams s h p c = CMS.get >>=
                      (\ state -> lift $ liftIO $ writeChan (sessionChannel s)
                                  (IEC (CEOpenStream h p c)))
 
@@ -282,11 +282,11 @@ openStream s h p c = CMS.get >>=
 -- the certificate chain. The fourth parameter is a list of directories that
 -- contains trusted certificate authorities.
 
-secureWithTLS :: MonadIO m => Session s m -> Maybe ([X509], Bool) ->
+tlsSecureStreams :: MonadIO m => Session s m -> Maybe ([X509], Bool) ->
                  ([X509] -> Bool) -> Maybe [String] ->
                  (SecureWithTLSResult -> StateT s m ()) -> StateT s m ()
 
-secureWithTLS s c a p c_ = CMS.get >>=
+tlsSecureStreams s c a p c_ = CMS.get >>=
                          (\ state -> lift $ liftIO $
                                      writeChan (sessionChannel s)
                                      (IEC (CESecureWithTLS c a p c_)))
@@ -361,8 +361,8 @@ data MonadIO m => State s m =
         , stateConnectionState :: ConnectionState -- s m
         , stateTLSState :: TLSState
         , stateStreamState :: StreamState
-        , stateOpenStreamCallback :: OpenStreamCallback s m
-        , stateSecureWithTLSCallback :: SecureWithTLSCallback s m
+        , stateOpenStreamsCallback :: OpenStreamCallback s m
+        , stateTLSSecureStreamsCallback :: SecureWithTLSCallback s m
         , stateAuthenticateCallback :: AuthenticateCallback s m
         , stateAuthenticationState :: AuthenticationState
         , stateResource :: Maybe Resource
@@ -438,7 +438,7 @@ processEvent e = get >>= \ state ->
       Right handle -> do
         put $ state { stateConnectionState = Connected (ServerAddress hostName portNumber') handle
                     , stateStreamState = PreStream
-                    , stateOpenStreamCallback = Just callback }
+                    , stateOpenStreamsCallback = Just callback }
         lift $ liftIO $ hSetBuffering handle NoBuffering
         lift $ liftIO $ send ("<?xml version='1.0'?><stream:stream to='" ++ hostName ++
           "' xmlns='jabber:client' xmlns:stream='http://etherx.jabber.or" ++
@@ -457,7 +457,7 @@ processEvent e = get >>= \ state ->
     let Connected _ handle = stateConnectionState state
     lift $ liftIO $ send "<starttls xmlns='urn:ietf:params:xml:ns:xmpp-tls'/>" (Left handle)
     put $ state { stateStreamState = PreStream
-                , stateSecureWithTLSCallback = Just callback }
+                , stateTLSSecureStreamsCallback = Just callback }
     return Nothing
 
 -- TODO: Save callback in state.
@@ -477,7 +477,7 @@ processEvent e = get >>= \ state ->
   IEE (EnumeratorXML (XEFeatures features)) -> do
     let PreFeatures streamProperties = stateStreamState state
     case stateTLSState state of
-      NoTLS -> let callback = fromJust $ stateOpenStreamCallback state in do
+      NoTLS -> let callback = fromJust $ stateOpenStreamsCallback state in do
         ((), clientState) <- lift $ runStateT (callback $ OpenStreamSuccess streamProperties "TODO") (stateClientState state)
         put $ state { stateClientState = clientState
                     , stateStreamState = PostFeatures streamProperties "TODO" }
@@ -503,7 +503,7 @@ processEvent e = get >>= \ state ->
           state' <- get
           return Nothing
         _ -> do
-          let callback = fromJust $ stateSecureWithTLSCallback state in do
+          let callback = fromJust $ stateTLSSecureStreamsCallback state in do
           ((), clientState) <- lift $ runStateT (callback $ SecureWithTLSSuccess streamProperties "TODO") (stateClientState state)
           put $ state { stateClientState = clientState
                       , stateStreamState = PostFeatures streamProperties "TODO" }
@@ -518,7 +518,7 @@ processEvent e = get >>= \ state ->
         clientContext <- client tlsParams gen handle
         handshake clientContext
         return clientContext
-    put $ (defaultState (stateChannel state) (stateThreadID state) (stateClientHandlers state) (stateClientState state) (stateIDGenerator state)) { stateTLSState = PostHandshake tlsCtx, stateConnectionState = (stateConnectionState state), stateSecureWithTLSCallback = (stateSecureWithTLSCallback state) }
+    put $ (defaultState (stateChannel state) (stateThreadID state) (stateClientHandlers state) (stateClientState state) (stateIDGenerator state)) { stateTLSState = PostHandshake tlsCtx, stateConnectionState = (stateConnectionState state), stateTLSSecureStreamsCallback = (stateTLSSecureStreamsCallback state) }
     threadID <- lift $ liftIO $ forkIO $ xmlEnumerator (stateChannel state) (Right tlsCtx) -- double code
     lift $ liftIO $ putStrLn "00000000000000000000000000000000"
     lift $ liftIO $ swapMVar (stateThreadID state) threadID -- return value not used
