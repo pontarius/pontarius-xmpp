@@ -185,7 +185,16 @@ data Message = Message { messageID :: Maybe StanzaID
                deriving (Eq, Show)
 
 
-type MessageType = String
+-- |
+-- @MessageType@ holds XMPP message types as defined in XMPP-IM. @Normal@ is the
+-- default message type.
+
+data MessageType = Chat |
+                   Error |
+                   Groupchat |
+                   Headline |
+                   Normal |
+                   OtherMessageType String deriving (Eq, Show)
 
 
 -- |
@@ -206,7 +215,19 @@ data Presence = Presence { presenceID :: Maybe StanzaID
                 deriving (Eq, Show)
 
 
-type PresenceType = String
+-- |
+-- @PresenceType@ holds XMPP presence types. When a presence type is not
+-- provided, we assign the @PresenceType@ value @Available@.
+
+data PresenceType = Subscribe    | -- ^ Sender wants to subscribe to presence
+                    Subscribed   | -- ^ Sender has approved the subscription
+                    Unsubscribe  | -- ^ Sender is unsubscribing from presence
+                    Unsubscribed | -- ^ Sender has denied or cancelled a
+                                   --   subscription
+                    Probe        | -- ^ Sender requests current presence;
+                                   --   should only be used by servers
+                    Available    | -- ^ Sender did not specify a type attribute
+                    Unavailable deriving (Eq, Show)
 
 
 -- |
