@@ -32,7 +32,7 @@ Library
                      text, transformers, bytestring, binary, random,
                      xml-enumerator, tls, tls-extra, containers, mtl, text-icu,
                      stringprep, idna2008 ==0.0.1.0, asn1-data, cryptohash,
-                     time, certificate
+                     time, certificate, ranges
   -- Other-Modules:
   -- HS-Source-Dirs:
   -- Extensions:

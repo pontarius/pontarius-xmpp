@@ -36,7 +36,9 @@ import qualified Data.ByteString.Lazy as DBL (ByteString, append, pack,
                                               fromChunks, toChunks, null)
 import qualified Data.ByteString.Lazy.Char8 as DBLC (append, pack, unpack)
 import qualified Data.List as DL
-
+import Data.Text (empty, singleton)
+import Text.StringPrep (StringPrepProfile (..), a1, b1, c12, c21, c22, c3, c4, c5, c6, c7, c8, c9, runStringPrep)
+import Data.Ranges (inRanges, ranges)
 
 data Challenge1Error = C1MultipleCriticalAttributes       |
                        C1NotAllParametersPresent          |
@@ -216,3 +218,11 @@ stripQuotations :: String -> String
 stripQuotations ""                                     = ""
 stripQuotations s | (head s == '"') && (last s == '"') = tail $ init s
                   | otherwise                          = s
+
+
+saslprepProfile :: StringPrepProfile
+
+saslprepProfile = Profile { maps = [\ char -> if char `inRanges` (ranges c12) then singleton '\x0020' else empty, b1]
+                          , shouldNormalize = True
+                          , prohibited = [a1] ++ [c12, c21, c22, c3, c4, c5, c6, c7, c8, c9]
+                          , shouldCheckBidi = True }
