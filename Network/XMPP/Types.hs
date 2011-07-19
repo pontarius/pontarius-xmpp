@@ -301,6 +301,37 @@ data StanzaErrorCondition = BadRequest            | -- ^ Malformed XML
 -- =============================================================================
 
 
+data SASLError = -- SASLAborted | -- Client aborted - should not happen
+                 SASLAccountDisabled | -- ^ The account has been temporarily
+                                       --   disabled
+                 SASLCredentialsExpired | -- ^ The authentication failed because
+                                          --   the credentials have expired
+                 SASLEncryptionRequired | -- ^ The mechanism requested cannot be
+                                          --   used the confidentiality and
+                                          --   integrity of the underlying
+                                          --   stream is protected (typically
+                                          --   with TLS)
+                 -- SASLIncorrectEncoding | -- The base64 encoding is incorrect
+                                            -- - should not happen
+                 SASLInvalidAuthzid | -- ^ The authzid has an incorrect format,
+                                      --   or the initiating entity does not
+                                      --   have the appropriate permissions to
+                                      --   authorize that ID
+                 SASLInvalidMechanism | -- ^ The mechanism is not supported by
+                                        --   the receiving entity
+                 -- SASLMalformedRequest | -- Invalid syntax - should not happen
+                 SASLMechanismTooWeak | -- ^ The receiving entity policy
+                                        --   requires a stronger mechanism
+                 SASLNotAuthorized (Maybe String) | -- ^ Invalid credentials
+                                                    --   provided, or some
+                                                    --   generic authentication
+                                                    --   failure has occurred
+                 SASLTemporaryAuthFailure -- ^ There receiving entity reported a
+                                          --   temporary error condition; the
+                                          --   initiating entity is recommended
+                                          --   to try again later
+
+
 instance Eq ConnectionState where
   Disconnected == Disconnected = True
   (Connected p h) == (Connected p_ h_) = p == p_ && h == h_
