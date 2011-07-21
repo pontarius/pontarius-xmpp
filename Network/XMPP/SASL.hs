@@ -26,7 +26,7 @@ with Pontarius XMPP. If not, see <http://www.gnu.org/licenses/>.
 -- TODO: Host is assumed to be ISO 8859-1; make list of assumptions.
 -- TODO: Can it contain newline characters?
 
-module Network.XMPP.SASL (replyToChallenge, saltedPassword, clientKey, storedKey, authMessage, clientSignature, clientProof) where
+module Network.XMPP.SASL (replyToChallenge, saltedPassword, clientKey, storedKey, authMessage, clientSignature, clientProof, serverKey, serverSignature) where
 
 import Prelude hiding (concat, zipWith)
 import Data.ByteString.Internal (c2w)
@@ -158,6 +158,16 @@ clientSignature sk am = encodeLazy (hmac (MacKey (head $ toChunks sk)) am :: SHA
 clientProof :: ByteString -> ByteString -> ByteString
 
 clientProof ck cs = pack $ zipWith xor ck cs
+
+
+serverKey :: ByteString -> ByteString
+
+serverKey sp = encodeLazy (hmac (MacKey (head $ toChunks sp)) (DBLC.pack "Server Key") :: SHA1)
+
+
+serverSignature :: ByteString -> ByteString -> ByteString
+
+serverSignature servkey am = encodeLazy (hmac (MacKey (head $ toChunks servkey)) am :: SHA1)
 
 
 -- TODO: Implement SCRAM.
