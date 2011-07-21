@@ -52,9 +52,6 @@ module Network.XMPP ( -- Network.XMPP.JID
                     , fromString
                     , fromStrings
 
-                      -- Network.XMPP.SASL
-                    , replyToChallenge1
-
                       -- Network.XMPP.Session
                     , ClientHandler (..)
                     , ClientState (..)

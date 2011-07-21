@@ -313,10 +313,10 @@ data SASLError = -- SASLAborted | -- Client aborted - should not happen
                                           --   with TLS)
                  -- SASLIncorrectEncoding | -- The base64 encoding is incorrect
                                             -- - should not happen
-                 SASLInvalidAuthzid | -- ^ The authzid has an incorrect format,
-                                      --   or the initiating entity does not
-                                      --   have the appropriate permissions to
-                                      --   authorize that ID
+                 -- SASLInvalidAuthzid | -- The authzid has an incorrect format,
+                                         -- or the initiating entity does not
+                                         -- have the appropriate permissions to
+                                         -- authorize that ID
                  SASLInvalidMechanism | -- ^ The mechanism is not supported by
                                         --   the receiving entity
                  -- SASLMalformedRequest | -- Invalid syntax - should not happen

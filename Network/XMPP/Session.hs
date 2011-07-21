@@ -116,6 +116,10 @@ import qualified Data.Text.Lazy as DTL
 
 import Data.Certificate.X509 (X509)
 
+import Data.UUID (UUID, toString)
+
+import System.Random (randomIO)
+
 
 
 -- =============================================================================
@@ -226,7 +230,8 @@ defaultState c t h s i = State { stateClientHandlers = h
                                , stateMessageCallbacks = []
                                , stateIQCallbacks = []
                                , stateTimeoutStanzaIDs = []
-                               , stateIDGenerator = i } -- TODO: Prefix
+                               , stateIDGenerator = i
+                               , stateSASLRValue = Nothing } -- TODO: Prefix
 
 
 -- |
@@ -373,6 +378,7 @@ data MonadIO m => State s m =
         , stateIQCallbacks :: [(StanzaID, (IQ -> StateT s m Bool))]
         , stateTimeoutStanzaIDs :: [StanzaID]
         , stateIDGenerator :: IDGenerator
+        , stateSASLRValue :: Maybe String
         }
 
 
@@ -465,9 +471,13 @@ processEvent e = get >>= \ state ->
     -- CEB.assert (or [ stateConnectionState state == Connected
     --                , stateConnectionState state == TLSSecured ]) (return ())
     -- CEB.assert (stateHandle state /= Nothing) (return ())
+    -- let Connected (ServerAddress hostName _) _ = stateConnectionState state
+    rValue <- lift $ liftIO $ randomIO
     put $ state { stateAuthenticationState = AuthenticatingPreChallenge1 userName password resource
-                , stateAuthenticateCallback = Just callback }
-    lift $ liftIO $ send "<auth xmlns='urn:ietf:params:xml:ns:xmpp-sasl' mechanism='DIGEST-MD5'/>" handleOrTLSCtx
+                , stateAuthenticateCallback = Just callback
+                , stateSASLRValue = Just (toString rValue) }
+    lift $ liftIO $ putStrLn $ "__________" ++ ("<auth xmlns='urn:ietf:params:xml:ns:xmpp-sasl' mechanism='SCRAM-SHA-1'>" ++ (CBBS.encode ("n,,n=" ++ userName ++ ",r=" ++ (toString rValue))) ++ "</auth>")
+    lift $ liftIO $ send ("<auth xmlns='urn:ietf:params:xml:ns:xmpp-sasl' mechanism='SCRAM-SHA-1'>" ++ (CBBS.encode ("n,,n=" ++ userName ++ ",r=" ++ (toString rValue))) ++ "</auth>") handleOrTLSCtx
     return Nothing
 
   IEE (EnumeratorXML (XEBeginStream stream)) -> do
@@ -532,22 +542,14 @@ processEvent e = get >>= \ state ->
     return Nothing
 
   IEE (EnumeratorXML (XEChallenge (Chal challenge))) -> do
-    let serverHost = "jonkristensen.com"
+    lift $ liftIO $ putStrLn challenge
+    let Connected (ServerAddress hostName _) _ = stateConnectionState state
     let challenge' = CBBS.decode challenge
     case stateAuthenticationState state of
       AuthenticatingPreChallenge1 userName password resource -> do
         id <- liftIO $ nextID $ stateIDGenerator state
-        -- This is the first challenge - we need to calculate the reply
-        case replyToChallenge1 challenge' serverHost userName password id of
-          Left reply -> do
-            let reply' = (filter (/= '\n') (CBBS.encode reply))
-            lift $ liftIO $ send ("<response xmlns='urn:ietf:params:xml:ns:xmpp-sasl'>" ++ reply' ++ "</response>") handleOrTLSCtx
-            put $ state { stateAuthenticationState = AuthenticatingPreChallenge2 userName password resource }
-            return ()
-          Right error -> do
-            state' <- get
-            lift $ liftIO $ putStrLn $ show error
-            return ()
+        -- TODO: replyToChallenge
+        return ()
       AuthenticatingPreChallenge2 userName password resource -> do
         -- This is not the first challenge; [...]
         -- TODO: Can we assume "rspauth"?

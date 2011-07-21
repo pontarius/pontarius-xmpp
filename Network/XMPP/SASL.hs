@@ -26,12 +26,12 @@ with Pontarius XMPP. If not, see <http://www.gnu.org/licenses/>.
 -- TODO: Host is assumed to be ISO 8859-1; make list of assumptions.
 -- TODO: Can it contain newline characters?
 
-module Network.XMPP.SASL (replyToChallenge1) where
+module Network.XMPP.SASL (replyToChallenge) where
 
+import Prelude hiding (concat, zipWith)
 import Data.ByteString.Internal (c2w)
 import Data.Char (isLatin1)
 import Data.Digest.Pure.MD5
-import qualified Data.Binary as DBi (Binary, encode)
 import qualified Data.ByteString.Lazy as DBL (ByteString, append, pack,
                                               fromChunks, toChunks, null)
 import qualified Data.ByteString.Lazy.Char8 as DBLC (append, pack, unpack)
@@ -39,6 +39,14 @@ import qualified Data.List as DL
 import Data.Text (empty, singleton)
 import Text.StringPrep (StringPrepProfile (..), a1, b1, c12, c21, c22, c3, c4, c5, c6, c7, c8, c9, runStringPrep)
 import Data.Ranges (inRanges, ranges)
+
+import Crypto.HMAC (MacKey (MacKey), hmac)
+import Crypto.Hash.SHA1 (SHA1)
+import Data.Bits (xor)
+import Data.ByteString ()
+import Data.ByteString.Lazy (ByteString, concat, pack, toChunks, zipWith)
+import Data.Serialize (Serialize, encodeLazy)
+import Data.Serialize.Put (putWord32be, runPutLazy)
 
 data Challenge1Error = C1MultipleCriticalAttributes       |
                        C1NotAllParametersPresent          |
@@ -96,120 +104,28 @@ lookupDirectiveWithDefault di l de
     lookup = lookupDirective di l
 
 
--- Takes a challenge string (which is not Base64-encoded), the host name of the
--- Jabber server, the Jabber user name (JID), the password and a random and
--- unique "cnonce" value and generates either an error or a response to that
--- challenge.
+-- Implementation of "Hi()" as specified in the Notation section of RFC 5802
+-- ("SCRAM"). It takes a string "str", a salt, and an interation count, and
+-- returns an octet string. The iteration count must be greater than zero.
 
--- We have broken replyToChallenge1 for non-TLS authentication. In order to
--- change it back, just uncomment the lines relevant to the realm and match it
--- in the C1NotAllParametersSet case.
+hi :: ByteString -> ByteString -> Integer -> ByteString
 
-replyToChallenge1 :: String -> String -> String -> String -> String ->
-                     Either String Challenge1Error
-replyToChallenge1 s h u p c =
-  -- Remove all new line characters.
-  let list = stringToList $ filter (/= '\n') s
-  in -- Count that there are no more than one nonce or algorithm directives.
-     case countDirectives "nonce"     list <= 1 &&
-          countDirectives "algorithm" list <= 1 of
-       True ->
-         let -- realm     = lookupDirective "realm" list
-             nonce     = lookupDirective "nonce" list
-             qop       = lookupDirectiveWithDefault "qop" list "auth"
-             charset   = lookupDirectiveWithDefault "charset" list "utf-8"
-             algorithm = lookupDirective "algorithm" list
+hi str salt i | i > 0 = xorUs $ us (concat [salt, runPutLazy $ putWord32be 1]) i
+    where
 
-         -- Verify that all necessary directives has been set.
-         in case (nonce, qop, charset, algorithm) of
-              (Just nonce', qop', charset', Just algorithm') ->
+        -- Calculates the U's (U1 ... Ui) using the HMAC algorithm
+        us :: ByteString -> Integer -> [ByteString]
+        us a 1 = [encodeLazy $ (hmac (MacKey (head $ toChunks str)) a :: SHA1)]
+        us a x = [encodeLazy $ (hmac (MacKey (head $ toChunks str)) a :: SHA1)] ++ (us (encodeLazy $ (hmac (MacKey (head $ toChunks str)) a :: SHA1)) (x - 1))
 
-                -- Strip quotations of the directives that need it.
-                let -- realm'' = stripQuotations realm'
-                    nonce'' = stripQuotations nonce'
-                    qop'' = stripQuotations qop' -- It seems ejabberd gives us an errorous "auth" instead of auth
-                in
-                -- -- Verify that the realm is the same as the Jabber host.
-                -- case realm'' == h of
-                --      True ->
+        -- XORs the ByteStrings: U1 XOR U2 XOR ... XOR Ui
+        xorUs :: [ByteString] -> ByteString
+        xorUs (b:bs) = foldl (\ x y -> pack $ zipWith xor x y) b bs
 
-                       -- Verify that QOP is "auth", charset is "utf-8" and that
-                       -- the algorithm is "md5-sess".
-                       case qop'' == "auth" of
-                         True ->
-                           case charset' == "utf-8" of
-                             True ->
-                               case algorithm' == "md5-sess" of
-                                 True ->
 
-                                   -- All data is valid; generate the reply.
-                                   Left (reply nonce'' qop'')
+-- TODO: Implement SCRAM.
 
-                                 -- Errors are caught and reported below.
-                                 False -> Right C1UnsupportedAlgorithm
-                             False -> Right C1UnsupportedCharset
-                         False -> Right C1UnsupportedQOP
-                     -- False -> Right C1WrongRealm
-              _ -> Right C1NotAllParametersPresent
-  where
-    reply n q =
-      let -- We start with what's in RFC 2831 is referred to as "A1", a 16 octet
-          -- MD5 hash.
-
-          -- If the username or password values are in ISO-8859-1, we convert
-          -- them to ISO-8859-1 strings.
-          username = case all isLatin1 u of
-            True -> DBL.pack $ map c2w u
-            False -> DBLC.pack $ u
-          password = case all isLatin1 p of
-            True -> DBL.pack $ map c2w p
-            False -> DBLC.pack p
-
-          nc = "00000001"
-          digestUri = "xmpp/" ++ h
-
-          -- Build the "{ username-value, ":", realm-value, ":", passwd }"
-          -- bytestring, the rest of the bytestring and then join them.
-          a1a = DBi.encode $ md5 $ DBLC.append
-                (DBLC.append username (DBLC.pack (":" ++ h ++ ":")))
-                password
-          a1aDebug = "DBi.encode $ md5 $ " ++ (DBLC.unpack $ DBLC.append
-                (DBLC.append username (DBLC.pack (":" ++ h ++ ":")))
-                password)
-          a1b = DBLC.pack (":" ++ n ++ ":" ++ c)
-          a1 = DBLC.append a1a a1b
-
-          -- Generate the "A2" value.
-          a2 = DBLC.pack ("AUTHENTICATE:" ++ digestUri)
-
-          -- Produce the responseValue.
-          k = DBLC.pack (show $ md5 a1)
-          colon = DBLC.pack ":"
-          s0 = DBLC.pack (n ++ ":" ++ nc ++ ":" ++ c ++ ":" ++
-                          q ++ ":")
-          s1 = DBLC.pack $ show $ md5 a2
-
-          s_ = DBLC.append s0 s1
-          -- append k:d and 16 octet hash it
-          kd = md5 (DBLC.append k (DBLC.append colon s_))
-
-          lol0 = DBLC.unpack s_
-          lol1 = show kd
-
-          response = show kd
-      in "username=\"" ++ u ++ "\",realm=\"" ++ h ++ "\",nonce=\"" ++ n ++
-         "\",cnonce=\"" ++ c ++ "\",nc=" ++ nc ++ ",digest-uri=\"" ++
-         digestUri ++ "\",qop=auth,response=" ++ response ++ ",charset=utf-8"
-         -- "\n\n" ++
-         -- "a1aDebug: " ++ a1aDebug ++ "\n" ++
-         -- "a1b: " ++ (DBLC.unpack a1b) ++ "\n" ++
-         -- "a1: " ++ (DBLC.unpack a1) ++ "\n" ++
-         -- "a2: " ++ (DBLC.unpack a2) ++ "\n" ++
-         -- "k: " ++ (DBLC.unpack k) ++ "\n" ++
-         -- "colon: " ++ (DBLC.unpack colon) ++ "\n" ++
-         -- "s0: " ++ (DBLC.unpack s0) ++ "\n" ++
-         -- "s1: " ++ (DBLC.unpack s1) ++ "\n" ++
-         -- "s_: " ++ (DBLC.unpack s_) ++ "\n"
+replyToChallenge = replyToChallenge
 
 
 -- Stripts the quotations around a string, if any; "\"hello\"" becomes "hello".

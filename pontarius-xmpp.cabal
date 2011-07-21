@@ -27,12 +27,12 @@ Tested-With:        GHC ==7.0.2
 Library
   Exposed-Modules:   Network.XMPP
   Exposed:           True
-  Build-Depends:     base >= 2 && < 5, parsec, enumerator, crypto-api,
+  Build-Depends:     base >= 2 && < 5, parsec, enumerator, crypto-api ==0.6.3,
                      base64-string, pureMD5, utf8-string, network, xml-types,
-                     text, transformers, bytestring, binary, random,
+                     text, transformers, bytestring, cereal ==0.3.3.0, random,
                      xml-enumerator, tls, tls-extra, containers, mtl, text-icu,
-                     stringprep, idna2008 ==0.0.1.0, asn1-data, cryptohash,
-                     time, certificate, ranges
+                     stringprep, idna2008 ==0.0.1.0, asn1-data, cryptohash ==0.7.0,
+                     time, certificate, ranges, uuid
   -- Other-Modules:
   -- HS-Source-Dirs:
   -- Extensions:
