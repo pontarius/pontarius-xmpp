@@ -89,8 +89,8 @@ Introduction
 Pontarius XMPP aims to be a convenient-to-use, powerful, correct, secure,
  and extendable XMPP client library for Haskell.
  It is written by Jon Kristensen and Mahdi Abdinejadi.
- Being licensed under the GNU Lesser General Public License, Pontarius XMPP
- is free and open source software.
+ Being licensed under a three-clause BSD license, Pontarius XMPP is free
+ and open source software.
 \end_layout
 
 \begin_layout Section
