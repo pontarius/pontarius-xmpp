@@ -301,6 +301,10 @@ data StanzaErrorCondition = BadRequest            | -- ^ Malformed XML
 -- =============================================================================
 
 
+data SASLFailure = SASLFailure { saslFailureCondition :: SASLError
+                               , saslFailureText :: Maybe String } -- TODO: XMLLang
+
+
 data SASLError = -- SASLAborted | -- Client aborted - should not happen
                  SASLAccountDisabled | -- ^ The account has been temporarily
                                        --   disabled
