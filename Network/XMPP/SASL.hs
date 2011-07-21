@@ -26,7 +26,7 @@ with Pontarius XMPP. If not, see <http://www.gnu.org/licenses/>.
 -- TODO: Host is assumed to be ISO 8859-1; make list of assumptions.
 -- TODO: Can it contain newline characters?
 
-module Network.XMPP.SASL (replyToChallenge) where
+module Network.XMPP.SASL (replyToChallenge, saltedPassword, clientKey, storedKey, authMessage, clientSignature, clientProof) where
 
 import Prelude hiding (concat, zipWith)
 import Data.ByteString.Internal (c2w)
@@ -41,12 +41,18 @@ import Text.StringPrep (StringPrepProfile (..), a1, b1, c12, c21, c22, c3, c4, c
 import Data.Ranges (inRanges, ranges)
 
 import Crypto.HMAC (MacKey (MacKey), hmac)
-import Crypto.Hash.SHA1 (SHA1)
+import Crypto.Hash.SHA1 (SHA1, hash)
 import Data.Bits (xor)
 import Data.ByteString ()
-import Data.ByteString.Lazy (ByteString, concat, pack, toChunks, zipWith)
+import Data.ByteString.Lazy (ByteString, concat, fromChunks, pack, toChunks, zipWith)
 import Data.Serialize (Serialize, encodeLazy)
 import Data.Serialize.Put (putWord32be, runPutLazy)
+
+import Data.Maybe (fromJust, isJust)
+
+import qualified Data.Text as DT
+
+import Text.StringPrep (runStringPrep)
 
 data Challenge1Error = C1MultipleCriticalAttributes       |
                        C1NotAllParametersPresent          |
@@ -115,12 +121,43 @@ hi str salt i | i > 0 = xorUs $ us (concat [salt, runPutLazy $ putWord32be 1]) i
 
         -- Calculates the U's (U1 ... Ui) using the HMAC algorithm
         us :: ByteString -> Integer -> [ByteString]
-        us a 1 = [encodeLazy $ (hmac (MacKey (head $ toChunks str)) a :: SHA1)]
-        us a x = [encodeLazy $ (hmac (MacKey (head $ toChunks str)) a :: SHA1)] ++ (us (encodeLazy $ (hmac (MacKey (head $ toChunks str)) a :: SHA1)) (x - 1))
+        us a 1 = [encodeLazy (hmac (MacKey (head $ toChunks str)) a :: SHA1)]
+        us a x = [encodeLazy (hmac (MacKey (head $ toChunks str)) a :: SHA1)] ++ (us (encodeLazy (hmac (MacKey (head $ toChunks str)) a :: SHA1)) (x - 1))
 
         -- XORs the ByteStrings: U1 XOR U2 XOR ... XOR Ui
         xorUs :: [ByteString] -> ByteString
         xorUs (b:bs) = foldl (\ x y -> pack $ zipWith xor x y) b bs
+
+
+saltedPassword :: String -> ByteString -> Integer -> Maybe ByteString
+
+saltedPassword password salt i = if isJust password' then Just $ hi (DBLC.pack $ DT.unpack $ fromJust password') salt i else Nothing
+    where
+        password' = runStringPrep saslprepProfile (DT.pack password)
+
+clientKey :: ByteString -> ByteString
+
+clientKey sp = encodeLazy (hmac (MacKey (head $ toChunks sp)) (DBLC.pack "Client Key") :: SHA1)
+
+
+storedKey :: ByteString -> ByteString
+
+storedKey ck = fromChunks [hash $ head $ toChunks ck]
+
+
+authMessage :: String -> String -> String -> ByteString
+
+authMessage cfmb sfm cfmwp = DBLC.pack $ cfmb ++ "," ++ sfm ++ "," ++ cfmwp
+
+
+clientSignature :: ByteString -> ByteString -> ByteString
+
+clientSignature sk am = encodeLazy (hmac (MacKey (head $ toChunks sk)) am :: SHA1)
+
+
+clientProof :: ByteString -> ByteString -> ByteString
+
+clientProof ck cs = pack $ zipWith xor ck cs
 
 
 -- TODO: Implement SCRAM.
@@ -138,7 +175,7 @@ stripQuotations s | (head s == '"') && (last s == '"') = tail $ init s
 
 saslprepProfile :: StringPrepProfile
 
-saslprepProfile = Profile { maps = [\ char -> if char `inRanges` (ranges c12) then singleton '\x0020' else empty, b1]
+saslprepProfile = Profile { maps = [\ char -> if char `inRanges` (ranges c12) then singleton '\x0020' else singleton char, b1]
                           , shouldNormalize = True
                           , prohibited = [a1] ++ [c12, c21, c22, c3, c4, c5, c6, c7, c8, c9]
                           , shouldCheckBidi = True }
