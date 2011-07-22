@@ -113,9 +113,11 @@ Scope
 
 \begin_layout Standard
 Pontarius XMPP 0.1 will implement the client capabilities of RFC 6120: XMPP:
- Core and the depending specifications (such as RFC 6122: XMPP: Address
- Format), as well as be easily extendable for different XMPP extensions
- (such as XEPs and RFCs).
+ Core and the depending specifications, such as RFC 6122: XMPP: Address
+ Format, RFC 5246: The Transport Layer Security (TLS) Protocol Version 1.2,
+ RFC 4422: Simple Authentication and Security Layer (SASL), RFC 5280: Internet
+ X.509 Public Key Infrastructure Certificate and Certificate Revocation List
+ (CRL) Profile, and Extensible Markup Language (XML) 1.0, among others.
 \end_layout
 
 \begin_layout Standard
@@ -148,13 +150,14 @@ personal cloud
 \end_inset
 
  solutions on top of Pontarius XMPP, we want Pontarius XMPP to be a general-purp
-ose---and de facto---XMPP library for Haskell.
- It should be correct, flexible and efficient to work in.
+ose---and the de facto---XMPP library for Haskell.
+ It should be correct and efficient to work in.
 \end_layout
 
 \begin_layout Standard
 We will not repeat the specifics of the requirements from the RFC 6120:
- XMPP Core specification or other specifications in this document.
+ XMPP Core specification and its depending specifications in this document
+ unless we see any special reason to.
 \end_layout
 
 \begin_layout Subsection
@@ -192,6 +195,10 @@ d, uncentralized, and privacy-aware software solutions
 \end_layout
 
 \begin_layout Description
+PX01 Pontarius XMPP 0.1
+\end_layout
+
+\begin_layout Description
 REQ Requirement
 \end_layout
 
@@ -221,12 +228,7 @@ References
 
 \begin_layout Itemize
 Extensible Messaging and Presence Protocol (XMPP): Core, RFC 6120, March
- 2011, Internet Engineering Task Force
-\end_layout
-
-\begin_layout Itemize
-Extensible Messaging and Presence Protocol (XMPP): Address Format, RFC 6122,
- March 2011, Internet Engineering Task Force
+ 2011, Internet Engineering Task Force (see also its depending specifications)
 \end_layout
 
 \begin_layout Subsection
@@ -235,9 +237,8 @@ Overview
 
 \begin_layout Standard
 The second section provides an overall description of the requirements of
- Pontarius XMPP 0.1, going through the features in a non-strict fashion,
- talking shortly about the product functions, as well as some constraints
- and assumptions.
+ PX01, going through the features in a non-strict fashion, talking shortly
+ about the product functions, as well as some constraints and assumptions.
 \end_layout
 
 \begin_layout Standard
@@ -255,8 +256,8 @@ Product perspective
 \end_layout
 
 \begin_layout Standard
-Pontarius XMPP 0.1 will be used by XMPP clients to manage presence and messaging
- in a uncentralized near-real-time environments.
+PX01 will be used by XMPP clients to manage presence and messaging in a
+ uncentralized near-real-time environments.
  For this first milestone of the library, we have chosen to implement only
  the XMPP: Core specification, and only the client capabilities of it.
  The reason for this is that we want to get the library out quickly, and
@@ -268,32 +269,23 @@ Pontarius XMPP 0.1 will be used by XMPP clients to manage presence and messaging
 \end_layout
 
 \begin_layout Standard
-Pontarius XMPP 0.1 is designed to be used with Haskell.
+PX01 is designed to be used with Haskell.
 \end_layout
 
 \begin_layout Standard
-Pontarius XMPP 0.1 must work on GNU/Linux, the main Free Software operating
- system.
+PX01 must work on GNU/Linux, the main Free Software operating system.
  However, due to the platform support and high-level nature of Haskell,
  running it on other common operating systems is likely to work as well.
 \end_layout
 
 \begin_layout Standard
-Pontarius XMPP 0.1 must work with (at least) the (estimated) most popular
- free and open source software XMPP server.
+PX01 must work with (at least) the (estimated) most popular free and open
+ source software XMPP server that works with the specifics of our implementation
+ (such as SCRAM).
 \end_layout
 
 \begin_layout Standard
-The only software using Pontarius XMPP (that we know of) is the (currently
- paused) Pontarius XPMN library, which currently in (very early) development.
- However, as mentioned above, the goal for Pontarius XMPP is to serve as
- a general-purpose library, so we are trying not to be customizing the library
- to be somehow specially tailored for Pontarius XPMN.
-\end_layout
-
-\begin_layout Standard
-Pontarius XMPP 0.1 depends on the below (free and open source software) Haskell
- packages.
+PX01 depends on the below (free and open source software) Haskell packages.
  I have omitted specification number [...].
  I have also omitted the source, as they are all available on Hackage.
 \end_layout
@@ -907,28 +899,27 @@ N/A
 \end_layout
 
 \begin_layout Standard
-Every Pontarius XMPP 0.1 client will open up at most one TCP port on the
- system.
- Pontarius XMPP in itself does not write anything to the file system storage
- of the operating system, with the exception of the optional logging facility,
+Every PX01 client will open up at most one TCP port on the system.
+ PX01 in itself does not write anything to the file system storage of the
+ operating system, with the exception of the optional logging facility,
  disabled by default, which may be configured to write to disk.
 \end_layout
 
 \begin_layout Standard
-Pontarius XMPP 0.1 will not provide any spam protection.
- However, we will utilize 
+We will utilize 
 \emph on
 at least
 \emph default
  Transport Layer Security to help protect clients using the library from
  attacks.
+ PX01 will not provide any spam protection.
 \end_layout
 
 \begin_layout Standard
 As we expect a very limited amount of concurrent XMPP clients, and a (relatively
 ) limited actitivity over XMPP streams--even when they are being fully active--w
 e are not specifying any detailed memory or (process) performance requirements
- for Pontarius XMPP 0.1.
+ for PX01.
  However, we will stress test the library.
 \end_layout
 
@@ -941,12 +932,12 @@ Product functions
 \end_layout
 
 \begin_layout Standard
-Pontarius XMPP 0.1 implements XMPP: Core and allow clients to do roughly
- the following: Open a TCP connection to a server, exchange XML information
- with the server to configure the (XML) stream, handle stream errors and
- encoding issues, have the connection secured by TLS, authenticate using
- a SASL mechanism and binding a resource to the stream, as well as sending
- and receiving so-called XMPP stanzas, certain 
+PX01 implements XMPP: Core and allow clients to do roughly the following:
+ Open a TCP connection to a server, exchange XML information with the server
+ to configure the (XML) stream, handle stream errors and encoding issues,
+ have the connection secured by TLS, authenticate using a SASL mechanism
+ and binding a resource to the stream, as well as sending and receiving
+ so-called XMPP stanzas, certain 
 \begin_inset Quotes eld
 \end_inset
 
@@ -962,9 +953,9 @@ User characteristics
 \end_layout
 
 \begin_layout Standard
-We expect developers using Pontarius XMPP 0.1 to understand the XMPP: Core
- specification (and its depending specifications), Haskell, and monads,
- including the StateT monad transformer.
+We expect developers using PX01 to understand the XMPP: Core specification
+ (and its depending specifications), Haskell, and monads, including the
+ StateT monad transformer.
 \end_layout
 
 \begin_layout Subsection
@@ -984,7 +975,7 @@ Assumptions and dependencies
 
 \begin_layout Standard
 We assume that the Glasgow Haskell Compiler (GHC) is available on the system
- where Pontarius XMPP 0.1 applications are built.
+ where PX01 applications are built.
 \end_layout
 
 \begin_layout Section
@@ -1096,21 +1087,25 @@ REQ-10 The API shall allow for authenticating an opened (possibly TLS secured)
  stream, returning either a success value of the reason for failing.
  If the credentials were wrong, the system shall allow the client to make
  as many retries as allowed by the server, without restarting the stream.
- Resource binding should be taken cared of in this step, and the client
- should be able to try to set a resource as well as have one generated by
- the server.
-\end_layout
-
-\begin_layout Standard
-Rationale: Even though most clients wants to do REQ-9, REQ-10, and REQ-11
- in one action, some uses of XMPP (such as In-Band Registration) demands
- more flexibility.
 \end_layout
 
 \begin_layout Description
-REQ-11 The API shall provide a convenience function for opening a stream,
- securing the stream with TLS, and authenticating an XMPP account in one
- function call, returning either a success value or the reason for failing.
+REQ-11 The API shall allow for perform resource binding on an authenticated
+ stream, either by trying to set a specific resource, or have the server
+ generate one.
+\end_layout
+
+\begin_layout Standard
+Rationale: Even though most clients wants to do REQ-8, REQ-9, REQ-10, and
+ REQ-11 in one action, some uses of XMPP (such as In-Band Registration)
+ demands more flexibility.
+\end_layout
+
+\begin_layout Description
+REQ-12 The API shall provide a convenience function for opening a stream,
+ securing the stream with TLS, authenticating an XMPP account, and perform
+ resource binding in one function call, returning either a success value
+ or the reason for failing.
 \end_layout
 
 \begin_layout Standard
@@ -1119,16 +1114,16 @@ Rationale: This makes the library easier and more efficient to use for most
 \end_layout
 
 \begin_layout Description
-REQ-12 The API shall provide the possibility for clients to close the stream.
+REQ-13 The API shall provide the possibility for clients to close the stream.
 \end_layout
 
 \begin_layout Description
-REQ-13 The API shall provide the possibility for clients to send stream
+REQ-14 The API shall provide the possibility for clients to send stream
  errors.
 \end_layout
 
 \begin_layout Description
-REQ-14 The API shall allow a convenient way for 
+REQ-15 The API shall allow a convenient way for 
 \begin_inset Quotes eld
 \end_inset
 
@@ -1140,22 +1135,22 @@ standard disconnect
 \end_layout
 
 \begin_layout Description
-REQ-15 The API shall provide a facility for convenient stanza (message,
+REQ-16 The API shall provide a facility for convenient stanza (message,
  presence, info/query) creation, eliminating the risk of illegal stanzas
  where feasible.
 \end_layout
 
 \begin_layout Description
-REQ-16 The API shall allow for convenient construction of JabberIDs.
+REQ-17 The API shall allow for convenient construction of JabberIDs.
 \end_layout
 
 \begin_layout Description
-REQ-17 The API shall provide utility functions to check whether or not a
+REQ-18 The API shall provide utility functions to check whether or not a
  JID is full or bare.
 \end_layout
 
 \begin_layout Description
-REQ-18 The API shall provide conversion functions to convert from a string
+REQ-19 The API shall provide conversion functions to convert from a string
  to (
 \begin_inset Quotes eld
 \end_inset
@@ -1168,15 +1163,24 @@ Maybe
 \end_layout
 
 \begin_layout Description
-REQ-19 The API shall provide an optional way for clients to receive time-out
+REQ-20 The API shall provide an optional way for clients to receive time-out
  events on requests made, such as an IQ or connection attempt.
  The time-out interval should be customizable.
 \end_layout
 
 \begin_layout Description
-REQ-20 The library should generate an internal infinite list of unique stanza
+REQ-21 The library should generate an internal infinite list of unique stanza
  IDs; the API should provide a way for application developers to acquire
  any amount of such IDs
+\end_layout
+
+\begin_layout Description
+REQ-22 The system must offer timeout callbacks to be called if an asynchronous
+ result is not guaranteed to be produced in a timely fashion.
+\end_layout
+
+\begin_layout Description
+REQ-23 The system must a convenient API to deal with stanza and stream errors.
 \end_layout
 
 \begin_layout Subsection
@@ -1188,18 +1192,18 @@ There is only one XMPP client per instance of the system.
 \end_layout
 
 \begin_layout Description
-REQ-21 Regular desktop computers should be able to run hundreds of Pontarius
+REQ-24 Regular desktop computers should be able to run hundreds of Pontarius
  XMPP 0.1 clients.
 \end_layout
 
 \begin_layout Description
-REQ-22 Pontarius XMPP 0.1 should support virtually as many stanzas per second
+REQ-25 Pontarius XMPP 0.1 should support virtually as many stanzas per second
  as (non-throttled) XMPP servers are able to route.
  This goes for both lightweight, heavy and mixed stanzas.
 \end_layout
 
 \begin_layout Description
-REQ-23 Processing (parsing, generating, and firing the event) a received
+REQ-26 Processing (parsing, generating, and firing the event) a received
  stanza should take at most 0.01 seconds.
 \end_layout
 
@@ -1212,175 +1216,40 @@ RFC 6120: XMPP: Core
 \end_layout
 
 \begin_layout Description
-REQ-24 The system shall support one persistant TCP stream/connection between
+REQ-27 The system shall support one persistant TCP stream/connection between
  the XMPP client and the XMPP server.
 \end_layout
 
 \begin_layout Description
-REQ-25 The system shall determine the proper IPv4 or IPv6 address of the
- XMPP server, using the SRV Lookup process as explained in the 3.2.1 section
- of XMPP: Core, the fallback process defined i 3.2.2, with the exception of
- the case explained in 3.2.3.
-\end_layout
-
-\begin_layout Description
-REQ-26 The system shall try to reconnect after a disconnection with a random
- delay between 0 and 60 seconds.
-\end_layout
-
-\begin_layout Description
-REQ-27 The system shall try to reconnect with increased delays, in accordance
- with the 
-\begin_inset Quotes eld
-\end_inset
-
-truncated binary exponential backoff
-\begin_inset Quotes erd
-\end_inset
-
-
-\begin_inset Foot
-status open
-
-\begin_layout Plain Layout
-See the "Information technology - Telecommunications and information exchange
- between systems - Local and metropolitan area networks - Specific requirements
- - Part 3: Carrier sense multiple access with collision detection (CSMA/CD)
- access method and physical layer specifications" section of IEEE Standard
- 802.3, September 1998.
-\end_layout
-
-\end_inset
-
-, if the first reconnection attempt fails.
-\end_layout
-
-\begin_layout Description
-REQ-29 The system shall support stream management, as described in section
- 4 of XMPP: Core.
- This includes opening the stream, make the appropriate stream configurations
- (such as stream properties and features), parse incoming data, restart
- the stream when needed, determine the XMPP client's address, and properly
- close the stream.
-\end_layout
-
-\begin_layout Description
-REQ-30 The system shall support securing the stream with TLS, as described
- in section 5 of XMPP: Core.
-\end_layout
-
-\begin_layout Description
-REQ-28 The system shall make use of TLS session resumption when reconnecting
- to the server, if the connection was TLS secured.
-\end_layout
-
-\begin_layout Description
-REQ-XX The system shall implement (at least) the TLS_RSA_WITH_AES_128_CBC_SHA
+REQ-28 The system shall implement (at least) the TLS_RSA_WITH_AES_128_CBC_SHA
  cipher suite for TLS.
 \end_layout
 
 \begin_layout Description
-REQ-31 The system shall support authenticating with SASL, as described in
- section 6 of XMPP: Core.
-\end_layout
-
-\begin_layout Description
-REQ-XX The system shall support (at least) the SHA-1 variant of SASL Salted
+REQ-29 The system shall support (at least) the SHA-1 variant of SASL Salted
  Challenge Response Authentication Mechanism (SCRAM-SHA-1).
 \end_layout
 
 \begin_layout Description
-REQ-32 Being a client library, the system shall support the 'jabber:client'
- namespace.
- The 'jabber:server' namespace shall be out of scope for the client.
- The client may use other namespaces if necessary, such as the ones for
- TLS and SASL.
+REQ-30 XML namespaces for stanzas should always be known to the client.
 \end_layout
 
 \begin_layout Description
-REQ-33 XML namespaces for stanzas should always be known to the client.
+REQ-31 We must validate incoming XML (though not against the XML schemas).
 \end_layout
 
 \begin_layout Description
-REQ-XX: While we validate that the incoming XML is valid and has everything
- that we need, we are not validating the XML against the XML schemas.
- (This functionality will most likely be implemented in xml-enumerator in
- the future.)
-\end_layout
-
-\begin_layout Description
-REQ-34 The system shall always check for the appropriate features before
+REQ-32 The system shall always check for the appropriate features before
  trying to use them.
 \end_layout
 
 \begin_layout Description
-REQ-35 The system shall support and utilize the 
-\begin_inset Quotes eld
-\end_inset
-
-whitespace keep-alive
-\begin_inset Quotes erd
-\end_inset
-
- mechanism to signal and verify that the TCP connection is alive.
-\end_layout
-
-\begin_layout Description
-REQ-36 The system shall support a distributed network of clients and servers.
- Clients on one XMPP server should be able to communicate with server and
- clients on other networks.
-\end_layout
-
-\begin_layout Description
-REQ-37 The system shall support the <presence/> primitive, a specialized
- 
-\begin_inset Quotes eld
-\end_inset
-
-publish-subscribe
-\begin_inset Quotes erd
-\end_inset
-
- mechanism for network availability.
- End-to-end presence or anything else presence-related defined outside of
- XMPP: Core (such as in XMPP: Instant Messaging) is 
+REQ-33 End-to-end presence or anything else presence-related defined outside
+ of XMPP: Core (such as in XMPP: Instant Messaging) is 
 \emph on
 not
 \emph default
  supported.
-\end_layout
-
-\begin_layout Description
-REQ-38 The system shall support the <message/> primitive, a 
-\begin_inset Quotes eld
-\end_inset
-
-push
-\begin_inset Quotes erd
-\end_inset
-
- mechanism.
-\end_layout
-
-\begin_layout Description
-REQ-39 The system shall support the <iq/>, or Info/Query, primitive, a 
-\begin_inset Quotes eld
-\end_inset
-
-request-response
-\begin_inset Quotes erd
-\end_inset
-
- mechanism for exchanges of data.
-\end_layout
-
-\begin_layout Description
-REQ-40 The system must offer timeout callbacks to be called if an asynchronous
- result is not guaranteed to be produced in a timely fashion.
-\end_layout
-
-\begin_layout Description
-REQ-41 The system must a convenient API to deal with stanza and stream errors.
 \end_layout
 
 \begin_layout Subsubsection
@@ -1388,18 +1257,13 @@ RFC 6122: XMPP: Address Format
 \end_layout
 
 \begin_layout Description
-REQ-42 JIDs should be validated, transformed, and internationalized in accordanc
+REQ-34 JIDs should be validated, transformed, and internationalized in accordanc
 e with the stringprep profiles Nodeprep, Nameprep, and Resourceprep.
 \end_layout
 
 \begin_layout Description
-REQ-43 JIDs should be supported through hostnames, IPv4 addresses, and IPv6
- addresses.
-\end_layout
-
-\begin_layout Description
-REQ-44 Dealing with JIDs should adhere to the security recommendations as
- mentioned in section 4 of the standard.
+REQ-35 JIDs should be able to use hostnames, IPv4 addresses, and IPv6 addresses,
+ as domainparts.
 \end_layout
 
 \begin_layout Subsubsection
@@ -1407,7 +1271,7 @@ Standards compliance
 \end_layout
 
 \begin_layout Description
-REQ-45 The project and its source code shall adhere to the guidelines prestented
+REQ-36 The project and its source code shall adhere to the guidelines prestented
  in the guidelines found at http://www.haskell.org/haskellwiki/Programming_guideli
 nes.
 \end_layout
@@ -1417,7 +1281,7 @@ Software system attributes
 \end_layout
 
 \begin_layout Description
-REQ-46 The system shall be 
+REQ-37 The system shall be 
 \emph on
 extendable
 \emph default
@@ -1425,7 +1289,7 @@ extendable
 \end_layout
 
 \begin_layout Description
-REQ-47 The system shall be 
+REQ-38 The system shall be 
 \emph on
 reliable
 \emph default
@@ -1434,7 +1298,7 @@ reliable
 \end_layout
 
 \begin_layout Description
-REQ-48 The system shall be 
+REQ-39 The system shall be 
 \emph on
 secure
 \emph default
