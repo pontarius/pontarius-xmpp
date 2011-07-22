@@ -393,7 +393,7 @@ data AuthenticationState = NoAuthentication | AuthenticatingPreChallenge1 String
 
 data ClientEvent s m = CEOpenStream N.HostName PortNumber
                        (OpenStreamResult -> StateT s m ()) |
-                       CESecureWithTLS (Maybe ([X509], Bool)) ([X509] -> Bool) (Maybe [String])
+                       CESecureWithTLS (Maybe [X509]) ([X509] -> Bool)
                        (SecureWithTLSResult -> StateT s m ()) |
                        CEAuthenticate UserName Password (Maybe Resource)
                        (AuthenticateResult -> StateT s m ()) |
@@ -404,7 +404,7 @@ data ClientEvent s m = CEOpenStream N.HostName PortNumber
 
 instance Show (ClientEvent s m) where
   show (CEOpenStream h p _) = "CEOpenStream " ++ h ++ " " ++ (show p)
-  show (CESecureWithTLS c _ _ _) = "CESecureWithTLS " ++ (show c)
+  show (CESecureWithTLS c _ _) = "CESecureWithTLS " ++ (show c)
   show (CEAuthenticate u p r _) = "CEAuthenticate " ++ u ++ " " ++ p ++ " " ++
                                     (show r)
   show (CEIQ s _ _ _) = "CEIQ"
