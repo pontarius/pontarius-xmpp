@@ -86,19 +86,8 @@ Introduction
 \end_layout
 
 \begin_layout Standard
-Pontarius XMPP aims to be a convenient-to-use, powerful, correct, secure,
- and extendable XMPP client library for Haskell.
- It is written by Jon Kristensen and Mahdi Abdinejadi.
- Being licensed under a three-clause BSD license, Pontarius XMPP is free
- and open source software.
-\end_layout
-
-\begin_layout Section
-Features and Implementation Specifics
-\end_layout
-
-\begin_layout Standard
-Pontarius XMPP 0.1 implements the XMPP Core specification (RFC 6120)
+Pontarius XMPP 0.1 is a minimal XMPP client implementation with all the required
+ client features and behaviours of the RFC 6120 ("XMPP Core") specification
 \begin_inset Foot
 status open
 
@@ -109,7 +98,55 @@ http://tools.ietf.org/html/rfc6120
 \end_inset
 
 .
- Below are the specifics of our implementation.
+ Pontarius XMPP has been developed by the Pontarius project (mainly by Jon
+ Kristensen).
+
+\series bold
+ 
+\series default
+Being licensed under a three-clause BSD license, Pontarius XMPP is free
+ and open source software.
+\end_layout
+
+\begin_layout Section
+Features and Implementation Specifics
+\end_layout
+
+\begin_layout Standard
+Pontarius XMPP 0.1 implements the XMPP Core specification (RFC 6120).
+ Features include the following:
+\end_layout
+
+\begin_layout Itemize
+Connecting and disconnecting from an XMPP server
+\end_layout
+
+\begin_layout Itemize
+Opening the XMPP streams
+\end_layout
+
+\begin_layout Itemize
+Securing XMPP streams with TLS
+\end_layout
+
+\begin_layout Itemize
+Authenticate using SASL
+\end_layout
+
+\begin_layout Itemize
+Perform resource binding
+\end_layout
+
+\begin_layout Itemize
+Send and receive stanzas (message, presence, and IQ) and stanza errors
+\end_layout
+
+\begin_layout Itemize
+Send and receive stream errors
+\end_layout
+
+\begin_layout Standard
+Below are the specifics of our implementation:
 \end_layout
 
 \begin_layout Itemize
@@ -147,20 +184,19 @@ For (SASL) authentication, the SHA-1 variant of SASL Salted Challenge Response
  Authentication Mechanism (SCRAM-SHA-1) is the only supported mechanism
 \end_layout
 
-\begin_layout Standard
-Later versions will add supports for different XMPP extensions, such as
- RFC 6121 (XMPP IM), XEP-0004: Data Forms, and XEP-0077: In-Band Registration.
-\begin_inset Foot
-status open
-
-\begin_layout Plain Layout
-XMPP RFCs can be found at http://xmpp.org/xmpp-protocols/rfcs/, and the so-called
- XEPs at http://xmpp.org/xmpp-protocols/xmpp-extensions/.
+\begin_layout Section
+Future Development
 \end_layout
 
-\end_inset
-
-
+\begin_layout Standard
+The current goal for Pontarius XMPP 0.2 is to implement the Extended Personal
+ Media Network (XPMN) architecture so that the Pontarius project can develop
+ a media server and some other XPMN services on top of Pontarius XMPP.
+ However, if we get approached by people wanting to use Pontarius XMPP for
+ other things, we might decide to help them out by implement some other
+ features first.
+ Please let us know if you are looking for a Haskell XMPP library and Pontarius
+ XMPP lacks some features that you want.
 \end_layout
 
 \begin_layout Section
@@ -360,8 +396,13 @@ Managing XMPP addresses
 \end_layout
 
 \begin_layout Standard
-There are four functions dealing with XMPP addresses (or JIDs, as they are
- also called):
+As with email, XMPP uses globally unique addresses (or JIDs, as they are
+ also called) in order to route and deliver messages over the network.
+ All XMPP entities are addressable on the local network.
+\end_layout
+
+\begin_layout Standard
+There are four functions dealing with XMPP addresses:
 \end_layout
 
 \begin_layout Standard

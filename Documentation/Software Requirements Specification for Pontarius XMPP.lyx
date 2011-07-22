@@ -174,17 +174,8 @@ The Pontarius project
  is not a legal entity, but is like a synonym for Jon Kristensen.
  Jon Kristensen does DOES NOT TAKE ANY RESPONSIBILITY OR OFFER ANY GUARANTEES
  in regards to the software, its requirements or this document.
- Furthermore, the software is provided 
-\begin_inset Quotes eld
-\end_inset
-
-WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
- or FITNESS FOR A PARTICULAR PURPOSE
-\begin_inset Quotes erd
-\end_inset
-
-.
- Consult the GNU General Public License for more information.
+ Furthermore, the software is provided WITHOUT ANY WARRANTY; without even
+ the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 \end_layout
 
 \begin_layout Subsection
@@ -996,16 +987,6 @@ We assume that the Glasgow Haskell Compiler (GHC) is available on the system
  where Pontarius XMPP 0.1 applications are built.
 \end_layout
 
-\begin_layout Subsubsection
-Apportioning of requirements 
-\end_layout
-
-\begin_layout Standard
-If IDNA2008 or the other stringprep-replacing specifications are not finished
- or otherwise not suitable to implement, we will fall back to implementing
- stringprep for Pontarius XMPP 0.1.
-\end_layout
-
 \begin_layout Section
 Specific requirements
 \end_layout
@@ -1321,6 +1302,13 @@ REQ-33 XML namespaces for stanzas should always be known to the client.
 \end_layout
 
 \begin_layout Description
+REQ-XX: While we validate that the incoming XML is valid and has everything
+ that we need, we are not validating the XML against the XML schemas.
+ (This functionality will most likely be implemented in xml-enumerator in
+ the future.)
+\end_layout
+
+\begin_layout Description
 REQ-34 The system shall always check for the appropriate features before
  trying to use them.
 \end_layout
@@ -1399,25 +1387,14 @@ REQ-41 The system must a convenient API to deal with stanza and stream errors.
 RFC 6122: XMPP: Address Format
 \end_layout
 
-\begin_layout Standard
-As can be read in Section 1 of RFC 6122, the XMPP community has started
- discussions about moving from the 2003 version of IDNA (Internationalized
- Domain Names in Applications) to the new IDNA2008 standard.
- Unlike its predecessor, this new standard is not based on Stringprep, and
- RFC 6122 will be obsoleted when an alternative to the Nodeprep and Resourceprep
- profiles has been completed.
- XMPP software implementations are in encouraged by RFC 6122 to follow IDNA2008
- instead, and Pontarius XMPP should try to do that.
-\end_layout
-
 \begin_layout Description
 REQ-42 JIDs should be validated, transformed, and internationalized in accordanc
-e with the successor to the stringprep profiles
+e with the stringprep profiles Nodeprep, Nameprep, and Resourceprep.
 \end_layout
 
 \begin_layout Description
-REQ-43 JIDs should support internationalization of node names, domain names,
- and resource names, through IDNA2008.
+REQ-43 JIDs should be supported through hostnames, IPv4 addresses, and IPv6
+ addresses.
 \end_layout
 
 \begin_layout Description
