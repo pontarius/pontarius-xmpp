@@ -13,7 +13,9 @@ messageToXML,
 parsePresence,
 parseIQ,
 parseMessage,
-langTag
+langTag,
+versionFromString,
+versionFromNumbers
 ) where
 
 import Network.XMPP.Address hiding (fromString)
@@ -25,7 +27,7 @@ import Network.XMPP.Stanza
 import qualified Control.Exception as CE
 import Control.Concurrent.Chan (Chan, newChan, readChan, writeChan)
 import GHC.IO.Handle (Handle, hPutStr, hFlush, hSetBuffering, hWaitForInput)
-import Network.TLS
+import Network.TLS hiding (Version)
 import Network.TLS.Cipher
 import Data.Enumerator (($$), Iteratee, continue, joinI,
                         run, run_, yield)
@@ -47,7 +49,7 @@ import Data.XML.Types
 import Control.Monad.IO.Class (liftIO, MonadIO)
 import Data.String (IsString(..))
 
-import Text.Parsec (char, count, eof, many, many1, oneOf, parse)
+import Text.Parsec (char, count, digit, eof, many, many1, oneOf, parse)
 import Text.Parsec.ByteString (GenParser)
 
 import qualified Data.ByteString.Char8 as DBC (pack)
@@ -468,12 +470,13 @@ instance Show Version where
     show (Version major minor) = (show major) ++ "." ++ (show minor)
 
 
--- If the major version numbers are the same, compare the minor versions.
--- Otherwise, compare the major version numbers.
+-- If the major version numbers are not equal, compare them. Otherwise, compare
+-- the minor version numbers.
 
 instance Ord Version where
-    compare (Version major aminor) (Version major bminor) = compare aminor bminor
-    compare (Version amajor _) (Version bmajor _) = compare amajor bmajor
+    compare (Version amajor aminor) (Version bmajor bminor)
+        | amajor /= bmajor = compare amajor bmajor
+        | otherwise = compare aminor bminor
 
 
 -- Converts a "<major>.<minor>" numeric version number to a "Version" object.
@@ -492,33 +495,16 @@ versionFromNumbers :: Integer -> Integer -> Version
 versionFromNumbers major minor = Version major minor
 
 
-languageTag :: GenParser Char st LangTag
+version :: GenParser Char st Version
 
-languageTag = do
+version = do
 
-    -- Read until we reach a '-' character, or EOF. This is the `primary tag'.
-    primTag <- tag
-
-    -- Read zero or more subtags.
-    subTags <- subtags
+    -- Read numbers, a dot, more numbers, and end-of-file.
+    major <- many1 digit
+    char '.'
+    minor <- many1 digit
     eof
-
-    return $ LangTag primTag subTags
-    where
-
-        subtags :: GenParser Char st [String]
-        subtags = many $ do
-            char '-'
-            subtag <- tag
-            return subtag
-
-        tag :: GenParser Char st String
-        tag = do
-            a <- many1 $ oneOf tagChars
-            return a
-
-        tagChars :: [Char]
-        tagChars = ['a'..'z'] ++ ['A'..'Z']
+    return $ Version (read major) (read minor)
 
 
 data LangTag = LangTag { primaryTag :: String
