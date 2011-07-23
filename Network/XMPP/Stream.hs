@@ -12,7 +12,8 @@ iqToXML,
 messageToXML,
 parsePresence,
 parseIQ,
-parseMessage
+parseMessage,
+langTag
 ) where
 
 import Network.XMPP.Address hiding (fromString)
@@ -45,6 +46,15 @@ import Data.XML.Types
 
 import Control.Monad.IO.Class (liftIO, MonadIO)
 import Data.String (IsString(..))
+
+import Text.Parsec (char, count, eof, many, many1, oneOf, parse)
+import Text.Parsec.ByteString (GenParser)
+
+import qualified Data.ByteString.Char8 as DBC (pack)
+
+import Data.List (intersperse)
+import Data.Char (toLower)
+
 
 isTLSSecured :: TLSState -> Bool
 isTLSSecured (PostHandshake _) = True
@@ -446,3 +456,63 @@ messageTypeToString Groupchat = "groupchat"
 messageTypeToString Headline = "headline"
 messageTypeToString Normal = "normal"
 messageTypeToString (OtherMessageType s) = s
+
+
+data LangTag = LangTag { primaryTag :: String
+                       , subtags :: [String] }
+
+
+-- Displays the language tag in the form of "en-US".
+
+instance Show LangTag where
+    show (LangTag p []) = p
+    show (LangTag p s) = p ++ "-" ++ (concat $ intersperse "-" s)
+
+
+-- Two language tags are considered equal of they contain the same tags (case-insensitive).
+
+instance Eq LangTag where
+    (LangTag ap as) == (LangTag bp bs)
+        | length as == length bs && map toLower ap == map toLower bp = all (\ (a, b) -> map toLower a == map toLower b) $ zip as bs
+        | otherwise = False
+
+
+-- |
+-- Parses, validates, and possibly constructs a "LangTag" object.
+
+langTag :: String -> Maybe LangTag
+
+langTag s = case parse languageTag "" (DBC.pack s) of
+                Right tag -> Just tag
+                Left _ -> Nothing
+
+
+-- Parses a language tag as defined by RFC 1766 and constructs a LangTag object.
+
+languageTag :: GenParser Char st LangTag
+
+languageTag = do
+
+    -- Read until we reach a '-' character, or EOF. This is the `primary tag'.
+    primTag <- tag
+
+    -- Read zero or more subtags.
+    subTags <- subtags
+    eof
+
+    return $ LangTag primTag subTags
+    where
+
+        subtags :: GenParser Char st [String]
+        subtags = many $ do
+            char '-'
+            subtag <- tag
+            return subtag
+
+        tag :: GenParser Char st String
+        tag = do
+            a <- many1 $ oneOf tagChars
+            return a
+
+        tagChars :: [Char]
+        tagChars = ['a'..'z'] ++ ['A'..'Z']
