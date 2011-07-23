@@ -458,6 +458,69 @@ messageTypeToString Normal = "normal"
 messageTypeToString (OtherMessageType s) = s
 
 
+data Version = Version { majorVersion :: Integer
+                       , minorVersion :: Integer } deriving (Eq)
+
+
+-- Version numbers are displayed as "<major>.<minor>".
+
+instance Show Version where
+    show (Version major minor) = (show major) ++ "." ++ (show minor)
+
+
+-- If the major version numbers are the same, compare the minor versions.
+-- Otherwise, compare the major version numbers.
+
+instance Ord Version where
+    compare (Version major aminor) (Version major bminor) = compare aminor bminor
+    compare (Version amajor _) (Version bmajor _) = compare amajor bmajor
+
+
+-- Converts a "<major>.<minor>" numeric version number to a "Version" object.
+
+versionFromString :: String -> Maybe Version
+
+versionFromString s = case parse version "" (DBC.pack s) of
+                          Right version -> Just version
+                          Left _ -> Nothing
+
+
+-- Constructs a "Version" based on the major and minor version numbers.
+
+versionFromNumbers :: Integer -> Integer -> Version
+
+versionFromNumbers major minor = Version major minor
+
+
+languageTag :: GenParser Char st LangTag
+
+languageTag = do
+
+    -- Read until we reach a '-' character, or EOF. This is the `primary tag'.
+    primTag <- tag
+
+    -- Read zero or more subtags.
+    subTags <- subtags
+    eof
+
+    return $ LangTag primTag subTags
+    where
+
+        subtags :: GenParser Char st [String]
+        subtags = many $ do
+            char '-'
+            subtag <- tag
+            return subtag
+
+        tag :: GenParser Char st String
+        tag = do
+            a <- many1 $ oneOf tagChars
+            return a
+
+        tagChars :: [Char]
+        tagChars = ['a'..'z'] ++ ['A'..'Z']
+
+
 data LangTag = LangTag { primaryTag :: String
                        , subtags :: [String] }
 
