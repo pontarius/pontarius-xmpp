@@ -1,21 +1,23 @@
-Pontarius XMPP aims to be a secure and easy-to-use XMPP library for Haskell. We
-have just released a sixth alpha version with the following features:
+Pontarius XMPP 0.1 aims to implement the client capabilities of RFC 6120 ("XMPP
+Core") and its depending specifications. We have just released 0.1 Alpha 7,
+which implements all RFC 6120 features except for the following:
 
-  * Client-to-server Transport Layer Security and DIGEST-MD5 SASL Authentication
-  * Concurrent, Flexible and Event-based API for XMPP Client Developers
-  * Support for Info/Query, Presence and Message Stanzas
-  * Interoperable XML Parsing (Using enumerator, xml-enumerator and xml-types)
+  * Proper stream management, validation, and parsing
+  * Proper generation of TCP/TLS/stream/stanza errors
+  * Proper closing of the stream
+
+We will hopefully by the next version, 0.1 Alpha 8, have cleaned up all the
+prototyped code (most significantly, the Session module), implemented the above
+mentioned features, as well as improved efficiency of the API. We will soon move
+the project into beta.
 
 Please note that we are not recommending anyone to use Pontarius XMPP at this
 time as it’s still in an experimental stage and will have its API and data types
 modified. However, if you are interested to use Pontarius XMPP anyway, feel free
 to contact the Pontarius project and we will try to help you get started. Please
-see http://www.pontarius.org/ for the user manual.
+see http://www.pontarius.org/ for documentation and more information.
 
-We are currently working on general improvements and having the library support
-all of RFC 6120: XMPP Core.
-
-The next version, 0.1 Alpha 7, is scheduled to be released on the 27th of July.
+The next version is scheduled to be released on the 17th of August.
 
 Look at the Pontarius web site <http://www.pontarius.org/> and the Pontarius
 XMPP Hackage page <http://hackage.haskell.org/package/pontarius-xmpp/> for more
