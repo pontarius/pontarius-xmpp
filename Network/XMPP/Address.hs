@@ -3,8 +3,6 @@
 
 {-# OPTIONS_HADDOCK hide #-}
 
--- TODO: Move away from stringprep for all three profiles.
-
 -- TODO: When no longer using stringprep, do appropriate testing. (Including
 -- testing addresses like a@b/c@d/e, a/b@c, a@/b, a/@b...)
 
@@ -14,8 +12,7 @@
 -- This module deals with XMPP addresses (also known as JIDs and JabberIDs). For
 -- more information on XMPP addresses, see RFC 6122: XMPP: Address Format.
 --
--- Provided hostnames may contain international characters; Pontarius XMPP will
--- try to convert such hostnames to internationalized hostnames.
+-- This module does not internationalize hostnames.
 
 
 module Network.XMPP.Address (fromString, fromStrings, isBare, isFull) where
@@ -29,8 +26,6 @@ import Text.Parsec.ByteString (GenParser)
 import Text.StringPrep (StringPrepProfile (..), a1, b1, b2, c11, c12, c21, c22,
                         c3, c4, c5, c6, c7, c8, c9, runStringPrep)
 import Text.NamePrep (namePrepProfile)
-
-import Data.Text.IDNA2008 (toASCII)
 
 import Network.URI (isIPv4address, isIPv6address)
 
@@ -92,7 +87,8 @@ fromStrings l s r
         -- function was successful, or Nothing otherwise.
         domainpart' :: Maybe String
         domainpart' | isIPv4address s || isIPv6address s = Just s
-                    | otherwise = toASCII s
+                    | validHostname s = Just s
+                    | otherwise = Nothing
 
         -- Validates that non-domainpart strings have an appropriate length.
         validateNonDomainpart :: Maybe String -> Bool
@@ -101,6 +97,10 @@ fromStrings l s r
             where
                 validPartLength :: String -> Bool
                 validPartLength p = length p > 0 && length p < 1024
+
+        -- Validates a host name
+        validHostname :: String -> Bool
+        validHostname _ = True -- TODO
 
 
 -- | Returns True if the address is `bare', and False otherwise.
