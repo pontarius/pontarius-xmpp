@@ -653,7 +653,7 @@ processEvent e = get >>= \ state ->
                 put $ state { stateTimeoutStanzaIDs = stanzaID':(stateTimeoutStanzaIDs state) }
         Nothing ->
             return ()
-    let xml = messageToXML $ Right message'
+    let xml = messageToXML (Right message') (fromJust $ langTag "en")
     lift $ liftIO $ send (elementToString $ Just xml) handleOrTLSCtx
     return Nothing
 
@@ -674,7 +674,7 @@ processEvent e = get >>= \ state ->
         Nothing ->
             return ()
     -- TODO: Bind ID to callback
-    let xml = iqToXML iq'
+    let xml = iqToXML iq' (fromJust $ langTag "en")
     lift $ liftIO $ send (elementToString $ Just xml) handleOrTLSCtx
     return Nothing
 

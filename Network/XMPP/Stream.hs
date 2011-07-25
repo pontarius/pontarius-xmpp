@@ -172,6 +172,50 @@ counter c _                       = c
 -- Sending stanzas is done through functions, where LangTag is Maybe.
 
 
+-- Generates an XML element for a message stanza. The language tag provided is
+-- the default language of the stream.
+
+messageToXML :: InternalMessage -> LangTag -> Element
+
+-- Non-error message.
+
+messageToXML (Right m) streamLang = Element "message" attribs nodes
+
+    where
+
+        -- Has the stanza attributes and the message type.
+        attribs :: [(Name, [Content])]
+        attribs = stanzaAttribs (messageID m) (messageFrom m) (messageTo m) stanzaLang ++
+                  [("type", [ContentText $ DT.pack $ show $ messageType m])]
+
+        -- Has an arbitrary number of elements as children.
+        nodes :: [Node]
+        nodes = map (\ x -> NodeElement x) (messagePayload m)
+
+        stanzaLang :: Maybe LangTag
+        stanzaLang = stanzaLang' streamLang $ messageLangTag m
+
+-- Presence error.
+
+messageToXML (Left m) streamLang = Element "message" attribs nodes
+
+    where
+
+        -- Has the stanza attributes and the "error" presence type.
+        attribs :: [(Name, [Content])]
+        attribs = stanzaAttribs (messageErrorID m) (messageErrorFrom m) (messageErrorTo m)
+                  stanzaLang ++ [("type", [ContentText $ DT.pack "error"])]
+
+        -- Has the error element stanza as its child.
+        -- TODO: Include sender XML here?
+        nodes :: [Node]
+        nodes = [NodeElement $ errorElem streamLang stanzaLang $ messageErrorStanzaError m]
+
+        -- The stanza language tag, if it's different from the stream language tag.
+        stanzaLang :: Maybe LangTag
+        stanzaLang = stanzaLang' streamLang $ messageErrorLangTag m
+
+
 -- Generates an XML element for a presence stanza. The language tag provided is
 -- the default language of the stream.
 
@@ -180,12 +224,13 @@ presenceToXML :: InternalPresence -> LangTag -> Element
 -- Non-error presence.
 
 presenceToXML (Right p) streamLang = Element "presence" attribs nodes
+
     where
 
         -- Has the stanza attributes and the presence type.
         attribs :: [(Name, [Content])]
-        attribs = stanzaNodes (presenceID p) (presenceFrom p) (presenceTo p) stanzaLang ++
-                  [("type", [ContentText $ DT.pack $ show $ presenceType p])]
+        attribs = stanzaAttribs (presenceID p) (presenceFrom p) (presenceTo p) stanzaLang ++
+                  typeAttrib
 
         -- Has an arbitrary number of elements as children.
         nodes :: [Node]
@@ -194,14 +239,18 @@ presenceToXML (Right p) streamLang = Element "presence" attribs nodes
         stanzaLang :: Maybe LangTag
         stanzaLang = stanzaLang' streamLang $ presenceLangTag p
 
+        typeAttrib :: [(Name, [Content])]
+        typeAttrib = case presenceType p of Nothing -> []; Just presenceType' -> [("type", [ContentText $ DT.pack $ show presenceType'])]
+
 -- Presence error.
 
 presenceToXML (Left p) streamLang = Element "presence" attribs nodes
+
     where
 
         -- Has the stanza attributes and the "error" presence type.
         attribs :: [(Name, [Content])]
-        attribs = stanzaNodes (presenceErrorID p) (presenceErrorFrom p) (presenceErrorTo p)
+        attribs = stanzaAttribs (presenceErrorID p) (presenceErrorFrom p) (presenceErrorTo p)
                   stanzaLang ++ [("type", [ContentText $ DT.pack "error"])]
 
         -- Has the error element stanza as its child.
@@ -212,6 +261,80 @@ presenceToXML (Left p) streamLang = Element "presence" attribs nodes
         -- The stanza language tag, if it's different from the stream language tag.
         stanzaLang :: Maybe LangTag
         stanzaLang = stanzaLang' streamLang $ presenceErrorLangTag p
+
+
+-- Generates an XML element for a presence stanza. The language tag provided is
+-- the default language of the stream.
+
+iqToXML :: IQ -> LangTag -> Element
+
+-- Request IQ.
+
+iqToXML (Left i) streamLang = Element "iq" attribs nodes
+
+    where
+
+        -- Has the stanza attributes and the IQ request type (`get' or `set').
+        attribs :: [(Name, [Content])]
+        attribs = stanzaAttribs (iqRequestID i) (iqRequestFrom i) (iqRequestTo i)
+                  stanzaLang ++ typeAttrib
+
+        -- Has exactly one payload child element.
+        nodes :: [Node]
+        nodes = [NodeElement $ iqRequestPayload i]
+
+        -- The stanza language tag, if it's different from the stream language tag.
+        stanzaLang :: Maybe LangTag
+        stanzaLang = stanzaLang' streamLang $ iqRequestLangTag i
+
+        -- The required type attribute.
+        typeAttrib :: [(Name, [Content])]
+        typeAttrib = [("type", [ContentText $ DT.pack $ show $ iqRequestType i])]
+
+-- Response result IQ.
+
+iqToXML (Right (Right i)) streamLang = Element "iq" attribs nodes
+
+    where
+
+        -- Has the stanza attributes and the IQ `result' type.
+        attribs :: [(Name, [Content])]
+        attribs = stanzaAttribs (iqResultID i) (iqResultFrom i) (iqResultTo i)
+                  stanzaLang ++ typeAttrib
+
+        -- Has one or zero payload child elements.
+        nodes :: [Node]
+        nodes = case iqResultPayload i of Nothing -> []; Just payloadElem -> [NodeElement payloadElem]
+
+        stanzaLang :: Maybe LangTag
+        stanzaLang = stanzaLang' streamLang $ iqResultLangTag i
+
+        -- The required type attribute.
+        typeAttrib :: [(Name, [Content])]
+        typeAttrib = [("type", [ContentText $ DT.pack "result"])]
+
+-- Response error IQ.
+
+iqToXML (Right (Left i)) streamLang = Element "iq" attribs nodes
+
+    where
+
+        -- Has the stanza attributes and the presence type.
+        attribs :: [(Name, [Content])]
+        attribs = stanzaAttribs (iqErrorID i) (iqErrorFrom i) (iqErrorTo i) stanzaLang ++
+                  typeAttrib
+
+        -- Has the error element stanza as its child.
+        -- TODO: Include sender XML here?
+        nodes :: [Node]
+        nodes = [NodeElement $ errorElem streamLang stanzaLang $ iqErrorStanzaError i]
+
+        stanzaLang :: Maybe LangTag
+        stanzaLang = stanzaLang' streamLang $ iqErrorLangTag i
+
+        typeAttrib :: [(Name, [Content])]
+        typeAttrib = [("type", [ContentText $ DT.pack "error"])]
+
 
 -- Creates the error element that is common for all stanzas.
 
@@ -290,20 +413,11 @@ childLang streamLang optLangTags
         langTags = reverse $ [streamLang] ++ (map fromJust $ filter (\ l -> isJust l) optLangTags)
 
 
+-- Creates the attributes common for all stanzas.
 
-iqToXML :: IQ -> Element
+stanzaAttribs :: Maybe StanzaID -> Maybe From -> Maybe To -> Maybe LangTag -> [(Name, [Content])]
 
-iqToXML = iqToXML
-
-
-messageToXML :: InternalMessage -> Element
-
-messageToXML = messageToXML
-
-
-stanzaNodes :: Maybe StanzaID -> Maybe From -> Maybe To -> Maybe LangTag -> [(Name, [Content])]
-
-stanzaNodes i f t l = if isJust $ i then [("id", [ContentText $ DT.pack $ show $ fromJust i])] else [] ++
+stanzaAttribs i f t l = if isJust $ i then [("id", [ContentText $ DT.pack $ show $ fromJust i])] else [] ++
                       if isJust $ f then [("from", [ContentText $ DT.pack $ show $ fromJust f])] else [] ++
                       if isJust $ t then [("to", [ContentText $ DT.pack $ show $ fromJust t])] else [] ++
                       if isJust $ l then [("xml:lang", [ContentText $ DT.pack $ show l])] else []

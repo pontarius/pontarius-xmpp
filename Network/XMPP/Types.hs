@@ -55,7 +55,8 @@ IQResult (..),
 IQRequestType (..),
 PresenceError (..),
 InternalPresence (..),
-InternalMessage (..)
+InternalMessage (..),
+MessageError (..),
 ) where
 
 import GHC.IO.Handle (Handle, hPutStr, hFlush, hSetBuffering, hWaitForInput)
@@ -155,7 +156,7 @@ data IQError = IQError { iqErrorID :: Maybe StanzaID
                        , iqErrorTo :: Maybe To
                        , iqErrorLangTag :: LangTag
                        , iqErrorPayload :: Maybe Element
-                       , iqErrorStanzaError :: Maybe StanzaError }
+                       , iqErrorStanzaError :: StanzaError }
                deriving (Show)
 
 
@@ -165,16 +166,16 @@ data IQError = IQError { iqErrorID :: Maybe StanzaID
 data Message = Message { messageID :: Maybe StanzaID
                        , messageFrom :: Maybe From
                        , messageTo :: Maybe To
-                       , messageXMLLang :: LangTag
+                       , messageLangTag :: LangTag
                        , messageType :: MessageType
                        , messagePayload :: [Element] }
                deriving (Show)
 
 
-data MessageError = MessageError { messageErrorID :: StanzaID
+data MessageError = MessageError { messageErrorID :: Maybe StanzaID
                                  , messageErrorFrom :: Maybe From
                                  , messageErrorTo :: Maybe To
-                                 , messageErrorXMLLang  :: LangTag
+                                 , messageErrorLangTag  :: LangTag
                                  , messageErrorPayload :: Maybe [Element]
                                  , messageErrorStanzaError :: StanzaError }
                     deriving (Show)
