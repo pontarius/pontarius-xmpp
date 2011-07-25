@@ -61,7 +61,7 @@ module Network.XMPP ( -- Network.XMPP.JID
                     , StanzaID (SID)
                     , From
                     , To
-                    , XMLLang
+                    , LangTag
                     , MessageType (..)
                     , Message (..)
                     , PresenceType (..)
@@ -70,12 +70,7 @@ module Network.XMPP ( -- Network.XMPP.JID
                     , iqPayloadNamespace
                     , iqPayload
 
-                    , injectAction
-
-                    -- Network.XMPP.Utilities
-                    , elementToString
-                    , elementsToString
-                    , getID ) where
+                    , injectAction ) where
 
 import Network.XMPP.Address
 import Network.XMPP.SASL

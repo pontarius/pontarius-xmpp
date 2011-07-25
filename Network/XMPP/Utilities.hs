@@ -3,13 +3,19 @@
 
 {-# OPTIONS_HADDOCK hide #-}
 
+{-# LANGUAGE OverloadedStrings #-}
+
+-- TODO: Use -fno-cse? http://cvs.haskell.org/Hugs/pages/libraries/base/System-IO-Unsafe.html
+
+
 -- TODO: Document this module
 -- TODO: Make is possible to customize characters
 -- TODO: Make it possible to customize length
 
 module Network.XMPP.Utilities ( elementToString
-                              , elementsToString ) where
+                              , elementsToString, testElement ) where
 
+import Prelude hiding (concat)
 import Data.Word
 import Data.XML.Types
 import System.Crypto.Random
@@ -17,7 +23,20 @@ import System.Random
 import qualified Data.ByteString as DB
 import qualified Data.Map as DM
 import qualified Data.Text as DT
+import qualified Data.ByteString.Char8 as DBC
 
+import Data.Enumerator (($$), Stream (Chunks), Enumerator, Iteratee, Step (Continue), continue, joinI,
+                        run, run_, yield, returnI)
+import Data.Enumerator.List (consume)
+import Text.XML.Enumerator.Document (toEvents)
+import Text.XML.Enumerator.Render (renderBytes)
+import Data.Maybe (fromJust)
+import Data.ByteString (concat, unpack)
+import Data.List (tail)
+import System.IO.Unsafe (unsafePerformIO)
+
+
+{-# NOINLINE elementToString #-}
 
 
 -- =============================================================================
@@ -25,40 +44,34 @@ import qualified Data.Text as DT
 -- =============================================================================
 
 
+-- TODO: Remove?
+
 elementsToString :: [Element] -> String
+
 elementsToString [] = ""
-elementsToString (e:es) = (elementToString $ Just e) ++ elementsToString es
+elementsToString (e:es) = (elementToString (Just e)) ++ (elementsToString es)
+
+
+-- Converts the Element object to a document, converts it into Events, strips
+-- the DocumentBegin event, generates a ByteString, and converts it into a
+-- String.
 
 elementToString :: Maybe Element -> String
+
 elementToString Nothing = ""
-elementToString (Just e) = "<" ++ nameToString (elementName e) ++ xmlns ++
-                           attributes (elementAttributes e) ++
-                           ">" ++ (nodesToString $ elementNodes e) ++ "</" ++
-                           nameToString (elementName e) ++ ">"
-  where
-    xmlns :: String
-    xmlns = case nameNamespace $ elementName e of
-      Nothing -> ""
-      Just t -> " xmlns='" ++ (DT.unpack t) ++ "'"
+elementToString (Just elem) = DBC.unpack $ concat $ unsafePerformIO $ do
+    r <- run_ $ events $$ (joinI $ renderBytes $$ consume)
+    return r
+    where
 
-    nameToString :: Name -> String
-    nameToString Name { nameLocalName = n, namePrefix = Nothing } = DT.unpack n
-    nameToString Name { nameLocalName = n, namePrefix = Just p } =
-      (DT.unpack p) ++ ":" ++ (DT.unpack n)
+        -- Enumerator that "produces" the events to convert to the document
+        events :: Enumerator Event IO [DB.ByteString]
+        events (Continue more) = more $ Chunks (tail $ toEvents $ dummyDoc elem)
+        events step = returnI step
 
-    contentToString :: Content -> String
-    contentToString (ContentText t) = DT.unpack t
-    contentToString (ContentEntity t) = DT.unpack t
+        dummyDoc :: Element -> Document
+        dummyDoc e = Document (Prologue [] Nothing []) elem []
 
-    attributes :: [(Name, [Content])] -> String
-    attributes [] = ""
-    attributes ((n, c):t) = (" " ++ (nameToString n) ++ "='" ++
-                             concat (map contentToString c) ++ "'") ++
-                            attributes t
 
-    nodesToString :: [Node] -> String
-    nodesToString [] = ""
-    nodesToString ((NodeElement e):ns) = (elementToString $ Just e) ++
-                                         (nodesToString ns)
-    nodesToString ((NodeContent c):ns) = (contentToString c) ++
-                                         (nodesToString ns)
+testElement :: Element
+testElement = Element ("{http://example.com/ns/my-namespace}my-name" :: Name) [] []

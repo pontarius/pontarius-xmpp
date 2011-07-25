@@ -3,6 +3,8 @@
 
 {-# OPTIONS_HADDOCK hide #-}
 
+{-# LANGUAGE OverloadedStrings #-}
+
 module Network.XMPP.Stream (
 isTLSSecured,
 xmlEnumerator,
@@ -53,9 +55,6 @@ import Text.Parsec (char, count, digit, eof, many, many1, oneOf, parse)
 import Text.Parsec.ByteString (GenParser)
 
 import qualified Data.ByteString.Char8 as DBC (pack)
-
-import Data.List (intersperse)
-import Data.Char (toLower)
 
 
 isTLSSecured :: TLSState -> Bool
@@ -151,7 +150,7 @@ processEventList e
   | nameLocalName name == DT.pack "iq" = XEIQ $ parseIQ $ eventsToElement e
   | nameLocalName name == DT.pack "presence" = XEPresence $ parsePresence $ eventsToElement e
   | nameLocalName name == DT.pack "message" = XEMessage $ parseMessage $ eventsToElement e
-  | otherwise = XEOther $ elementToString $ Just (eventsToElement e)
+  | otherwise = XEOther "TODO: Element instead of String" -- Just (eventsToElement e)
       where
         (EventBeginElement name attribs) = head e
         es = tail e
@@ -169,314 +168,105 @@ counter c (Just (EventBeginElement _ _)) = (c + 1)
 counter c (Just (EventEndElement _) )    = (c - 1)
 counter c _                       = c
 
-presenceToXML :: Presence -> String
-presenceToXML p = "<presence" ++ from ++ id' ++ to ++ type' ++ ">" ++
-                  (elementsToString $ presencePayload p) ++ "</presence>"
-  where
-    from :: String
-    from = case presenceFrom p of
-      -- TODO: Lower-case
-      Just s -> " from='" ++ (show s) ++ "'"
-      Nothing -> ""
 
-    id' :: String
-    id' = case presenceID p of
-      Just (SID s) -> " id='" ++ s ++ "'"
-      Nothing -> ""
+presenceToXML :: InternalPresence -> Element
 
-    to :: String
-    to = case presenceTo p of
-      -- TODO: Lower-case
-      Just s -> " to='" ++ (show s) ++ "'"
-      Nothing -> ""
+presenceToXML (Right p) = Element "presence" attribs nodes
+    where
 
-    type' :: String
-    type' = case presenceType p of
-      Available -> ""
-      t -> " type='" ++ (presenceTypeToString t) ++ "'"
+        attribs :: [(Name, [Content])]
+        attribs = stanzaNodes (presenceID p) (presenceFrom p) (presenceTo p) (presenceLangTag p) ++
+                  [("type", [ContentText $ DT.pack $ show $ presenceType p])]
 
-iqToXML :: IQ -> String
-iqToXML (IQReq (IQGet { iqRequestID = i, iqRequestPayload = p, iqRequestFrom = f, iqRequestTo = t })) =
-  let type' = " type='get'" in "<iq" ++ from ++ id' ++ to ++ type' ++ ">" ++ (elementToString (Just p)) ++ "</iq>"
-  where
-    from :: String
-    from = case f of
-      -- TODO: Lower-case
-      Just s -> " from='" ++ (show s) ++ "'"
-      Nothing -> ""
+        nodes :: [Node]
+        nodes = map (\ x -> NodeElement x) (presencePayload p)
 
-    id' :: String
-    id' = case i of
-      Just (SID s) -> " id='" ++ s ++ "'"
-      Nothing -> ""
+presenceToXML (Left p) = Element "presence" attribs nodes
+    where
 
-    to :: String
-    to = case t of
-      -- TODO: Lower-case
-      Just s -> " to='" ++ (show s) ++ "'"
-      Nothing -> ""
+        attribs :: [(Name, [Content])]
+        attribs = stanzaNodes (presenceErrorID p) (presenceErrorFrom p) (presenceErrorTo p) (presenceErrorLangTag p) ++
+                  [("type", [ContentText $ DT.pack "error"])]
 
-iqToXML (IQReq (IQSet { iqRequestID = i, iqRequestPayload = p, iqRequestFrom = f, iqRequestTo = t })) =
-  let type' = " type='set'" in "<iq" ++ from ++ id' ++ to ++ type' ++ ">" ++ (elementToString (Just p)) ++ "</iq>"
-  where
-    from :: String
-    from = case f of
-      -- TODO: Lower-case
-      Just s -> " from='" ++ (show s) ++ "'"
-      Nothing -> ""
+        nodes :: [Node]
+        nodes = case presenceErrorPayload p of
+                    Just elem -> map (\ x -> NodeElement x) elem
+                    Nothing -> []
 
-    id' :: String
-    id' = case i of
-      Just (SID s) -> " id='" ++ s ++ "'"
-      Nothing -> ""
 
-    to :: String
-    to = case t of
-      -- TODO: Lower-case
-      Just s -> " to='" ++ (show s) ++ "'"
-      Nothing -> ""
+iqToXML :: IQ -> Element
 
-iqToXML (IQRes (IQResult { iqResponseID = i, iqResponsePayload = p, iqResponseFrom = f, iqResponseTo = t })) =
-  let type' = " type='result'" in "<iq" ++ from ++ id' ++ to ++ type' ++ ">" ++ (elementToString p) ++ "</iq>"
-  where
-    from :: String
-    from = case f of
-      -- TODO: Lower-case
-      Just s -> " from='" ++ (show s) ++ "'"
-      Nothing -> ""
+iqToXML = iqToXML
 
-    id' :: String
-    id' = case i of
-      Just (SID s) -> " id='" ++ s ++ "'"
-      Nothing -> ""
 
-    to :: String
-    to = case t of
-      -- TODO: Lower-case
-      Just s -> " to='" ++ (show s) ++ "'"
-      Nothing -> ""
+messageToXML :: InternalMessage -> Element
 
--- TODO: Turn message errors into XML.
+messageToXML = messageToXML
 
-messageToXML :: Message -> String
-messageToXML Message { messageID = i, messageFrom = f, messageTo = t, messagePayload = p, messageType = ty } = "<message" ++ from ++ id' ++ to ++ type' ++ ">" ++
-                  (elementsToString $ p) ++ "</message>"
-  where
-    from :: String
-    from = case f of
-      -- TODO: Lower-case
-      Just s -> " from='" ++ (show s) ++ "'"
-      Nothing -> ""
 
-    id' :: String
-    id' = case i of
-      Just (SID s) -> " id='" ++ s ++ "'"
-      Nothing -> ""
+stanzaNodes :: Maybe StanzaID -> Maybe From -> Maybe To -> Maybe LangTag -> [(Name, [Content])]
 
-    to :: String
-    to = case t of
-      -- TODO: Lower-case
-      Just s -> " to='" ++ (show s) ++ "'"
-      Nothing -> ""
-
-    type' :: String
-    type' = case ty of
-      Normal -> ""
-      t -> " type='" ++ (messageTypeToString t) ++ "'"
+stanzaNodes i f t l = if isJust $ i then [("id", [ContentText $ DT.pack $ show $ fromJust i])] else [] ++
+                      if isJust $ f then [("from", [ContentText $ DT.pack $ show $ fromJust f])] else [] ++
+                      if isJust $ t then [("to", [ContentText $ DT.pack $ show $ fromJust t])] else [] ++
+                      if isJust $ l then [("xml:lang", [ContentText $ DT.pack $ show l])] else []
 
 
 parseIQ :: Element -> IQ
-parseIQ e | typeAttr == "get" = let (Just payloadMust) = payload
-                                in IQReq (IQGet idAttr fromAttr toAttr Nothing
-                                   payloadMust)
-          | typeAttr == "set" = let (Just payloadMust) = payload
-                                in IQReq (IQSet idAttr fromAttr toAttr Nothing
-                                   payloadMust)
-          | typeAttr == "result" = IQRes (IQResult idAttr fromAttr toAttr
-                                   Nothing payload)
 
-  where
-    -- TODO: Many duplicate functions from parsePresence.
-
-    payload :: Maybe Element
-    payload = case null (elementChildren e) of
-      True -> Nothing
-      False -> Just $ head $ elementChildren e
-
-    typeAttr :: String
-    typeAttr = case attributeText typeName e of
-      -- Nothing -> Nothing
-      Just a -> DT.unpack a
-
-    fromAttr :: Maybe Address
-    fromAttr = case attributeText fromName e of
-      Nothing -> Nothing
-      Just a -> X.fromString $ DT.unpack a
-
-    toAttr :: Maybe Address
-    toAttr = case attributeText toName e of
-      Nothing -> Nothing
-      Just a -> X.fromString $ DT.unpack a
-
-    idAttr :: Maybe StanzaID
-    idAttr = case attributeText idName e of
-      Nothing -> Nothing
-      Just a -> Just (SID (DT.unpack a))
-
-    typeName :: Name
-    typeName = fromString "type"
-
-    fromName :: Name
-    fromName = fromString "from"
-
-    toName :: Name
-    toName = fromString "to"
-
-    idName :: Name
-    idName = fromString "id"
-
--- TODO: Parse xml:lang
-
-parsePresence :: Element -> Presence
-parsePresence e = Presence idAttr fromAttr toAttr Nothing typeAttr (elementChildren e)
-  where
-    -- TODO: Many duplicate functions from parseIQ.
-
-    typeAttr :: PresenceType
-    typeAttr = case attributeText typeName e of
-      Just t -> stringToPresenceType $ DT.unpack t
-      Nothing -> Available
-
-    fromAttr :: Maybe Address
-    fromAttr = case attributeText fromName e of
-      Nothing -> Nothing
-      Just a -> X.fromString $ DT.unpack a
-
-    toAttr :: Maybe Address
-    toAttr = case attributeText toName e of
-      Nothing -> Nothing
-      Just a -> X.fromString $ DT.unpack a
-
-    idAttr :: Maybe StanzaID
-    idAttr = case attributeText idName e of
-      Nothing -> Nothing
-      Just a -> Just (SID (DT.unpack a))
-
-    fromName :: Name
-    fromName = fromString "from"
-
-    typeName :: Name
-    typeName = fromString "type"
-
-    toName :: Name
-    toName = fromString "to"
-
-    idName :: Name
-    idName = fromString "id"
-
-parseMessage :: Element -> Message
-parseMessage e = Message idAttr fromAttr toAttr Nothing typeAttr (elementChildren e)
-  where
-    -- TODO: Many duplicate functions from parseIQ.
-
-    typeAttr :: MessageType
-    typeAttr = case attributeText typeName e of
-      Just t -> stringToMessageType $ DT.unpack t
-      Nothing -> Normal
-
-    fromAttr :: Maybe Address
-    fromAttr = case attributeText fromName e of
-      Nothing -> Nothing
-      Just a -> X.fromString $ DT.unpack a
-
-    toAttr :: Maybe Address
-    toAttr = case attributeText toName e of
-      Nothing -> Nothing
-      Just a -> X.fromString $ DT.unpack a
-
-    idAttr :: Maybe StanzaID
-    idAttr = case attributeText idName e of
-      Nothing -> Nothing
-      Just a -> Just (SID (DT.unpack a))
-
-    fromName :: Name
-    fromName = fromString "from"
-
-    typeName :: Name
-    typeName = fromString "type"
-
-    toName :: Name
-    toName = fromString "to"
-
-    idName :: Name
-    idName = fromString "id"
-
--- stringToPresenceType "available" = Available
--- stringToPresenceType "away" = Away
--- stringToPresenceType "chat" = Chat
--- stringToPresenceType "dnd" = DoNotDisturb
--- stringToPresenceType "xa" = ExtendedAway
-
-stringToPresenceType "available" = Available -- TODO: Some client sent this
-
-stringToPresenceType "probe" = Probe
--- stringToPresenceType "error" = PresenceError -- TODO: Special case
-
-stringToPresenceType "unavailable" = Unavailable
-stringToPresenceType "subscribe" = Subscribe
-stringToPresenceType "subscribed" = Subscribed
-stringToPresenceType "unsubscribe" = Unsubscribe
-stringToPresenceType "unsubscribed" = Unsubscribed
-
--- presenceTypeToString Available = "available"
-
--- presenceTypeToString Away = "away"
--- presenceTypeToString Chat = "chat"
--- presenceTypeToString DoNotDisturb = "dnd"
--- presenceTypeToString ExtendedAway = "xa"
-
-presenceTypeToString Unavailable = "unavailable"
-
-presenceTypeToString Probe = "probe"
--- presenceTypeToString PresenceError = "error" -- TODO: Special case
-
-presenceTypeToString Subscribe = "subscribe"
-presenceTypeToString Subscribed = "subscribed"
-presenceTypeToString Unsubscribe = "unsubscribe"
-presenceTypeToString Unsubscribed = "unsubscribed"
-
-stringToMessageType "chat" = Chat
-stringToMessageType "error" = Error
-stringToMessageType "groupchat" = Groupchat
-stringToMessageType "headline" = Headline
-stringToMessageType "normal" = Normal
-stringToMessageType s = OtherMessageType s
-
-messageTypeToString Chat = "chat"
-messageTypeToString Error = "error"
-messageTypeToString Groupchat = "groupchat"
-messageTypeToString Headline = "headline"
-messageTypeToString Normal = "normal"
-messageTypeToString (OtherMessageType s) = s
+parseIQ = parseIQ
 
 
-data Version = Version { majorVersion :: Integer
-                       , minorVersion :: Integer } deriving (Eq)
+parsePresence :: Element -> InternalPresence
+
+parsePresence = parsePresence
 
 
--- Version numbers are displayed as "<major>.<minor>".
+parseMessage :: Element -> InternalMessage
 
-instance Show Version where
-    show (Version major minor) = (show major) ++ "." ++ (show minor)
+parseMessage = parseMessage
 
 
--- If the major version numbers are not equal, compare them. Otherwise, compare
--- the minor version numbers.
+stringToPresenceType :: String -> Maybe (Maybe PresenceType)
 
-instance Ord Version where
-    compare (Version amajor aminor) (Version bmajor bminor)
-        | amajor /= bmajor = compare amajor bmajor
-        | otherwise = compare aminor bminor
+stringToPresenceType "probe" = Just $ Just Probe
+stringToPresenceType "unavailable" = Just $ Just Unavailable
+stringToPresenceType "subscribe" = Just $ Just Subscribe
+stringToPresenceType "subscribed" = Just $ Just Subscribed
+stringToPresenceType "unsubscribe" = Just $ Just Unsubscribe
+stringToPresenceType "unsubscribed" = Just $ Just Unsubscribed
+stringToPresenceType "error" = Just Nothing
+stringToPresenceType _ = Nothing
+
+
+presenceTypeToString :: Maybe PresenceType -> String
+
+presenceTypeToString (Just Unavailable) = "unavailable"
+presenceTypeToString (Just Probe) = "probe"
+presenceTypeToString Nothing = "error"
+presenceTypeToString (Just Subscribe) = "subscribe"
+presenceTypeToString (Just Subscribed) = "subscribed"
+presenceTypeToString (Just Unsubscribe) = "unsubscribe"
+presenceTypeToString (Just Unsubscribed) = "unsubscribed"
+
+
+stringToMessageType :: String -> Maybe (Maybe MessageType)
+
+stringToMessageType "chat" = Just $ Just Chat
+stringToMessageType "error" = Just $ Nothing
+stringToMessageType "groupchat" = Just $ Just Groupchat
+stringToMessageType "headline" = Just $ Just Headline
+stringToMessageType "normal" = Just $ Just Normal
+stringToMessageType _ = Nothing
+
+
+messageTypeToString :: Maybe MessageType -> String
+
+messageTypeToString (Just Chat) = "chat"
+messageTypeToString Nothing = "error"
+messageTypeToString (Just Groupchat) = "groupchat"
+messageTypeToString (Just Headline) = "headline"
+messageTypeToString (Just Normal) = "normal"
 
 
 -- Converts a "<major>.<minor>" numeric version number to a "Version" object.
@@ -505,25 +295,6 @@ version = do
     minor <- many1 digit
     eof
     return $ Version (read major) (read minor)
-
-
-data LangTag = LangTag { primaryTag :: String
-                       , subtags :: [String] }
-
-
--- Displays the language tag in the form of "en-US".
-
-instance Show LangTag where
-    show (LangTag p []) = p
-    show (LangTag p s) = p ++ "-" ++ (concat $ intersperse "-" s)
-
-
--- Two language tags are considered equal of they contain the same tags (case-insensitive).
-
-instance Eq LangTag where
-    (LangTag ap as) == (LangTag bp bs)
-        | length as == length bs && map toLower ap == map toLower bp = all (\ (a, b) -> map toLower a == map toLower b) $ zip as bs
-        | otherwise = False
 
 
 -- |

@@ -586,7 +586,9 @@ processEvent e = get >>= \ state ->
             put $ state { stateClientState = clientState', stateTimeoutStanzaIDs = newTimeouts }
             return Nothing
 
-  IEE (EnumeratorXML (XEPresence presenceEvent)) -> do
+  -- TODO: Known bug - does not work with PresenceError
+
+  IEE (EnumeratorXML (XEPresence (Right presenceEvent))) -> do
     let stanzaID' = presenceID $ presenceEvent
     let newTimeouts = case stanzaID' of
                         Just stanzaID'' ->
@@ -603,7 +605,8 @@ processEvent e = get >>= \ state ->
     put $ state { stateClientState = clientState', stateTimeoutStanzaIDs = newTimeouts }
     return Nothing
 
-  IEE (EnumeratorXML (XEMessage messageEvent)) -> do
+  -- TODO: Does not work with message errors
+  IEE (EnumeratorXML (XEMessage (Right messageEvent))) -> do
     let stanzaID' = messageID $ messageEvent
     let newTimeouts = case stanzaID' of
                         Just stanzaID'' ->
@@ -633,8 +636,8 @@ processEvent e = get >>= \ state ->
                 put $ state { stateTimeoutStanzaIDs = stanzaID':(stateTimeoutStanzaIDs state) }
         Nothing ->
             return ()
-    let xml = presenceToXML presence'
-    lift $ liftIO $ send xml handleOrTLSCtx
+    let xml = presenceToXML $ Right presence'
+    lift $ liftIO $ send (elementToString $ Just xml) handleOrTLSCtx
     return Nothing
 
   IEC (CEMessage message stanzaCallback timeoutCallback streamErrorCallback) -> do
@@ -650,25 +653,19 @@ processEvent e = get >>= \ state ->
                 put $ state { stateTimeoutStanzaIDs = stanzaID':(stateTimeoutStanzaIDs state) }
         Nothing ->
             return ()
-    let xml = messageToXML message'
-    lift $ liftIO $ send xml handleOrTLSCtx
+    let xml = messageToXML $ Right message'
+    lift $ liftIO $ send (elementToString $ Just xml) handleOrTLSCtx
     return Nothing
 
+  -- TODO: Known bugs until Session rewritten - new ID everytime, callback not called
+
   IEC (CEIQ iq stanzaCallback timeoutCallback stanzaErrorCallback) -> do
-    iq' <- case iqID iq of
-      Nothing -> do
+    iq' <- do -- case iqID iq of
+      -- Nothing -> do
         id <- liftIO $ nextID $ stateIDGenerator state
-        return $ case iq of
-          IQReq r -> do
-            IQReq (r { iqRequestID = Just (SID id) })
-          IQRes r -> do
-            IQRes (r { iqResponseID = Just (SID id) })
-      _ -> return iq
-    case stanzaCallback of
-      Just callback' -> case iq of
-        IQReq {} -> put $ state { stateIQCallbacks = (fromJust $ iqID iq, callback'):(stateIQCallbacks state) }
-        _ -> return ()
-      Nothing -> return ()
+        return iq
+    let callback' = fromJust stanzaCallback
+    put $ state { stateIQCallbacks = (fromJust $ iqID iq, callback'):(stateIQCallbacks state) }
     case timeoutCallback of
         Just (t, timeoutCallback') ->
             let stanzaID' = (fromJust $ iqID iq') in do
@@ -678,7 +675,7 @@ processEvent e = get >>= \ state ->
             return ()
     -- TODO: Bind ID to callback
     let xml = iqToXML iq'
-    lift $ liftIO $ send xml handleOrTLSCtx
+    lift $ liftIO $ send (elementToString $ Just xml) handleOrTLSCtx
     return Nothing
 
   IEC (CEAction predicate callback) -> do

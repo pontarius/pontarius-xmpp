@@ -15,7 +15,7 @@ module Network.XMPP.Stanza (
 iqID,
 iqFrom,
 iqTo,
-iqXMLLang,
+iqLangTag,
 iqPayload,
 iqPayloadNamespace,
 iqRequestPayloadNamespace,
@@ -37,8 +37,16 @@ import Data.Text (unpack)
 
 iqID :: IQ -> Maybe StanzaID
 
-iqID (IQReq i) = iqRequestID i
-iqID (IQRes i) = iqResponseID i
+iqID (Left req) = iqRequestID req
+iqID (Right res) = iqResponseID res
+
+
+-- TODO: Maybe?
+
+iqResponseID :: IQResponse -> Maybe StanzaID
+
+iqResponseID (Left err) = iqErrorID err
+iqResponseID (Right res) = iqResultID res
 
 
 -- |
@@ -46,8 +54,8 @@ iqID (IQRes i) = iqResponseID i
 
 iqFrom :: IQ -> Maybe From
 
-iqFrom (IQReq i) = iqRequestFrom i
-iqFrom (IQRes i) = iqResponseFrom i
+iqFrom (Left req) = iqRequestFrom req
+iqFrom (Right res) = iqResponseFrom res
 
 
 -- |
@@ -55,17 +63,36 @@ iqFrom (IQRes i) = iqResponseFrom i
 
 iqTo :: IQ -> Maybe To
 
-iqTo (IQReq i) = iqRequestTo i
-iqTo (IQRes i) = iqResponseTo i
+iqTo (Left req) = iqRequestTo req
+iqTo (Right res) = iqResponseTo res
 
 
 -- |
 -- Returns the @XMLLang@ value of the @IQ@, if any.
 
-iqXMLLang :: IQ -> Maybe XMLLang
+iqLangTag :: IQ -> Maybe LangTag
 
-iqXMLLang (IQReq i) = iqRequestXMLLang i
-iqXMLLang (IQRes i) = iqResponseXMLLang i
+iqLangTag (Left req) = iqRequestLangTag req
+iqLangTag (Right res) = iqResponseLangTag res
+
+
+iqResponseLangTag :: IQResponse -> Maybe LangTag
+
+iqResponseLangTag (Left err) = iqErrorLangTag err
+iqResponseLangTag (Right res) = iqResultLangTag res
+
+
+iqResponseFrom :: IQResponse -> Maybe From
+
+iqResponseFrom (Left err) = iqErrorFrom err
+iqResponseFrom (Right res) = iqResultFrom res
+
+
+iqResponseTo :: IQResponse -> Maybe To
+
+iqResponseTo (Left err) = iqErrorTo err
+iqResponseTo (Right res) = iqResultTo res
+
 
 
 -- |
@@ -74,8 +101,14 @@ iqXMLLang (IQRes i) = iqResponseXMLLang i
 
 iqPayload :: IQ -> Maybe Element
 
-iqPayload (IQReq i) = Just (iqRequestPayload i)
-iqPayload (IQRes i) = iqResponsePayload i
+iqPayload (Left req) = Just (iqRequestPayload req)
+iqPayload (Right res) = iqResponsePayload res
+
+
+iqResponsePayload :: IQResponse -> Maybe Element
+
+iqResponsePayload (Left err) = iqErrorPayload err
+iqResponsePayload (Right res) = iqResultPayload res
 
 
 -- |

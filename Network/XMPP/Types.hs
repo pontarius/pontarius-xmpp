@@ -9,7 +9,7 @@ module Network.XMPP.Types (
 StanzaID (..),
 From,
 To,
-IQ (..),
+IQ,
 IQRequest (..),
 IQResponse (..),
 Message (..),
@@ -32,7 +32,7 @@ Address (..),
 Localpart,
 Domainpart,
 Resourcepart,
-XMLLang,
+LangTag (..),
 InternalEvent (..),
 XMLEvent (..),
 ConnectionState (..),
@@ -48,7 +48,14 @@ XMPPError (..),
 Timeout,
 TimeoutEvent (..),
 StreamError (..),
-IDGenerator (..)
+IDGenerator (..),
+Version (..),
+IQError (..),
+IQResult (..),
+IQRequestType (..),
+PresenceError (..),
+InternalPresence (..),
+InternalMessage (..)
 ) where
 
 import GHC.IO.Handle (Handle, hPutStr, hFlush, hSetBuffering, hWaitForInput)
@@ -61,7 +68,7 @@ import Control.Monad.State hiding (State)
 
 import Data.XML.Types
 
-import Network.TLS
+import Network.TLS hiding (Version)
 import Network.TLS.Cipher
 
 import qualified Control.Monad.Error as CME
@@ -69,6 +76,9 @@ import qualified Control.Monad.Error as CME
 import Data.IORef
 
 import Data.Certificate.X509 (X509)
+
+import Data.List (intersperse)
+import Data.Char (toLower)
 
 
 -- =============================================================================
@@ -110,42 +120,43 @@ type To = Address
 -- An Info/Query (IQ) stanza is either of the type "request" ("get" or "set") or
 -- "response" ("result" or "error"). The @IQ@ type wraps these two sub-types.
 
-data IQ = IQReq IQRequest | IQRes IQResponse deriving (Eq, Show)
+type IQ = Either IQRequest IQResponse
 
 
 -- |
 -- A "request" Info/Query (IQ) stanza is one with either "get" or "set" as type.
 -- They are guaranteed to always contain a payload.
 
-data IQRequest = IQGet { iqRequestID :: Maybe StanzaID
-                       , iqRequestFrom :: Maybe From
-                       , iqRequestTo :: Maybe To
-                       , iqRequestXMLLang :: Maybe XMLLang
-                       , iqRequestPayload :: Element } |
-                 IQSet { iqRequestID :: Maybe StanzaID
-                       , iqRequestFrom :: Maybe From
-                       , iqRequestTo :: Maybe To
-                       , iqRequestXMLLang :: Maybe XMLLang
-                       , iqRequestPayload :: Element }
-                 deriving (Eq, Show)
+data IQRequest = IQRequest { iqRequestID :: Maybe StanzaID
+                           , iqRequestFrom :: Maybe From
+                           , iqRequestTo :: Maybe To
+                           , iqRequestLangTag :: Maybe LangTag
+                           , iqRequestType :: IQRequestType
+                           , iqRequestPayload :: Element }
+                 deriving (Show)
 
 
--- |
--- A "response" Info/Query (IQ) stanza is one with either "result" or "error" as
--- type.
+data IQRequestType = Get | Set deriving (Show)
 
-data IQResponse = IQResult { iqResponseID :: Maybe StanzaID
-                           , iqResponseFrom :: Maybe From
-                           , iqResponseTo :: Maybe To
-                           , iqResponseXMLLang :: Maybe XMLLang
-                           , iqResponsePayload :: Maybe Element } |
-                  IQError { iqResponseID :: Maybe StanzaID
-                          , iqResponseFrom :: Maybe From
-                          , iqResponseTo :: Maybe To
-                          , iqResponseXMLLang :: Maybe XMLLang
-                          , iqResponsePayload :: Maybe Element
-                          , iqResponseStanzaError :: StanzaError }
-                  deriving (Eq, Show)
+
+type IQResponse = Either IQError IQResult
+
+
+data IQResult = IQResult { iqResultID :: Maybe StanzaID
+                         , iqResultFrom :: Maybe From
+                         , iqResultTo :: Maybe To
+                         , iqResultLangTag :: Maybe LangTag
+                         , iqResultPayload :: Maybe Element }
+                deriving (Show)
+
+
+data IQError = IQError { iqErrorID :: Maybe StanzaID
+                       , iqErrorFrom :: Maybe From
+                       , iqErrorTo :: Maybe To
+                       , iqErrorLangTag :: Maybe LangTag
+                       , iqErrorPayload :: Maybe Element
+                       , iqErrorStanzaError :: Maybe StanzaError }
+               deriving (Show)
 
 
 -- |
@@ -154,51 +165,70 @@ data IQResponse = IQResult { iqResponseID :: Maybe StanzaID
 data Message = Message { messageID :: Maybe StanzaID
                        , messageFrom :: Maybe From
                        , messageTo :: Maybe To
-                       , messageXMLLang :: Maybe XMLLang
+                       , messageXMLLang :: Maybe LangTag
                        , messageType :: MessageType
-                       , messagePayload :: [Element] } |
-               MessageError { messageID :: Maybe StanzaID
-                            , messageFrom :: Maybe From
-                            , messageTo :: Maybe To
-                            , messageXMLLang  :: Maybe XMLLang
-                            , messageErrorPayload :: Maybe [Element]
-                            , messageErrorStanzaError :: StanzaError }
-               deriving (Eq, Show)
+                       , messagePayload :: [Element] }
+               deriving (Show)
+
+
+data MessageError = MessageError { messageErrorID :: StanzaID
+                                 , messageErrorFrom :: Maybe From
+                                 , messageErrorTo :: Maybe To
+                                 , messageErrorXMLLang  :: Maybe LangTag
+                                 , messageErrorPayload :: Maybe [Element]
+                                 , messageErrorStanzaError :: StanzaError }
+                    deriving (Show)
+
+
+type InternalMessage = Either MessageError Message
 
 
 -- |
 -- @MessageType@ holds XMPP message types as defined in XMPP-IM. @Normal@ is the
--- default message type.
+-- default message type. The "error" message type is left out as errors are
+-- using @MessageError@.
 
 data MessageType = Chat |
-                   Error |
                    Groupchat |
                    Headline |
-                   Normal |
-                   OtherMessageType String deriving (Eq, Show)
+                   Normal deriving (Eq)
+
+
+instance Show MessageType where
+    show Chat = "chat"
+    show Groupchat = "groupchat"
+    show Headline = "headline"
+    show Normal = "normal"
 
 
 -- |
--- The presence stanza - either a presence or a presence error.
+-- The presence stanza. It is used for both originating messages and replies.
+-- For presence errors, see "PresenceError".
 
 data Presence = Presence { presenceID :: Maybe StanzaID
                          , presenceFrom :: Maybe From
                          , presenceTo :: Maybe To
-                         , presenceXMLLang  :: Maybe XMLLang
-                         , presenceType :: PresenceType
-                         , presencePayload :: [Element] } |
-                PresenceError { presenceID :: Maybe StanzaID
-                              , presenceFrom :: Maybe From
-                              , presenceTo :: Maybe To
-                              , presenceXMLLang  :: Maybe XMLLang
-                              , presenceErrorPayload :: Maybe [Element]
-                              , presenceErrorStanzaError :: StanzaError }
-                deriving (Eq, Show)
+                         , presenceLangTag :: Maybe LangTag
+                         , presenceType :: Maybe PresenceType
+                         , presencePayload :: [Element] }
+                deriving (Show)
+
+
+data PresenceError = PresenceError { presenceErrorID :: Maybe StanzaID
+                                   , presenceErrorFrom :: Maybe From
+                                   , presenceErrorTo :: Maybe To
+                                   , presenceErrorLangTag :: Maybe LangTag
+                                   , presenceErrorPayload :: Maybe [Element]
+                                   , presenceErrorStanzaError :: StanzaError }
+                     deriving (Show)
+
+
+type InternalPresence = Either PresenceError Presence
 
 
 -- |
--- @PresenceType@ holds XMPP presence types. When a presence type is not
--- provided, we assign the @PresenceType@ value @Available@.
+-- @PresenceType@ holds XMPP presence types. The "error" message type is left
+-- out as errors are using @PresenceError@.
 
 data PresenceType = Subscribe    | -- ^ Sender wants to subscribe to presence
                     Subscribed   | -- ^ Sender has approved the subscription
@@ -207,8 +237,16 @@ data PresenceType = Subscribe    | -- ^ Sender wants to subscribe to presence
                                    --   subscription
                     Probe        | -- ^ Sender requests current presence;
                                    --   should only be used by servers
-                    Available    | -- ^ Sender did not specify a type attribute
-                    Unavailable deriving (Eq, Show)
+                    Unavailable deriving (Eq)
+
+
+instance Show PresenceType where
+    show Subscribe    = "subscribe"
+    show Subscribed   = "subscribed"
+    show Unsubscribe  = "unsubscribe"
+    show Unsubscribed = "unsubscribed"
+    show Probe        = "probe"
+    show Unavailable  = "unavailable"
 
 
 -- |
@@ -360,8 +398,8 @@ type Resource = String
 
 data XMLEvent = XEBeginStream String | XEFeatures String |
                 XEChallenge Challenge | XESuccess Success |
-                XEEndStream | XEIQ IQ | XEPresence Presence |
-                XEMessage Message | XEProceed |
+                XEEndStream | XEIQ IQ | XEPresence InternalPresence |
+                XEMessage InternalMessage | XEProceed |
                 XEOther String deriving (Show)
 
 data EnumeratorEvent = EnumeratorDone |
@@ -472,12 +510,47 @@ data StreamError = StreamError
 --  XML TYPES
 -- =============================================================================
 
-type XMLLang = String
--- Validate, protect. See:
--- http://tools.ietf.org/html/rfc6120#section-8.1.5
--- http://www.w3.org/TR/2008/REC-xml-20081126/
--- http://www.rfc-editor.org/rfc/bcp/bcp47.txt
--- http://www.ietf.org/rfc/rfc1766.txt
-
 
 newtype IDGenerator = IDGenerator (IORef [String])
+
+
+
+
+--- other stuff
+
+data Version = Version { majorVersion :: Integer
+                       , minorVersion :: Integer } deriving (Eq)
+
+
+-- Version numbers are displayed as "<major>.<minor>".
+
+instance Show Version where
+    show (Version major minor) = (show major) ++ "." ++ (show minor)
+
+
+-- If the major version numbers are not equal, compare them. Otherwise, compare
+-- the minor version numbers.
+
+instance Ord Version where
+    compare (Version amajor aminor) (Version bmajor bminor)
+        | amajor /= bmajor = compare amajor bmajor
+        | otherwise = compare aminor bminor
+
+
+data LangTag = LangTag { primaryTag :: String
+                       , subtags :: [String] }
+
+
+-- Displays the language tag in the form of "en-US".
+
+instance Show LangTag where
+    show (LangTag p []) = p
+    show (LangTag p s) = p ++ "-" ++ (concat $ intersperse "-" s)
+
+
+-- Two language tags are considered equal of they contain the same tags (case-insensitive).
+
+instance Eq LangTag where
+    (LangTag ap as) == (LangTag bp bs)
+        | length as == length bs && map toLower ap == map toLower bp = all (\ (a, b) -> map toLower a == map toLower b) $ zip as bs
+        | otherwise = False
