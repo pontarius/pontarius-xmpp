@@ -130,7 +130,7 @@ type IQ = Either IQRequest IQResponse
 data IQRequest = IQRequest { iqRequestID :: Maybe StanzaID
                            , iqRequestFrom :: Maybe From
                            , iqRequestTo :: Maybe To
-                           , iqRequestLangTag :: Maybe LangTag
+                           , iqRequestLangTag :: LangTag
                            , iqRequestType :: IQRequestType
                            , iqRequestPayload :: Element }
                  deriving (Show)
@@ -145,7 +145,7 @@ type IQResponse = Either IQError IQResult
 data IQResult = IQResult { iqResultID :: Maybe StanzaID
                          , iqResultFrom :: Maybe From
                          , iqResultTo :: Maybe To
-                         , iqResultLangTag :: Maybe LangTag
+                         , iqResultLangTag :: LangTag
                          , iqResultPayload :: Maybe Element }
                 deriving (Show)
 
@@ -153,7 +153,7 @@ data IQResult = IQResult { iqResultID :: Maybe StanzaID
 data IQError = IQError { iqErrorID :: Maybe StanzaID
                        , iqErrorFrom :: Maybe From
                        , iqErrorTo :: Maybe To
-                       , iqErrorLangTag :: Maybe LangTag
+                       , iqErrorLangTag :: LangTag
                        , iqErrorPayload :: Maybe Element
                        , iqErrorStanzaError :: Maybe StanzaError }
                deriving (Show)
@@ -165,7 +165,7 @@ data IQError = IQError { iqErrorID :: Maybe StanzaID
 data Message = Message { messageID :: Maybe StanzaID
                        , messageFrom :: Maybe From
                        , messageTo :: Maybe To
-                       , messageXMLLang :: Maybe LangTag
+                       , messageXMLLang :: LangTag
                        , messageType :: MessageType
                        , messagePayload :: [Element] }
                deriving (Show)
@@ -174,7 +174,7 @@ data Message = Message { messageID :: Maybe StanzaID
 data MessageError = MessageError { messageErrorID :: StanzaID
                                  , messageErrorFrom :: Maybe From
                                  , messageErrorTo :: Maybe To
-                                 , messageErrorXMLLang  :: Maybe LangTag
+                                 , messageErrorXMLLang  :: LangTag
                                  , messageErrorPayload :: Maybe [Element]
                                  , messageErrorStanzaError :: StanzaError }
                     deriving (Show)
@@ -208,7 +208,7 @@ instance Show MessageType where
 data Presence = Presence { presenceID :: Maybe StanzaID
                          , presenceFrom :: Maybe From
                          , presenceTo :: Maybe To
-                         , presenceLangTag :: Maybe LangTag
+                         , presenceLangTag :: LangTag
                          , presenceType :: Maybe PresenceType
                          , presencePayload :: [Element] }
                 deriving (Show)
@@ -217,7 +217,7 @@ data Presence = Presence { presenceID :: Maybe StanzaID
 data PresenceError = PresenceError { presenceErrorID :: Maybe StanzaID
                                    , presenceErrorFrom :: Maybe From
                                    , presenceErrorTo :: Maybe To
-                                   , presenceErrorLangTag :: Maybe LangTag
+                                   , presenceErrorLangTag :: LangTag
                                    , presenceErrorPayload :: Maybe [Element]
                                    , presenceErrorStanzaError :: StanzaError }
                      deriving (Show)
@@ -254,9 +254,11 @@ instance Show PresenceType where
 -- stream looks like <stanza-kind to='sender' type='error'>. These errors are
 -- wrapped in the @StanzaError@ type.
 
+-- Sender XML is optional and is not included.
+
 data StanzaError = StanzaError { stanzaErrorType :: StanzaErrorType
                                , stanzaErrorCondition :: StanzaErrorCondition
-                               , stanzaErrorText :: Maybe String
+                               , stanzaErrorText :: Maybe (Maybe LangTag, String)
                                , stanzaErrorApplicationSpecificCondition ::
                                  Maybe Element } deriving (Eq, Show)
 
@@ -269,7 +271,15 @@ data StanzaErrorType = Cancel   | -- ^ Error is unrecoverable - do not retry
                        Modify   | -- ^ Change the data and retry
                        Auth     | -- ^ Provide credentials and retry
                        Wait       -- ^ Error is temporary - wait and retry
-                       deriving (Eq, Show)
+                       deriving (Eq)
+
+
+instance Show StanzaErrorType where
+    show Cancel = "cancel"
+    show Continue = "continue"
+    show Modify = "modify"
+    show Auth = "auth"
+    show Wait = "wait"
 
 
 -- |
@@ -311,7 +321,32 @@ data StanzaErrorCondition = BadRequest            | -- ^ Malformed XML
                             UndefinedCondition    | -- ^ Application-specific
                                                     --   condition
                             UnexpectedRequest       -- ^ Badly timed request
-                            deriving (Eq, Show)
+                            deriving (Eq)
+
+
+instance Show StanzaErrorCondition where
+    show BadRequest = "bad-request"
+    show Conflict = "conflict"
+    show FeatureNotImplemented = "feature-not-implemented"
+    show Forbidden = "forbidden"
+    show Gone = "gone"
+    show InternalServerError = "internal-server-error"
+    show ItemNotFound = "item-not-found"
+    show JIDMalformed = "jid-malformed"
+    show NotAcceptable = "not-acceptable"
+    show NotAllowed = "not-allowed"
+    show NotAuthorized = "not-authorized"
+    show PaymentRequired = "payment-required"
+    show RecipientUnavailable = "recipient-unavailable"
+    show Redirect = "redirect"
+    show RegistrationRequired = "registration-required"
+    show RemoteServerNotFound = "remote-server-not-found"
+    show RemoteServerTimeout = "remote-server-timeout"
+    show ResourceConstraint = "resource-constraint"
+    show ServiceUnavailable = "service-unavailable"
+    show SubscriptionRequired = "subscription-required"
+    show UndefinedCondition = "undefined-condition"
+    show UnexpectedRequest = "unexpected-request"
 
 
 

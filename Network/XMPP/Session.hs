@@ -636,7 +636,7 @@ processEvent e = get >>= \ state ->
                 put $ state { stateTimeoutStanzaIDs = stanzaID':(stateTimeoutStanzaIDs state) }
         Nothing ->
             return ()
-    let xml = presenceToXML $ Right presence'
+    let xml = presenceToXML (Right presence') (fromJust $ langTag "en")
     lift $ liftIO $ send (elementToString $ Just xml) handleOrTLSCtx
     return Nothing
 

@@ -70,13 +70,13 @@ iqTo (Right res) = iqResponseTo res
 -- |
 -- Returns the @XMLLang@ value of the @IQ@, if any.
 
-iqLangTag :: IQ -> Maybe LangTag
+iqLangTag :: IQ -> LangTag
 
 iqLangTag (Left req) = iqRequestLangTag req
 iqLangTag (Right res) = iqResponseLangTag res
 
 
-iqResponseLangTag :: IQResponse -> Maybe LangTag
+iqResponseLangTag :: IQResponse -> LangTag
 
 iqResponseLangTag (Left err) = iqErrorLangTag err
 iqResponseLangTag (Right res) = iqResultLangTag res

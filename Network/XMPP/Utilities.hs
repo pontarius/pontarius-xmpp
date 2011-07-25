@@ -11,15 +11,18 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module Network.XMPP.Utilities ( elementToString
-                              , elementsToString, testElement ) where
+                              , elementsToString ) where
 
 import Prelude hiding (concat)
 
 import Data.ByteString (ByteString, concat)
 import Data.ByteString.Char8 (unpack)
+
 import Data.Enumerator (($$), Stream (Chunks), Enumerator, Step (Continue), joinI, run_, returnI)
 import Data.Enumerator.List (consume)
+
 import Data.XML.Types (Document (..), Element (..), Event (..), Name (..), Prologue (..))
+
 import Text.XML.Enumerator.Render (renderBytes)
 import Text.XML.Enumerator.Document (toEvents)
 

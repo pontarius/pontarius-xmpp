@@ -169,29 +169,126 @@ counter c (Just (EventEndElement _) )    = (c - 1)
 counter c _                       = c
 
 
-presenceToXML :: InternalPresence -> Element
+-- Sending stanzas is done through functions, where LangTag is Maybe.
 
-presenceToXML (Right p) = Element "presence" attribs nodes
+
+-- Generates an XML element for a presence stanza. The language tag provided is
+-- the default language of the stream.
+
+presenceToXML :: InternalPresence -> LangTag -> Element
+
+-- Non-error presence.
+
+presenceToXML (Right p) streamLang = Element "presence" attribs nodes
     where
 
+        -- Has the stanza attributes and the presence type.
         attribs :: [(Name, [Content])]
-        attribs = stanzaNodes (presenceID p) (presenceFrom p) (presenceTo p) (presenceLangTag p) ++
+        attribs = stanzaNodes (presenceID p) (presenceFrom p) (presenceTo p) stanzaLang ++
                   [("type", [ContentText $ DT.pack $ show $ presenceType p])]
 
+        -- Has an arbitrary number of elements as children.
         nodes :: [Node]
         nodes = map (\ x -> NodeElement x) (presencePayload p)
 
-presenceToXML (Left p) = Element "presence" attribs nodes
+        stanzaLang :: Maybe LangTag
+        stanzaLang = stanzaLang' streamLang $ presenceLangTag p
+
+-- Presence error.
+
+presenceToXML (Left p) streamLang = Element "presence" attribs nodes
     where
 
+        -- Has the stanza attributes and the "error" presence type.
         attribs :: [(Name, [Content])]
-        attribs = stanzaNodes (presenceErrorID p) (presenceErrorFrom p) (presenceErrorTo p) (presenceErrorLangTag p) ++
-                  [("type", [ContentText $ DT.pack "error"])]
+        attribs = stanzaNodes (presenceErrorID p) (presenceErrorFrom p) (presenceErrorTo p)
+                  stanzaLang ++ [("type", [ContentText $ DT.pack "error"])]
 
+        -- Has the error element stanza as its child.
+        -- TODO: Include sender XML here?
         nodes :: [Node]
-        nodes = case presenceErrorPayload p of
-                    Just elem -> map (\ x -> NodeElement x) elem
-                    Nothing -> []
+        nodes = [NodeElement $ errorElem streamLang stanzaLang $ presenceErrorStanzaError p]
+
+        -- The stanza language tag, if it's different from the stream language tag.
+        stanzaLang :: Maybe LangTag
+        stanzaLang = stanzaLang' streamLang $ presenceErrorLangTag p
+
+-- Creates the error element that is common for all stanzas.
+
+errorElem :: LangTag -> Maybe LangTag -> StanzaError -> Element
+
+errorElem streamLang stanzaLang stanzaError = Element "error" typeAttrib
+                                              ([defCondElem] ++ textElem ++ appSpecCondElem)
+
+    where
+
+        -- The required stanza error type.
+        typeAttrib :: [(Name, [Content])]
+        typeAttrib = [("type", [ContentText $ DT.pack $ show $ stanzaErrorType stanzaError])]
+
+        -- The required defined condition element.
+        defCondElem :: Node
+        defCondElem = NodeElement $ Element (Name (DT.pack $ show $ stanzaErrorCondition stanzaError) (Just $ DT.pack "urn:ietf:params:xml:ns:xmpp-stanzas") Nothing) [] []
+
+
+        -- The optional text element.
+        textElem :: [Node]
+        textElem = case stanzaErrorText stanzaError of
+                       Nothing -> []
+                       Just (textLang, text) ->
+                           [NodeElement $ Element "{urn:ietf:params:xml:ns:xmpp-stanzas}text"
+                               (langTagAttrib $ childLang streamLang [stanzaLang, fst $ fromJust $ stanzaErrorText stanzaError])
+                               [NodeContent $ ContentText $ DT.pack text]]
+
+        -- The optional application specific condition element.
+        appSpecCondElem :: [Node]
+        appSpecCondElem = case stanzaErrorApplicationSpecificCondition stanzaError of
+                              Nothing -> []
+                              Just elem -> [NodeElement elem]
+
+
+-- Generates the element attribute for an optional language tag.
+
+langTagAttrib :: Maybe LangTag -> [(Name, [Content])]
+
+langTagAttrib lang = case lang of Nothing -> []; Just lang' -> [("xml:lang", [ContentText $ DT.pack $ show lang'])]
+
+
+stanzaLang' :: LangTag -> LangTag -> Maybe LangTag
+
+stanzaLang' streamLang stanzaLang | streamLang == stanzaLang = Nothing
+                                  | otherwise = Just stanzaLang
+
+
+-- Finds the language tag to set on the current element, if any. Makes sure that
+-- language tags are not repeated unnecessarily (like on a child element, when
+-- the parent has it). The first parameter is the stream language tag, and the
+-- list of optional language tags are ordered in their XML element child
+-- sequence, parent first, starting with the stanza language tag.
+
+childLang :: LangTag -> [Maybe LangTag] -> Maybe LangTag
+
+childLang streamLang optLangTags
+
+    -- The current element does not have a language tag - set nothing.
+    | (head $ reverse optLangTags) == Nothing = Nothing
+
+    -- All optional language tags are Nothing - set nothing.
+    | length langTags == 1 = Nothing
+
+    -- The language tag of this element is the same as the closest parent with a
+    -- language tag - set nothing.
+    | (head langTags) == (head $ tail langTags) = Nothing
+
+    -- Set the language tag.
+    | otherwise = Just $ head langTags
+
+    where
+
+        -- Contains the chain of language tags in descending priority order.
+        -- Contains at least one element - the stream language tag.
+        langTags = reverse $ [streamLang] ++ (map fromJust $ filter (\ l -> isJust l) optLangTags)
+
 
 
 iqToXML :: IQ -> Element
