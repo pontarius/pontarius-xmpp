@@ -465,93 +465,93 @@ processEvent e = get >>= \ state ->
     lift $ liftIO $ send ("<auth xmlns='urn:ietf:params:xml:ns:xmpp-sasl' mechanism='SCRAM-SHA-1'>" ++ (CBBS.encode ("n,,n=" ++ userName ++ ",r=" ++ (toString rValue))) ++ "</auth>") handleOrTLSCtx
     return Nothing
 
-  IEE (EnumeratorXML (XEBeginStream stream)) -> do
+  IEE (EnumeratorBeginStream from to id ver lang namespace) -> do
     put $ state { stateStreamState = PreFeatures (1.0) }
     return Nothing
 
-  IEE (EnumeratorXML (XEFeatures features)) -> do
-    let PreFeatures streamProperties = stateStreamState state
-    case stateTLSState state of
-      NoTLS -> let callback = fromJust $ stateOpenStreamsCallback state in do
-        ((), clientState) <- lift $ runStateT (callback $ OpenStreamSuccess streamProperties "TODO") (stateClientState state)
-        put $ state { stateClientState = clientState
-                    , stateStreamState = PostFeatures streamProperties "TODO" }
-        return Nothing
-      _ -> case stateAuthenticationState state of
-        AuthenticatedUnbound _ resource -> do -- TODO: resource
-          case resource of
-            Nothing -> do
-              lift $ liftIO $ send ("<iq type=\"set\" id=\"bind_1\"><bind xmlns=\"urn:ietf:param" ++ "s:xml:ns:xmpp-bind\"></bind></iq>") handleOrTLSCtx
-              return ()
-            _ -> do
-              lift $ liftIO $ send ("<iq type=\"set\" id=\"bind_1\"><bind xmlns=\"urn:ietf:param" ++ "s:xml:ns:xmpp-bind\"><resource>" ++ fromJust resource ++ "</resource></bind></iq>") handleOrTLSCtx
-              return ()
-          id <- liftIO $ nextID $ stateIDGenerator state
-          lift $ liftIO $ send ("<iq type=\"set\" id=\"" ++ id ++ "\"><session xmlns=\"urn:ietf:params:xml:ns:xmpp-session\"/>" ++ "</iq>") handleOrTLSCtx
-
-          -- TODO: Execute callback on iq result
-
-          let callback = fromJust $ stateAuthenticateCallback state in do -- TODO: streamProperties "TODO" after success
-            ((), clientState) <- lift $ runStateT (callback $ AuthenticateSuccess streamProperties "TODO" "todo") (stateClientState state) -- get proper resource value when moving to iq result
-            put $ state { stateClientState = clientState
-                        , stateStreamState = PostFeatures streamProperties "TODO" }
-          state' <- get
-          return Nothing
-        _ -> do
-          let callback = fromJust $ stateTLSSecureStreamsCallback state in do
-          ((), clientState) <- lift $ runStateT (callback $ SecureWithTLSSuccess streamProperties "TODO") (stateClientState state)
-          put $ state { stateClientState = clientState
-                      , stateStreamState = PostFeatures streamProperties "TODO" }
-          return Nothing
-
-  -- TODO: Can we assume that it's safe to start to enumerate on handle when it
-  -- might not have exited?
-  IEE (EnumeratorXML XEProceed) -> do
-    let Connected (ServerAddress hostName _) handle = stateConnectionState state
-    tlsCtx <- lift $ liftIO $ do
-        gen <- newGenIO :: IO SystemRandom -- TODO: Investigate limitations
-        clientContext <- client tlsParams gen handle
-        handshake clientContext
-        return clientContext
-    put $ (defaultState (stateChannel state) (stateThreadID state) (stateClientHandlers state) (stateClientState state) (stateIDGenerator state)) { stateTLSState = PostHandshake tlsCtx, stateConnectionState = (stateConnectionState state), stateTLSSecureStreamsCallback = (stateTLSSecureStreamsCallback state) }
-    threadID <- lift $ liftIO $ forkIO $ xmlEnumerator (stateChannel state) (Right tlsCtx) -- double code
-    lift $ liftIO $ putStrLn "00000000000000000000000000000000"
-    lift $ liftIO $ swapMVar (stateThreadID state) threadID -- return value not used
-    lift $ liftIO $ putStrLn "00000000000000000000000000000000"
-    lift $ liftIO $ threadDelay 1000000
-    lift $ liftIO $ putStrLn "00000000000000000000000000000000"
-    lift $ liftIO $ send ("<?xml version='1.0'?><stream:stream to='" ++
-      hostName ++ "' xmlns='jabber:client' xmlns:stream='http://etherx.jabber.org/" ++
-      "streams' version='1.0'>") (Right tlsCtx)
-    lift $ liftIO $ putStrLn "00000000000000000000000000000000"
-    return Nothing
-
-  IEE (EnumeratorXML (XEChallenge (Chal challenge))) -> do
-    lift $ liftIO $ putStrLn challenge
-    let Connected (ServerAddress hostName _) _ = stateConnectionState state
-    let challenge' = CBBS.decode challenge
-    case stateAuthenticationState state of
-      AuthenticatingPreChallenge1 userName password resource -> do
-        id <- liftIO $ nextID $ stateIDGenerator state
-        -- TODO: replyToChallenge
-        return ()
-      AuthenticatingPreChallenge2 userName password resource -> do
-        -- This is not the first challenge; [...]
-        -- TODO: Can we assume "rspauth"?
-        lift $ liftIO $ send "<response xmlns='urn:ietf:params:xml:ns:xmpp-sasl'/>" handleOrTLSCtx
-        put $ state { stateAuthenticationState = AuthenticatingPreSuccess userName password resource }
-        return ()
-    return Nothing
-
-  -- We have received a SASL "success" message over a secured connection
-  -- TODO: Parse the success message?
-  -- TODO: <?xml version='1.0'?>?
-  IEE (EnumeratorXML (XESuccess (Succ _))) -> do
-    let serverHost = "jonkristensen.com"
-    let AuthenticatingPreSuccess userName _ resource = stateAuthenticationState state in do
-      lift $ liftIO $ send ("<?xml version='1.0'?><stream:stream to='" ++ serverHost ++ "' xmlns='jabber:client' xmlns:stream='http://etherx.jabber.org/" ++ "streams' version='1.0'>") handleOrTLSCtx
-      put $ state { stateAuthenticationState = AuthenticatedUnbound userName resource }
-    return Nothing
+--  IEE (EnumeratorXML (XEFeatures features)) -> do
+--    let PreFeatures streamProperties = stateStreamState state
+--    case stateTLSState state of
+--      NoTLS -> let callback = fromJust $ stateOpenStreamsCallback state in do
+--        ((), clientState) <- lift $ runStateT (callback $ OpenStreamSuccess streamProperties "TODO") (stateClientState state)
+--        put $ state { stateClientState = clientState
+--                    , stateStreamState = PostFeatures streamProperties "TODO" }
+--        return Nothing
+--      _ -> case stateAuthenticationState state of
+--        AuthenticatedUnbound _ resource -> do -- TODO: resource
+--          case resource of
+--            Nothing -> do
+--              lift $ liftIO $ send ("<iq type=\"set\" id=\"bind_1\"><bind xmlns=\"urn:ietf:param" ++ "s:xml:ns:xmpp-bind\"></bind></iq>") handleOrTLSCtx
+--              return ()
+--            _ -> do
+--              lift $ liftIO $ send ("<iq type=\"set\" id=\"bind_1\"><bind xmlns=\"urn:ietf:param" ++ "s:xml:ns:xmpp-bind\"><resource>" ++ fromJust resource ++ "</resource></bind></iq>") handleOrTLSCtx
+--              return ()
+--          id <- liftIO $ nextID $ stateIDGenerator state
+--          lift $ liftIO $ send ("<iq type=\"set\" id=\"" ++ id ++ "\"><session xmlns=\"urn:ietf:params:xml:ns:xmpp-session\"/>" ++ "</iq>") handleOrTLSCtx
+--
+--          -- TODO: Execute callback on iq result
+--
+--          let callback = fromJust $ stateAuthenticateCallback state in do -- TODO: streamProperties "TODO" after success
+--            ((), clientState) <- lift $ runStateT (callback $ AuthenticateSuccess streamProperties "TODO" "todo") (stateClientState state) -- get proper resource value when moving to iq result
+--            put $ state { stateClientState = clientState
+--                        , stateStreamState = PostFeatures streamProperties "TODO" }
+--          state' <- get
+--          return Nothing
+--        _ -> do
+--          let callback = fromJust $ stateTLSSecureStreamsCallback state in do
+--          ((), clientState) <- lift $ runStateT (callback $ SecureWithTLSSuccess streamProperties "TODO") (stateClientState state)
+--          put $ state { stateClientState = clientState
+--                      , stateStreamState = PostFeatures streamProperties "TODO" }
+--          return Nothing
+--
+--  -- TODO: Can we assume that it's safe to start to enumerate on handle when it
+--  -- might not have exited?
+--  IEE (EnumeratorXML XEProceed) -> do
+--    let Connected (ServerAddress hostName _) handle = stateConnectionState state
+--    tlsCtx <- lift $ liftIO $ do
+--        gen <- newGenIO :: IO SystemRandom -- TODO: Investigate limitations
+--        clientContext <- client tlsParams gen handle
+--        handshake clientContext
+--        return clientContext
+--    put $ (defaultState (stateChannel state) (stateThreadID state) (stateClientHandlers state) (stateClientState state) (stateIDGenerator state)) { stateTLSState = PostHandshake tlsCtx, stateConnectionState = (stateConnectionState state), stateTLSSecureStreamsCallback = (stateTLSSecureStreamsCallback state) }
+--    threadID <- lift $ liftIO $ forkIO $ xmlEnumerator (stateChannel state) (Right tlsCtx) -- double code
+--    lift $ liftIO $ putStrLn "00000000000000000000000000000000"
+--    lift $ liftIO $ swapMVar (stateThreadID state) threadID -- return value not used
+--    lift $ liftIO $ putStrLn "00000000000000000000000000000000"
+--    lift $ liftIO $ threadDelay 1000000
+--    lift $ liftIO $ putStrLn "00000000000000000000000000000000"
+--    lift $ liftIO $ send ("<?xml version='1.0'?><stream:stream to='" ++
+--      hostName ++ "' xmlns='jabber:client' xmlns:stream='http://etherx.jabber.org/" ++
+--      "streams' version='1.0'>") (Right tlsCtx)
+--    lift $ liftIO $ putStrLn "00000000000000000000000000000000"
+--    return Nothing
+--
+--  IEE (EnumeratorXML (XEChallenge (Chal challenge))) -> do
+--    lift $ liftIO $ putStrLn challenge
+--    let Connected (ServerAddress hostName _) _ = stateConnectionState state
+--    let challenge' = CBBS.decode challenge
+--    case stateAuthenticationState state of
+--      AuthenticatingPreChallenge1 userName password resource -> do
+--        id <- liftIO $ nextID $ stateIDGenerator state
+--        -- TODO: replyToChallenge
+--        return ()
+--      AuthenticatingPreChallenge2 userName password resource -> do
+--        -- This is not the first challenge; [...]
+--        -- TODO: Can we assume "rspauth"?
+--        lift $ liftIO $ send "<response xmlns='urn:ietf:params:xml:ns:xmpp-sasl'/>" handleOrTLSCtx
+--        put $ state { stateAuthenticationState = AuthenticatingPreSuccess userName password resource }
+--        return ()
+--    return Nothing
+--
+--  -- We have received a SASL "success" message over a secured connection
+--  -- TODO: Parse the success message?
+--  -- TODO: <?xml version='1.0'?>?
+--  IEE (EnumeratorXML (XESuccess (Succ _))) -> do
+--    let serverHost = "jonkristensen.com"
+--    let AuthenticatingPreSuccess userName _ resource = stateAuthenticationState state in do
+--      lift $ liftIO $ send ("<?xml version='1.0'?><stream:stream to='" ++ serverHost ++ "' xmlns='jabber:client' xmlns:stream='http://etherx.jabber.org/" ++ "streams' version='1.0'>") handleOrTLSCtx
+--      put $ state { stateAuthenticationState = AuthenticatedUnbound userName resource }
+--    return Nothing
 
   IEE EnumeratorDone ->
     -- TODO: Exit?
@@ -561,67 +561,67 @@ processEvent e = get >>= \ state ->
   --  XML EVENTS
   -- ---------------------------------------------------------------------------
 
-  -- Ignore id="bind_1" and session IQ result, otherwise create client event
-  IEE (EnumeratorXML (XEIQ iqEvent)) ->
-    case shouldIgnoreIQ iqEvent of
-        True ->
-            return Nothing
-        False -> do
-            let stanzaID' = iqID iqEvent
-            let newTimeouts = case stanzaID' of
-                                Just stanzaID'' ->
-                                    case stanzaID'' `elem` (stateTimeoutStanzaIDs state) of
-                                                True -> filter (\ e -> e /= stanzaID'') (stateTimeoutStanzaIDs state)
-                                                False -> (stateTimeoutStanzaIDs state)
-                                Nothing -> (stateTimeoutStanzaIDs state)
-            let iqReceivedFunctions = map (\ x -> iqReceived x) (stateClientHandlers state)
-            let functions = map (\ x -> case x of
-                                    Just f -> Just (f iqEvent)
-                                    Nothing -> Nothing) iqReceivedFunctions
-            let functions' = case lookup (fromJust $ iqID $ iqEvent) (stateIQCallbacks state) of
-                                  Just f -> (Just (f $ iqEvent)):functions
-                                  Nothing -> functions
-            let clientState = stateClientState state
-            clientState' <- sendToClient functions' clientState
-            put $ state { stateClientState = clientState', stateTimeoutStanzaIDs = newTimeouts }
-            return Nothing
-
-  -- TODO: Known bug - does not work with PresenceError
-
-  IEE (EnumeratorXML (XEPresence (Right presenceEvent))) -> do
-    let stanzaID' = presenceID $ presenceEvent
-    let newTimeouts = case stanzaID' of
-                        Just stanzaID'' ->
-                            case stanzaID'' `elem` (stateTimeoutStanzaIDs state) of
-                                    True -> filter (\ e -> e /= stanzaID'') (stateTimeoutStanzaIDs state)
-                                    False -> (stateTimeoutStanzaIDs state)
-                        Nothing -> (stateTimeoutStanzaIDs state)
-    let presenceReceivedFunctions = map (\ x -> presenceReceived x) (stateClientHandlers state)
-    let functions = map (\ x -> case x of
-                            Just f -> Just (f presenceEvent)
-                            Nothing -> Nothing) presenceReceivedFunctions
-    let clientState = stateClientState state -- ClientState s m
-    clientState' <- sendToClient functions clientState
-    put $ state { stateClientState = clientState', stateTimeoutStanzaIDs = newTimeouts }
-    return Nothing
-
-  -- TODO: Does not work with message errors
-  IEE (EnumeratorXML (XEMessage (Right messageEvent))) -> do
-    let stanzaID' = messageID $ messageEvent
-    let newTimeouts = case stanzaID' of
-                        Just stanzaID'' ->
-                            case stanzaID'' `elem` (stateTimeoutStanzaIDs state) of
-                                    True -> filter (\ e -> e /= stanzaID'') (stateTimeoutStanzaIDs state)
-                                    False -> (stateTimeoutStanzaIDs state)
-                        Nothing -> (stateTimeoutStanzaIDs state)
-    let messageReceivedFunctions = map (\ x -> messageReceived x) (stateClientHandlers state)
-    let functions = map (\ x -> case x of
-                            Just f -> Just (f messageEvent)
-                            Nothing -> Nothing) messageReceivedFunctions
-    let clientState = stateClientState state -- ClientState s m
-    clientState' <- sendToClient functions clientState
-    put $ state { stateClientState = clientState', stateTimeoutStanzaIDs = newTimeouts }
-    return Nothing
+--  -- Ignore id="bind_1" and session IQ result, otherwise create client event
+--  IEE (EnumeratorXML (XEIQ iqEvent)) ->
+--    case shouldIgnoreIQ iqEvent of
+--        True ->
+--            return Nothing
+--        False -> do
+--            let stanzaID' = iqID iqEvent
+--            let newTimeouts = case stanzaID' of
+--                                Just stanzaID'' ->
+--                                    case stanzaID'' `elem` (stateTimeoutStanzaIDs state) of
+--                                                True -> filter (\ e -> e /= stanzaID'') (stateTimeoutStanzaIDs state)
+--                                                False -> (stateTimeoutStanzaIDs state)
+--                                Nothing -> (stateTimeoutStanzaIDs state)
+--            let iqReceivedFunctions = map (\ x -> iqReceived x) (stateClientHandlers state)
+--            let functions = map (\ x -> case x of
+--                                    Just f -> Just (f iqEvent)
+--                                    Nothing -> Nothing) iqReceivedFunctions
+--            let functions' = case lookup (fromJust $ iqID $ iqEvent) (stateIQCallbacks state) of
+--                                  Just f -> (Just (f $ iqEvent)):functions
+--                                  Nothing -> functions
+--            let clientState = stateClientState state
+--            clientState' <- sendToClient functions' clientState
+--            put $ state { stateClientState = clientState', stateTimeoutStanzaIDs = newTimeouts }
+--            return Nothing
+--
+--  -- TODO: Known bug - does not work with PresenceError
+--
+--  IEE (EnumeratorXML (XEPresence (Right presenceEvent))) -> do
+--    let stanzaID' = presenceID $ presenceEvent
+--    let newTimeouts = case stanzaID' of
+--                        Just stanzaID'' ->
+--                            case stanzaID'' `elem` (stateTimeoutStanzaIDs state) of
+--                                    True -> filter (\ e -> e /= stanzaID'') (stateTimeoutStanzaIDs state)
+--                                    False -> (stateTimeoutStanzaIDs state)
+--                        Nothing -> (stateTimeoutStanzaIDs state)
+--    let presenceReceivedFunctions = map (\ x -> presenceReceived x) (stateClientHandlers state)
+--    let functions = map (\ x -> case x of
+--                            Just f -> Just (f presenceEvent)
+--                            Nothing -> Nothing) presenceReceivedFunctions
+--    let clientState = stateClientState state -- ClientState s m
+--    clientState' <- sendToClient functions clientState
+--    put $ state { stateClientState = clientState', stateTimeoutStanzaIDs = newTimeouts }
+--    return Nothing
+--
+--  -- TODO: Does not work with message errors
+--  IEE (EnumeratorXML (XEMessage (Right messageEvent))) -> do
+--    let stanzaID' = messageID $ messageEvent
+--    let newTimeouts = case stanzaID' of
+--                        Just stanzaID'' ->
+--                            case stanzaID'' `elem` (stateTimeoutStanzaIDs state) of
+--                                    True -> filter (\ e -> e /= stanzaID'') (stateTimeoutStanzaIDs state)
+--                                    False -> (stateTimeoutStanzaIDs state)
+--                        Nothing -> (stateTimeoutStanzaIDs state)
+--    let messageReceivedFunctions = map (\ x -> messageReceived x) (stateClientHandlers state)
+--    let functions = map (\ x -> case x of
+--                            Just f -> Just (f messageEvent)
+--                            Nothing -> Nothing) messageReceivedFunctions
+--    let clientState = stateClientState state -- ClientState s m
+--    clientState' <- sendToClient functions clientState
+--    put $ state { stateClientState = clientState', stateTimeoutStanzaIDs = newTimeouts }
+--    return Nothing
 
   IEC (CEPresence presence stanzaCallback timeoutCallback streamErrorCallback) -> do
     presence' <- case presenceID $ presence of

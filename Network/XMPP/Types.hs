@@ -34,7 +34,6 @@ Domainpart,
 Resourcepart,
 LangTag (..),
 InternalEvent (..),
-XMLEvent (..),
 ConnectionState (..),
 ClientEvent (..),
 StreamState (..),
@@ -81,6 +80,7 @@ import Data.Certificate.X509 (X509)
 import Data.List (intersperse)
 import Data.Char (toLower)
 
+import Control.Exception.Base (SomeException)
 
 -- =============================================================================
 --  STANZA TYPES
@@ -432,14 +432,10 @@ type Resource = String
 -- An XMLEvent is triggered by an XML stanza or some other XML event, and is
 -- sent through the internal event channel, just like client action events.
 
-data XMLEvent = XEBeginStream String | XEFeatures String |
-                XEChallenge Challenge | XESuccess Success |
-                XEEndStream | XEIQ IQ | XEPresence InternalPresence |
-                XEMessage InternalMessage | XEProceed |
-                XEOther String deriving (Show)
-
 data EnumeratorEvent = EnumeratorDone |
-                       EnumeratorXML XMLEvent |
+                       EnumeratorBeginStream (Maybe String) (Maybe String) (Maybe String) (Maybe String) (Maybe String) (Maybe String) |
+                       EnumeratorEndStream |
+                       EnumeratorFirstLevelElement (Either SomeException Element) |
                        EnumeratorException CE.SomeException
                        deriving (Show)
 
