@@ -6,7 +6,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module Network.XMPP.Stream (
-isTLSSecured,
 xmlEnumerator,
 presenceToXML,
 iqToXML,
@@ -19,78 +18,59 @@ versionFromString,
 versionFromNumbers
 ) where
 
-import Network.XMPP.Address hiding (fromString)
-import qualified Network.XMPP.Address as X
 import Network.XMPP.Types hiding (Continue)
-import Network.XMPP.Utilities
-import Network.XMPP.TLS
-import Network.XMPP.Stanza
-import qualified Control.Exception as CE
-import Control.Concurrent.Chan (Chan, newChan, readChan, writeChan)
-import GHC.IO.Handle (Handle, hPutStr, hFlush, hSetBuffering, hWaitForInput)
-import Network.TLS hiding (Version)
-import Network.TLS.Cipher
-import Data.Enumerator (($$), Iteratee, continue, joinI,
-                        run, run_, yield)
-import Data.Enumerator.Binary (enumHandle, enumFile)
-import Text.XML.Enumerator.Parse (parseBytes, decodeEntities)
-import Text.XML.Enumerator.Document (fromEvents)
-import qualified Data.ByteString as DB
-import qualified Data.ByteString.Lazy as DBL (ByteString, append, pack, fromChunks, toChunks, null)
-import qualified Data.ByteString.Lazy.Char8 as DBLC (append, pack, unpack)
-import qualified Data.List as DL
-import qualified Data.Text as DT
-import qualified Data.Text.Lazy as DTL
-import Data.Maybe
 
-import Data.XML.Types
+import Prelude hiding (null)
 
-import Control.Monad.IO.Class (liftIO, MonadIO)
-import Data.String (IsString(..))
-
+import Control.Concurrent.Chan (Chan, writeChan)
+import Control.Exception.Base (SomeException)
+import Control.Monad.IO.Class (liftIO)
+import Data.ByteString.Lazy (null, toChunks)
+import Data.Enumerator ((>>==), ($$), Iteratee (..), Enumeratee, Step (..), Enumerator (..), Stream (Chunks), returnI, joinI, run)
+import Data.Enumerator.Binary (enumHandle)
+import Data.Maybe (fromJust, isJust)
+import Data.Text (pack, unpack)
+import Data.XML.Types (Content (..), Document (..), Element (..), Event (..), Name (..), Node (..))
+import GHC.IO.Handle (Handle)
+import Network.TLS (TLSCtx, recvData)
 import Text.Parsec (char, count, digit, eof, many, many1, oneOf, parse)
 import Text.Parsec.ByteString (GenParser)
+import Text.XML.Enumerator.Document (fromEvents)
+import Text.XML.Enumerator.Parse (parseBytes, decodeEntities)
 
+import qualified Data.ByteString as DB (ByteString)
 import qualified Data.ByteString.Char8 as DBC (pack)
-
-import Data.Enumerator ((>>==), Iteratee (..), Enumeratee, Step (..), Enumerator (..), Stream (Chunks), returnI)
 import qualified Data.Enumerator.List as DEL (head)
-
-import Control.Exception.Base (SomeException)
-
-
-isTLSSecured :: TLSState -> Bool
-isTLSSecured (PostHandshake _) = True
-isTLSSecured _ = False
 
 
 -- Reads from the provided handle or TLS context and sends the events to the
 -- internal event channel.
 
 xmlEnumerator :: Chan (InternalEvent s m) -> Either Handle TLSCtx -> IO ()
-xmlEnumerator c s = do
-  enumeratorResult <- case s of
-    Left handle -> run $ enumHandle 1 handle $$ joinI $
-                   parseBytes decodeEntities $$ eventConsumer c [] 0
-    Right tlsCtx -> run $ enumTLS tlsCtx $$ joinI $
-                    parseBytes decodeEntities $$ eventConsumer c [] 0
-  case enumeratorResult of
-    Right _ ->
-      writeChan c $ IEE EnumeratorDone
-    Left e ->
-      writeChan c $ IEE (EnumeratorException e)
-  where
-    -- Behaves like enumHandle, but reads from the TLS context instead
-    enumTLS :: TLSCtx -> Enumerator DB.ByteString IO b
-    enumTLS c s = loop c s
 
-    loop :: TLSCtx -> Step DB.ByteString IO b -> Iteratee DB.ByteString IO b
-    loop c (Continue k) = do
-      d <- recvData c
-      case DBL.null d of
-        True  -> loop c (Continue k)
-        False -> k (Chunks $ DBL.toChunks d) >>== loop c
-    loop _ step = returnI step
+xmlEnumerator c s = do
+    enumeratorResult <- case s of
+        Left handle -> run $ enumHandle 1 handle $$ joinI $
+                       parseBytes decodeEntities $$ eventConsumer c [] 0
+        Right tlsCtx -> run $ enumTLS tlsCtx $$ joinI $
+                        parseBytes decodeEntities $$ eventConsumer c [] 0
+    case enumeratorResult of
+        Right _ -> writeChan c $ IEE EnumeratorDone
+        Left e -> writeChan c $ IEE (EnumeratorException e)
+    where
+        -- Behaves like enumHandle, but reads from the TLS context instead
+        -- TODO: Type?
+        enumTLS :: TLSCtx -> Enumerator DB.ByteString IO b
+        enumTLS c s = loop c s
+
+        -- TODO: Type?
+        loop :: TLSCtx -> Step DB.ByteString IO b -> Iteratee DB.ByteString IO b
+        loop c (Continue k) = do
+            d <- recvData c
+            case null d of
+                True  -> loop c (Continue k)
+                False -> k (Chunks $ toChunks d) >>== loop c
+        loop _ step = returnI step
 
 
 -- Consumes XML events from the input stream, accumulating as necessary, and
@@ -103,7 +83,7 @@ eventConsumer :: Chan (InternalEvent s m) -> [Event] -> Int ->
 -- <stream:stream> open event received.
 
 eventConsumer chan [EventBeginElement (Name localName namespace prefixName) attribs] 0
-    | localName == DT.pack "stream" && isJust prefixName && fromJust prefixName == DT.pack "stream" = do
+    | localName == pack "stream" && isJust prefixName && fromJust prefixName == pack "stream" = do
         liftIO $ writeChan chan $ IEE $ EnumeratorBeginStream from to id ver lang ns
         eventConsumer chan [] 1
     where
@@ -112,12 +92,12 @@ eventConsumer chan [EventBeginElement (Name localName namespace prefixName) attr
         id = case lookup "id" attribs of Nothing -> Nothing; Just idAttrib -> Just $ show idAttrib
         ver = case lookup "version" attribs of Nothing -> Nothing; Just verAttrib -> Just $ show verAttrib
         lang = case lookup "xml:lang" attribs of Nothing -> Nothing; Just langAttrib -> Just $ show langAttrib
-        ns = case namespace of Nothing -> Nothing; Just namespaceAttrib -> Just $ DT.unpack namespaceAttrib
+        ns = case namespace of Nothing -> Nothing; Just namespaceAttrib -> Just $ unpack namespaceAttrib
 
 -- <stream:stream> close event received.
 
 eventConsumer chan [EventEndElement name] 1
-    | namePrefix name == Just (DT.pack "stream") && nameLocalName name == DT.pack "stream" = do
+    | namePrefix name == Just (pack "stream") && nameLocalName name == pack "stream" = do
         liftIO $ writeChan chan $ IEE $ EnumeratorEndStream
         return Nothing
 
@@ -173,7 +153,7 @@ messageToXML (Right m) streamLang = Element "message" attribs nodes
         -- Has the stanza attributes and the message type.
         attribs :: [(Name, [Content])]
         attribs = stanzaAttribs (messageID m) (messageFrom m) (messageTo m) stanzaLang ++
-                  [("type", [ContentText $ DT.pack $ show $ messageType m])]
+                  [("type", [ContentText $ pack $ show $ messageType m])]
 
         -- Has an arbitrary number of elements as children.
         nodes :: [Node]
@@ -191,7 +171,7 @@ messageToXML (Left m) streamLang = Element "message" attribs nodes
         -- Has the stanza attributes and the "error" presence type.
         attribs :: [(Name, [Content])]
         attribs = stanzaAttribs (messageErrorID m) (messageErrorFrom m) (messageErrorTo m)
-                  stanzaLang ++ [("type", [ContentText $ DT.pack "error"])]
+                  stanzaLang ++ [("type", [ContentText $ pack "error"])]
 
         -- Has the error element stanza as its child.
         -- TODO: Include sender XML here?
@@ -227,7 +207,7 @@ presenceToXML (Right p) streamLang = Element "presence" attribs nodes
         stanzaLang = stanzaLang' streamLang $ presenceLangTag p
 
         typeAttrib :: [(Name, [Content])]
-        typeAttrib = case presenceType p of Nothing -> []; Just presenceType' -> [("type", [ContentText $ DT.pack $ show presenceType'])]
+        typeAttrib = case presenceType p of Nothing -> []; Just presenceType' -> [("type", [ContentText $ pack $ show presenceType'])]
 
 -- Presence error.
 
@@ -238,7 +218,7 @@ presenceToXML (Left p) streamLang = Element "presence" attribs nodes
         -- Has the stanza attributes and the "error" presence type.
         attribs :: [(Name, [Content])]
         attribs = stanzaAttribs (presenceErrorID p) (presenceErrorFrom p) (presenceErrorTo p)
-                  stanzaLang ++ [("type", [ContentText $ DT.pack "error"])]
+                  stanzaLang ++ [("type", [ContentText $ pack "error"])]
 
         -- Has the error element stanza as its child.
         -- TODO: Include sender XML here?
@@ -276,7 +256,7 @@ iqToXML (Left i) streamLang = Element "iq" attribs nodes
 
         -- The required type attribute.
         typeAttrib :: [(Name, [Content])]
-        typeAttrib = [("type", [ContentText $ DT.pack $ show $ iqRequestType i])]
+        typeAttrib = [("type", [ContentText $ pack $ show $ iqRequestType i])]
 
 -- Response result IQ.
 
@@ -298,7 +278,7 @@ iqToXML (Right (Right i)) streamLang = Element "iq" attribs nodes
 
         -- The required type attribute.
         typeAttrib :: [(Name, [Content])]
-        typeAttrib = [("type", [ContentText $ DT.pack "result"])]
+        typeAttrib = [("type", [ContentText $ pack "result"])]
 
 -- Response error IQ.
 
@@ -319,7 +299,7 @@ iqToXML (Right (Left i)) streamLang = Element "iq" attribs nodes
         stanzaLang = stanzaLang' streamLang $ iqErrorLangTag i
 
         typeAttrib :: [(Name, [Content])]
-        typeAttrib = [("type", [ContentText $ DT.pack "error"])]
+        typeAttrib = [("type", [ContentText $ pack "error"])]
 
 
 -- Creates the error element that is common for all stanzas.
@@ -333,11 +313,11 @@ errorElem streamLang stanzaLang stanzaError = Element "error" typeAttrib
 
         -- The required stanza error type.
         typeAttrib :: [(Name, [Content])]
-        typeAttrib = [("type", [ContentText $ DT.pack $ show $ stanzaErrorType stanzaError])]
+        typeAttrib = [("type", [ContentText $ pack $ show $ stanzaErrorType stanzaError])]
 
         -- The required defined condition element.
         defCondElem :: Node
-        defCondElem = NodeElement $ Element (Name (DT.pack $ show $ stanzaErrorCondition stanzaError) (Just $ DT.pack "urn:ietf:params:xml:ns:xmpp-stanzas") Nothing) [] []
+        defCondElem = NodeElement $ Element (Name (pack $ show $ stanzaErrorCondition stanzaError) (Just $ pack "urn:ietf:params:xml:ns:xmpp-stanzas") Nothing) [] []
 
 
         -- The optional text element.
@@ -347,7 +327,7 @@ errorElem streamLang stanzaLang stanzaError = Element "error" typeAttrib
                        Just (textLang, text) ->
                            [NodeElement $ Element "{urn:ietf:params:xml:ns:xmpp-stanzas}text"
                                (langTagAttrib $ childLang streamLang [stanzaLang, fst $ fromJust $ stanzaErrorText stanzaError])
-                               [NodeContent $ ContentText $ DT.pack text]]
+                               [NodeContent $ ContentText $ pack text]]
 
         -- The optional application specific condition element.
         appSpecCondElem :: [Node]
@@ -360,7 +340,7 @@ errorElem streamLang stanzaLang stanzaError = Element "error" typeAttrib
 
 langTagAttrib :: Maybe LangTag -> [(Name, [Content])]
 
-langTagAttrib lang = case lang of Nothing -> []; Just lang' -> [("xml:lang", [ContentText $ DT.pack $ show lang'])]
+langTagAttrib lang = case lang of Nothing -> []; Just lang' -> [("xml:lang", [ContentText $ pack $ show lang'])]
 
 
 stanzaLang' :: LangTag -> LangTag -> Maybe LangTag
@@ -403,10 +383,10 @@ childLang streamLang optLangTags
 
 stanzaAttribs :: Maybe StanzaID -> Maybe From -> Maybe To -> Maybe LangTag -> [(Name, [Content])]
 
-stanzaAttribs i f t l = if isJust $ i then [("id", [ContentText $ DT.pack $ show $ fromJust i])] else [] ++
-                      if isJust $ f then [("from", [ContentText $ DT.pack $ show $ fromJust f])] else [] ++
-                      if isJust $ t then [("to", [ContentText $ DT.pack $ show $ fromJust t])] else [] ++
-                      if isJust $ l then [("xml:lang", [ContentText $ DT.pack $ show l])] else []
+stanzaAttribs i f t l = if isJust $ i then [("id", [ContentText $ pack $ show $ fromJust i])] else [] ++
+                      if isJust $ f then [("from", [ContentText $ pack $ show $ fromJust f])] else [] ++
+                      if isJust $ t then [("to", [ContentText $ pack $ show $ fromJust t])] else [] ++
+                      if isJust $ l then [("xml:lang", [ContentText $ pack $ show l])] else []
 
 
 parseIQ :: Element -> IQ
@@ -424,6 +404,9 @@ parseMessage :: Element -> InternalMessage
 parseMessage = parseMessage
 
 
+-- Converts a string to a PresenceType. Nothing means convertion error, Just
+-- Nothing means the presence error type, and Just $ Just is the PresenceType.
+
 stringToPresenceType :: String -> Maybe (Maybe PresenceType)
 
 stringToPresenceType "probe" = Just $ Just Probe
@@ -436,6 +419,8 @@ stringToPresenceType "error" = Just Nothing
 stringToPresenceType _ = Nothing
 
 
+-- Converts a Maybe MessageType to a string. Nothing means "error".
+
 presenceTypeToString :: Maybe PresenceType -> String
 
 presenceTypeToString (Just Unavailable) = "unavailable"
@@ -447,6 +432,9 @@ presenceTypeToString (Just Unsubscribe) = "unsubscribe"
 presenceTypeToString (Just Unsubscribed) = "unsubscribed"
 
 
+-- Converts a string to a MessageType. Nothing means convertion error, Just
+-- Nothing means the message error type, and Just $ Just is the MessageType.
+
 stringToMessageType :: String -> Maybe (Maybe MessageType)
 
 stringToMessageType "chat" = Just $ Just Chat
@@ -456,6 +444,8 @@ stringToMessageType "headline" = Just $ Just Headline
 stringToMessageType "normal" = Just $ Just Normal
 stringToMessageType _ = Nothing
 
+
+-- Converts a Maybe MessageType to a string. Nothing means "error".
 
 messageTypeToString :: Maybe MessageType -> String
 
