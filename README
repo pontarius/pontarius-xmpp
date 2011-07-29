@@ -1,13 +1,6 @@
 Pontarius XMPP 0.1 aims to implement the client capabilities of RFC 6120 ("XMPP
-Core"). We have just released 0.1 Alpha 7, which may be the last version that is
-not feature-complete.
-
-The current version of Pontarius XMPP is broken; the recent rewriting of some
-modules broke the Session module. Fixing the Session module is one of the goals
-for the next release. Other goals include working on the last missing features,
-and improving the documentation and the API.
-
-We will soon move the project into beta.
+Core"). We have recently released 0.1 Alpha 7, which may be the last version
+that is not feature-complete. We will soon move the project into beta.
 
 Please note that we are not recommending anyone to use Pontarius XMPP at this
 time as it’s still in an experimental stage and will have its API and data types

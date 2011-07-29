@@ -1,5 +1,5 @@
 Name:               pontarius-xmpp
-Version:            0.0.7.0
+Version:            0.0.8.0
 Cabal-Version:      >= 1.6
 Build-Type:         Simple
 License:            BSD3
@@ -56,12 +56,12 @@ Library
 Source-Repository head
   Type:     darcs
   -- Module:
-  Location: https://patch-tag.com/r/jonkri/pontarius-xmpp
+  Location: git://github.com/pontarius/pontarius-xmpp.git
   -- Subdir:
 
 Source-Repository this
   Type:     darcs
   -- Module:
-  Location: https://patch-tag.com/r/jonkri/pontarius-xmpp
-  Tag:      0.0.7.0
+  Location: git://github.com/pontarius/pontarius-xmpp.git
+  Tag:      0.0.8.0
   -- Subdir:
