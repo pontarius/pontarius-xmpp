@@ -1,0 +1,800 @@
+#LyX 2.0 created this file. For more info see http://www.lyx.org/
+\lyxformat 413
+\begin_document
+\begin_header
+\textclass article
+\use_default_options true
+\maintain_unincluded_children false
+\language english
+\language_package default
+\inputencoding auto
+\fontencoding global
+\font_roman default
+\font_sans default
+\font_typewriter default
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_osf false
+\font_sf_scale 100
+\font_tt_scale 100
+
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command default
+\index_command default
+\paperfontsize default
+\use_hyperref false
+\papersize default
+\use_geometry false
+\use_amsmath 1
+\use_esint 1
+\use_mhchem 1
+\use_mathdots 1
+\cite_engine basic
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\use_refstyle 1
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\quotes_language english
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Title
+Architectural Description for Pontarius XMPP 0.1 (First Draft)
+\end_layout
+
+\begin_layout Author
+The Pontarius project
+\end_layout
+
+\begin_layout Date
+17th of August 2011
+\end_layout
+
+\begin_layout Standard
+\begin_inset CommandInset toc
+LatexCommand tableofcontents
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Introduction
+\end_layout
+
+\begin_layout Subsection
+Summary
+\end_layout
+
+\begin_layout Standard
+This is a first draft of an architectural description for Pontarius XMPP,
+ version 0.1.
+ It follows the IEEE 1471 recommended practice, and elaborates on the stakeholde
+rs and their concerns (Section 2) through viewpoint and view artifacts
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+A 
+\emph on
+viewpoint
+\emph default
+ is the language, including notations, models, and techniques, that is used
+ to describe a view.
+ A 
+\emph on
+view
+\emph default
+ is an artifact that, based on a viewpoint, addresses concerns of system
+ stakeholders.
+\end_layout
+
+\end_inset
+
+ (Section 3 and Section 4, respectively).
+ The Consistency section (Section 5) records architectural inconsistencies,
+ if any.
+ The Rationale section (Section 6) elaborates on reasons for the approaches
+ taken, as well as mentioning the alternatives considered.
+ We would greatly appreciate any feedback on our architectural decisions.
+\end_layout
+
+\begin_layout Subsection
+Change history
+\end_layout
+
+\begin_layout Standard
+\begin_inset Tabular
+<lyxtabular version="3" rows="2" columns="3">
+<features tabularvalignment="middle">
+<column alignment="center" valignment="top" width="0">
+<column alignment="center" valignment="top" width="0">
+<column alignment="center" valignment="top" width="0">
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Version
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Date
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Description
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+First draft
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+08/13/2011
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+First draft
+\end_layout
+
+\end_inset
+</cell>
+</row>
+</lyxtabular>
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Context
+\end_layout
+
+\begin_layout Standard
+Pontarius XMPP is an XMPP library written in Haskell, for use with Haskell
+ applications.
+ The version targetted by this document, 0.1, is relatively lacking of features
+ compared to some other XMPP libraries as it is only implementing the XMPP
+ Core functionalities of XMPP.
+\end_layout
+
+\begin_layout Standard
+The Pontarius project is the only entity who has contributed to or expressed
+ an interest of Pontarius XMPP to date.
+ Thus, Pontarius XMPP is currently only influenced by the concerns of the
+ Pontarius project.
+ While the Pontarius project would like to see Pontarius XMPP become the
+ de-facto XMPP library for Haskell, their highest priority is to develop
+ an uncentralized media server on top of XMPP and XPMN.
+\end_layout
+
+\begin_layout Standard
+Implementing support for XMPP Core was a first step toward this end.
+ Developing the various extensions necessary for XPMN
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+These extensions include, but are not limited to, SASL EXTERNAL, Jingle,
+ and end-to-end encryption.
+\end_layout
+
+\end_inset
+
+ will be the second step---this is what will determine the requirements
+ of Pontarius XMPP 0.2.
+\end_layout
+
+\begin_layout Standard
+With this in mind, the 
+\emph on
+mission
+\emph default
+ of Pontarius XMPP 0.1 becomes to serve as a solid foundation for the extensions
+ planned for Pontarius XMPP 0.2, as well as to allow for the simple connection
+ and communication primitives usages that are possible within XMPP Core.
+ However, we will defer most extra features (features not wanted by the
+ Pontarius project) until further notice.
+\end_layout
+
+\begin_layout Standard
+Please consult the Software Requirements Specification for Pontarius XMPP
+ for more information about the Pontarius XMPP 0.1 features.
+\end_layout
+
+\begin_layout Subsection
+Glossary
+\end_layout
+
+\begin_layout Description
+FOSS Free and Open Source Software: See http://www.gnu.org/philosophy/free-sw.html
+ and http://www.opensource.org/osd.html
+\end_layout
+
+\begin_layout Description
+Pontarius Jon Kristensen's project to develop FOSS, uncentralized, and privacy-a
+ware software solutions; see http://www.pontarius.org/
+\end_layout
+
+\begin_layout Description
+XMPP Extendable Messaging and Presence Protocol: An uncentralized, open,
+ and near-real-time presence and messaging protocol; see http://www.xmpp.org/
+\end_layout
+
+\begin_layout Description
+XMPP
+\begin_inset space ~
+\end_inset
+
+Core An Internet standard that defines the core protocol methods of XMPP,
+ setup and teardown of XMPP streams, encryption, authentication, error handling,
+ and communication primitives; see RFC 6120
+\end_layout
+
+\begin_layout Description
+XPMN Extended Personal Media Network: An XMPP-based media network architecture
+ that allows media devices to utilize and expose media services in a flexible,
+ generic and user-friendly way; see http://www.xpmn.org/
+\end_layout
+
+\begin_layout Subsection
+References
+\end_layout
+
+\begin_layout Itemize
+Software Requirements Specification for Pontarius XMPP (the latest published
+ version can be found http://www.pontarius.org/)
+\end_layout
+
+\begin_layout Section
+Stakeholders and concerns
+\end_layout
+
+\begin_layout Subsection
+Acquirer, developers, and maintainers (the Pontarius project)
+\end_layout
+
+\begin_layout Standard
+The system is essentially 
+\begin_inset Quotes eld
+\end_inset
+
+acquired
+\begin_inset Quotes erd
+\end_inset
+
+, architected, developed, and maintained by the Pontarius project.
+ However, Pontarius XMPP being FOSS, you never know who might join in on
+ the effort.
+\end_layout
+
+\begin_layout Standard
+The plan to build an XPMN media server on top of Pontarius XMPP makes the
+ 
+\emph on
+extensibility
+\emph default
+ attribute of the system particularily important.
+\end_layout
+
+\begin_layout Standard
+Trying to make as much code as possible pure, clean, and 
+\emph on
+testable
+\emph default
+, we believe that Pontarius XMPP will be relatively 
+\emph on
+correct
+\emph default
+.
+\end_layout
+
+\begin_layout Standard
+The system is in the end stages of its alpha phase and is very likely to
+ be finished, so there are no significant risks to the acquirer.
+\end_layout
+
+\begin_layout Standard
+Note that the Pontarius project have not planned to actually develop an
+ application using Pontarius XMPP 0.1.
+\end_layout
+
+\begin_layout Subsection
+Users
+\end_layout
+
+\begin_layout Standard
+The users of Pontarius XMPP are third-party (Haskell) application developers
+ who utilizes the XMPP Core functionality.
+ We are not addressing all user concerns in this release, or the next; see
+ section 1.4 for more information.
+\end_layout
+
+\begin_layout Standard
+Like with the Pontarius project, users would appreciate a high level of
+ 
+\emph on
+extendability
+\emph default
+, allowing them to implement their own high-level protocols on top of XMPP
+ Core.
+ Of course, 
+\emph on
+correctness
+\emph default
+ is of great importance as well.
+\end_layout
+
+\begin_layout Standard
+One great strenght of Haskell is the level of 
+\emph on
+development efficiency
+\emph default
+ that can often be archieved; we want to utilize this in Pontarius XMPP.
+\end_layout
+
+\begin_layout Standard
+The client will also need to be 
+\emph on
+flexible
+\emph default
+ in that it can be concurrent.
+\end_layout
+
+\begin_layout Standard
+We will take the above concerns into consideration in the architecture of
+ Pontarius XMPP 0.1.
+ However, there are a number of attributes that, as mentioned above, will
+ be deferred until later versions, such as the needs for 
+\emph on
+interoperability
+\emph default
+ (against XMPP servers), 
+\emph on
+deployability
+\emph default
+, and 
+\emph on
+portability
+\emph default
+, all arising from the fact that Pontarius XMPP may be used in different
+ environments.
+\end_layout
+
+\begin_layout Section
+Viewpoints
+\end_layout
+
+\begin_layout Subsection
+Extendibility
+\end_layout
+
+\begin_layout Standard
+Both stakeholder groups is in a great need of extendibility, so this concern
+ is of utmost importance.
+ We have addressed the issue through a flexible event system, where applications
+ easily can insert hooks on certain standard events (streams opened, message
+ received, etc.), and also generate custom events themselves.
+ These custom events can contain any payload that the client wants, such
+ as for example a high-level payload with identities and features for a
+ service discovery response
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Read more about the Service Discovery extension at http://xmpp.org/extensions/xep
+-0030.html.
+\end_layout
+
+\end_inset
+
+, enabling clients to define handlers for service discovery replies, without
+ even requiring that Pontarius XMPP is aware of the event type.
+\end_layout
+
+\begin_layout Standard
+The corresponding view (see the 4.1 section) will show the necessary features
+ and illustrate how the event system is covering the requirements.
+\end_layout
+
+\begin_layout Subsection
+Testability and correctness
+\end_layout
+
+\begin_layout Standard
+The pure and functional nature of Haskell allows for a fantastic isolation
+ between components, and increases the understandability and testability
+ of the code.
+ By making most of the code pure and utilizing testing tools like QuickCheck,
+ we can be unusually confident that the code is correct, compared to other
+ languages.
+\end_layout
+
+\begin_layout Standard
+That being said, Pontarius XMPP 0.1 in its current state has one huge and
+ impure function: the state loop function.
+ The loop carries and modifies a state, but also performs impure (IO) function
+ calls.
+ Being impure, we cannot conveniently write QuickCheck properties and perform
+ other testing for this function.
+ A simple approach to this problem is illustrated in Section 4.2.
+\end_layout
+
+\begin_layout Subsection
+Development efficiency
+\end_layout
+
+\begin_layout Standard
+Haskell's strong type system allows client developers to catch a great many
+ bugs that would be runtime errors in other programming languages at compile
+ time.
+ This does not only, as mentioned above, produce more correct code, but
+ it also saves the developer a lot of time.
+\end_layout
+
+\begin_layout Standard
+Section 4.3 describes how we plan to use monads transformers to further increase
+ the development efficiency for Pontarius XMPP users.
+\end_layout
+
+\begin_layout Subsection
+Flexibility: Concurrency
+\end_layout
+
+\begin_layout Standard
+Client applications needs to be able to access the library from multiple
+ threads.
+ Section 4.4 will illustrate the concurrency model of Pontarius XMPP.
+\end_layout
+
+\begin_layout Section
+Views
+\end_layout
+
+\begin_layout Subsection
+Extendibility: The event system
+\end_layout
+
+\begin_layout Standard
+The event system needs to support the following features in regards to these
+ extensible event types.
+ 
+\begin_inset Quotes eld
+\end_inset
+
+Any function
+\begin_inset Quotes erd
+\end_inset
+
+ below means any function with access to the XMPP session.
+ A hook is a function that is registered with Pontarius XMPP to receive
+ a certain event.
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Hooks can only register for exactly one event.
+ If developers want one function to handle multiple events, they will have
+ to insert multiple hooks which 
+\begin_inset Quotes eld
+\end_inset
+
+overloads
+\begin_inset Quotes erd
+\end_inset
+
+ the real hook function (perhaps using in-line Lambda functions).
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Enumerate
+Defining arbitrary (non-hierarchical) events with any payload
+\end_layout
+
+\begin_layout Enumerate
+Injection of such event, where Pontarius XMPP will forward received event
+ (without understanding it) using the registered hooks
+\end_layout
+
+\begin_layout Enumerate
+Allowing functions to register hooks for any such event type, similar to
+ how they would register a regular event
+\end_layout
+
+\begin_layout Enumerate
+Returning, upon registration, a hook ID that may or may not be stored by
+ the client
+\end_layout
+
+\begin_layout Enumerate
+Allowing any function to unregister a hook using its hook ID
+\end_layout
+
+\begin_layout Enumerate
+Allowing any function that is hooked to Pontarius XMPP to unregister itself
+ (without knowing its hook ID)
+\end_layout
+
+\begin_layout Enumerate
+Processing hook modifications (registration and unregistration) must happen
+ immediately, so that hooks are not missing events, or receiving events
+ that they should not process
+\end_layout
+
+\begin_layout Standard
+Haskell's type system is static, and it's not completely straight-forward
+ to implement dynamic types like these.
+ Our suggested solution is using an existential type---a Haskell type class---th
+at can wrap these custom events into a generic type, which we can use to
+ distinguish one hook type from another, so that we can divide them into
+ groups.
+ We have decided to go with 
+\family typewriter
+Data.Dynamic
+\family default
+ and 
+\family typewriter
+Data.Typeable
+\family default
+ of the Haskell base package.
+\end_layout
+
+\begin_layout Standard
+The dynamic event is called DynamicEvent, and it contains its Typeable payload
+ and nothing more.
+ Hence, you only need to make your payload an instance of Typeable.
+\end_layout
+
+\begin_layout Standard
+Injecting the event can be done through 
+\family typewriter
+raiseDynamicEvent :: Typeable a => a -> XMPPT m ()
+\family default
+.
+ This function will generate a 
+\family typewriter
+DynamicEvent
+\family default
+ value wrapping the 
+\family typewriter
+Typeable
+\family default
+, and call all functions registered with the 
+\family typewriter
+TypeRep
+\family default
+ (type representation) of the 
+\family typewriter
+Typeable
+\family default
+.
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+It seems that GHC versions prior to 7.2 does not provide an 
+\family typewriter
+Ord
+\family default
+ instance for 
+\family typewriter
+TypeRep
+\family default
+, so in order for us to be able to use the 
+\family typewriter
+TypeRep
+\family default
+ as keys in maps and be compatible with older versions of GHC, we will probably
+ have to provide one ourselves.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Registering a hook for a 
+\family typewriter
+DynamicEvent
+\family default
+ type would mean calling something like 
+\family typewriter
+registerDynamicEventHook :: Typeable a => a -> XMPPT m HookID
+\family default
+.
+ Unregistering is analogous.
+\end_layout
+
+\begin_layout Standard
+To make sure that processing happens prior to any other events, a special
+ 
+\family typewriter
+Chan
+\family default
+ can be used, which is always processed prior to the regular internal events
+ of Pontarius XMPP.
+\end_layout
+
+\begin_layout Subsection
+Testability and correctness: The state loop
+\end_layout
+
+\begin_layout Standard
+Instead of mixing the pure state-machine-related code and logic with the
+ impure (IO) actions, we are using a function like 
+\family typewriter
+State -> Event -> (State, [ImpureAction])
+\family default
+ that, given a state and event
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Note that this event type is internal to the library and has nothing to
+ do with the event system mentioned in Section 4.1.
+\end_layout
+
+\end_inset
+
+, updates the state and returns a list of impure actions to be performed
+ separately.
+\end_layout
+
+\begin_layout Standard
+As a side note, one thing that could possibly be investigated and used is
+ the functional reactive programming paradigm.
+ However, that would most likely require a completely different approach
+ toward reading and modifying the state, and a lot of time spent.
+\end_layout
+
+\begin_layout Subsection
+Development efficiency: Monads
+\end_layout
+
+\begin_layout Standard
+The main efficiency feature of Pontarius XMPP is the use of monad transformers.
+ Pontarius XMPP defines 
+\family typewriter
+XMPPT
+\family default
+, which contains the necessary information to interact with Pontarius XMPP
+ (such as some 
+\family typewriter
+Chan
+\family default
+s) from a convenient and flexible context.
+\end_layout
+
+\begin_layout Standard
+Being a monad transformer, 
+\family typewriter
+XMPPT
+\family default
+ can be stacked on top of an arbitrary amount of 
+\family typewriter
+MonadIO
+\family default
+ monad transformers to provide extra functionality.
+ One thing that this allows client developers to do is to use the 
+\family typewriter
+StateT
+\family default
+ monad transformer below 
+\family typewriter
+XMPPT
+\family default
+ to perform stateful operations in the 
+\family typewriter
+XMPPT
+\family default
+ context.
+ One example of a use of this would be to always have the client state carried
+ around, and getting it as easily as 
+\family typewriter
+do clientState <- lift $ get
+\family default
+.
+\end_layout
+
+\begin_layout Subsection
+Flexibility: Concurrency
+\end_layout
+
+\begin_layout Standard
+The usage of monads in Pontarius XMPP has one notable limitation---it necessaril
+y means one calculation, and one thread.
+ Imagine that you want to perform an XMPP action from a different thread.
+ Perhaps you want to update your presence every 30 seconds, or you want
+ to send a message on some database event? The Pontarius XMPP architecture
+ offer a backdoor for this through its event system; developers can use
+ 
+\family typewriter
+dynamicEventInjector :: Typeable a => XMPPT m (a -> IO ())
+\family default
+ to acquire this function.
+ After that, the receiving hooks can perform the actual XMPP actions in
+ the 
+\begin_inset Quotes eld
+\end_inset
+
+main thread
+\begin_inset Quotes erd
+\end_inset
+
+ based on the event payload.
+\end_layout
+
+\begin_layout Section
+Consistency
+\end_layout
+
+\begin_layout Standard
+There are no known inconsistencies in this document.
+\end_layout
+
+\begin_layout Section
+Rationale
+\end_layout
+
+\begin_layout Standard
+There are no known alternative approaches for the architecture.
+\end_layout
+
+\end_body
+\end_document
