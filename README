@@ -1,6 +1,7 @@
 Pontarius XMPP 0.1 aims to implement the client capabilities of RFC 6120 ("XMPP
-Core"). We have recently released 0.1 Alpha 7, which may be the last version
-that is not feature-complete. We will soon move the project into beta.
+Core"). We have recently released 0.1 Alpha 7 and are right now working on the
+final architectural details and working towards feature-completeness for 0.1, to
+be able to move the project into beta.
 
 Please note that we are not recommending anyone to use Pontarius XMPP at this
 time as it’s still in an experimental stage and will have its API and data types
@@ -8,7 +9,10 @@ modified. However, if you are interested to use Pontarius XMPP anyway, feel free
 to contact the Pontarius project and we will try to help you get started. Please
 see http://www.pontarius.org/ for documentation and more information.
 
-The next version is scheduled to be released on the 17th of August.
+The next version is scheduled to be released on the 7th of September.
+
+We were not making the release scheduled for the 17th of August, but instead
+released an architectural description document.
 
 Look at the Pontarius web site <http://www.pontarius.org/> and the Pontarius
 XMPP Hackage page <http://hackage.haskell.org/package/pontarius-xmpp/> for more
