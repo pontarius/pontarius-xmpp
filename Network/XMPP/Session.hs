@@ -4,57 +4,82 @@
 
 -- TODO: Predicates on callbacks?
 -- TODO: . vs $
+-- TODO: type XMPP = XMPPT IO? + runXMPP
 
 
-module Network.XMPP.NewSession (
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE StandaloneDeriving #-}
+
+
+module Network.XMPP.Session (
     XMPPT (runXMPPT)
 ) where
+
+
+import Network.XMPP.Types
+
+import Control.Concurrent (Chan, readChan, writeChan)
+import Control.Monad.IO.Class (MonadIO, liftIO)
+import Data.Certificate.X509 (X509)
+import Data.Dynamic (Dynamic)
+import Control.Monad.Reader (MonadReader, ReaderT, ask)
 
 
 -- |
 -- The XMPP monad transformer. XMPP clients will need to operate in this
 -- context.
 
-data XMPPT m a = XMPPT { runXMPPT :: XMPPT m a -> m a
-                       , internalEventChan :: Chan InternalEvent
-                       , hookModificationsChan :: Chan HookModification }
+newtype XMPPT m a
+    = XMPPT { runXMPPT :: ReaderT (ReaderState m) m a }
+    deriving (Monad, MonadIO)
+
+deriving instance (Monad m, MonadIO m) => MonadReader (ReaderState m) (XMPPT m)
+
+
+data ReaderState m = ReaderState { intEvtChan :: Chan InternalEvent
+                                 , hookModChan :: Chan (HookModification m) }
 
 
 -- |
 -- Events that may be emitted from Pontarius XMPP.
 
-data Event
-    = ConnectedEvent (Either ConnectionFailureReason Resource)
-    -- | OpenedStreamsEvent (Maybe OpenStreamsFailureReason)
-    -- | TLSSecuredEvent (Maybe TLSSecuringFailureReason)
-    -- | AuthenticatedEvent (Either AuthenticationFailureReason Resource)
-    -- | DisconnectedEvent DisconnectReason
-    -- | MessageEvent (Either MessageError Message)
-    -- | PresenceEvent (Either PresenceError Presence)
-    -- | IQEvent (Either IQResult IQRequest)
-    | forall a. Dynamic a => DynamicEvent a
-    deriving (Show)
+data ConnectedEvent = ConnectedEvent (Either ConnectedFailureReason Resource)
+
+-- data DynamicEvent = forall a. Dynamic a => DynamicEvent a
+data DynamicEvent = DynamicEvent Dynamic
+
+type OpenedStreamsEvent = Maybe OpenStreamsFailureReason
+
+type TLSSecuredEvent = Maybe TLSSecureFailureReason
+
+type AuthenticatedEvent = Either AuthenticateFailureReason Resource
+
+--data Event
+--    = ConnectedEvent (Either IntFailureReason Resource)
+--    -- | OpenedStreamsEvent (Maybe OpenStreamsFailureReason)
+--    -- | TLSSecuredEvent (Maybe TLSSecuringFailureReason)
+--    -- | AuthenticatedEvent (Either AuthenticationFailureReason Resource)
+--    -- | DisconnectEvent DisconnectReason
+--    -- | MessageEvent (Either MessageError Message)
+--    -- | PresenceEvent (Either PresenceError Presence)
+--    -- | IQEvent (Either IQResult IQRequest)
+--    | forall a. Dynamic a => DynamicEvent a
+--    deriving (Show)
 
 
 data ConnectedFailureReason
-    = COSFR -- OpenStreamFailureReason
-    | CTSFR -- TLSSecureFailureReason
-    | CAFR -- AuthenticateFailureReason
+    = COSFR OpenStreamsFailureReason
+    | CTSFR TLSSecureFailureReason
+    | CAFR AuthenticateFailureReason
 
 
--- data OpenStreamFailureReason
+data OpenStreamsFailureReason = OpenStreamFailureReason
 
--- data TLSSecureFailureReason
+data TLSSecureFailureReason = TLSSecureFailureReason
 
--- data AuthenticateFailureReason
-
-
--- Internal events processed in the main state loop of Pontarius XMPP. They are
--- either received from the client or from the enumerator.
-
-data InternalEvent
-    = IECE ClientEvent
-    | IEEE EnumeratorEvent
+data AuthenticateFailureReason = AuthenticateFailureReason
 
 
 -- The "hook modification" events have a higher priority than other events, and
@@ -62,8 +87,15 @@ data InternalEvent
 -- whether or not the hook should be removed.
 
 data HookModification m
-    = RegisterConnectedHook (ConnectedEvent -> XMPPT m Bool)
-    | forall a. Dynamic a => RegisterDynamicHook (DynamicEvent a -> XMPPT m Bool)
+    = MonadIO m => RegisterConnectedHook (ConnectedEvent -> XMPPT m Bool) (Maybe (ConnectedEvent -> Bool))
+    | RegisterStreamsOpenedHook (OpenedStreamsEvent -> XMPPT m Bool) (Maybe (OpenedStreamsEvent -> Bool))
+    | RegisterTLSSecuredHook (TLSSecuredEvent -> XMPPT m Bool) (Maybe (TLSSecuredEvent -> Bool))
+    | RegisterAuthenticatedHook (AuthenticatedEvent -> XMPPT m Bool) (Maybe (AuthenticatedEvent -> Bool))
+    -- | forall a. Dynamic a => RegisterDynamicHook (DynamicEvent a -> XMPPT m Bool)
+    | RegisterDynamicHook (DynamicEvent -> XMPPT m Bool) (Maybe (DynamicEvent -> Bool))
+
+
+data State = State
 
 
 stateLoop :: State -> Chan InternalEvent -> IO ()
@@ -85,30 +117,37 @@ processInternalEvent s ie = (s, [connectIO])
         connectIO = return ()
 
 
-hookConnectedEvent :: (ConnectedEvent -> XMPPT m Bool) -> XMPPT m ()
+hookConnectedEvent :: MonadIO m => (ConnectedEvent -> XMPPT m Bool) -> (Maybe (ConnectedEvent -> Bool)) -> XMPPT m ()
 
-hookConnectedEvent = writeChan hookModificationsChan . RegisterConnectedHook
-
-
-hookDynamicEvent :: Dynamic a => (DynamicEvent a -> XMPPT m Bool) -> XMPPT m ()
-
-hookDynamicEvent h = writeChan hookModificationsChan . RegisterDynamicHook
+hookConnectedEvent cb pred = ask >>= \rs -> liftIO $ writeChan (hookModChan rs) (RegisterConnectedHook cb pred)
 
 
-hookStreamOpenedEvent :: (StreamOpenedEvent -> XMPPT m Bool) -> XMPPT m ()
+hookDynamicEvent :: MonadIO m => (DynamicEvent -> XMPPT m Bool) -> (Maybe (DynamicEvent -> Bool)) -> XMPPT m ()
 
-hookStreamOpenedEvent = writeChan hookModificationsChan . RegisterStreamOpenedHook
-
-
-hookTLSSecuredEvent :: (TLSSecuredEvent -> XMPPT m Bool) -> XMPPT m ()
-
-hookTLSSecuredEvent = writeChan hookModificationsChan . RegisterTLSSecuredHook
+hookDynamicEvent cb pred = ask >>= \rs -> liftIO $ writeChan (hookModChan rs) (RegisterDynamicHook cb pred)
 
 
-hookAuthenticatedEvent :: (AuthenticatedEvent -> XMPPT m Bool) -> XMPPT m ()
+hookStreamsOpenedEvent :: MonadIO m => (OpenedStreamsEvent -> XMPPT m Bool) -> (Maybe (OpenedStreamsEvent -> Bool)) -> XMPPT m ()
 
-hookAuthenticatedEvent = writeChan hookModificationsChan . RegisterAuthenticatedHook
+hookStreamsOpenedEvent cb pred = ask >>= \rs -> liftIO $ writeChan (hookModChan rs) (RegisterStreamsOpenedHook cb pred)
 
+
+hookTLSSecuredEvent :: MonadIO m => (TLSSecuredEvent -> XMPPT m Bool) -> (Maybe (TLSSecuredEvent -> Bool)) -> XMPPT m ()
+
+hookTLSSecuredEvent cb pred = ask >>= \rs -> liftIO $ writeChan (hookModChan rs) (RegisterTLSSecuredHook cb pred)
+
+
+hookAuthenticatedEvent :: MonadIO m => (AuthenticatedEvent -> XMPPT m Bool) -> (Maybe (AuthenticatedEvent -> Bool)) -> XMPPT m ()
+
+hookAuthenticatedEvent cb pred = ask >>= \rs -> liftIO $ writeChan (hookModChan rs) (RegisterAuthenticatedHook cb pred)
+
+
+openStreams = openStreams
+tlsSecure = tlsSecure
+authenticate = authenticate
+
+
+fireConnectedEvent = fireConnectedEvent
 
 -- |
 -- connect is implemented using hookStreamOpenedEvent, hookTLSSecuredEvent, and
@@ -129,35 +168,35 @@ hookAuthenticatedEvent = writeChan hookModificationsChan . RegisterAuthenticated
 -- authenticate will not be used by the client. Calling those functions may
 -- generate events that can cause connect to behave incorrectly.
 
-connect :: HostName -> PortNumber -> Maybe (Maybe [X509], ([X509] -> Bool)) -> Maybe (UserName, Password, Maybe Resource) -> XMPPT m ()
+connect :: MonadIO m => HostName -> PortNumber -> Maybe (Maybe [X509], ([X509] -> Bool)) -> Maybe (UserName, Password, Maybe Resource) -> XMPPT m ()
 
 connect h p Nothing Nothing = do
-    hookStreamOpenedEvent onStreamOpenedEvent Nothing
-    openStream h p
+    hookStreamsOpenedEvent onStreamsOpenedEvent Nothing
+    openStreams h p
 
     where
 
-        onStreamOpenedEvent Nothing = do
+        onStreamsOpenedEvent Nothing = do
             fireConnectedEvent Nothing
             return False
 
-        onStreamOpenedEvent (Just e) = do
-            fireConnectedEvent $ ConnectedFailureReason $ COSFR e
+        onStreamsOpenedEvent (Just e) = do
+            fireConnectedEvent $ Left $ COSFR e
             return False
 
 connect h p (Just t) Nothing = do
-    hookStreamOpenedEvent onStreamOpenedEvent Nothing
-    openStream h p
+    hookStreamsOpenedEvent onStreamsOpenedEvent Nothing
+    openStreams h p
 
     where
 
-        onStreamOpenedEvent Nothing = do
+        onStreamsOpenedEvent Nothing = do
             hookTLSSecuredEvent onTLSSecuredEvent Nothing
             tlsSecure
             return False
 
-        onStreamOpenedEvent (Just e) = do
-            fireConnectedEvent $ ConnectedFailureReason $ COSFR e
+        onStreamsOpenedEvent (Just e) = do
+            fireConnectedEvent $ Left $ COSFR e
             return False
 
         onTLSSecuredEvent Nothing = do
@@ -165,22 +204,22 @@ connect h p (Just t) Nothing = do
             return False
 
         onTLSSecuredEvent (Just e) = do
-            fireConnectedEvent $ ConnectedFailureReason $ CTSFR e
+            fireConnectedEvent $ Left $ CTSFR e
             return False
 
 connect h p Nothing (Just a) = do
-    hookStreamOpenedEvent onStreamOpenedEvent Nothing
-    openStream h p
+    hookStreamsOpenedEvent onStreamsOpenedEvent Nothing
+    openStreams h p
 
     where
 
-        onStreamOpenedEvent Nothing = do
+        onStreamsOpenedEvent Nothing = do
             hookAuthenticatedEvent onAuthenticatedEvent Nothing
             authenticate
             return False
 
-        onStreamOpenedEvent (Just e) = do
-            fireConnectedEvent $ ConnectedFailureReason $ COSFR e
+        onStreamsOpenedEvent (Just e) = do
+            fireConnectedEvent $ Left $ COSFR e
             return False
 
         onAuthenticatedEvent (Right r) = do
@@ -188,22 +227,22 @@ connect h p Nothing (Just a) = do
             return False
 
         onAuthenticated (Left e) = do
-            fireConnectedEvent $ ConnectedFailureReason $ CAFR e
+            fireConnectedEvent $ Left $ CAFR e
             return False
 
 connect h p (Just t) (Just a) = do
-    hookStreamOpenedEvent onStreamOpenedEvent Nothing
-    openStream h p
+    hookStreamsOpenedEvent onStreamsOpenedEvent Nothing
+    openStreams h p
 
     where
 
-        onStreamOpenedEvent Nothing = do
+        onStreamsOpenedEvent Nothing = do
             hookTLSSecuredEvent onTLSSecuredEvent Nothing
             tlsSecure
             return False
 
-        onStreamOpenedEvent (Just e) = do
-            fireConnectedEvent $ ConnectedFailureReason $ COSFR e
+        onStreamsOpenedEvent (Just e) = do
+            fireConnectedEvent $ Left $ COSFR e
             return False
 
         onTLSSecuredEvent Nothing = do
@@ -212,7 +251,7 @@ connect h p (Just t) (Just a) = do
             return False
 
         onTLSSecuredEvent (Just e) = do
-            fireConnectedEvent $ ConnectedFailureReason $ CTSFR e
+            fireConnectedEvent $ Left $ CTSFR e
             return False
 
         onAuthenticatedEvent (Right r) = do
@@ -220,5 +259,5 @@ connect h p (Just t) (Just a) = do
             return False
 
         onAuthenticated (Left e) = do
-            fireConnectedEvent $ ConnectedFailureReason $ CAFR e
+            fireConnectedEvent $ Left $ CAFR e
             return False

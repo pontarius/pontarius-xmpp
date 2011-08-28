@@ -46,7 +46,7 @@ import qualified Data.Enumerator.List as DEL (head)
 -- Reads from the provided handle or TLS context and sends the events to the
 -- internal event channel.
 
-xmlEnumerator :: Chan (InternalEvent s m) -> Either Handle TLSCtx -> IO ()
+xmlEnumerator :: Chan InternalEvent -> Either Handle TLSCtx -> IO () -- Was: InternalEvent s m
 
 xmlEnumerator c s = do
     enumeratorResult <- case s of
@@ -55,8 +55,8 @@ xmlEnumerator c s = do
         Right tlsCtx -> run $ enumTLS tlsCtx $$ joinI $
                         parseBytes decodeEntities $$ eventConsumer c [] 0
     case enumeratorResult of
-        Right _ -> writeChan c $ IEE EnumeratorDone
-        Left e -> writeChan c $ IEE (EnumeratorException e)
+        Right _ -> return () -- writeChan c $ IEE EnumeratorDone
+        Left e -> return () -- writeChan c $ IEE (EnumeratorException e)
     where
         -- Behaves like enumHandle, but reads from the TLS context instead
         -- TODO: Type?
@@ -77,14 +77,14 @@ xmlEnumerator c s = do
 -- sends the proper events through the channel. The second parameter should be
 -- initialized to [] (no events) and the third to 0 (zeroth XML level).
 
-eventConsumer :: Chan (InternalEvent s m) -> [Event] -> Int ->
-                 Iteratee Event IO (Maybe Event)
+eventConsumer :: Chan InternalEvent -> [Event] -> Int ->
+                 Iteratee Event IO (Maybe Event) -- Was: InternalEvent s m
 
 -- <stream:stream> open event received.
 
 eventConsumer chan [EventBeginElement (Name localName namespace prefixName) attribs] 0
     | localName == pack "stream" && isJust prefixName && fromJust prefixName == pack "stream" = do
-        liftIO $ writeChan chan $ IEE $ EnumeratorBeginStream from to id ver lang ns
+        liftIO $ return () -- writeChan chan $ IEE $ EnumeratorBeginStream from to id ver lang ns
         eventConsumer chan [] 1
     where
         from = case lookup "from" attribs of Nothing -> Nothing; Just fromAttrib -> Just $ show fromAttrib
@@ -98,7 +98,7 @@ eventConsumer chan [EventBeginElement (Name localName namespace prefixName) attr
 
 eventConsumer chan [EventEndElement name] 1
     | namePrefix name == Just (pack "stream") && nameLocalName name == pack "stream" = do
-        liftIO $ writeChan chan $ IEE $ EnumeratorEndStream
+        liftIO $ return () -- writeChan chan $ IEE $ EnumeratorEndStream
         return Nothing
 
 -- Ignore EventDocumentBegin event.
@@ -109,7 +109,7 @@ eventConsumer chan [EventBeginDocument] 0 = eventConsumer chan [] 0
 -- values into an first-level element event.
 
 eventConsumer chan ((EventEndElement e):es) 1 = do
-    liftIO $ writeChan chan $ IEE $ EnumeratorFirstLevelElement $ eventsToElement $ reverse ((EventEndElement e):es)
+    liftIO $ return () -- writeChan chan $ IEE $ EnumeratorFirstLevelElement $ eventsToElement $ reverse ((EventEndElement e):es)
     eventConsumer chan [] 1
 
 -- Normal condition - accumulate the event.

@@ -35,27 +35,27 @@ module Network.XMPP ( -- Network.XMPP.JID
                     , fromStrings
 
                       -- Network.XMPP.Session
-                    , ClientHandler (..)
-                    , ClientState (..)
-                    , ConnectResult (..)
-                    , HostName
-                    , Password
-                    , PortNumber
-                    , Resource
-                    , Session
-                    , TerminationReason
-                    , UserName
-                    , sendIQ
-                    , sendPresence
-                    , sendMessage
-                    , connect
-                    , openStreams
-                    , tlsSecureStreams
-                    , authenticate
-                    , session
-                    , OpenStreamResult (..)
-                    , SecureWithTLSResult (..)
-                    , AuthenticateResult (..)
+                    -- , ClientHandler (..)
+                    -- , ClientState (..)
+                    -- , ConnectResult (..)
+                    -- , HostName
+                    -- , Password
+                    -- , PortNumber
+                    -- , Resource
+                    -- , Session
+                    -- , TerminationReason
+                    -- , UserName
+                    -- , sendIQ
+                    -- , sendPresence
+                    -- , sendMessage
+                    -- , connect
+                    -- , openStreams
+                    -- , tlsSecureStreams
+                    -- , authenticate
+                    -- , session
+                    -- , OpenStreamResult (..)
+                    -- , SecureWithTLSResult (..)
+                    -- , AuthenticateResult (..)
 
                       -- Network.XMPP.Stanza
                     , StanzaID (SID)
@@ -68,9 +68,7 @@ module Network.XMPP ( -- Network.XMPP.JID
                     , Presence (..)
                     , IQ (..)
                     , iqPayloadNamespace
-                    , iqPayload
-
-                    , injectAction ) where
+                    , iqPayload ) where
 
 import Network.XMPP.Address
 import Network.XMPP.SASL

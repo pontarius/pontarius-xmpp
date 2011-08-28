@@ -442,7 +442,16 @@ data EnumeratorEvent = EnumeratorDone |
 
 -- Type to contain the internal events.
 
-data InternalEvent s m = IEC (ClientEvent s m) | IEE EnumeratorEvent | IET (TimeoutEvent s m) deriving (Show)
+-- data InternalEvent s m = IEC (ClientEvent s m) | IEE EnumeratorEvent | IET (TimeoutEvent s m) deriving (Show)
+
+-- Internal events processed in the main state loop of Pontarius XMPP. They are
+-- either received from the client or from the enumerator.
+
+data InternalEvent
+    = IECE ClientEvent
+    | IEEE EnumeratorEvent
+
+
 
 data TimeoutEvent s m = TimeoutEvent StanzaID Timeout (StateT s m ())
 
@@ -461,27 +470,31 @@ data AuthenticationState = NoAuthentication | AuthenticatingPreChallenge1 String
 -- Client actions that needs to be performed in the (main) state loop are
 -- converted to ClientEvents and sent through the internal event channel.
 
-data ClientEvent s m = CEOpenStream N.HostName PortNumber
-                       (OpenStreamResult -> StateT s m ()) |
-                       CESecureWithTLS (Maybe [X509]) ([X509] -> Bool)
-                       (SecureWithTLSResult -> StateT s m ()) |
-                       CEAuthenticate UserName Password (Maybe Resource)
-                       (AuthenticateResult -> StateT s m ()) |
-                       CEMessage Message (Maybe (Message -> StateT s m Bool)) (Maybe (Timeout, StateT s m ())) (Maybe (StreamError -> StateT s m ())) |
-                       CEPresence Presence (Maybe (Presence -> StateT s m Bool)) (Maybe (Timeout, StateT s m ())) (Maybe (StreamError -> StateT s m ())) |
-                       CEIQ IQ (Maybe (IQ -> StateT s m Bool)) (Maybe (Timeout, StateT s m ())) (Maybe (StreamError -> StateT s m ())) |
-                       CEAction (Maybe (StateT s m Bool)) (StateT s m ())
+--data ClientEvent s m = CEOpenStream N.HostName PortNumber
+--                       (OpenStreamResult -> StateT s m ()) |
+--                       CESecureWithTLS (Maybe [X509]) ([X509] -> Bool)
+--                       (SecureWithTLSResult -> StateT s m ()) |
+--                       CEAuthenticate UserName Password (Maybe Resource)
+--                       (AuthenticateResult -> StateT s m ()) |
+--                       CEMessage Message (Maybe (Message -> StateT s m Bool)) (Maybe (Timeout, StateT s m ())) (Maybe (StreamError -> StateT s m ())) |
+--                       CEPresence Presence (Maybe (Presence -> StateT s m Bool)) (Maybe (Timeout, StateT s m ())) (Maybe (StreamError -> StateT s m ())) |
+--                       CEIQ IQ (Maybe (IQ -> StateT s m Bool)) (Maybe (Timeout, StateT s m ())) (Maybe (StreamError -> StateT s m ())) |
+--                       CEAction (Maybe (StateT s m Bool)) (StateT s m ())
 
-instance Show (ClientEvent s m) where
-  show (CEOpenStream h p _) = "CEOpenStream " ++ h ++ " " ++ (show p)
-  show (CESecureWithTLS c _ _) = "CESecureWithTLS " ++ (show c)
-  show (CEAuthenticate u p r _) = "CEAuthenticate " ++ u ++ " " ++ p ++ " " ++
-                                    (show r)
-  show (CEIQ s _ _ _) = "CEIQ"
-  show (CEMessage s _ _ _) = "CEMessage"
-  show (CEPresence s _ _ _) = "CEPresence"
 
-  show (CEAction _ _) = "CEAction"
+data ClientEvent = ClientEventTest
+
+
+--instance Show (ClientEvent s m) where
+--  show (CEOpenStream h p _) = "CEOpenStream " ++ h ++ " " ++ (show p)
+--  show (CESecureWithTLS c _ _) = "CESecureWithTLS " ++ (show c)
+--  show (CEAuthenticate u p r _) = "CEAuthenticate " ++ u ++ " " ++ p ++ " " ++
+--                                    (show r)
+--  show (CEIQ s _ _ _) = "CEIQ"
+--  show (CEMessage s _ _ _) = "CEMessage"
+--  show (CEPresence s _ _ _) = "CEPresence"
+--
+--  show (CEAction _ _) = "CEAction"
 
 
 type StreamID = String
