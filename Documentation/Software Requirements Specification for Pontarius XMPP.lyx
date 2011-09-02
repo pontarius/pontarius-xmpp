@@ -1006,7 +1006,8 @@ REQ-3 The system shall run under GNU/Linux.
 
 \begin_layout Description
 REQ-4 The system shall work against (at least) the (estimated) most popular
- free and open source software XMPP server.
+ free and open source software XMPP server supporting the features that
+ we require (such as SCRAM).
 \end_layout
 
 \begin_layout Subsection
