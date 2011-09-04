@@ -6,6 +6,26 @@
 	</projects>
 	<buildSpec>
 		<buildCommand>
+			<name>net.sf.eclipsefp.haskell.core.partitioned.uuagc.UuagcBuilder</name>
+			<arguments>
+			</arguments>
+		</buildCommand>
+		<buildCommand>
+			<name>net.sf.eclipsefp.haskell.core.partitioned.happy.HappyBuilder</name>
+			<arguments>
+			</arguments>
+		</buildCommand>
+		<buildCommand>
+			<name>net.sf.eclipsefp.haskell.core.partitioned.alex.AlexBuilder</name>
+			<arguments>
+			</arguments>
+		</buildCommand>
+		<buildCommand>
+			<name>net.sf.eclipsefp.haskell.core.hlint.HLintBuilder</name>
+			<arguments>
+			</arguments>
+		</buildCommand>
+		<buildCommand>
 			<name>net.sf.eclipsefp.haskell.core.builder.HaskellBuilder</name>
 			<arguments>
 			</arguments>

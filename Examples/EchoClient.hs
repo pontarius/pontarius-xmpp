@@ -21,7 +21,7 @@ userName = "pontarius"
 serverIdentifier = "jonkristensen.com"
 portNumber = 5222
 resource = "pontarius"
-password = "substrat44"
+password = ""
 
 
 -- The main function initializes Pontarius XMPP and specifies the (XMPPT)

@@ -25,7 +25,6 @@ Tested-With: GHC ==7.0.2
 -- Extra-Tmp-Files:
 
 Library
-  Exposed-Modules: Network.XMPP
   Exposed: True
   Build-Depends: base >= 2 && < 5, parsec, enumerator, crypto-api ==0.6.3,
                      base64-string, pureMD5, utf8-string, network, xml-types,
@@ -34,7 +33,7 @@ Library
                      stringprep, asn1-data, cryptohash ==0.7.0,
                      time, certificate, ranges, uuid
   -- Other-Modules:
-  HS-Source-Dirs: Source
+  -- HS-Source-Dirs:
   -- Extensions:
   -- Build-Tools:
   -- Buildable:
