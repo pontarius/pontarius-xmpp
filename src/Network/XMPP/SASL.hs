@@ -48,24 +48,24 @@ saslResponse2E =
 xmppSASL passwd = do
   mechanisms <- gets $ saslMechanisms . sFeatures
   unless ("DIGEST-MD5" `elem` mechanisms) $ error "No usable auth mechanism"
-  push $ saslInitE "DIGEST-MD5"
+  pushE $ saslInitE "DIGEST-MD5"
   Element "{urn:ietf:params:xml:ns:xmpp-sasl}challenge" []
-    [NodeContent (ContentText content)] <- pull
+    [NodeContent (ContentText content)] <- pullE
   let (Right challenge) = B64.decode . Text.encodeUtf8 $ content
   let Right pairs = toPairs challenge
-  push . saslResponseE =<< createResponse passwd pairs
-  Element name attrs content <- pull
+  pushE . saslResponseE =<< createResponse passwd pairs
+  Element name attrs content <- pullE
   when (name == "{urn:ietf:params:xml:ns:xmpp-sasl}failure") $
     (error $ show content)
-  push saslResponse2E
-  Element "{urn:ietf:params:xml:ns:xmpp-sasl}success" [] [] <- pull
+  pushE saslResponse2E
+  Element "{urn:ietf:params:xml:ns:xmpp-sasl}success" [] [] <- pullE
   xmppStartStream
   return ()
 
 createResponse passwd' pairs = do
   let Just qop = L.lookup "qop" pairs
   let Just nonce = L.lookup "nonce" pairs
-  uname <- Text.encodeUtf8 <$> gets username
+  uname <- Text.encodeUtf8 <$> gets sUsername
   let passwd = Text.encodeUtf8 passwd'
   realm <- Text.encodeUtf8 <$> gets sHostname
   g <- liftIO $ Random.newStdGen

@@ -29,16 +29,16 @@ exampleParams = TLS.defaultParams {TLS.pCiphers = TLS.ciphersuite_strong}
 xmppStartTLS params = do
   features <- gets sFeatures
   when (stls features) $ do
-      push starttlsE
-      Element "{urn:ietf:params:xml:ns:xmpp-tls}proceed" [] [] <- pull
-      Just handle <- gets conHandle
+      pushE starttlsE
+      Element "{urn:ietf:params:xml:ns:xmpp-tls}proceed" [] [] <- pullE
+      Just handle <- gets sConHandle
       (src', snk) <- lift $ TLS.tlsinit params handle
       src <- lift . bufferSource $ src' $= CT.decode CT.utf8 $= parseText def
       modify (\x -> x
-                     { conSrc = src
-                     , conSink = XR.renderBytes def =$ snk
+                     { sConSrc = src
+                     , sConSink = XR.renderBytes def =$ snk
                      })
       xmppStartStream
-      modify (\s -> s{haveTLS = True})
-  gets haveTLS
+      modify (\s -> s{sHaveTLS = True})
+  gets sHaveTLS
 

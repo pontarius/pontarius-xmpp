@@ -10,7 +10,7 @@ import Control.Monad.Trans
 
 import Crypto.Random
 
-import Data.ByteString
+import Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BL
 import Data.Conduit
 
@@ -19,6 +19,8 @@ import Network.TLS.Extra as TLSExtra
 
 import System.IO(Handle)
 import System.Random
+
+import System.IO
 
 tlsinit
   :: (MonadIO m, ResourceIO m1) =>
@@ -37,4 +39,16 @@ tlsinit tlsParams handle = do
                 (\_ -> return ())
                 (\ctx dt -> sendData ctx (BL.fromChunks [dt]) >> return IOProcessing)
                 (\_ -> return ())
-    return (src, snk)
+    return (src $= conduitStdout , snk)
+
+-- TODO: remove
+
+conduitStdout :: ResourceIO m
+            => Conduit BS.ByteString m BS.ByteString
+conduitStdout = conduitIO
+    (return ())
+    (\_ -> return ())
+    (\_ bs -> do
+        liftIO $ BS.hPut stdout bs
+        return $ IOProducing [bs])
+    (const $ return [])

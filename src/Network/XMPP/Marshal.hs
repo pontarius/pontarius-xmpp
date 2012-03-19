@@ -13,6 +13,18 @@ import Data.XML.Types
 
 import Network.XMPP.Types
 
+stanzaToElement (SMessage  m) = messageToElement m
+stanzaToElement (SPresence m) = presenceToElement m
+stanzaToElement (SIQ       m) = iqToElement m
+
+elementToStanza e@(Element (Name n ns Nothing) _ _) =
+  if (ns `elem` [Nothing, Just "jabber:client"]) then
+  case n of
+    "message"  -> SMessage  $ elementToMessage e
+    "presence" -> SPresence $ elementToPresence e
+    "iq"       -> SIQ       $ elementToIQ e
+    s -> error $ "unknown stanza type :" ++ show e
+  else error $ "unknown namespace: " ++ show ns
 
 -- create attribute from Just
 matr _ Nothing = []
@@ -54,23 +66,23 @@ elementToMessage e@(Element "message" _ _) =
       -- Oh dear, this is HORRIBLE. TODO: come up with something sane
       in grabFrom (elementChildren e) $ do
         -- TODO multiple bodies (different languages)
-        body <- maybeGrabNamed "body"
-        -- TODO multiple subjects (different languages)
-        subject <-  maybeGrabNamed "subject"
-        thread <- maybeGrabNamed "thread"
-        ext <- grabRest
-        return $ Message
-                   from
-                   to
-                   ident
-                   tp
-                   (elementToText <$>subject)
-                   (elementToText <$> body)
-                   (elementToText <$> thread)
-                   ext
+          body <- maybeGrabNamed "body"
+          -- TODO multiple subjects (different languages)
+          subject <-  maybeGrabNamed "subject"
+          thread <- maybeGrabNamed "thread"
+          ext <- grabRest
+          return $ Message
+                     from
+                     to
+                     ident
+                     tp
+                     (elementToText <$>subject)
+                     (elementToText <$> body)
+                     (elementToText <$> thread)
+                     ext
 
-presenceTOXML (Presence from to id tp stp stat pri exts) =
-  Element "message"
+presenceToElement (Presence from to id tp stp stat pri exts) =
+  Element "presence"
     (map contentify . concat $
       [ matr "from" (toText <$> from)
       , matr "to"  (toText <$> to)
@@ -85,7 +97,7 @@ presenceTOXML (Presence from to id tp stp stat pri exts) =
       ])
 
 -- Marshal XML element to message
-elementToPresence e@(Element "message" _ _) =
+elementToPresence e@(Element (Name "message" _ _) _ _) =
   let from    = fromText <$> attributeText "from" e
       to      = fromText <$> attributeText "to"   e
       ident   = attributeText "id"   e
@@ -108,7 +120,7 @@ elementToPresence e@(Element "message" _ _) =
 
 
 iqToElement (IQ from to id tp body) =
-  Element "message"
+  Element "iq"
     (map contentify . concat $
       [ matr "from" (toText <$> from)
       , matr "to"   (toText <$> to  )
@@ -117,7 +129,7 @@ iqToElement (IQ from to id tp body) =
       ])
     [ NodeElement body ]
 
-elementToIQ e@(Element "iq" _ _) =
+elementToIQ e@(Element (Name "iq" _ _) _ _ ) =
   let from      = fromText <$> attributeText "from" e
       to        = fromText <$> attributeText "to"   e
       Just ident= attributeText "id"   e
@@ -143,7 +155,7 @@ takeAllFromList pred l = let (l', xs) = go pred [] l in (reverse l', xs)
 -- elements from a "pool" (list)
 
 -- Put a list of elements into the pool and start grabbing
-grabFrom l = flip runState l
+grabFrom l = fst . flip runState l
 
 -- grab all elements matching predicate out of the pool
 grabAll p = do
@@ -168,3 +180,5 @@ grabRest = do
 hasName x e = x == elementName e
 
 elementToText = Text.concat . elementText
+
+textToNode t = NodeContent (ContentText t)

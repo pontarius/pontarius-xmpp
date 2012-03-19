@@ -13,27 +13,30 @@ import Network.XMPP.Monad
 import Network.XMPP.TLS
 import Network.XMPP.Stream
 import Network.XMPP.SASL
+import Network.XMPP.Bind
 
 
 import System.IO
 
 fromHandle :: Handle -> Text -> Text -> Text ->  IO ((), XMPPState)
 fromHandle handle hostname username password =
-  xmppFromHandle handle hostname username "" $ do
+  xmppFromHandle handle hostname username Nothing $ do
       xmppStartStream
       -- this will check whether the server supports tls
       -- on it's own
       xmppStartTLS exampleParams
       xmppSASL password
-      gets haveTLS >>= liftIO . print
-      forever $ pull >>= liftIO . print
+      xmppBind
+      gets sResource >>= liftIO . print
+      gets sHaveTLS >>= liftIO . print
+      forever $ pullE >>= liftIO . print
       return ()
 
 main = do
   con <- connectTo "localhost" (PortNumber 5222)
   hSetBuffering con NoBuffering
   (fs,st) <- fromHandle con "species64739.dyndns.org" "bot" "pwd"
-  print $ haveTLS st
+  print $ sHaveTLS st
   putStrLn ""
   hGetContents con >>= putStrLn
 

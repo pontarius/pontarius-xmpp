@@ -1,5 +1,7 @@
 module Network.XMPP.Monad where
 
+import Control.Applicative((<$>))
+
 import Control.Monad.Trans
 import Control.Monad.Trans.State
 
@@ -12,6 +14,9 @@ import Data.XML.Types
 import Data.Default
 import Data.Text
 
+import Network.XMPP.Types
+import Network.XMPP.Marshal
+
 import System.IO
 
 import Text.XML.Stream.Elements
@@ -21,14 +26,14 @@ import Text.XML.Stream.Parse
 type XMPPMonad a = StateT XMPPState (ResourceT IO) a
 
 data XMPPState = XMPPState
-                   { conSrc    :: BufferedSource IO Event
-                   , conSink   :: Sink Event IO ()
-                   , conHandle :: Maybe Handle
+                   { sConSrc    :: BufferedSource IO Event
+                   , sConSink   :: Sink Event IO ()
+                   , sConHandle :: Maybe Handle
                    , sFeatures :: ServerFeatures
-                   , haveTLS   :: Bool
+                   , sHaveTLS   :: Bool
                    , sHostname :: Text
-                   , username  :: Text
-                   , resource  :: Text
+                   , sUsername  :: Text
+                   , sResource  :: Maybe Text
                    }
 
 data ServerFeatures = SF
@@ -46,26 +51,33 @@ instance Default ServerFeatures where
           , other = []
           }
 
-push :: Element -> XMPPMonad ()
-push x = do
-  sink <- gets conSink
+
+pushE :: Element -> XMPPMonad ()
+pushE x = do
+  sink <- gets sConSink
   lift $ CL.sourceList (elementToEvents x) $$ sink
+
+push :: Stanza -> XMPPMonad ()
+push = pushE . stanzaToElement
 
 pushOpen :: Element -> XMPPMonad ()
 pushOpen x = do
-  sink <- gets conSink
+  sink <- gets sConSink
   lift $ CL.sourceList (elementToEvents' x) $$ sink
 
 
 pulls :: Sink Event IO a -> XMPPMonad a
 pulls snk = do
-  source <- gets conSrc
+  source <- gets sConSrc
   lift $ source $$ snk
 
-pull :: XMPPMonad Element
-pull = do
-  source <- gets conSrc
+pullE :: XMPPMonad Element
+pullE = do
+  source <- gets sConSrc
   pulls elementFromEvents
+
+pull :: XMPPMonad Stanza
+pull = elementToStanza <$> pullE
 
 xmppFromHandle handle hostname username resource f = runResourceT $ do
   liftIO $ hSetBuffering handle NoBuffering
