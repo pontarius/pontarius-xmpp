@@ -31,7 +31,10 @@ xmppStream = do
 
 xmppStreamHeader :: Resource m => Sink Event m ()
 xmppStreamHeader = do
-  Just EventBeginDocument <- CL.head
+  hd <- CL.peek
+  case hd of
+    Just EventBeginDocument -> CL.drop 1
+    _ -> return ()
   Just (EventBeginElement "{http://etherx.jabber.org/streams}stream" streamAttrs) <- CL.head
   unless (checkVersion streamAttrs)  $ error  "Not XMPP version 1.0 "
   return ()

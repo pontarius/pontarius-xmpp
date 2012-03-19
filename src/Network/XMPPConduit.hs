@@ -3,6 +3,7 @@ module Network.XMPPConduit where
 
 import Control.Monad
 import Control.Monad.Trans
+import Control.Monad.Trans.State
 
 import qualified Data.ByteString as BS
 import Data.Text as Text
@@ -24,6 +25,7 @@ fromHandle handle hostname username password =
       -- on it's own
       xmppStartTLS exampleParams
       xmppSASL password
+      gets haveTLS >>= liftIO . print
       forever $ pull >>= liftIO . print
       return ()
 

@@ -24,6 +24,7 @@ import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text
 
 import Network.XMPP.Monad
+import Network.XMPP.Stream
 
 import Numeric --
 
@@ -52,13 +53,13 @@ xmppSASL passwd = do
     [NodeContent (ContentText content)] <- pull
   let (Right challenge) = B64.decode . Text.encodeUtf8 $ content
   let Right pairs = toPairs challenge
-  liftIO $ BS.putStrLn challenge
   push . saslResponseE =<< createResponse passwd pairs
   Element name attrs content <- pull
   when (name == "{urn:ietf:params:xml:ns:xmpp-sasl}failure") $
     (error $ show content)
   push saslResponse2E
-  Element "{urn:ietf:params:xml:ns:xmpp-sasl}sucess" <- pull
+  Element "{urn:ietf:params:xml:ns:xmpp-sasl}success" [] [] <- pull
+  xmppStartStream
   return ()
 
 createResponse passwd' pairs = do
@@ -92,7 +93,6 @@ createResponse passwd' pairs = do
        ,["response"  ,       digest    ]
        ,["charset"   ,       "utf-8"   ]
        ]
-  liftIO $ BS.putStrLn response
   return . Text.decodeUtf8 $ B64.encode response
   where quote x = BS.concat ["\"",x,"\""]
 
