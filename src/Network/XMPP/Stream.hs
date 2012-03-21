@@ -24,6 +24,7 @@ import Text.XML.Expat.Pickle
 -- import Text.XML.Stream.Elements
 
 
+xmppStartStream :: XMPPMonad ()
 xmppStartStream = do
   hostname <- gets sHostname
   pushOpen $ pickleElem pickleStream ("1.0",Nothing, Just hostname)
@@ -31,6 +32,7 @@ xmppStartStream = do
   modify (\s -> s {sFeatures = features})
   return ()
 
+xmppRestartStream :: XMPPMonad ()
 xmppRestartStream = do
   raw <- gets sRawSrc
   src <- gets sConSrc
@@ -58,6 +60,7 @@ xmppStreamFeatures = unpickleElem pickleStreamFeatures <$> elementFromEvents
 
 -- Pickling
 
+pickleStream :: PU [Node Text Text] (Text, Maybe Text, Maybe Text)
 pickleStream = xpWrap (snd, (((),()),)) .
   xpElemAttrs "stream:stream" $
     xpPair
@@ -71,17 +74,20 @@ pickleStream = xpWrap (snd, (((),()),)) .
        (xpOption $ xpAttr "to" xpText)
        )
 
+pickleTLSFeature :: PU [Node Text Text] Bool
 pickleTLSFeature = ignoreAttrs $
   xpElem "starttls"
     (xpAttrFixed "xmlns" "urn:ietf:params:xml:ns:xmpp-tls")
     (xpElemExists "required")
 
+pickleSaslFeature :: PU [Node Text Text] [Text]
 pickleSaslFeature = ignoreAttrs $
   xpElem "mechanisms"
     (xpAttrFixed "xmlns" "urn:ietf:params:xml:ns:xmpp-sasl")
     (xpList0 $
      xpElemNodes "mechanism" (xpContent xpText) )
 
+pickleStreamFeatures :: PU [Node Text Text] ServerFeatures
 pickleStreamFeatures = xpWrap ( \(tls, sasl, rest) -> SF tls (mbl sasl) rest
                               , (\(SF tls sasl rest) -> (tls, lmb sasl, rest))
                               ) $

@@ -13,6 +13,7 @@ import Network.XMPP.Marshal
 
 import Text.XML.Expat.Pickle
 
+bindReqIQ :: Maybe Text -> Stanza
 bindReqIQ resource= SIQ $ IQ Nothing Nothing "bind" Set
                     (pickleElem
                       (bindP . xpOption
@@ -23,6 +24,7 @@ bindReqIQ resource= SIQ $ IQ Nothing Nothing "bind" Set
 jidP :: PU [Node Text Text] JID
 jidP = bindP $ xpElemNodes "jid" (xpContent xpPrim)
 
+xmppBind :: XMPPMonad ()
 xmppBind = do
   res <- gets sResource
   push $ bindReqIQ res
@@ -31,6 +33,7 @@ xmppBind = do
   let (JID n d (Just r)) = unpickleElem jidP b
   modify (\s -> s{sResource = Just r})
 
+bindP  :: PU [Node Text.Text Text.Text] b -> PU [Node Text.Text Text.Text] b
 bindP c = ignoreAttrs $ xpElemNs "bind" "urn:ietf:params:xml:ns:xmpp-bind"
                           xpUnit
                           c

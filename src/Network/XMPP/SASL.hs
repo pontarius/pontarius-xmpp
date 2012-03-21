@@ -21,6 +21,7 @@ import qualified Data.Digest.Pure.MD5 as MD5
 import Data.List
 
 import qualified Data.Text as Text
+import Data.Text (Text)
 import qualified Data.Text.Encoding as Text
 
 import Network.XMPP.Monad
@@ -35,6 +36,7 @@ import qualified System.Random as Random
 import Text.XML.Expat.Pickle
 import Text.XML.Expat.Tree
 
+saslInitE :: Text -> Node Text Text
 saslInitE mechanism =
     Element "auth"
         [ ("xmlns","urn:ietf:params:xml:ns:xmpp-sasl")
@@ -42,16 +44,19 @@ saslInitE mechanism =
         ]
         []
 
+saslResponseE :: Text -> Node Text Text
 saslResponseE resp =
     Element "response"
     [("xmlns","urn:ietf:params:xml:ns:xmpp-sasl")]
     [Text resp]
 
+saslResponse2E :: Node Text Text
 saslResponse2E =
     Element "response"
     [("xmlns","urn:ietf:params:xml:ns:xmpp-sasl")]
     []
 
+xmppSASL  :: Text -> XMPPMonad ()
 xmppSASL passwd = do
   mechanisms <- gets $ saslMechanisms . sFeatures
   unless ("DIGEST-MD5" `elem` mechanisms) $ error "No usable auth mechanism"
@@ -68,6 +73,7 @@ xmppSASL passwd = do
   xmppRestartStream
   return ()
 
+createResponse :: Text -> [(BS8.ByteString, BS8.ByteString)] -> XMPPMonad Text
 createResponse passwd' pairs = do
   let Just qop = L.lookup "qop" pairs
   let Just nonce = L.lookup "nonce" pairs
@@ -112,9 +118,11 @@ toPairs = AP.parseOnly . flip AP.sepBy1 (void $ AP.char ',') $ do
   when quote . void $ AP.char '"'
   return (name,content)
 
+hash :: [BS8.ByteString] -> BS8.ByteString
 hash = BS8.pack . show
        . (CC.hash' :: BS.ByteString -> MD5.MD5Digest) . BS.intercalate (":")
 
+hashRaw :: [BS8.ByteString] -> BS8.ByteString
 hashRaw = toStrict . Binary.encode
           . (CC.hash' :: BS.ByteString -> MD5.MD5Digest) . BS.intercalate (":")
 
@@ -128,6 +136,7 @@ md5Digest uname realm password digestURI nc qop nonce cnonce=
 
 -- Pickling
 
+failurePickle :: PU [Node Text Text] (Node Text Text)
 failurePickle = ignoreAttrs $
   xpElem "failure"
      (xpAttrFixed "xmlns" "urn:ietf:params:xml:ns:xmpp-sasl")

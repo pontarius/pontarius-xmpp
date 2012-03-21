@@ -27,9 +27,11 @@ import Network.XMPP.Pickle
 import System.IO
 
 import Text.XML.Expat.SAX
+import Text.XML.Expat.Pickle(PU)
 import Text.XML.Expat.Tree
 import Text.XML.Expat.Format
 
+parseOpts :: ParseOptions tag text
 parseOpts = ParseOptions (Just UTF8) Nothing
 
 pushN :: Element -> XMPPMonad ()
@@ -58,6 +60,7 @@ pullE :: XMPPMonad Element
 pullE = do
   pulls elementFromEvents
 
+pullPickle :: PU [Node Text Text] b -> XMPPMonad b
 pullPickle p = unpickleElem p <$> pullE
 
 pull :: XMPPMonad Stanza

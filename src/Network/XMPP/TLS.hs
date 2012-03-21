@@ -7,6 +7,8 @@ import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.State
 
+import Data.Text(Text)
+
 import Network.XMPP.Monad
 import Network.XMPP.Stream
 import Network.XMPP.Types
@@ -20,11 +22,15 @@ import qualified Data.List as L
 
 import Text.XML.Expat.Tree
 
+starttlsE :: Node Text Text
 starttlsE =
   Element "starttls" [("xmlns", "urn:ietf:params:xml:ns:xmpp-tls")] []
 
+
+exampleParams :: TLSParams
 exampleParams = TLS.defaultParams {TLS.pCiphers = TLS.ciphersuite_strong}
 
+xmppStartTLS :: TLSParams -> XMPPMonad Bool
 xmppStartTLS params = do
   features <- gets sFeatures
   unless (stls features == Nothing) $ do

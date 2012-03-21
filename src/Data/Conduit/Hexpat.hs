@@ -181,5 +181,8 @@ throwOutJunk = do
     Just (StartElement _ _) -> return ()
     _ -> CL.drop 1 >> throwOutJunk
 
+saxToElements
+  :: (Eq tag, Show tag, MonadIO m, Resource m) =>
+     Conduit (SAXEvent tag text) m (Node tag text)
 saxToElements = C.sequence $ throwOutJunk >> elementFromEvents
 

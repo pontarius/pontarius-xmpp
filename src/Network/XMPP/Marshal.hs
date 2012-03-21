@@ -5,6 +5,7 @@ module Network.XMPP.Marshal where
 import Control.Applicative((<$>))
 
 import Data.Maybe
+import Data.Text(Text)
 
 import qualified Data.Text as Text
 
@@ -17,12 +18,14 @@ stanzaSel (SMessage  _ )= 0
 stanzaSel (SPresence _ )= 1
 stanzaSel (SIQ       _ )= 2
 
+stanzaP :: PU [Node Text Text] Stanza
 stanzaP = xpAlt stanzaSel
                [ xpWrap (SMessage  , (\(SMessage  m) -> m)) messageP
                , xpWrap (SPresence , (\(SPresence p) -> p)) presenceP
                , xpWrap (SIQ       , (\(SIQ       i) -> i)) iqP
                ]
 
+messageP :: PU [Node Text Text] Message
 messageP = xpWrap  ( (\((from, to, id, tp),(sub, body, thr,ext))
                              -> Message from to id tp sub body thr ext)
                         , (\(Message from to id tp sub body thr ext)
@@ -42,6 +45,7 @@ messageP = xpWrap  ( (\((from, to, id, tp),(sub, body, thr,ext))
                xpTrees
              )
 
+presenceP :: PU [Node Text Text] Presence
 presenceP = xpWrap  ( (\((from, to, id, tp),(shw, stat, prio, ext))
                              -> Presence from to id tp shw stat prio ext)
                         , (\(Presence from to id tp shw stat prio ext)
@@ -61,6 +65,7 @@ presenceP = xpWrap  ( (\((from, to, id, tp),(shw, stat, prio, ext))
                xpTrees
              )
 
+iqP :: PU [Node Text Text] IQ
 iqP = xpWrap  ( (\((from, to, id, tp),body) -> IQ from to id tp body)
                     , (\(IQ from to id tp body) -> ((from, to, id, tp), body))
                     ) $
