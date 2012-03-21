@@ -3,7 +3,8 @@ module Network.XMPP.SASL where
 
 import Control.Applicative
 import Control.Monad
-import Control.Monad.Trans
+import Control.Monad.IO.Class
+import Control.Monad.Trans.Class
 import Control.Monad.Trans.State
 
 import qualified Crypto.Classes as CC
@@ -31,8 +32,6 @@ import Numeric --
 
 import qualified System.Random as Random
 
-import Text.XML.Stream.Elements
-
 import Text.XML.Expat.Pickle
 import Text.XML.Expat.Tree
 
@@ -56,9 +55,7 @@ saslResponse2E =
 xmppSASL passwd = do
   mechanisms <- gets $ saslMechanisms . sFeatures
   unless ("DIGEST-MD5" `elem` mechanisms) $ error "No usable auth mechanism"
-  liftIO $ putStrLn "saslinit"
   pushN $ saslInitE "DIGEST-MD5"
-  liftIO $ putStrLn "saslinit sent"
   Right challenge <- B64.decode . Text.encodeUtf8<$> pullPickle challengePickle
   let Right pairs = toPairs challenge
   pushN . saslResponseE =<< createResponse passwd pairs

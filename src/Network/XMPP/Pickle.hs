@@ -1,8 +1,5 @@
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE OverloadedStrings     #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TypeSynonymInstances  #-}
-{-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE TupleSections         #-}
 
 -- Marshalling between XML and Native Types
@@ -55,6 +52,8 @@ xpEither l r = xpAlt eitherSel
   where
     eitherSel (Left _) = 0
     eitherSel (Right _) = 1
+
+
 
 xpElemNs name ns attrs nodes =
    xpWrap (\(((),a),n) -> (a,n), \(a,n) -> (((),a),n)) $

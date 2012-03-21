@@ -6,7 +6,8 @@ module Data.Conduit.TLS
        where
 
 import Control.Applicative
-import Control.Monad.Trans
+import Control.Monad.IO.Class
+import Control.Monad.Trans.Class
 
 import Crypto.Random
 
@@ -32,9 +33,9 @@ tlsinit tlsParams handle = do
     handshake clientContext
     let src = sourceIO
                (return clientContext)
-               (\_ -> putStrLn "tls closed")
+               (bye)
                (\con -> IOOpen <$> recvData con)
-    return (src $= conduitStdout
+    return (src
            , \s -> sendData clientContext $ BL.fromChunks [s] )
 
 -- TODO: remove
@@ -45,6 +46,6 @@ conduitStdout = conduitIO
     (return ())
     (\_ -> return ())
     (\_ bs -> do
-        liftIO $ BS.hPut stdout bs
+        liftIO $ BS.putStrLn bs
         return $ IOProducing [bs])
     (const $ return [])

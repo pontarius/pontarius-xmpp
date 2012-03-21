@@ -5,10 +5,12 @@ module Network.XMPP.Monad where
 import Control.Applicative((<$>))
 
 import Control.Monad
-import Control.Monad.Trans
+import Control.Monad.IO.Class
+import Control.Monad.Trans.Class
 import Control.Monad.Trans.State
 
 import Data.ByteString as BS
+import Data.Text(Text)
 
 import Data.Conduit
 import Data.Conduit.Binary as CB
@@ -16,7 +18,6 @@ import Data.Conduit.Hexpat as HXC
 import Data.Conduit.List as CL
 import Data.Conduit.Text as CT
 
-import Data.Default
 import qualified Data.Text as Text
 
 import Network.XMPP.Types
@@ -33,17 +34,17 @@ parseOpts = ParseOptions (Just UTF8) Nothing
 
 pushN :: Element -> XMPPMonad ()
 pushN x = do
-  sink <- gets sConSink
-  lift . sink $ formatNode' x
+  sink <- gets sConPush
+  liftIO . sink $ formatNode' x
 
 push :: Stanza -> XMPPMonad ()
 push = pushN . pickleElem stanzaP
 
 pushOpen :: Element -> XMPPMonad ()
 pushOpen (Element name attrs children) = do
-  sink <- gets sConSink
+  sink <- gets sConPush
   let sax = StartElement name attrs
-  lift . sink $ formatSAX' [sax]
+  liftIO . sink $ formatSAX' [sax]
   forM children pushN
   return ()
 
@@ -55,7 +56,6 @@ pulls snk = do
 
 pullE :: XMPPMonad Element
 pullE = do
-  source <- gets sConSrc
   pulls elementFromEvents
 
 pullPickle p = unpickleElem p <$> pullE
@@ -66,6 +66,10 @@ pull = pullPickle stanzaP
 -- pull :: XMPPMonad Stanza
 -- pull = elementToStanza <$> pullE
 
+xmppFromHandle
+  :: Handle -> Text -> Text -> Maybe Text
+     -> XMPPMonad a
+     -> IO (a, XMPPState)
 xmppFromHandle handle hostname username resource f = runResourceT $ do
   liftIO $ hSetBuffering handle NoBuffering
   raw <- bufferSource $ CB.sourceHandle handle

@@ -3,7 +3,8 @@
 module Network.XMPP.TLS where
 
 import Control.Monad
-import Control.Monad.Trans
+import Control.Monad.IO.Class
+import Control.Monad.Trans.Class
 import Control.Monad.Trans.State
 
 import Network.XMPP.Monad
@@ -36,7 +37,7 @@ xmppStartTLS params = do
                      { sRawSrc = raw
 --                   , sConSrc =  -- Note: this momentarily leaves us in an
                                   -- inconsistent state
-                     , sConSink = liftIO . snk
+                     , sConPush = liftIO . snk
                      })
       xmppRestartStream
       modify (\s -> s{sHaveTLS = True})

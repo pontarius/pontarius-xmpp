@@ -5,7 +5,8 @@ module Data.Conduit.Hexpat where
 import Control.Applicative((<$>))
 import Control.Exception
 import Control.Monad
-import Control.Monad.Trans
+import Control.Monad.IO.Class
+import Control.Monad.Trans.Class
 
 import qualified Data.ByteString as BS
 import Data.Conduit as C

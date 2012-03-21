@@ -5,7 +5,7 @@ module Network.XMPP.Stream where
 
 import Control.Applicative((<$>))
 import Control.Monad(unless)
-import Control.Monad.Trans
+import Control.Monad.Trans.Class
 import Control.Monad.Trans.State
 import Control.Monad.IO.Class
 

@@ -1,5 +1,3 @@
-{-# LANGUAGE OverloadedStrings #-}
-
 module Network.XMPP.Types where
 -- proudly "borrowed" from haskell-xmpp
 
@@ -9,7 +7,6 @@ import Control.Monad.Trans.State
 
 import qualified Data.ByteString as BS
 import Data.Conduit
-import Data.Default
 import Data.List.Split as L
 import Data.Maybe
 import Data.Text as Text
@@ -32,14 +29,17 @@ data JID = JID { node :: Maybe Text
                -- ^ Resource name
                }
 instance Show JID where
-  show = Text.unpack . toText
+  show (JID nd domain res) =
+            maybe "" ((++ "@") . Text.unpack) nd ++
+            (Text.unpack domain)               ++
+            maybe "" (('/' :) . Text.unpack)   res
 
 type XMPPMonad a = StateT XMPPState (ResourceT IO) a
 
 data XMPPState = XMPPState
                { sConSrc    :: BufferedSource IO Event
                , sRawSrc    :: BufferedSource IO BS.ByteString
-               , sConSink   :: BS.ByteString -> ResourceT IO ()
+               , sConPush   :: BS.ByteString -> IO ()
                , sConHandle :: Maybe Handle
                , sFeatures  :: ServerFeatures
                , sHaveTLS   :: Bool
@@ -54,12 +54,12 @@ data ServerFeatures = SF
   , other :: [Element]
   } deriving Show
 
-instance Default ServerFeatures where
-  def = SF
-          { stls  = Nothing
-          , saslMechanisms = []
-          , other = []
-          }
+
+def = SF
+ { stls  = Nothing
+ , saslMechanisms = []
+ , other = []
+ }
 
 
 -- Ugh, that smells a bit.

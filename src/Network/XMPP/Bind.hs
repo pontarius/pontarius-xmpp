@@ -2,7 +2,6 @@
 
 module Network.XMPP.Bind where
 
-import Control.Monad.Trans
 import Control.Monad.Trans.State
 
 import Data.Text as Text
@@ -28,7 +27,6 @@ xmppBind = do
   res <- gets sResource
   push $ bindReqIQ res
   answer <- pull
-  liftIO $ print answer
   let SIQ (IQ Nothing Nothing _ Result b) = answer
   let (JID n d (Just r)) = unpickleElem jidP b
   modify (\s -> s{sResource = Just r})

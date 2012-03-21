@@ -4,8 +4,6 @@ module Network.XMPP.Marshal where
 
 import Control.Applicative((<$>))
 
-import Control.Monad.State
-
 import Data.Maybe
 
 import qualified Data.Text as Text
@@ -25,10 +23,10 @@ stanzaP = xpAlt stanzaSel
                , xpWrap (SIQ       , (\(SIQ       i) -> i)) iqP
                ]
 
-messageP = xpWrap  ( (\((from, to, id, tp),(body, sub, thr,ext))
-                             -> Message from to id tp body sub thr ext)
-                        , (\(Message from to id tp body sub thr ext)
-                             -> ((from, to, id, tp), (body, sub, thr,ext)))
+messageP = xpWrap  ( (\((from, to, id, tp),(sub, body, thr,ext))
+                             -> Message from to id tp sub body thr ext)
+                        , (\(Message from to id tp sub body thr ext)
+                             -> ((from, to, id, tp), (sub, body, thr,ext)))
                         ) $
            xpElem "message"
              (xp4Tuple
@@ -38,8 +36,8 @@ messageP = xpWrap  ( (\((from, to, id, tp),(body, sub, thr,ext))
                (xpAttrImplied "type" xpPrim)
              )
              (xp4Tuple
-               (xpOption . xpElemNodes "body" $ xpContent xpText)
                (xpOption . xpElemNodes "subject" $ xpContent xpText)
+               (xpOption . xpElemNodes "body" $ xpContent xpText)
                (xpOption . xpElemNodes "thread" $ xpContent xpText)
                xpTrees
              )

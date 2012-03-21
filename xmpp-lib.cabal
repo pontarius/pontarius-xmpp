@@ -1,0 +1,58 @@
+Name: xmpp-lib
+Version: 0.0.0.1
+License: MIT
+License-File: LICENSE
+Author: Philipp Balzarek <p.balzarek@googlemail.com>
+Maintainer: Philipp Balzarek <p.balzarek@googlemail.com>
+Category: Network
+Copyright: (c) 2012 Philipp Balzarek
+Stability: Experimental
+Cabal-version: >=1.6
+Tested-with: GHC==7.4.1
+Build-type: Simple
+Bug-reports: mailto: p.balzarek@googlemail.com
+Extra-source-files: README
+
+Synopsis: Haskell XMPP (eXtensible Message Passing Protocol, a.k.a. Jabber) library
+Description: Haskell XMPP (eXtensible Message Passing Protocol, a.k.a. Jabber) library
+  .
+  This library is not yet stable
+
+source-repository head
+  type: git
+  location: https://github.com/Philonous/xmpp-lib
+
+library
+  hs-source-dirs: src
+  Build-Depends: base          >3 && <5
+               , conduit           -any
+               , random            -any
+               , hexpat            -any
+               , hexpat-pickle     -any
+               , tls               -any
+               , tls-extra         -any
+               , pureMD5           -any
+               , base64-bytestring -any
+               , binary            -any
+               , attoparsec        -any
+               , crypto-api        -any
+               , text              -any
+               , bytestring        -any
+               , transformers      -any
+               , network           -any
+               , split             -any
+               , stm               -any
+  Exposed-modules: Network.XMPP
+                , Network.XMPP.Types
+                , Network.XMPP.SASL
+                , Network.XMPP.Stream
+                , Network.XMPP.Pickle
+                , Network.XMPP.Marshal
+                , Network.XMPP.Monad
+                , Network.XMPP.Concurrent
+                , Network.XMPP.TLS
+                , Network.XMPP.Bind
+                , Network.XMPP.Session
+                , Data.Conduit.Hexpat
+                , Data.Conduit.TLS
+  GHC-Options: -Wall
