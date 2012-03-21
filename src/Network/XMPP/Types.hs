@@ -5,17 +5,23 @@ module Network.XMPP.Types where
 
 import Control.Applicative((<$>))
 import Control.Monad
+import Control.Monad.Trans.State
 
+import qualified Data.ByteString as BS
+import Data.Conduit
+import Data.Default
+import Data.List.Split as L
 import Data.Maybe
 import Data.Text as Text
 import Data.String as Str
-import Data.XML.Types
 
-class ToText a where
-  toText :: a -> Text
+import System.IO
 
-class FromText a where
-  fromText :: Text -> a
+import Text.XML.Expat.SAX
+import Text.XML.Expat.Tree
+
+type Element = Node Text.Text Text.Text
+type Event = SAXEvent Text.Text Text.Text
 
 -- | Jabber ID (JID) datatype
 data JID = JID { node :: Maybe Text
@@ -25,31 +31,50 @@ data JID = JID { node :: Maybe Text
                , resource :: Maybe Text
                -- ^ Resource name
                }
-instance ToText JID where
-  toText (JID n d r) =
-    let n' = maybe "" (`append` "@" ) n
-        r' = maybe "" ("/" `append` ) r
-    in Text.concat [n', d, r']
-
-instance FromText JID where
-  fromText = parseJID
-
 instance Show JID where
   show = Text.unpack . toText
 
+type XMPPMonad a = StateT XMPPState (ResourceT IO) a
+
+data XMPPState = XMPPState
+               { sConSrc    :: BufferedSource IO Event
+               , sRawSrc    :: BufferedSource IO BS.ByteString
+               , sConSink   :: BS.ByteString -> ResourceT IO ()
+               , sConHandle :: Maybe Handle
+               , sFeatures  :: ServerFeatures
+               , sHaveTLS   :: Bool
+               , sHostname  :: Text.Text
+               , sUsername  :: Text.Text
+               , sResource  :: Maybe Text.Text
+               }
+
+data ServerFeatures = SF
+  { stls  :: Maybe Bool
+  , saslMechanisms :: [Text.Text]
+  , other :: [Element]
+  } deriving Show
+
+instance Default ServerFeatures where
+  def = SF
+          { stls  = Nothing
+          , saslMechanisms = []
+          , other = []
+          }
+
+
 -- Ugh, that smells a bit.
 parseJID jid =
-  let (jid', rst) = case Text.splitOn "@" jid of
+  let (jid', rst) = case L.splitOn "@" jid of
                       [rest] -> (JID Nothing, rest)
-                      [node,rest] -> (JID (Just node), rest)
-                      _ -> error $  "Couldn't parse JID: \"" ++ Text.unpack jid ++ "\""
-  in case Text.splitOn "/" rst of
-      [domain] -> jid' domain Nothing
-      [domain, resource] -> jid' domain (Just resource)
-      _ -> error $ "Couldn't parse JID: \"" ++ Text.unpack jid ++ "\""
+                      [node,rest] -> (JID (Just (Text.pack node)), rest)
+                      _ -> error $  "Couldn't parse JID: \"" ++ jid ++ "\""
+  in case L.splitOn "/" rst of
+      [domain] -> jid' (Text.pack domain) Nothing
+      [domain, resource] -> jid' (Text.pack domain) (Just (Text.pack resource))
+      _ -> error $ "Couldn't parse JID: \"" ++ jid ++ "\""
 
-instance IsString JID where
-  fromString = parseJID . Text.pack
+instance Read JID where
+  readsPrec _ x = [(parseJID x,"")]
 
 
 -- should we factor from, to and id out, even though they are
@@ -59,7 +84,7 @@ data Message = Message
     , mTo :: JID
     , mId :: Maybe Text
              -- ^ Message 'from', 'to', 'id' attributes
-    , mType :: MessageType
+    , mType :: Maybe MessageType
                -- ^ Message type (2.1.1)
     , mSubject :: Maybe Text
                   -- ^ Subject element (2.1.2.1)
@@ -86,7 +111,7 @@ data Presence =  Presence
                    -- ^ Presence priority (2.2.2.3)
     , pExt :: [Element]
               -- ^ Additional contents, used for extensions
-    }
+    } deriving Show
 
 data IQ = IQ
     { iqFrom :: Maybe JID
@@ -97,11 +122,11 @@ data IQ = IQ
       -- ^ IQ type (Core-9.2.3)
     , iqBody :: Element
       -- ^ Child element (Core-9.2.3)
-    }
+    } deriving Show
 
-data Stanza = SMessage Message | SPresence Presence | SIQ IQ --  deriving Show
+data Stanza = SMessage Message | SPresence Presence | SIQ IQ  deriving Show
 
-data MessageType = Chat | GroupChat | Headline | Normal | MessageError deriving (Eq, Show)
+data MessageType = Chat | GroupChat | Headline | Normal | MessageError deriving (Eq)
 
 data PresenceType = Default | Unavailable | Subscribe | Subscribed | Unsubscribe | Unsubscribed | Probe | PresenceError deriving Eq
 
@@ -109,73 +134,79 @@ data IQType = Get | Result | Set | IQError deriving Eq
 
 data ShowType = Available | Away | FreeChat | DND | XAway deriving Eq
 
-instance ToText MessageType where
-  toText Chat = "chat"
-  toText GroupChat = "groupchat"
-  toText Headline = "headline"
-  toText Normal = "normal"
-  toText MessageError = "error"
+instance Show MessageType where
+  show Chat = "chat"
+  show GroupChat = "groupchat"
+  show Headline = "headline"
+  show Normal = "normal"
+  show MessageError = "error"
 
-instance ToText PresenceType where
-  toText Default = ""
-  toText Unavailable = "unavailable"
-  toText Subscribe = "subscribe"
-  toText Subscribed = "subscribed"
-  toText Unsubscribe = "unsubscribe"
-  toText Unsubscribed = "unsubscribed"
-  toText Probe = "probe"
-  toText PresenceError = "error"
+instance Show PresenceType where
+  show Default = ""
+  show Unavailable = "unavailable"
+  show Subscribe = "subscribe"
+  show Subscribed = "subscribed"
+  show Unsubscribe = "unsubscribe"
+  show Unsubscribed = "unsubscribed"
+  show Probe = "probe"
+  show PresenceError = "error"
 
-instance ToText IQType where
-  toText Get = "get"
-  toText Result = "result"
-  toText Set = "set"
-  toText IQError = "error"
+instance Show IQType where
+  show Get = "get"
+  show Result = "result"
+  show Set = "set"
+  show IQError = "error"
 
-instance ToText ShowType where
-  toText Available = ""
-  toText Away = "away"
-  toText FreeChat = "chat"
-  toText DND = "dnd"
-  toText XAway = "xa"
+instance Show ShowType where
+  show Available = ""
+  show Away = "away"
+  show FreeChat = "chat"
+  show DND = "dnd"
+  show XAway = "xa"
 
 
-instance FromText MessageType where
-  fromText "chat" = Chat
-  fromText "groupchat" = GroupChat
-  fromText "headline" = Headline
-  fromText "normal" = Normal
-  fromText "error" = MessageError
-  fromText "" = Chat
-  fromText _ = error "incorrect message type"
+instance Read MessageType where
+  readsPrec _  "chat"         = [( Chat ,"")]
+  readsPrec _  "groupchat"    = [( GroupChat ,"")]
+  readsPrec _  "headline"     = [( Headline ,"")]
+  readsPrec _  "normal"       = [( Normal ,"")]
+  readsPrec _  "error"        = [( MessageError ,"")]
+  readsPrec _  ""             = [( Chat ,"")]
+  readsPrec _  _              = error "incorrect message type"
 
-instance FromText PresenceType where
-  fromText "" = Default
-  fromText "available" = Default
-  fromText "unavailable" = Unavailable
-  fromText "subscribe" = Subscribe
-  fromText "subscribed" = Subscribed
-  fromText "unsubscribe" = Unsubscribe
-  fromText "unsubscribed" = Unsubscribed
-  fromText "probe" = Probe
-  fromText "error" = PresenceError
-  fromText _ = error "incorrect presence type"
+instance Read PresenceType where
+  readsPrec _  ""             = [( Default ,"")]
+  readsPrec _  "available"    = [( Default ,"")]
+  readsPrec _  "unavailable"  = [( Unavailable ,"")]
+  readsPrec _  "subscribe"    = [( Subscribe ,"")]
+  readsPrec _  "subscribed"   = [( Subscribed ,"")]
+  readsPrec _  "unsubscribe"  = [( Unsubscribe ,"")]
+  readsPrec _  "unsubscribed" = [( Unsubscribed ,"")]
+  readsPrec _  "probe"        = [( Probe ,"")]
+  readsPrec _  "error"        = [( PresenceError ,"")]
+  readsPrec _  _              =  error "incorrect presence type"
 
-instance FromText IQType where
-  fromText "get" = Get
-  fromText "result" = Result
-  fromText "set" = Set
-  fromText "error" = IQError
-  fromText "" = Get
-  fromText _ = error "incorrect iq type"
+instance Read IQType where
+  readsPrec _  "get"          = [( Get ,"")]
+  readsPrec _  "result"       = [( Result ,"")]
+  readsPrec _  "set"          = [( Set ,"")]
+  readsPrec _  "error"        = [( IQError ,"")]
+  readsPrec _  ""             = [( Get ,"")]
+  readsPrec _  _              =  error "incorrect iq type"
 
-instance FromText ShowType where
-  fromText "" = Available
-  fromText "available" = Available
-  fromText "away" = Away
-  fromText "chat" = FreeChat
-  fromText "dnd" = DND
-  fromText "xa" = XAway
-  fromText "invisible" = Available
-  fromText _ = error "incorrect <show> value"
+instance Read ShowType where
+  readsPrec _  ""             = [( Available ,"")]
+  readsPrec _  "available"    = [( Available ,"")]
+  readsPrec _  "away"         = [( Away ,"")]
+  readsPrec _  "chat"         = [( FreeChat ,"")]
+  readsPrec _  "dnd"          = [( DND ,"")]
+  readsPrec _  "xa"           = [( XAway ,"")]
+  readsPrec _  "invisible"    = [( Available ,"")]
+  readsPrec _  _              =  error "incorrect <show> value"
 
+
+toText :: Show a => a -> Text
+toText   = Text.pack . show
+
+fromText :: Read a => Text -> a
+fromText = read . Text.unpack

@@ -1,79 +1,94 @@
 {-# LANGUAGE NoMonomorphismRestriction, OverloadedStrings #-}
+{-# LANGUAGE TupleSections         #-}
 
 module Network.XMPP.Stream where
 
+import Control.Applicative((<$>))
 import Control.Monad(unless)
+import Control.Monad.Trans
 import Control.Monad.Trans.State
+import Control.Monad.IO.Class
 
 import Network.XMPP.Monad
+import Network.XMPP.Pickle
+import Network.XMPP.Types
 
 import Data.Conduit
+import Data.Conduit.Hexpat as HXC
 import Data.Conduit.List as CL
 import qualified Data.List as L
 import Data.Text as T
-import Data.XML.Types
 
-import Text.XML.Stream.Elements
+import Text.XML.Expat.Pickle
+
+-- import Text.XML.Stream.Elements
+
 
 xmppStartStream = do
   hostname <- gets sHostname
-  pushOpen $ streamE hostname
+  pushOpen $ pickleElem pickleStream ("1.0",Nothing, Just hostname)
   features <- pulls xmppStream
   modify (\s -> s {sFeatures = features})
   return ()
 
+xmppRestartStream = do
+  raw <- gets sRawSrc
+  src <- gets sConSrc
+  newsrc <- lift (bufferSource $ raw $= HXC.parseBS parseOpts)
+  modify (\s -> s{sConSrc = newsrc})
+  xmppStartStream
 
-xmppStream :: ResourceThrow m => Sink Event m ServerFeatures
+
+xmppStream :: Sink Event IO ServerFeatures
 xmppStream = do
   xmppStreamHeader
   xmppStreamFeatures
 
-
-xmppStreamHeader :: Resource m => Sink Event m ()
+xmppStreamHeader :: Sink Event IO ()
 xmppStreamHeader = do
-  hd <- CL.peek
-  case hd of
-    Just EventBeginDocument -> CL.drop 1
-    _ -> return ()
-  Just (EventBeginElement "{http://etherx.jabber.org/streams}stream" streamAttrs) <- CL.head
-  unless (checkVersion streamAttrs)  $ error  "Not XMPP version 1.0 "
-  return ()
-  where
-    checkVersion = L.any (\x -> (fst x == "version") && (snd x == [ContentText "1.0"]))
+  throwOutJunk
+  (ver, _, _) <- unpickleElem pickleStream <$> openElementFromEvents
+  unless (ver == "1.0")  $ error  "Not XMPP version 1.0 "
+  return()
 
 
-xmppStreamFeatures
-  :: ResourceThrow m => Sink Event m ServerFeatures
-xmppStreamFeatures = do
-  Element "{http://etherx.jabber.org/streams}features" [] features' <- elementFromEvents
-  let features = do
-       f <- features'
-       case f of
-         NodeElement e -> [e]
-         _ -> []
-  let starttls = features >>= isNamed "{urn:ietf:params:xml:ns:xmpp-tls}starttls"
-  let starttlsRequired = starttls
-        >>= elementChildren
-        >>= isNamed "{urn:ietf:params:xml:ns:xmpp-tls}required"
-  let mechanisms = features
-                 >>= isNamed "{urn:ietf:params:xml:ns:xmpp-sasl}mechanisms"
-                 >>= elementChildren
-                 >>= isNamed "{urn:ietf:params:xml:ns:xmpp-sasl}mechanism"
-                 >>= elementText
-  return SF { stls = not $ L.null starttls
-            , stlsRequired = not $ L.null starttlsRequired
-            , saslMechanisms = mechanisms
-            , other = features
-            }
+xmppStreamFeatures :: Sink Event IO ServerFeatures
+xmppStreamFeatures = unpickleElem pickleStreamFeatures <$> elementFromEvents
 
-streamE :: T.Text -> Element
-streamE hostname =
-  Element (Name "stream" (Just "http://etherx.jabber.org/streams") (Just "stream"))
-     [
-       ("xml:language" , [ContentText "en"])
-     , ("version", [ContentText "1.0"])
-     , ("to", [ContentText hostname])
-     ]
-     []
 
+-- Pickling
+
+pickleStream = xpWrap (snd, (((),()),)) .
+  xpElemAttrs "stream:stream" $
+    xpPair
+      (xpPair
+        (xpAttrFixed "xmlns" "jabber:client" )
+        (xpAttrFixed "xmlns:stream" "http://etherx.jabber.org/streams" )
+      )
+      (xpTriple
+       (xpAttr "version" xpText)
+       (xpOption $ xpAttr "from" xpText)
+       (xpOption $ xpAttr "to" xpText)
+       )
+
+pickleTLSFeature = ignoreAttrs $
+  xpElem "starttls"
+    (xpAttrFixed "xmlns" "urn:ietf:params:xml:ns:xmpp-tls")
+    (xpElemExists "required")
+
+pickleSaslFeature = ignoreAttrs $
+  xpElem "mechanisms"
+    (xpAttrFixed "xmlns" "urn:ietf:params:xml:ns:xmpp-sasl")
+    (xpList0 $
+     xpElemNodes "mechanism" (xpContent xpText) )
+
+pickleStreamFeatures = xpWrap ( \(tls, sasl, rest) -> SF tls (mbl sasl) rest
+                              , (\(SF tls sasl rest) -> (tls, lmb sasl, rest))
+                              ) $
+    xpElemNodes "stream:features"
+      (xpTriple
+        (xpOption pickleTLSFeature)
+        (xpOption pickleSaslFeature)
+        xpTrees
+      )
 

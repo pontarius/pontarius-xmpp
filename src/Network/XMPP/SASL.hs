@@ -18,13 +18,14 @@ import qualified Data.ByteString.Base64 as B64
 import qualified Data.List as L
 import qualified Data.Digest.Pure.MD5 as MD5
 import Data.List
-import Data.XML.Types
 
 import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text
 
 import Network.XMPP.Monad
+import Network.XMPP.Pickle
 import Network.XMPP.Stream
+import Network.XMPP.Types
 
 import Numeric --
 
@@ -32,34 +33,42 @@ import qualified System.Random as Random
 
 import Text.XML.Stream.Elements
 
+import Text.XML.Expat.Pickle
+import Text.XML.Expat.Tree
+
 saslInitE mechanism =
-    Element "{urn:ietf:params:xml:ns:xmpp-sasl}auth"
-        [("mechanism", [ContentText mechanism])
+    Element "auth"
+        [ ("xmlns","urn:ietf:params:xml:ns:xmpp-sasl")
+        ,  ("mechanism", mechanism)
         ]
         []
 
 saslResponseE resp =
-    Element "{urn:ietf:params:xml:ns:xmpp-sasl}response" []
-    [NodeContent $ ContentText resp]
+    Element "response"
+    [("xmlns","urn:ietf:params:xml:ns:xmpp-sasl")]
+    [Text resp]
 
 saslResponse2E =
-    Element "{urn:ietf:params:xml:ns:xmpp-sasl}response" [] []
+    Element "response"
+    [("xmlns","urn:ietf:params:xml:ns:xmpp-sasl")]
+    []
 
 xmppSASL passwd = do
   mechanisms <- gets $ saslMechanisms . sFeatures
   unless ("DIGEST-MD5" `elem` mechanisms) $ error "No usable auth mechanism"
-  pushE $ saslInitE "DIGEST-MD5"
-  Element "{urn:ietf:params:xml:ns:xmpp-sasl}challenge" []
-    [NodeContent (ContentText content)] <- pullE
-  let (Right challenge) = B64.decode . Text.encodeUtf8 $ content
+  liftIO $ putStrLn "saslinit"
+  pushN $ saslInitE "DIGEST-MD5"
+  liftIO $ putStrLn "saslinit sent"
+  Right challenge <- B64.decode . Text.encodeUtf8<$> pullPickle challengePickle
   let Right pairs = toPairs challenge
-  pushE . saslResponseE =<< createResponse passwd pairs
-  Element name attrs content <- pullE
-  when (name == "{urn:ietf:params:xml:ns:xmpp-sasl}failure") $
-    (error $ show content)
-  pushE saslResponse2E
-  Element "{urn:ietf:params:xml:ns:xmpp-sasl}success" [] [] <- pullE
-  xmppStartStream
+  pushN . saslResponseE =<< createResponse passwd pairs
+  challenge2 <- pullPickle (xpEither failurePickle challengePickle)
+  case challenge2 of
+    Left x -> error $ show x
+    Right c -> return ()
+  pushN saslResponse2E
+  Element "success" [("xmlns","urn:ietf:params:xml:ns:xmpp-sasl")] [] <- pullE
+  xmppRestartStream
   return ()
 
 createResponse passwd' pairs = do
@@ -118,4 +127,18 @@ md5Digest uname realm password digestURI nc qop nonce cnonce=
   let ha1 = hash [hashRaw [uname,realm,password], nonce, cnonce]
       ha2 = hash ["AUTHENTICATE", digestURI]
   in hash [ha1,nonce, nc, cnonce,qop,ha2]
+
+
+-- Pickling
+
+failurePickle = ignoreAttrs $
+  xpElem "failure"
+     (xpAttrFixed "xmlns" "urn:ietf:params:xml:ns:xmpp-sasl")
+     (xpTree)
+
+challengePickle :: PU [Node Text.Text Text.Text] Text.Text
+challengePickle = ignoreAttrs $
+  xpElem "challenge"
+    (xpAttrFixed "xmlns" "urn:ietf:params:xml:ns:xmpp-sasl")
+    (xpContent xpText0)
 

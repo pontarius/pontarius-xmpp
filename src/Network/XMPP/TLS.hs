@@ -2,43 +2,43 @@
 
 module Network.XMPP.TLS where
 
-import Control.Monad(when)
+import Control.Monad
 import Control.Monad.Trans
 import Control.Monad.Trans.State
 
 import Network.XMPP.Monad
 import Network.XMPP.Stream
-import Network.TLSConduit as TLS
+import Network.XMPP.Types
 
 import Data.Conduit
+import Data.Conduit.Hexpat as HX
 import Data.Conduit.Text as CT
+import Data.Conduit.TLS as TLS
 import Data.Conduit.List as CL
 import qualified Data.List as L
-import Data.XML.Types
 
-import Text.XML.Stream.Elements
-import Text.XML.Stream.Parse
-import Text.XML.Stream.Render as XR
-
+import Text.XML.Expat.Tree
 
 starttlsE =
-  Element (Name "starttls" (Just "urn:ietf:params:xml:ns:xmpp-tls") Nothing ) [] []
+  Element "starttls" [("xmlns", "urn:ietf:params:xml:ns:xmpp-tls")] []
 
 exampleParams = TLS.defaultParams {TLS.pCiphers = TLS.ciphersuite_strong}
 
 xmppStartTLS params = do
   features <- gets sFeatures
-  when (stls features) $ do
-      pushE starttlsE
-      Element "{urn:ietf:params:xml:ns:xmpp-tls}proceed" [] [] <- pullE
+  unless (stls features == Nothing) $ do
+      pushN starttlsE
+      Element "proceed" [("xmlns", "urn:ietf:params:xml:ns:xmpp-tls")] [] <- pullE
       Just handle <- gets sConHandle
-      (src', snk) <- lift $ TLS.tlsinit params handle
-      src <- lift . bufferSource $ src' $= CT.decode CT.utf8 $= parseText def
+      (raw', snk) <- lift $ TLS.tlsinit params handle
+      raw <- lift . bufferSource $ raw'
       modify (\x -> x
-                     { sConSrc = src
-                     , sConSink = XR.renderBytes def =$ snk
+                     { sRawSrc = raw
+--                   , sConSrc =  -- Note: this momentarily leaves us in an
+                                  -- inconsistent state
+                     , sConSink = liftIO . snk
                      })
-      xmppStartStream
+      xmppRestartStream
       modify (\s -> s{sHaveTLS = True})
   gets sHaveTLS
 

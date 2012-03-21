@@ -1,4 +1,4 @@
-module Network.TLSConduit
+module Data.Conduit.TLS
        ( tlsinit
        , module TLS
        , module TLSExtra
@@ -10,7 +10,7 @@ import Control.Monad.Trans
 
 import Crypto.Random
 
-import Data.ByteString as BS
+import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BL
 import Data.Conduit
 
@@ -25,21 +25,17 @@ import System.IO
 tlsinit
   :: (MonadIO m, ResourceIO m1) =>
      TLSParams -> Handle
-     -> m (Source m1 ByteString, Sink ByteString m1 ())
+     -> m (Source m1 BS.ByteString, (BS.ByteString -> IO ()))
 tlsinit tlsParams handle = do
     gen <- liftIO $ (newGenIO :: IO SystemRandom) -- TODO: Find better random source?
     clientContext <- client tlsParams gen handle
     handshake clientContext
     let src = sourceIO
                (return clientContext)
-               bye
+               (\_ -> putStrLn "tls closed")
                (\con -> IOOpen <$> recvData con)
-    let snk = sinkIO
-                (return clientContext)
-                (\_ -> return ())
-                (\ctx dt -> sendData ctx (BL.fromChunks [dt]) >> return IOProcessing)
-                (\_ -> return ())
-    return (src $= conduitStdout , snk)
+    return (src $= conduitStdout
+           , \s -> sendData clientContext $ BL.fromChunks [s] )
 
 -- TODO: remove
 
