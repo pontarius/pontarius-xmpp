@@ -1,5 +1,5 @@
--- Copyright © 2010-2011 Jon Kristensen. See the LICENSE file in the Pontarius
--- XMPP distribution for more details.
+-- Copyright © 2010-2012 Jon Kristensen. See the LICENSE file in the
+-- Pontarius distribution for more details.
 
 -- TODO: TLS12 when supported in tls; TODO: TLS11 results in a read error - bug?
 -- TODO: cipher_AES128_SHA1 = TLS_RSA_WITH_AES_128_CBC_SHA?

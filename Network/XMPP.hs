@@ -1,28 +1,29 @@
--- Copyright © 2010-2011 Jon Kristensen. See the LICENSE file in the Pontarius
--- XMPP distribution for more details.
+-- Copyright © 2010-2012 Jon Kristensen. See the LICENSE file in the
+-- Pontarius distribution for more details.
 
 -- |
 -- Module:      $Header$
--- Description: Pontarius XMPP API
--- Copyright:   Copyright © 2010-2011 Jon Kristensen
--- License:     BSD3
+-- Description: Pontarius API
+-- Copyright:   Copyright © 2010-2012 Jon Kristensen
+-- License:     Apache License 2.0
 --
--- Maintainer:  info@pontarius.org
+-- Maintainer:  jon.kristensen@nejla.com
 -- Stability:   unstable
 -- Portability: portable
 --
--- XMPP is an open standard, extendable, and secure communications protocol
--- designed on top of XML, TLS, and SASL. Pontarius XMPP is an XMPP client
--- library, implementing the core capabilities of XMPP (RFC 6120).
+-- XMPP is an open standard, extendable, and secure communications
+-- protocol designed on top of XML, TLS, and SASL. Pontarius XMPP is
+-- an XMPP client library, implementing the core capabilities of XMPP
+-- (RFC 6120).
 --
--- Developers using this library are assumed to understand how XMPP works.
+-- Developers using this library are assumed to understand how XMPP
+-- works.
 --
 -- This module will be documented soon.
 --
--- Note that we are not recommending anyone to use Pontarius XMPP at this time
--- as it's still in an experimental stage and will have its API and data types
--- modified frequently. See the project's web site at
--- <http://www.pontarius.org/> for more information.
+-- Note that we are not recommending anyone to use Pontarius XMPP at
+-- this time as it's still in an experimental stage and will have its
+-- API and data types modified frequently.
 
 module Network.XMPP ( -- Network.XMPP.JID
                       Address (..)

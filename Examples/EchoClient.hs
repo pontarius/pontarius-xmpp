@@ -1,10 +1,10 @@
 {-
 
-Copyright © 2010-2011 Jon Kristensen.
+Copyright © 2010-2012 Jon Kristensen.
 
-This file (EchoClient.hs) illustrates how to connect, authenticate, set a
-presence, and echo messages with Pontarius XMPP. The contents of this file may
-be used freely, as if it is in the public domain.
+This file (EchoClient.hs) illustrates how to connect, authenticate,
+set a presence, and echo messages using Pontarius. The contents of
+this file may be used freely, as if it is in the public domain.
 
 -}
 
@@ -16,17 +16,17 @@ import Network.XMPP
 
 -- Account and server details.
 
-hostName = "jonkristensen.com"
+hostName = "nejla.com"
 userName = "pontarius"
-serverIdentifier = "jonkristensen.com"
+serverIdentifier = "nejla.com"
 portNumber = 5222
 resource = "pontarius"
 password = ""
 
 
--- The main function initializes Pontarius XMPP and specifies the (XMPPT)
--- actions the be executed, hooking the client into the appropriate events and
--- tries to connect.
+-- The main function initializes PontariusP and specifies the (XMPPT)
+-- actions the be executed, hooking the client into the appropriate
+-- events and tries to connect.
 
 main :: IO ()
 
@@ -38,16 +38,16 @@ main = runXMPPT $ do
 
     where
 
-        -- When successfully connected, send a simple presence, and unhook
-        -- ourselves from further "connected" events.
+        -- When successfully connected, send a simple presence, and
+        -- unhook ourselves from further "connected" events.
 
         onConnectedEvent (Right r) = do
             liftIO $ putStrLn $ "Connected with resource: " ++ (show r)
             presence simplePresence
             return False
 
-        -- When the connection fails, print the error and shut down the XMPP
-        -- session.
+        -- When the connection fails, print the error and shut down
+        -- the XMPP session.
 
         onConnectedEvent (Left e) = do
             liftIO $ putStrLn $ "Could not connect due to the following error:" ++ (show e)
@@ -55,7 +55,8 @@ main = runXMPPT $ do
             return True
 
         -- Predicate that makes sure that the messages processed by
-        -- onMessageEvent are sent from and to full (not bare) XMPP addresses.
+        -- onMessageEvent are sent from and to full (not bare) XMPP
+        -- addresses.
 
         onMessageEventPredicate = Just (\ m -> return $ and [isJust $ messageFrom m, isJust $ messageTo m])
 
@@ -66,7 +67,8 @@ main = runXMPPT $ do
                         , messageTo = fromJust $ messageFrom m }
             return True
 
-        -- When disconnected, print the reason and shut down the XMPP session.
+        -- When disconnected, print the reason and shut down the XMPP
+        -- session.
 
         onDisconnectedEvent r = do
             liftIO $ putStrLn $ "Disconnected with the reason: " ++ (show r)

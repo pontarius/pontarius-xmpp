@@ -1,0 +1,67 @@
+Name: pontarius
+Version: 0.0.7.0
+Cabal-Version: >= 1.6
+Build-Type: Simple
+-- License:
+License-File: LICENSE
+Copyright: Copyright © 2010-2012, Jon Kristensen
+Author: Jon Kristensen, Mahdi Abdinejadi
+Maintainer: jon.kristensen@nejla.com
+Stability: alpha
+-- Homepage:
+Bug-Reports: mailto:jon.kristensen@nejla.com
+-- Package-URL:
+Synopsis: A prototyped and incomplete implementation of RFC 6120:
+          XMPP: Core
+Description: A work in progress of an implementation of RFC 6120:
+             XMPP: Core, as well as RFC 6122: XMPP: Address Format and
+             other depending standards. A new version of Pontarius
+             XMPP is released every three weeks.
+Category: Network
+Tested-With: GHC ==7.0.2
+-- Data-Files:
+-- Data-Dir:
+-- Extra-Source-Files:
+-- Extra-Tmp-Files:
+
+Library
+  Exposed: True
+  Build-Depends: base >= 2 && < 5, parsec, enumerator,
+                 crypto-api ==0.6.3, base64-string, pureMD5,
+                 utf8-string, network, xml-types, text, transformers,
+                 bytestring, cereal ==0.3.3.0, random, xml-enumerator,
+                 tls, tls-extra, containers, mtl, text-icu,
+                 stringprep, asn1-data, cryptohash ==0.7.0, time,
+                 certificate, ranges, uuid
+  -- Other-Modules:
+  -- HS-Source-Dirs:
+  -- Extensions:
+  -- Build-Tools:
+  -- Buildable:
+  -- GHC-Options:
+  -- GHC-Prof-Options:
+  -- Hugs-Options:
+  -- NHC98-Options:
+  -- Includes:
+  -- Install-Includes:
+  -- Include-Dirs:
+  -- C-Sources:
+  -- Extra-Libraries:
+  -- Extra-Lib-Dirs:
+  -- CC-Options:
+  -- LD-Options:
+  -- Pkgconfig-Depends:
+  -- Frameworks:
+
+Source-Repository head
+  Type: git
+  -- Module:
+  Location: git://github.com/nejla/pontarius.git
+  -- Subdir:
+
+-- Source-Repository this
+--   Type: git
+--   -- Module:
+--   Location: git://github.com/nejla/pontarius.git
+--   Tag: 0.0.7.0
+--   -- Subdir:

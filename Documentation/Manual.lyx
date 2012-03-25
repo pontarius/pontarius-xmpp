@@ -61,15 +61,15 @@
 \begin_body
 
 \begin_layout Title
-Pontarius XMPP 0.1 Manual (Fourth Draft)
+Pontarius 1.0 Manual (Fifth Draft)
 \end_layout
 
 \begin_layout Author
-The Pontarius Project
+Nejla
 \end_layout
 
 \begin_layout Date
-The 27th of July, 2011
+March 25, 2012
 \end_layout
 
 \begin_layout Standard
@@ -86,8 +86,9 @@ Introduction
 \end_layout
 
 \begin_layout Standard
-Pontarius XMPP 0.1 is a minimal XMPP client implementation with all the required
- client features and behaviours of the RFC 6120 ("XMPP Core") specification
+Pontarius is a work in progress of a minimal XMPP client implementation
+ with all the required client features and behaviours of the RFC 6120 ("XMPP
+ Core") specification
 \begin_inset Foot
 status open
 
@@ -98,14 +99,14 @@ http://tools.ietf.org/html/rfc6120
 \end_inset
 
 .
- Pontarius XMPP has been developed by the Pontarius project (mainly by Jon
- Kristensen).
+ Pontarius has been developed by the Pontarius project (mainly by Jon Kristensen
+), and has now been taken over by Nejla.
 
 \series bold
  
 \series default
-Being licensed under a three-clause BSD license, Pontarius XMPP is free
- and open source software.
+Being licensed under the Apache License (Version 2), Pontarius is free and
+ open source software.
 \end_layout
 
 \begin_layout Section
@@ -113,7 +114,7 @@ Features and Implementation Specifics
 \end_layout
 
 \begin_layout Standard
-Pontarius XMPP 0.1 implements the XMPP Core specification (RFC 6120).
+Pontarius 1.0 will implement the XMPP Core specification (RFC 6120).
  Features include the following:
 \end_layout
 
@@ -189,14 +190,8 @@ Future Development
 \end_layout
 
 \begin_layout Standard
-The current goal for Pontarius XMPP 0.2 is to implement the Extended Personal
- Media Network (XPMN) architecture so that the Pontarius project can develop
- a media server and some other XPMN services on top of Pontarius XMPP.
- However, if we get approached by people wanting to use Pontarius XMPP for
- other things, we might decide to help them out by implement some other
- features first.
- Please let us know if you are looking for a Haskell XMPP library and Pontarius
- XMPP lacks some features that you want.
+The current goal for Pontarius XMPP 2.0 is to serve as a library for an XMPP
+ server.
 \end_layout
 
 \begin_layout Section
@@ -204,9 +199,16 @@ Usage
 \end_layout
 
 \begin_layout Standard
-Working with Pontarius XMPP is mostly done asynchronously; Pontarius XMPP
- ``owns'' the XMPP thread, and calls different StateT s m a callback functions
- in the client.
+
+\noun on
+Note that the information provided below is out-of-date.
+ It will be updated before the next release.
+\end_layout
+
+\begin_layout Standard
+Working with Pontarius is mostly done asynchronously; Pontarius XMPP ``owns''
+ the XMPP thread, and calls different StateT s m a callback functions in
+ the client.
  StateT is a monad transformer which allows the functions to be stateful
  (being able to access and modify the arbitrary client-defined state of
  type s) and to be executed on top of a MonadIO m monad (typically IO).

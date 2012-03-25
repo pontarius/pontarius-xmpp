@@ -61,15 +61,15 @@
 \begin_body
 
 \begin_layout Title
-Software Requirements Specification for Pontarius XMPP 0.1 (Third Draft)
+Pontarius 1.0 Software Requirements Specification (Fourth Draft)
 \end_layout
 
 \begin_layout Author
-The Pontarius Project
+Nejla
 \end_layout
 
 \begin_layout Date
-27th of July 2011
+March 25, 2012
 \end_layout
 
 \begin_layout Standard
@@ -90,21 +90,12 @@ Purpose
 \end_layout
 
 \begin_layout Standard
-The goal of this document is to clarify---for Pontarius
-\begin_inset Foot
-status open
-
-\begin_layout Plain Layout
-For more information about the Pontarius project, see http://www.pontarius.org/.
-\end_layout
-
-\end_inset
-
- developers, the XMPP community, and to some extent the Haskell community---what
- we are implementing.
- We hope that it will help us in the Pontarius project to keep track of
- functionality and requirements, provide a basis for scheduling, and help
- us with our validation and verification processes.
+The goal of this document is to clarify---for Pontarius developers, the
+ XMPP community, and to some extent the Haskell community---what we are
+ implementing.
+ We hope that it will help us to keep track of functionality and requirements,
+ provide a basis for scheduling, and help us with our validation and verificatio
+n processes.
 \end_layout
 
 \begin_layout Subsection
@@ -112,73 +103,28 @@ Scope
 \end_layout
 
 \begin_layout Standard
-Pontarius XMPP 0.1 will implement the client capabilities of RFC 6120: XMPP:
- Core and the depending specifications, such as RFC 6122: XMPP: Address
- Format, RFC 5246: The Transport Layer Security (TLS) Protocol Version 1.2,
- RFC 4422: Simple Authentication and Security Layer (SASL), RFC 5280: Internet
- X.509 Public Key Infrastructure Certificate and Certificate Revocation List
- (CRL) Profile, and Extensible Markup Language (XML) 1.0, among others.
+Pontarius 1.0 will implement the client capabilities of RFC 6120: XMPP: Core
+ and the depending specifications, such as RFC 6122: XMPP: Address Format,
+ RFC 5246: The Transport Layer Security (TLS) Protocol Version 1.2, RFC 4422:
+ Simple Authentication and Security Layer (SASL), RFC 5280: Internet X.509
+ Public Key Infrastructure Certificate and Certificate Revocation List (CRL)
+ Profile, and Extensible Markup Language (XML) 1.0, among others.
 \end_layout
 
 \begin_layout Standard
 Support for common extensions such as Instant Messaging, Data Forms, Service
- Discovery, etc.
+ Discovery, server components, XMPP server capabilities, etc.
  will 
 \emph on
 not
 \emph default
- be included in the 0.1 version, but will be added in later (
-\begin_inset Quotes eld
-\end_inset
-
-0.x
-\begin_inset Quotes erd
-\end_inset
-
-) versions.
- Server components and XMPP server capabilities could also be added later.
-\end_layout
-
-\begin_layout Standard
-While it is the goal of the Pontarius project to develop secure and privacy-awar
-e 
-\begin_inset Quotes eld
-\end_inset
-
-personal cloud
-\begin_inset Quotes erd
-\end_inset
-
- solutions on top of Pontarius XMPP, we want Pontarius XMPP to be a general-purp
-ose---and the de facto---XMPP library for Haskell.
- It should be correct and efficient to work in.
+ be included in the 1.0 version.
 \end_layout
 
 \begin_layout Standard
 We will not repeat the specifics of the requirements from the RFC 6120:
  XMPP Core specification and its depending specifications in this document
  unless we see any special reason to.
-\end_layout
-
-\begin_layout Subsection
-Legal notice
-\end_layout
-
-\begin_layout Standard
-Pontarius XMPP is a free and open source software project.
- 
-\begin_inset Quotes eld
-\end_inset
-
-The Pontarius project
-\begin_inset Quotes erd
-\end_inset
-
- is not a legal entity, but is like a synonym for Jon Kristensen.
- Jon Kristensen does DOES NOT TAKE ANY RESPONSIBILITY OR OFFER ANY GUARANTEES
- in regards to the software, its requirements or this document.
- Furthermore, the software is provided WITHOUT ANY WARRANTY; without even
- the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 \end_layout
 
 \begin_layout Subsection
@@ -195,7 +141,7 @@ d, uncentralized, and privacy-aware software solutions
 \end_layout
 
 \begin_layout Description
-PX01 Pontarius XMPP 0.1
+P1 Pontarius 1.0
 \end_layout
 
 \begin_layout Description
@@ -237,7 +183,7 @@ Overview
 
 \begin_layout Standard
 The second section provides an overall description of the requirements of
- PX01, going through the features in a non-strict fashion, talking shortly
+ P1, going through the features in a non-strict fashion, talking shortly
  about the product functions, as well as some constraints and assumptions.
 \end_layout
 
@@ -256,36 +202,36 @@ Product perspective
 \end_layout
 
 \begin_layout Standard
-PX01 will be used by XMPP clients to manage presence and messaging in a
- uncentralized near-real-time environments.
+P1 will be used by XMPP clients to manage presence and messaging in a uncentrali
+zed near-real-time environments.
  For this first milestone of the library, we have chosen to implement only
  the XMPP: Core specification, and only the client capabilities of it.
  The reason for this is that we want to get the library out quickly, and
  want to have the core functionality of the library particularly well tested.
- The X in XMPP stands for extendable, and Pontarius XMPP must be flexible
- in regards for extensions, such as RFCs and XEPs; we might end up implementing
+ The X in XMPP stands for extendable, and Pontarius must be flexible in
+ regards for extensions, such as RFCs and XEPs; we might end up implementing
  hundreds of them.
  This is one of the most important quality attribute of the software.
 \end_layout
 
 \begin_layout Standard
-PX01 is designed to be used with Haskell.
+P1 is designed to be used with Haskell.
 \end_layout
 
 \begin_layout Standard
-PX01 must work on GNU/Linux, the main Free Software operating system.
+P1 must work on GNU/Linux, the main Free Software operating system.
  However, due to the platform support and high-level nature of Haskell,
  running it on other common operating systems is likely to work as well.
 \end_layout
 
 \begin_layout Standard
-PX01 must work with (at least) the (estimated) most popular free and open
+P1 must work with (at least) the (estimated) most popular free and open
  source software XMPP server that works with the specifics of our implementation
  (such as SCRAM).
 \end_layout
 
 \begin_layout Standard
-PX01 depends on the below (free and open source software) Haskell packages.
+P1 depends on the below (free and open source software) Haskell packages.
  I have omitted specification number [...].
  I have also omitted the source, as they are all available on Hackage.
 \end_layout
@@ -899,8 +845,8 @@ N/A
 \end_layout
 
 \begin_layout Standard
-Every PX01 client will open up at most one TCP port on the system.
- PX01 in itself does not write anything to the file system storage of the
+Every P1 client will open up at most one TCP port on the system.
+ P1 in itself does not write anything to the file system storage of the
  operating system, with the exception of the optional logging facility,
  disabled by default, which may be configured to write to disk.
 \end_layout
@@ -912,14 +858,14 @@ at least
 \emph default
  Transport Layer Security to help protect clients using the library from
  attacks.
- PX01 will not provide any spam protection.
+ P1 will not provide any spam protection.
 \end_layout
 
 \begin_layout Standard
 As we expect a very limited amount of concurrent XMPP clients, and a (relatively
 ) limited actitivity over XMPP streams--even when they are being fully active--w
 e are not specifying any detailed memory or (process) performance requirements
- for PX01.
+ for P1.
  However, we will stress test the library.
 \end_layout
 
@@ -932,7 +878,7 @@ Product functions
 \end_layout
 
 \begin_layout Standard
-PX01 implements XMPP: Core and allow clients to do roughly the following:
+P1 implements XMPP: Core and allow clients to do roughly the following:
  Open a TCP connection to a server, exchange XML information with the server
  to configure the (XML) stream, handle stream errors and encoding issues,
  have the connection secured by TLS, authenticate using a SASL mechanism
@@ -953,7 +899,7 @@ User characteristics
 \end_layout
 
 \begin_layout Standard
-We expect developers using PX01 to understand the XMPP: Core specification
+We expect developers using P1 to understand the XMPP: Core specification
  (and its depending specifications), Haskell, and monads, including the
  StateT monad transformer.
 \end_layout
@@ -975,7 +921,7 @@ Assumptions and dependencies
 
 \begin_layout Standard
 We assume that the Glasgow Haskell Compiler (GHC) is available on the system
- where PX01 applications are built.
+ where P1 applications are built.
 \end_layout
 
 \begin_layout Section
@@ -1193,13 +1139,12 @@ There is only one XMPP client per instance of the system.
 \end_layout
 
 \begin_layout Description
-REQ-24 Regular desktop computers should be able to run hundreds of Pontarius
- XMPP 0.1 clients.
+REQ-24 Regular desktop computers should be able to run hundreds of P1 clients.
 \end_layout
 
 \begin_layout Description
-REQ-25 Pontarius XMPP 0.1 should support virtually as many stanzas per second
- as (non-throttled) XMPP servers are able to route.
+REQ-25 P1 should support virtually as many stanzas per second as (non-throttled)
+ XMPP servers are able to route.
  This goes for both lightweight, heavy and mixed stanzas.
 \end_layout
 

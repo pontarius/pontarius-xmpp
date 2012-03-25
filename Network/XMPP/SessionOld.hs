@@ -1,5 +1,5 @@
--- Copyright © 2010-2011 Jon Kristensen. See the LICENSE file in the Pontarius
--- XMPP distribution for more details.
+-- Copyright © 2010-2012 Jon Kristensen. See the LICENSE file in the
+-- Pontarius distribution for more details.
 
 -- I believe we need to use the MultiParamTypeClasses extension to be able to
 -- work with arbitrary client states (solving the problem that the ClientState
@@ -12,8 +12,8 @@
 -- This module provides the functions used by XMPP clients to manage their XMPP
 -- sessions.
 --
--- Working with Pontarius XMPP is mostly done asynchronously with callbacks;
--- Pontarius XMPP "owns" the XMPP thread and carries the client state with it. A
+-- Working with Pontarius is mostly done asynchronously with callbacks;
+-- Pontarius "owns" the XMPP thread and carries the client state with it. A
 -- client consists of a list of client handlers to handle XMPP events. This is
 -- all set up through a @Session@ object, which a client can create by calling
 -- the (blocking) function @createSession@.
@@ -21,7 +21,7 @@
 -- The Pontarius XMPP functions operate in an arbitrary MonadIO monad.
 -- Typically, clients will use the IO monad.
 --
--- For more information, see the Pontarius XMPP Manual.
+-- For more information, see the Pontarius manual.
 
 -- TODO: Better functions and events for stanzas, IncomingIQ, OutgoingIQ, etc. (ClientSession, ClientStanza)
 
@@ -108,8 +108,8 @@ import System.Random (randomIO)
 -- =============================================================================
 
 
--- | The @Session@ object is used by clients when interacting with Pontarius
---   XMPP. It holds information needed by Pontarius XMPP; its content is not
+-- | The @Session@ object is used by clients when interacting with Pontarius.
+--   It holds information needed by Pontarius XMPP; its content is not
 --   accessible from the client.
 
 data Session s m = Session { sessionChannel :: Chan (InternalEvent s m)
@@ -117,7 +117,7 @@ data Session s m = Session { sessionChannel :: Chan (InternalEvent s m)
 
 
 -- | A client typically needs one or more @ClientHandler@ objects to interact
---   with Pontarius XMPP. Each client handler may provide four callback
+--   with Pontarius. Each client handler may provide four callback
 --   functions; the first three callbacks deals with received stanzas, and the
 --   last one is used when the session is terminated.
 --
@@ -260,7 +260,7 @@ openStreams s h p c = CMS.get >>=
 -- server.
 --
 -- The third parameter is an optional custom validation function for the server
--- certificates. Note that Pontarius XMPP will perform its own validation
+-- certificates. Note that Pontarius will perform its own validation
 -- according to the RFC 6120, including comparing the domain name specified in
 -- the certificate against the connected server, as well as checking the
 -- integrity, and the certificate authorities.

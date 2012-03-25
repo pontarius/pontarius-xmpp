@@ -1,5 +1,5 @@
--- Copyright © 2010-2011 Jon Kristensen. See the LICENSE file in the Pontarius
--- XMPP distribution for more details.
+-- Copyright © 2010-2012 Jon Kristensen. See the LICENSE file in the
+-- Pontarius distribution for more details.
 
 -- This module currently converts XML elements to strings.
 
