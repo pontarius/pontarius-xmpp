@@ -11,31 +11,42 @@ import Control.Applicative((<$>))
 
 import qualified Data.ByteString as BS
 
-import Data.Text as Text
+import qualified Data.Text as Text
 import Data.Text.Encoding as Text
+
+import Data.XML.Types
+import Data.XML.Pickle
 
 import Network.XMPP.Types
 
-import Text.XML.Expat.Pickle
-import Text.XML.Expat.Tree
 
 
 mbToBool (Just _) = True
 mbToBool _ = False
 
-xpElemEmpty :: Text -> PU [Node Text Text] ()
-xpElemEmpty name = xpWrap (\((),()) -> () ,
-                              \() -> ((),())) $
+xpElemEmpty :: Name -> PU [Node] ()
+xpElemEmpty name = xpWrap (\((),()) -> ())
+                          (\() -> ((),())) $
                               xpElem name xpUnit xpUnit
 
-xpElemExists :: Text -> PU [Node Text Text] Bool
-xpElemExists name = xpWrap (\x -> mbToBool x
-                           ,\x -> if x then Just () else Nothing) $
-                           xpOption (xpElemEmpty name)
+-- xpElemExists :: Name -> PU [Node] Bool
+-- xpElemExists name = xpWrap (\x -> mbToBool x)
+--                            (\x -> if x then Just () else Nothing) $
+--                            xpOption (xpElemEmpty name)
 
+
+xpNodeElem :: PU [Node] a -> PU Element a
+xpNodeElem xp = PU { pickleTree = \x -> head $ (pickleTree xp x) >>= \y ->
+                      case y of
+                        NodeContent _ -> []
+                        NodeElement e -> [e]
+             , unpickleTree = \x -> case unpickleTree xp $ [NodeElement x] of
+                        Left l -> Left l
+                        Right (a,(_,c)) -> Right (a,(Nothing,c))
+                   }
 
 ignoreAttrs :: PU t ((), b) -> PU t b
-ignoreAttrs = xpWrap (snd, ((),))
+ignoreAttrs = xpWrap snd ((),)
 
 mbl (Just l) = l
 mbl Nothing = []
@@ -47,33 +58,11 @@ right (Left l) = error l
 right (Right r) = r
 
 
-unpickleElem :: PU [Node tag text] c -> Node tag text -> c
-unpickleElem p = right . unpickleTree' (xpRoot p)
+unpickleElem :: PU [Node] c -> Element -> c
+unpickleElem p = right . unpickle (xpNodeElem p)
 
-pickleElem :: PU [Node tag text] a -> a -> Node tag text
-pickleElem p = pickleTree $ xpRoot p
-
-xpEither :: PU n t1 -> PU n t2 -> PU n (Either t1 t2)
-xpEither l r = xpAlt eitherSel
-                   [xpWrap (\x -> Left x, \(Left x) -> x) l
-                   ,xpWrap (\x -> Right x, \(Right x) -> x) r
-                   ]
-  where
-    eitherSel (Left _) = 0
-    eitherSel (Right _) = 1
+pickleElem :: PU [Node] a -> a -> Element
+pickleElem p = pickle  $ xpNodeElem p
 
 
-xpElemNs ::
-     Text
-     -> Text
-     -> PU [(Text, Text)] t1
-     -> PU [Node Text Text] t2
-     -> PU [Node Text Text] (t1, t2)
-xpElemNs name ns attrs nodes =
-   xpWrap (\(((),a),n) -> (a,n), \(a,n) -> (((),a),n)) $
-     xpElem name
-       (xpPair
-         (xpAttrFixed "xmlns" ns)
-         attrs
-       )
-       nodes
+

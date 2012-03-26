@@ -7,18 +7,15 @@ import Control.Monad.Trans.State
 
 import qualified Data.ByteString as BS
 import Data.Conduit
+import Data.Default
 import Data.List.Split as L
 import Data.Maybe
 import Data.Text as Text
 import Data.String as Str
 
+import Data.XML.Types
+
 import System.IO
-
-import Text.XML.Expat.SAX
-import Text.XML.Expat.Tree
-
-type Element = Node Text.Text Text.Text
-type Event = SAXEvent Text.Text Text.Text
 
 -- | Jabber ID (JID) datatype
 data JID = JID { node :: Maybe Text
@@ -37,9 +34,10 @@ instance Show JID where
 type XMPPMonad a = StateT XMPPState (ResourceT IO) a
 
 data XMPPState = XMPPState
-               { sConSrc    :: BufferedSource IO Event
-               , sRawSrc    :: BufferedSource IO BS.ByteString
-               , sConPush   :: BS.ByteString -> IO ()
+               { sConSrc    :: BufferedSource (ResourceT IO) Event
+               , sRawSrc    :: BufferedSource (ResourceT IO) BS.ByteString
+               , sConPush   :: [Event] -> ResourceT IO ()
+               , sConPushBS :: BS.ByteString -> IO ()
                , sConHandle :: Maybe Handle
                , sFeatures  :: ServerFeatures
                , sHaveTLS   :: Bool
@@ -55,11 +53,12 @@ data ServerFeatures = SF
   } deriving Show
 
 
-def = SF
- { stls  = Nothing
- , saslMechanisms = []
- , other = []
- }
+instance Default ServerFeatures where
+  def = SF
+    { stls  = Nothing
+    , saslMechanisms = []
+    , other = []
+    }
 
 
 -- Ugh, that smells a bit.
@@ -130,7 +129,7 @@ data MessageType = Chat | GroupChat | Headline | Normal | MessageError deriving 
 
 data PresenceType = Default | Unavailable | Subscribe | Subscribed | Unsubscribe | Unsubscribed | Probe | PresenceError deriving Eq
 
-data IQType = Get | Result | Set | IQError deriving Eq
+data IQType = Get | Result | Set | IQError deriving (Eq, Ord)
 
 data ShowType = Available | Away | FreeChat | DND | XAway deriving Eq
 

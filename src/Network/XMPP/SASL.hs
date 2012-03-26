@@ -19,8 +19,11 @@ import qualified Data.ByteString.Base64 as B64
 import qualified Data.List as L
 import qualified Data.Digest.Pure.MD5 as MD5
 import Data.List
+import Data.XML.Pickle
+import Data.XML.Types
 
 import qualified Data.Text as Text
+import Data.Text(Text)
 import Data.Text (Text)
 import qualified Data.Text.Encoding as Text
 
@@ -29,31 +32,27 @@ import Network.XMPP.Pickle
 import Network.XMPP.Stream
 import Network.XMPP.Types
 
-import Numeric --
+import Numeric
 
 import qualified System.Random as Random
 
-import Text.XML.Expat.Pickle
-import Text.XML.Expat.Tree
 
-saslInitE :: Text -> Node Text Text
+saslInitE :: Text -> Element
 saslInitE mechanism =
-    Element "auth"
-        [ ("xmlns","urn:ietf:params:xml:ns:xmpp-sasl")
-        ,  ("mechanism", mechanism)
-        ]
+    Element "{urn:ietf:params:xml:ns:xmpp-sasl}auth"
+        [ ("mechanism", [ContentText  mechanism]) ]
         []
 
-saslResponseE :: Text -> Node Text Text
+saslResponseE :: Text -> Element
 saslResponseE resp =
-    Element "response"
-    [("xmlns","urn:ietf:params:xml:ns:xmpp-sasl")]
-    [Text resp]
+    Element "{urn:ietf:params:xml:ns:xmpp-sasl}response"
+    []
+    [NodeContent $ ContentText resp]
 
-saslResponse2E :: Node Text Text
+saslResponse2E :: Element
 saslResponse2E =
-    Element "response"
-    [("xmlns","urn:ietf:params:xml:ns:xmpp-sasl")]
+    Element "{urn:ietf:params:xml:ns:xmpp-sasl}response"
+    []
     []
 
 xmppSASL  :: Text -> XMPPMonad ()
@@ -69,7 +68,7 @@ xmppSASL passwd = do
     Left x -> error $ show x
     Right c -> return ()
   pushN saslResponse2E
-  Element "success" [("xmlns","urn:ietf:params:xml:ns:xmpp-sasl")] [] <- pullE
+  Element "{urn:ietf:params:xml:ns:xmpp-sasl}success" [] [] <- pullE
   xmppRestartStream
   return ()
 
@@ -136,15 +135,11 @@ md5Digest uname realm password digestURI nc qop nonce cnonce=
 
 -- Pickling
 
-failurePickle :: PU [Node Text Text] (Node Text Text)
-failurePickle = ignoreAttrs $
-  xpElem "failure"
-     (xpAttrFixed "xmlns" "urn:ietf:params:xml:ns:xmpp-sasl")
-     (xpTree)
+failurePickle :: PU [Node] (Element)
+failurePickle = xpElemNodes "{urn:ietf:params:xml:ns:xmpp-sasl}failure"
+                 (xpIsolate xpElemVerbatim)
 
-challengePickle :: PU [Node Text.Text Text.Text] Text.Text
-challengePickle = ignoreAttrs $
-  xpElem "challenge"
-    (xpAttrFixed "xmlns" "urn:ietf:params:xml:ns:xmpp-sasl")
-    (xpContent xpText0)
+challengePickle :: PU [Node] Text.Text
+challengePickle =  xpElemNodes "{urn:ietf:params:xml:ns:xmpp-sasl}challenge"
+                     (xpIsolate $ xpContent xpId)
 

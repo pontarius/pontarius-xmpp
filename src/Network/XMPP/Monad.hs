@@ -7,6 +7,7 @@ import Control.Applicative((<$>))
 import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
+import Control.Monad.Trans.Resource
 import Control.Monad.Trans.State
 
 import Data.ByteString as BS
@@ -14,9 +15,15 @@ import Data.Text(Text)
 
 import Data.Conduit
 import Data.Conduit.Binary as CB
-import Data.Conduit.Hexpat as HXC
 import Data.Conduit.List as CL
 import Data.Conduit.Text as CT
+
+import Data.XML.Pickle
+import Data.XML.Types
+import Text.XML.Unresolved
+import Text.XML.Stream.Parse
+import Text.XML.Stream.Render as XR
+import Text.XML.Stream.Elements
 
 import qualified Data.Text as Text
 
@@ -26,32 +33,25 @@ import Network.XMPP.Pickle
 
 import System.IO
 
-import Text.XML.Expat.SAX
-import Text.XML.Expat.Pickle(PU)
-import Text.XML.Expat.Tree
-import Text.XML.Expat.Format
-
-parseOpts :: ParseOptions tag text
-parseOpts = ParseOptions (Just UTF8) Nothing
+-- parseOpts :: ParseOptions tag text
+-- parseOpts = ParseOptions (Just UTF8) Nothing
 
 pushN :: Element -> XMPPMonad ()
 pushN x = do
   sink <- gets sConPush
-  liftIO . sink $ formatNode' x
+  lift . sink $ elementToEvents x
 
 push :: Stanza -> XMPPMonad ()
 push = pushN . pickleElem stanzaP
 
 pushOpen :: Element -> XMPPMonad ()
-pushOpen (Element name attrs children) = do
+pushOpen e = do
   sink <- gets sConPush
-  let sax = StartElement name attrs
-  liftIO . sink $ formatSAX' [sax]
-  forM children pushN
+  lift . sink $ openElementToEvents e
   return ()
 
 
-pulls :: Sink Event IO a -> XMPPMonad a
+pulls :: Sink Event (ResourceT IO) a -> XMPPMonad a
 pulls snk = do
   source <- gets sConSrc
   lift $ source $$ snk
@@ -60,7 +60,7 @@ pullE :: XMPPMonad Element
 pullE = do
   pulls elementFromEvents
 
-pullPickle :: PU [Node Text Text] b -> XMPPMonad b
+pullPickle :: PU [Node] b -> XMPPMonad b
 pullPickle p = unpickleElem p <$> pullE
 
 pull :: XMPPMonad Stanza
@@ -76,11 +76,13 @@ xmppFromHandle
 xmppFromHandle handle hostname username resource f = runResourceT $ do
   liftIO $ hSetBuffering handle NoBuffering
   raw <- bufferSource $ CB.sourceHandle handle
-  src <- bufferSource $ raw $= HXC.parseBS parseOpts
+  src <- bufferSource $ raw $= parseBytes def
   let st = XMPPState
              src
              raw
-             (liftIO . BS.hPut handle)
+             (\xs -> CL.sourceList xs
+                     $$ XR.renderBytes def =$ CB.sinkHandle handle)
+             (BS.hPut handle)
              (Just handle)
              def
              False

@@ -14,14 +14,30 @@ import Network.XMPP.Pickle
 import Network.XMPP.Types
 
 import Data.Conduit
-import Data.Conduit.Hexpat as HXC
 import Data.Conduit.List as CL
+import Data.Default(def)
 import qualified Data.List as L
 import Data.Text as T
+import Data.XML.Types
+import Data.XML.Pickle
 
-import Text.XML.Expat.Pickle
+import qualified Text.XML.Stream.Parse as XP
+import Text.XML.Stream.Elements
+
 
 -- import Text.XML.Stream.Elements
+
+throwOutJunk = do
+  next <- peek
+  case next of
+    Nothing -> return ()
+    Just (EventBeginElement _ _) -> return ()
+    _ -> CL.drop 1 >> throwOutJunk
+
+openElementFromEvents = do
+  throwOutJunk
+  Just (EventBeginElement name attrs) <- CL.head
+  return $ Element name attrs []
 
 
 xmppStartStream :: XMPPMonad ()
@@ -36,17 +52,18 @@ xmppRestartStream :: XMPPMonad ()
 xmppRestartStream = do
   raw <- gets sRawSrc
   src <- gets sConSrc
-  newsrc <- lift (bufferSource $ raw $= HXC.parseBS parseOpts)
+
+  newsrc <- lift (bufferSource $ raw $= XP.parseBytes def)
   modify (\s -> s{sConSrc = newsrc})
   xmppStartStream
 
 
-xmppStream :: Sink Event IO ServerFeatures
+xmppStream :: Sink Event (ResourceT IO) ServerFeatures
 xmppStream = do
   xmppStreamHeader
   xmppStreamFeatures
 
-xmppStreamHeader :: Sink Event IO ()
+xmppStreamHeader :: Sink Event (ResourceT IO) ()
 xmppStreamHeader = do
   throwOutJunk
   (ver, _, _) <- unpickleElem pickleStream <$> openElementFromEvents
@@ -54,14 +71,14 @@ xmppStreamHeader = do
   return()
 
 
-xmppStreamFeatures :: Sink Event IO ServerFeatures
+xmppStreamFeatures :: Sink Event (ResourceT IO) ServerFeatures
 xmppStreamFeatures = unpickleElem pickleStreamFeatures <$> elementFromEvents
 
 
 -- Pickling
 
-pickleStream :: PU [Node Text Text] (Text, Maybe Text, Maybe Text)
-pickleStream = xpWrap (snd, (((),()),)) .
+pickleStream :: PU [Node] (Text, Maybe Text, Maybe Text)
+pickleStream = xpWrap snd (((),()),) .
   xpElemAttrs "stream:stream" $
     xpPair
       (xpPair
@@ -69,32 +86,32 @@ pickleStream = xpWrap (snd, (((),()),)) .
         (xpAttrFixed "xmlns:stream" "http://etherx.jabber.org/streams" )
       )
       (xpTriple
-       (xpAttr "version" xpText)
-       (xpOption $ xpAttr "from" xpText)
-       (xpOption $ xpAttr "to" xpText)
+       (xpAttr "version" xpId)
+       (xpOption $ xpAttr "from" xpId)
+       (xpOption $ xpAttr "to" xpId)
        )
 
-pickleTLSFeature :: PU [Node Text Text] Bool
+pickleTLSFeature :: PU [Node] Bool
 pickleTLSFeature = ignoreAttrs $
   xpElem "starttls"
     (xpAttrFixed "xmlns" "urn:ietf:params:xml:ns:xmpp-tls")
     (xpElemExists "required")
 
-pickleSaslFeature :: PU [Node Text Text] [Text]
+pickleSaslFeature :: PU [Node] [Text]
 pickleSaslFeature = ignoreAttrs $
   xpElem "mechanisms"
     (xpAttrFixed "xmlns" "urn:ietf:params:xml:ns:xmpp-sasl")
     (xpList0 $
-     xpElemNodes "mechanism" (xpContent xpText) )
+     xpElemNodes "mechanism" (xpContent xpId) )
 
-pickleStreamFeatures :: PU [Node Text Text] ServerFeatures
-pickleStreamFeatures = xpWrap ( \(tls, sasl, rest) -> SF tls (mbl sasl) rest
-                              , (\(SF tls sasl rest) -> (tls, lmb sasl, rest))
-                              ) $
+pickleStreamFeatures :: PU [Node] ServerFeatures
+pickleStreamFeatures = xpWrap ( \(tls, sasl, rest) -> SF tls (mbl sasl) rest)
+                              (\(SF tls sasl rest) -> (tls, lmb sasl, rest))
+                               $
     xpElemNodes "stream:features"
       (xpTriple
         (xpOption pickleTLSFeature)
         (xpOption pickleSaslFeature)
-        xpTrees
+        (xpAll xpElemVerbatim)
       )
 
