@@ -1,6 +1,7 @@
 {-# Language NoMonomorphismRestriction #-}
 module Data.Conduit.TLS
        ( tlsinit
+       , conduitStdout
        , module TLS
        , module TLSExtra
        )
@@ -45,7 +46,7 @@ tlsinit tlsParams handle = do
          (\con bs -> sendData clientContext (BL.fromChunks [bs])
                      >> return IOProcessing )
          (\_ -> return ())
-    return ( src
+    return ( src $= conduitStdout
            , snk
            , \s -> sendData clientContext $ BL.fromChunks [s] )
 

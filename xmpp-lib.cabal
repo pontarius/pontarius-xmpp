@@ -26,9 +26,9 @@ library
   hs-source-dirs: src
   Build-Depends: base          >3 && <5
                , conduit           -any
+               , resourcet         -any
+               , containers        -any
                , random            -any
-               , hexpat            -any
-               , hexpat-pickle     -any
                , tls               -any
                , tls-extra         -any
                , pureMD5           -any
@@ -42,6 +42,10 @@ library
                , network           -any
                , split             -any
                , stm               -any
+               , xml-types         -any
+               , xml-conduit       -any
+               , xml-types-pickle  -any
+               , data-default      -any
   Exposed-modules: Network.XMPP
                 , Network.XMPP.Types
                 , Network.XMPP.SASL
@@ -53,6 +57,6 @@ library
                 , Network.XMPP.TLS
                 , Network.XMPP.Bind
                 , Network.XMPP.Session
-                , Data.Conduit.Hexpat
+                , Text.XML.Stream.Elements
                 , Data.Conduit.TLS
   GHC-Options: -Wall

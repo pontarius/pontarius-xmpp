@@ -4,7 +4,7 @@
 module Network.XMPP.Stream where
 
 import Control.Applicative((<$>))
-import Control.Monad(unless)
+import Control.Monad(unless, forever)
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.State
 import Control.Monad.IO.Class
@@ -17,6 +17,7 @@ import Data.Conduit
 import Data.Conduit.List as CL
 import Data.Default(def)
 import qualified Data.List as L
+import Data.Conduit.Text as CT
 import Data.Text as T
 import Data.XML.Types
 import Data.XML.Pickle
@@ -28,7 +29,13 @@ import Text.XML.Stream.Elements
 -- import Text.XML.Stream.Elements
 
 throwOutJunk = do
-  next <- peek
+  liftIO $ putStrLn "peeking..."
+  next <- CL.peek
+  liftIO $ putStrLn "peeked."
+  liftIO $ do
+    putStrLn "peek:"
+    print next
+    putStrLn "=========="
   case next of
     Nothing -> return ()
     Just (EventBeginElement _ _) -> return ()
@@ -36,6 +43,7 @@ throwOutJunk = do
 
 openElementFromEvents = do
   throwOutJunk
+  liftIO $ putStrLn "starting ------"
   Just (EventBeginElement name attrs) <- CL.head
   return $ Element name attrs []
 
@@ -65,7 +73,9 @@ xmppStream = do
 
 xmppStreamHeader :: Sink Event (ResourceT IO) ()
 xmppStreamHeader = do
-  throwOutJunk
+  liftIO $ putStrLn "throwing junk!"
+--  throwOutJunk
+  liftIO $ putStrLn "junk thrown"
   (ver, _, _) <- unpickleElem pickleStream <$> openElementFromEvents
   unless (ver == "1.0")  $ error  "Not XMPP version 1.0 "
   return()
@@ -92,17 +102,12 @@ pickleStream = xpWrap snd (((),()),) .
        )
 
 pickleTLSFeature :: PU [Node] Bool
-pickleTLSFeature = ignoreAttrs $
-  xpElem "starttls"
-    (xpAttrFixed "xmlns" "urn:ietf:params:xml:ns:xmpp-tls")
-    (xpElemExists "required")
+pickleTLSFeature = xpElemNodes "{urn:ietf:params:xml:ns:xmpp-tls}starttls"
+                      (xpElemExists "required")
 
 pickleSaslFeature :: PU [Node] [Text]
-pickleSaslFeature = ignoreAttrs $
-  xpElem "mechanisms"
-    (xpAttrFixed "xmlns" "urn:ietf:params:xml:ns:xmpp-sasl")
-    (xpList0 $
-     xpElemNodes "mechanism" (xpContent xpId) )
+pickleSaslFeature =  xpElemNodes "{urn:ietf:params:xml:ns:xmpp-sasl}mechanisms"
+                       (xpAll $ xpElemNodes "mechanism" (xpContent xpId) )
 
 pickleStreamFeatures :: PU [Node] ServerFeatures
 pickleStreamFeatures = xpWrap ( \(tls, sasl, rest) -> SF tls (mbl sasl) rest)
