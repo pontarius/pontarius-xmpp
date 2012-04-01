@@ -26,7 +26,6 @@ fromHandle :: Handle -> Text -> Text -> Maybe Text -> Text -> XMPPThread a
             -> IO ((), XMPPState)
 fromHandle handle hostname username resource password a =
   xmppFromHandle handle hostname username resource $ do
-      liftIO $ putStrLn "start stream"
       xmppStartStream
       -- this will check whether the server supports tls
       -- on it's own

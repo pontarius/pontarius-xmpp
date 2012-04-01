@@ -3,39 +3,34 @@
 
 module Network.XMPP.Stream where
 
-import Control.Applicative((<$>))
-import Control.Monad(unless, forever)
-import Control.Monad.Trans.Class
-import Control.Monad.Trans.State
-import Control.Monad.IO.Class
+import           Control.Applicative((<$>))
+import           Control.Monad(unless, forever)
+import           Control.Monad.Trans.Class
+import           Control.Monad.Trans.State
+import           Control.Monad.IO.Class
 
-import Network.XMPP.Monad
-import Network.XMPP.Pickle
-import Network.XMPP.Types
+import           Network.XMPP.Monad
+import           Network.XMPP.Pickle
+import           Network.XMPP.Types
 
-import Data.Conduit
-import Data.Conduit.List as CL
-import Data.Default(def)
+import           Data.Conduit
+import qualified Data.Conduit.Hexpat as CH
+import           Data.Conduit.List as CL
+import           Data.Conduit.Text as CT
+import           Data.Default(def)
 import qualified Data.List as L
-import Data.Conduit.Text as CT
-import Data.Text as T
-import Data.XML.Types
-import Data.XML.Pickle
+import           Data.Text as T
+import           Data.XML.Pickle
+import           Data.XML.Types
 
-import qualified Text.XML.Stream.Parse as XP
-import Text.XML.Stream.Elements
+-- import qualified Text.XML.Stream.Parse as XP
+import           Text.XML.Stream.Elements
 
 
 -- import Text.XML.Stream.Elements
 
 throwOutJunk = do
-  liftIO $ putStrLn "peeking..."
   next <- CL.peek
-  liftIO $ putStrLn "peeked."
-  liftIO $ do
-    putStrLn "peek:"
-    print next
-    putStrLn "=========="
   case next of
     Nothing -> return ()
     Just (EventBeginElement _ _) -> return ()
@@ -43,7 +38,6 @@ throwOutJunk = do
 
 openElementFromEvents = do
   throwOutJunk
-  liftIO $ putStrLn "starting ------"
   Just (EventBeginElement name attrs) <- CL.head
   return $ Element name attrs []
 
@@ -60,8 +54,7 @@ xmppRestartStream :: XMPPMonad ()
 xmppRestartStream = do
   raw <- gets sRawSrc
   src <- gets sConSrc
-
-  newsrc <- lift (bufferSource $ raw $= XP.parseBytes def)
+  newsrc <- lift (bufferSource $ raw $= CH.parseBS CH.defaultParseOptions)
   modify (\s -> s{sConSrc = newsrc})
   xmppStartStream
 
@@ -73,9 +66,7 @@ xmppStream = do
 
 xmppStreamHeader :: Sink Event (ResourceT IO) ()
 xmppStreamHeader = do
-  liftIO $ putStrLn "throwing junk!"
---  throwOutJunk
-  liftIO $ putStrLn "junk thrown"
+  throwOutJunk
   (ver, _, _) <- unpickleElem pickleStream <$> openElementFromEvents
   unless (ver == "1.0")  $ error  "Not XMPP version 1.0 "
   return()
@@ -88,13 +79,7 @@ xmppStreamFeatures = unpickleElem pickleStreamFeatures <$> elementFromEvents
 -- Pickling
 
 pickleStream :: PU [Node] (Text, Maybe Text, Maybe Text)
-pickleStream = xpWrap snd (((),()),) .
-  xpElemAttrs "stream:stream" $
-    xpPair
-      (xpPair
-        (xpAttrFixed "xmlns" "jabber:client" )
-        (xpAttrFixed "xmlns:stream" "http://etherx.jabber.org/streams" )
-      )
+pickleStream = xpElemAttrs (Name "stream"  (Just "http://etherx.jabber.org/streams") (Just "stream"))
       (xpTriple
        (xpAttr "version" xpId)
        (xpOption $ xpAttr "from" xpId)
@@ -107,13 +92,14 @@ pickleTLSFeature = xpElemNodes "{urn:ietf:params:xml:ns:xmpp-tls}starttls"
 
 pickleSaslFeature :: PU [Node] [Text]
 pickleSaslFeature =  xpElemNodes "{urn:ietf:params:xml:ns:xmpp-sasl}mechanisms"
-                       (xpAll $ xpElemNodes "mechanism" (xpContent xpId) )
+                       (xpAll $ xpElemNodes
+                        "{urn:ietf:params:xml:ns:xmpp-sasl}mechanism" (xpContent xpId) )
 
 pickleStreamFeatures :: PU [Node] ServerFeatures
 pickleStreamFeatures = xpWrap ( \(tls, sasl, rest) -> SF tls (mbl sasl) rest)
                               (\(SF tls sasl rest) -> (tls, lmb sasl, rest))
                                $
-    xpElemNodes "stream:features"
+    xpElemNodes (Name "features"  (Just "http://etherx.jabber.org/streams") (Just "stream"))
       (xpTriple
         (xpOption pickleTLSFeature)
         (xpOption pickleSaslFeature)

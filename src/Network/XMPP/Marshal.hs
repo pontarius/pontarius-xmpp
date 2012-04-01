@@ -33,7 +33,7 @@ messageP = xpWrap   (\((from, to, id, tp),(sub, body, thr,ext))
                     (\(Message from to id tp sub body thr ext)
                              -> ((from, to, id, tp), (sub, body, thr,ext)))
                     $
-           xpElem "message"
+           xpElem "{jabber:client}message"
              (xp4Tuple
                (xpAttrImplied "from" xpPrim)
                (xpAttr        "to"   xpPrim)
@@ -41,9 +41,9 @@ messageP = xpWrap   (\((from, to, id, tp),(sub, body, thr,ext))
                (xpAttrImplied "type" xpPrim)
              )
              (xp4Tuple
-               (xpOption . xpElemNodes "subject" $ xpContent xpId)
-               (xpOption . xpElemNodes "body" $ xpContent xpId)
-               (xpOption . xpElemNodes "thread" $ xpContent xpId)
+               (xpOption . xpElemNodes "{jabber:client}subject" $ xpContent xpId)
+               (xpOption . xpElemNodes "{jabber:client}body" $ xpContent xpId)
+               (xpOption . xpElemNodes "{jabber:client}thread" $ xpContent xpId)
                (xpAll xpElemVerbatim)
              )
 
@@ -53,7 +53,7 @@ presenceP = xpWrap   (\((from, to, id, tp),(shw, stat, prio, ext))
                      (\(Presence from to id tp shw stat prio ext)
                              -> ((from, to, id, tp), (shw, stat, prio, ext)))
                      $
-           xpElem "presence"
+           xpElem "{jabber:client}presence"
              (xp4Tuple
                (xpAttrImplied "from" xpPrim)
                (xpAttrImplied "to"   xpPrim)
@@ -61,9 +61,9 @@ presenceP = xpWrap   (\((from, to, id, tp),(shw, stat, prio, ext))
                (xpAttrImplied "type" xpPrim)
              )
              (xp4Tuple
-               (xpOption . xpElemNodes "show" $ xpContent xpPrim)
-               (xpOption . xpElemNodes "status" $ xpContent xpId)
-               (xpOption . xpElemNodes "priority" $ xpContent xpPrim)
+               (xpOption . xpElemNodes "{jabber:client}show" $ xpContent xpPrim)
+               (xpOption . xpElemNodes "{jabber:client}status" $ xpContent xpId)
+               (xpOption . xpElemNodes "{jabber:client}priority" $ xpContent xpPrim)
                (xpAll xpElemVerbatim)
              )
 
@@ -71,11 +71,12 @@ iqP :: PU [Node] IQ
 iqP = xpWrap  (\((from, to, id, tp),body) -> IQ from to id tp body)
               (\(IQ from to id tp body) -> ((from, to, id, tp), body))
               $
-           xpElem "iq"
+           xpElem "{jabber:client}iq"
              (xp4Tuple
                (xpAttrImplied "from" xpPrim)
                (xpAttrImplied "to"   xpPrim)
                (xpAttr        "id"   xpId)
-               (xpAttr        "type" xpPrim))
+               ((xpAttr        "type" xpPrim) :: PU [(Name,[Content])] IQType)
+             )
              (xpElemVerbatim)
 

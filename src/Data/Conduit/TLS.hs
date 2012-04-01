@@ -46,7 +46,7 @@ tlsinit tlsParams handle = do
          (\con bs -> sendData clientContext (BL.fromChunks [bs])
                      >> return IOProcessing )
          (\_ -> return ())
-    return ( src $= conduitStdout
+    return ( src
            , snk
            , \s -> sendData clientContext $ BL.fromChunks [s] )
 

@@ -58,7 +58,7 @@ saslResponse2E =
 xmppSASL  :: Text -> XMPPMonad ()
 xmppSASL passwd = do
   mechanisms <- gets $ saslMechanisms . sFeatures
-  unless ("DIGEST-MD5" `elem` mechanisms) $ error "No usable auth mechanism"
+  unless ("DIGEST-MD5" `elem` mechanisms) .  error $ "No usable auth mechanism: " ++ show mechanisms
   pushN $ saslInitE "DIGEST-MD5"
   Right challenge <- B64.decode . Text.encodeUtf8<$> pullPickle challengePickle
   let Right pairs = toPairs challenge

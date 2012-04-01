@@ -53,7 +53,8 @@ main = do
   connectXMPP "localhost" "species64739.dyndns.org" "bot" (Just "botsi") "pwd"
     $ do
       liftIO $ putStrLn "----------------------------"
-      -- sendS  . SPresence $
+
+-- sendS  . SPresence $
       --   Presence Nothing Nothing Nothing Nothing (Just Available) Nothing  Nothing []
       withNewThread autoAccept
       withNewThread mirror
@@ -64,7 +65,7 @@ main = do
 
       sendS . SMessage $ Message Nothing philonous Nothing Nothing Nothing
         (Just "bla") Nothing []
-      forever $ pullMessage >>= liftIO . print
+--      forever $ pullMessage >>= liftIO . print
 --      withNewThread . void $ (liftIO $ threadDelay 15000000) >> killConnection
 
     -- forever $ do

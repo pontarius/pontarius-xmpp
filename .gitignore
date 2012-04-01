@@ -1,7 +1,8 @@
-cabal-dev/
 dist/
+cabal-dev/
 *.o
 *.hi
 *~
 *#
 *.#*
+*_flymake.hs
