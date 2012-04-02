@@ -46,7 +46,7 @@ main = create $ do
         -- When the opening of the streams fails, print the error and
         -- shut down the XMPP session.
 
-        onConnectedEvent (Just e) = do
+        onStreamsOpened (Just e) = do
             liftIO $ putStrLn $ "Could not open the streams due to the following error: " ++ (show e)
             destroy
             return True
