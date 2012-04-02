@@ -19,15 +19,12 @@ iqLangTag,
 iqPayload,
 iqPayloadNamespace,
 iqRequestPayloadNamespace,
-iqResponsePayloadNamespace,
-idGenerator,
-nextID
+iqResponsePayloadNamespace
 ) where
 
 import Network.XMPP.Address
 import Network.XMPP.Types
 
-import Data.IORef (atomicModifyIORef, newIORef)
 import Data.XML.Types (Element, elementName, nameNamespace)
 import Data.Text (unpack)
 
@@ -144,45 +141,3 @@ iqResponsePayloadNamespace i = case iqResponsePayload i of
   Just p -> case nameNamespace $ elementName p of
     Nothing -> Nothing
     Just n -> Just (unpack n)
-
-
--- |
--- Creates a new stanza "IDGenerator". Internally, it will maintain an infinite
--- list of stanza IDs ('[\'a\', \'b\', \'c\'...]').
-
-idGenerator :: String -> IO IDGenerator
-
-idGenerator p = newIORef (ids p) >>= \ ioRef -> return $ IDGenerator ioRef
-
-
--- |
--- Extracts an ID from the "IDGenerator", and updates the generators internal
--- state so that the same ID will not be generated again.
-
-nextID :: IDGenerator -> IO String
-
-nextID g = let IDGenerator ioRef = g
-           in atomicModifyIORef ioRef (\ (i:is) -> (is, i))
-
-
--- Generates an infinite and predictable list of IDs, all beginning with the
--- provided prefix.
-
-ids :: String -> [String]
-
--- Adds the prefix to all combinations of IDs (ids').
-ids p = map (\ id -> p ++ id) ids'
-    where
-
-        -- Generate all combinations of IDs, with increasing length.
-        ids' :: [String]
-        ids' = concatMap ids'' [1..]
-
-        -- Generates all combinations of IDs with the given length.
-        ids'' :: Integer -> [String]
-        ids'' 0 = [""]
-        ids'' l = [x:xs | x <- repertoire, xs <- ids'' (l - 1)]
-
-        -- Characters allowed in IDs.
-        repertoire :: String
-        repertoire = ['a'..'z']

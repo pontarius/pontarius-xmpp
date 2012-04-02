@@ -36,6 +36,13 @@ module Network.XMPP ( -- Network.XMPP.JID
                     , fromStrings
 
                       -- Network.XMPP.Session
+                    , runXMPPT
+                    , hookStreamsOpenedEvent
+                    , hookDisconnectedEvent
+                    , destroy
+                    , openStreams
+                    , create
+                      
                     -- , ClientHandler (..)
                     -- , ClientState (..)
                     -- , ConnectResult (..)
@@ -72,11 +79,11 @@ module Network.XMPP ( -- Network.XMPP.JID
                     , iqPayload ) where
 
 import Network.XMPP.Address
-import Network.XMPP.SASL
+-- import Network.XMPP.SASL
 import Network.XMPP.Session
 import Network.XMPP.Stanza
 import Network.XMPP.Utilities
 import Network.XMPP.Types
-import Network.XMPP.TLS
+-- import Network.XMPP.TLS
 import Network.XMPP.Stream
 

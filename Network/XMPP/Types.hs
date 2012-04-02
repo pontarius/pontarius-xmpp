@@ -27,13 +27,12 @@ StanzaErrorCondition (..),
 EnumeratorEvent (..),
 Challenge (..),
 Success (..),
-TLSState (..),
+-- TLSState (..),
 Address (..),
 Localpart,
 Domainpart,
 Resourcepart,
 LangTag (..),
-InternalEvent (..),
 ConnectionState (..),
 ClientEvent (..),
 StreamState (..),
@@ -47,7 +46,7 @@ XMPPError (..),
 Timeout,
 TimeoutEvent (..),
 StreamError (..),
-IDGenerator (..),
+IdGenerator (..),
 Version (..),
 IQError (..),
 IQResult (..),
@@ -440,19 +439,6 @@ data EnumeratorEvent = EnumeratorDone |
                        deriving (Show)
 
 
--- Type to contain the internal events.
-
--- data InternalEvent s m = IEC (ClientEvent s m) | IEE EnumeratorEvent | IET (TimeoutEvent s m) deriving (Show)
-
--- Internal events processed in the main state loop of Pontarius XMPP. They are
--- either received from the client or from the enumerator.
-
-data InternalEvent
-    = IECE ClientEvent
-    | IEEE EnumeratorEvent
-
-
-
 data TimeoutEvent s m = TimeoutEvent StanzaID Timeout (StateT s m ())
 
 instance Show (TimeoutEvent s m) where
@@ -501,7 +487,7 @@ type StreamID = String
 
 data ConnectionState = Disconnected | Connected ServerAddress Handle
 
-data TLSState = NoTLS | PreProceed | PreHandshake | PostHandshake TLSCtx
+-- data TLSState = NoTLS | PreProceed | PreHandshake | PostHandshake TLSCtx
 
 data Challenge = Chal String deriving (Show)
 
@@ -556,7 +542,7 @@ data StreamError = StreamError
 -- =============================================================================
 
 
-newtype IDGenerator = IDGenerator (IORef [String])
+newtype IdGenerator = IdGenerator (IORef [String])
 
 
 

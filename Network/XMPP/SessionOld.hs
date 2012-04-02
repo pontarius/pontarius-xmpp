@@ -83,8 +83,8 @@ import GHC.IO.Handle (Handle, hPutStr, hFlush, hSetBuffering, hWaitForInput)
 import Network.TLS
 import Network.TLS.Cipher
 import System.IO (BufferMode, BufferMode(NoBuffering))
-import Text.XML.Enumerator.Parse (parseBytes, decodeEntities)
-import Text.XML.Enumerator.Document (fromEvents)
+-- import Text.XML.Enumerator.Parse (parseBytes, decodeEntities)
+-- import Text.XML.Enumerator.Document (fromEvents)
 import qualified Codec.Binary.Base64.String as CBBS
 import qualified Data.ByteString as DB
 import qualified Data.ByteString.Lazy as DBL (ByteString, append, pack, fromChunks, toChunks, null)
@@ -112,8 +112,8 @@ import System.Random (randomIO)
 --   It holds information needed by Pontarius XMPP; its content is not
 --   accessible from the client.
 
-data Session s m = Session { sessionChannel :: Chan (InternalEvent s m)
-                           , sessionIDGenerator :: IDGenerator }
+-- data Session s m = Session { sessionChannel :: Chan (InternalEvent s m)
+--                            , sessionIDGenerator :: IDGenerator }
 
 
 -- | A client typically needs one or more @ClientHandler@ objects to interact
@@ -131,18 +131,18 @@ data Session s m = Session { sessionChannel :: Chan (InternalEvent s m)
 --   The 'sessionTerminated' callback function takes a 'TerminationReason' value
 --   along with the state and will be sent to all client handlers.
 
-data MonadIO m => ClientHandler s m =
-  ClientHandler { messageReceived :: Maybe (Message -> StateT s m Bool)
-                , presenceReceived :: Maybe (Presence -> StateT s m Bool)
-                , iqReceived :: Maybe (IQ -> StateT s m Bool)
-                , sessionTerminated :: Maybe (TerminationReason ->
-                                              StateT s m ()) }
+-- data MonadIO m => ClientHandler s m =
+--   ClientHandler { messageReceived :: Maybe (Message -> StateT s m Bool)
+--                 , presenceReceived :: Maybe (Presence -> StateT s m Bool)
+--                 , iqReceived :: Maybe (IQ -> StateT s m Bool)
+--                 , sessionTerminated :: Maybe (TerminationReason ->
+--                                               StateT s m ()) }
 
 
 -- | @TerminationReason@ contains information on why the XMPP session was
 --   terminated.
 
-data TerminationReason = WhateverReason -- TODO
+-- data TerminationReason = WhateverReason -- TODO
 
 
 -- | Creates an XMPP session. Blocks the current thread. The first parameter,
@@ -418,25 +418,25 @@ processEvent e = get >>= \ state ->
   --
   IEC (CEOpenStream hostName portNumber callback) -> do
 
-    CEB.assert (stateConnectionState state == Disconnected) (return ())
+    -- CEB.assert (stateConnectionState state == Disconnected) (return ())
 
-    let portNumber' = fromIntegral portNumber
+    -- let portNumber' = fromIntegral portNumber
 
-    connectResult <- liftIO $ CE.try $ N.connectTo hostName
-                     (N.PortNumber portNumber')
+    -- connectResult <- liftIO $ CE.try $ N.connectTo hostName
+    --                  (N.PortNumber portNumber')
 
-    case connectResult of
-      Right handle -> do
-        put $ state { stateConnectionState = Connected (ServerAddress hostName portNumber') handle
-                    , stateStreamState = PreStream
-                    , stateOpenStreamsCallback = Just callback }
-        lift $ liftIO $ hSetBuffering handle NoBuffering
-        lift $ liftIO $ send ("<?xml version='1.0'?><stream:stream to='" ++ hostName ++
-          "' xmlns='jabber:client' xmlns:stream='http://etherx.jabber.or" ++
-          "g/streams' version='1.0'>") (Left handle)
-        threadID <- lift $ liftIO $ forkIO $ xmlEnumerator (stateChannel state) (Left handle)
-        lift $ liftIO $ putMVar (stateThreadID state) threadID
-        return Nothing
+    -- case connectResult of
+      -- Right handle -> do
+        -- put $ state { stateConnectionState = Connected (ServerAddress hostName portNumber') handle
+        --             , stateStreamState = PreStream
+        --             , stateOpenStreamsCallback = Just callback }
+        -- lift $ liftIO $ hSetBuffering handle NoBuffering
+        -- lift $ liftIO $ send ("<?xml version='1.0'?><stream:stream to='" ++ hostName ++
+        --   "' xmlns='jabber:client' xmlns:stream='http://etherx.jabber.or" ++
+        --   "g/streams' version='1.0'>") (Left handle)
+        -- threadID <- lift $ liftIO $ forkIO $ xmlEnumerator (stateChannel state) (Left handle)
+        -- lift $ liftIO $ putMVar (stateThreadID state) threadID
+        -- return Nothing
       Left e -> do
         let clientState = stateClientState state
         ((), clientState') <- lift $ runStateT (callback OpenStreamFailure) clientState
@@ -712,8 +712,8 @@ processEvent e = get >>= \ state ->
     send :: String -> Either Handle TLSCtx -> IO ()
     send s o = case o of
       Left handle -> do
-        liftIO $ hPutStr handle $ encodeString $ s
-        liftIO $ hFlush handle
+        -- liftIO $ hPutStr handle $ encodeString $ s
+        -- liftIO $ hFlush handle
         return ()
       Right tlsCtx -> do
         liftIO $ sendData tlsCtx $ DBLC.pack $ encodeString s
