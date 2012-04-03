@@ -4,6 +4,9 @@
 {-# OPTIONS_HADDOCK hide #-}
 
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE StandaloneDeriving #-}
+
 
 module Network.XMPP.Types (
 StanzaID (..),
@@ -24,9 +27,9 @@ StanzaErrorCondition (..),
                             , PortNumber
                             , Resource
                             , UserName,
-EnumeratorEvent (..),
 Challenge (..),
 Success (..),
+InternalEvent (..),
 -- TLSState (..),
 Address (..),
 Localpart,
@@ -35,6 +38,9 @@ Resourcepart,
 LangTag (..),
 ConnectionState (..),
 ClientEvent (..),
+XMPPT (..),
+OpenStreamsFailureReason (..),
+DisconnectReason (..),
 StreamState (..),
 AuthenticationState (..),
 ConnectResult (..),
@@ -55,6 +61,10 @@ PresenceError (..),
 InternalPresence (..),
 InternalMessage (..),
 MessageError (..),
+HookId (..),
+Hook (..),
+HookPayload (..),
+State (..)
 ) where
 
 import GHC.IO.Handle (Handle, hPutStr, hFlush, hSetBuffering, hWaitForInput)
@@ -80,6 +90,8 @@ import Data.List (intersperse)
 import Data.Char (toLower)
 
 import Control.Exception.Base (SomeException)
+
+import Control.Concurrent
 
 -- =============================================================================
 --  STANZA TYPES
@@ -134,6 +146,56 @@ data IQRequest = IQRequest { iqRequestID :: Maybe StanzaID
                            , iqRequestType :: IQRequestType
                            , iqRequestPayload :: Element }
                  deriving (Show)
+
+
+data InternalEvent m
+    = OpenStreamsEvent HostName PortNumber
+    -- | DisconnectEvent
+    | RegisterStreamsOpenedHook (Maybe (Maybe OpenStreamsFailureReason -> XMPPT m Bool)) (Maybe OpenStreamsFailureReason -> XMPPT m Bool)
+    | EnumeratorFirstLevelElement Element
+    -- | IEEE EnumeratorEvent
+    | EnumeratorDone
+    |  EnumeratorBeginStream (Maybe String) (Maybe String) (Maybe String) (Maybe String) (Maybe String) (Maybe String)
+    | EnumeratorEndStream
+    | EnumeratorException CE.SomeException
+
+-- |
+-- The XMPP monad transformer. Contains internal state in order to
+-- work with Pontarius. Pontarius clients needs to operate in this
+-- context.
+
+newtype XMPPT m a = XMPPT { runXMPPT :: StateT (State m) m a } deriving (Monad, MonadIO)
+
+
+-- Make XMPPT derive the Monad and MonadIO instances.
+
+deriving instance (Monad m, MonadIO m) => MonadState (State m) (XMPPT m)
+
+
+-- We need a channel because multiple threads needs to append events,
+-- and we need to wait for events when there are none.
+
+data State m = State { evtChan :: Chan (InternalEvent m)
+                     , hookIdGenerator :: IdGenerator
+                     , hooks :: [Hook m] }
+
+
+data HookId = HookId String deriving (Eq)
+
+data HookPayload m = StreamsOpenedHook (Maybe (Maybe OpenStreamsFailureReason -> XMPPT m Bool)) (Maybe OpenStreamsFailureReason -> XMPPT m Bool)
+
+type Hook m = (HookId, HookPayload m)
+
+
+-- TODO: Possible ways opening a stream can fail.
+data OpenStreamsFailureReason = OpenStreamsFailureReason deriving (Show)
+
+-- data TLSSecureFailureReason = TLSSecureFailureReason
+
+-- data AuthenticateFailureReason = AuthenticateFailureReason
+
+data DisconnectReason = DisconnectReason deriving (Show)
+
 
 
 data IQRequestType = Get | Set deriving (Show)
@@ -426,17 +488,6 @@ type Password = String
 -- | Readability type for (Address) resource identifier Strings.
 
 type Resource = String
-
-
--- An XMLEvent is triggered by an XML stanza or some other XML event, and is
--- sent through the internal event channel, just like client action events.
-
-data EnumeratorEvent = EnumeratorDone |
-                       EnumeratorBeginStream (Maybe String) (Maybe String) (Maybe String) (Maybe String) (Maybe String) (Maybe String) |
-                       EnumeratorEndStream |
-                       EnumeratorFirstLevelElement (Either SomeException Element) |
-                       EnumeratorException CE.SomeException
-                       deriving (Show)
 
 
 data TimeoutEvent s m = TimeoutEvent StanzaID Timeout (StateT s m ())

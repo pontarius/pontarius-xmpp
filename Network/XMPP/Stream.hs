@@ -6,7 +6,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module Network.XMPP.Stream (
--- xmlEnumerator,
+conduit,
 presenceToXML,
 iqToXML,
 messageToXML,
@@ -26,8 +26,8 @@ import Control.Concurrent.Chan (Chan, writeChan)
 import Control.Exception.Base (SomeException)
 import Control.Monad.IO.Class (liftIO)
 import Data.ByteString.Lazy (null, toChunks)
-import Data.Enumerator ((>>==), ($$), Iteratee (..), Enumeratee, Step (..), Enumerator (..), Stream (Chunks), returnI, joinI, run)
-import Data.Enumerator.Binary (enumHandle)
+import Data.Conduit (($$), ($=), MonadResource, Sink (..), runResourceT)
+import Data.Conduit.Binary (sourceHandle)
 import Data.Maybe (fromJust, isJust)
 import Data.Text (pack, unpack)
 import Data.XML.Types (Content (..), Document (..), Element (..), Event (..), Name (..), Node (..))
@@ -36,104 +36,122 @@ import Network.TLS (TLSCtx, recvData)
 import Text.Parsec (char, count, digit, eof, many, many1, oneOf, parse)
 import Text.Parsec.ByteString (GenParser)
 -- import Text.XML.Enumerator.Document (fromEvents)
--- import Text.XML.Enumerator.Parse (parseBytes, decodeEntities)
+import Text.XML.Stream.Parse (def, parseBytes)
+import Text.XML.Unresolved (fromEvents)
+
+import Control.Monad.IO.Class (MonadIO, liftIO)
+
 
 import qualified Data.ByteString as DB (ByteString)
 import qualified Data.ByteString.Char8 as DBC (pack)
-import qualified Data.Enumerator.List as DEL (head)
+import qualified Data.Conduit.List as DEL (head)
+import Data.Conduit.List (consume, sourceList) -- use lazy consume instead?
 
 
--- Reads from the provided handle or TLS context and sends the events to the
--- internal event channel.
+-- Reads from the provided handle or TLS context and sends the events
+-- to the internal event channel.
 
--- xmlEnumerator :: Chan InternalEvent -> Either Handle TLSCtx -> IO () -- Was: InternalEvent s m
+conduit :: MonadIO m => Chan (InternalEvent m) -> Either Handle (TLSCtx a) -> IO ()
 
--- xmlEnumerator c s = do
---     enumeratorResult <- case s of
---         Left handle -> run $ enumHandle 1 handle $$ joinI $
---                        parseBytes decodeEntities $$ eventConsumer c [] 0
---         Right tlsCtx -> run $ enumTLS tlsCtx $$ joinI $
---                         parseBytes decodeEntities $$ eventConsumer c [] 0
---     case enumeratorResult of
---         Right _ -> return () -- writeChan c $ IEE EnumeratorDone
---         Left e -> return () -- writeChan c $ IEE (EnumeratorException e)
+conduit c s = do
+  enumeratorResult <- case s of
+    Left handle -> do
+      print <- runResourceT $ sourceHandle handle $= parseBytes def $$ DEL.head --  $$ DEL.head -- eventConsumer c [] 0
+      return $ Right 0 -- TODO
+    Right tlsCtx -> -- run $ enumTLS tlsCtx $$ joinI $
+                    -- parseBytes decodeEntities $$ eventConsumer c [] 0
+      return $ Left 0 -- TODO
+  case enumeratorResult of
+    Right _ -> return () -- writeChan c $ IEE EnumeratorDone
+    Left e -> return () -- writeChan c $ IEE (EnumeratorException e)
 --     where
---         -- Behaves like enumHandle, but reads from the TLS context instead
---         -- TODO: Type?
---         enumTLS :: TLSCtx -> Enumerator DB.ByteString IO b
---         enumTLS c s = loop c s
--- 
---         -- TODO: Type?
---         loop :: TLSCtx -> Step DB.ByteString IO b -> Iteratee DB.ByteString IO b
---         loop c (Continue k) = do
---             d <- recvData c
---             case null d of
---                 True  -> loop c (Continue k)
---                 False -> k (Chunks $ toChunks d) >>== loop c
+--       -- Behaves like enumHandle, but reads from the TLS context instead
+--       -- TODO: Type?
+--       enumTLS :: TLSCtx -> Enumerator DB.ByteString IO b
+--       enumTLS c s = loop c s
+
+--       -- TODO: Type?
+--       loop :: TLSCtx -> Step DB.ByteString IO b -> Iteratee DB.ByteString IO b
+--       loop c (Continue k) = do
+--         d <- recvData c
+--         case null d of
+--           True  -> loop c (Continue k)
+--           False -> k (Chunks $ toChunks d) >>== loop c
 --         loop _ step = returnI step
 
 
--- Consumes XML events from the input stream, accumulating as necessary, and
--- sends the proper events through the channel. The second parameter should be
--- initialized to [] (no events) and the third to 0 (zeroth XML level).
+-- Consumes XML events from the input stream, accumulating as
+-- necessary, and sends the proper events through the channel. The
+-- second parameter should be initialized to [] (no events) and the
+-- third to 0 (zeroth XML level).
 
--- eventConsumer :: Chan InternalEvent -> [Event] -> Int ->
---                  Iteratee Event IO (Maybe Event) -- Was: InternalEvent s m
+eventConsumer :: (MonadResource r, MonadIO m) =>
+                 Chan (InternalEvent m) -> [Event] -> Int -> Sink Event r ()
 
 -- <stream:stream> open event received.
 
--- eventConsumer chan [EventBeginElement (Name localName namespace prefixName) attribs] 0
---     | localName == pack "stream" && isJust prefixName && fromJust prefixName == pack "stream" = do
---         liftIO $ return () -- writeChan chan $ IEE $ EnumeratorBeginStream from to id ver lang ns
---         eventConsumer chan [] 1
---     where
---      from = case lookup "from" attribs of Nothing -> Nothing; Just fromAttrib -> Just $ show fromAttrib
---      to = case lookup "to" attribs of Nothing -> Nothing; Just toAttrib -> Just $ show toAttrib
---      id = case lookup "id" attribs of Nothing -> Nothing; Just idAttrib -> Just $ show idAttrib
---      ver = case lookup "version" attribs of Nothing -> Nothing; Just verAttrib -> Just $ show verAttrib
---      lang = case lookup "xml:lang" attribs of Nothing -> Nothing; Just langAttrib -> Just $ show langAttrib
---      ns = case namespace of Nothing -> Nothing; Just namespaceAttrib -> Just $ unpack namespaceAttrib
+eventConsumer chan [EventBeginElement (Name localName namespace prefixName) attribs] 0
+  | localName == pack "stream" && isJust prefixName && fromJust prefixName == pack "stream" = do
+    liftIO $ putStrLn "here?"
+    liftIO $ writeChan chan $ EnumeratorBeginStream from to id ver lang ns
+    eventConsumer chan [] 1
+    where
+      from = case lookup "from" attribs of Nothing -> Nothing; Just fromAttrib -> Just $ show fromAttrib
+      to = case lookup "to" attribs of Nothing -> Nothing; Just toAttrib -> Just $ show toAttrib
+      id = case lookup "id" attribs of Nothing -> Nothing; Just idAttrib -> Just $ show idAttrib
+      ver = case lookup "version" attribs of Nothing -> Nothing; Just verAttrib -> Just $ show verAttrib
+      lang = case lookup "xml:lang" attribs of Nothing -> Nothing; Just langAttrib -> Just $ show langAttrib
+      ns = case namespace of Nothing -> Nothing; Just namespaceAttrib -> Just $ unpack namespaceAttrib
 
 -- <stream:stream> close event received.
 
--- eventConsumer chan [EventEndElement name] 1
---  | namePrefix name == Just (pack "stream") && nameLocalName name == pack "stream" = do
---         liftIO $ return () -- writeChan chan $ IEE $ EnumeratorEndStream
---         return Nothing
+eventConsumer chan [EventEndElement name] 1
+  | namePrefix name == Just (pack "stream") && nameLocalName name == pack "stream" = do
+    liftIO $ putStrLn "here!"
+    liftIO $ writeChan chan $ EnumeratorEndStream
+    return ()
 
 -- Ignore EventDocumentBegin event.
 
--- eventConsumer chan [EventBeginDocument] 0 = eventConsumer chan [] 0
+eventConsumer chan [EventBeginDocument] 0 = eventConsumer chan [] 0
 
 -- We have received a complete first-level XML element. Process the accumulated
 -- values into an first-level element event.
 
--- eventConsumer chan ((EventEndElement e):es) 1 = do
---     liftIO $ return () -- writeChan chan $ IEE $ EnumeratorFirstLevelElement $ eventsToElement $ reverse ((EventEndElement e):es)
---     eventConsumer chan [] 1
+eventConsumer chan ((EventEndElement e):es) 1 = do
+  liftIO $ putStrLn "here..."
+  element <- liftIO $ eventsToElement $ reverse ((EventEndElement e):es)
+  liftIO $ writeChan chan $ EnumeratorFirstLevelElement element
+  eventConsumer chan [] 1
 
 -- Normal condition - accumulate the event.
 
--- eventConsumer chan events level = do
---     event <- DEL.head
---     case event of
---         Just event' -> let level' = case event' of
---                                         EventBeginElement _ _ -> level + 1
---                                         EventEndElement _ -> level - 1
---                                         _ -> level
---                        in eventConsumer chan (event':events) level'
---         Nothing -> eventConsumer chan events level
+eventConsumer chan events level = do
+  liftIO $ putStrLn "listenering for XML event"
+  event <- DEL.head
+  liftIO $ putStrLn "got event"
+  case event of
+    Just event' -> let level' = case event' of
+                         EventBeginElement _ _ -> level + 1
+                         EventEndElement _ -> level - 1
+                         _ -> level
+                   in eventConsumer chan (event':events) level'
+    Nothing -> eventConsumer chan events level
 
 
--- eventsToElement :: [Event] -> Either SomeException Element
+eventsToElement :: [Event] -> IO Element -- Was: Either SomeException Element
 
--- eventsToElement e = do
---     r <- run $ eventsEnum $$ fromEvents
---     case r of Right doc -> Right $ documentRoot doc; Left ex -> Left ex
+-- TODO: Exceptions.
+
+eventsToElement e = do
+  putStrLn "eventsToElement"
+  doc <- runResourceT $ sourceList e $$ fromEvents
+  return $ documentRoot doc
+--   case r of Right doc -> Right $ documentRoot doc; Left ex -> Left ex
 --     where
---         -- TODO: Type?
---         eventsEnum (Continue k) = k $ Chunks e
---         eventsEnum step = returnI step
+--       -- TODO: Type?
+--       eventsEnum (Continue k) = k $ Chunks e
+--       eventsEnum step = returnI step
 
 
 -- Sending stanzas is done through functions, where LangTag is Maybe.

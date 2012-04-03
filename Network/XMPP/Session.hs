@@ -8,9 +8,7 @@
 
 
 {-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE StandaloneDeriving #-}
 
 
 module Network.XMPP.Session (
@@ -23,11 +21,11 @@ module Network.XMPP.Session (
             , DisconnectReason
 ) where
 
-
+import Network.XMPP.Stream
 import Network.XMPP.Types
 import Network.XMPP.Utilities
 
-import Control.Concurrent (Chan, newChan, readChan, writeChan)
+import Control.Concurrent (Chan, forkIO, forkOS, newChan, readChan, writeChan)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Certificate.X509 (X509)
 import Data.Dynamic (Dynamic)
@@ -40,19 +38,6 @@ import System.IO (BufferMode, BufferMode(NoBuffering))
 import GHC.IO.Handle (Handle, hPutStr, hFlush, hSetBuffering, hWaitForInput)
 import Codec.Binary.UTF8.String
 
-
-
--- |
--- The XMPP monad transformer. Contains internal state in order to
--- work with Pontarius. Pontarius clients needs to operate in this
--- context.
-
-newtype XMPPT m a = XMPPT { runXMPPT :: StateT (State m) m a } deriving (Monad, MonadIO)
-
-
--- Make XMPPT derive the Monad and MonadIO instances.
-
-deriving instance (Monad m, MonadIO m) => MonadState (State m) (XMPPT m)
 
 
 create :: MonadIO m => XMPPT m () -> m ()
@@ -68,31 +53,10 @@ create main = do
       stateLoop
 
 
-data HookId = HookId String deriving (Eq)
-
-
--- We need a channel because multiple threads needs to append events,
--- and we need to wait for events when there are none.
-
-data State m = State { evtChan :: Chan (InternalEvent m)
-                     , hookIdGenerator :: IdGenerator
-                     , hooks :: [Hook m] }
-
-
-data HookPayload m = StreamsOpenedHook (Maybe (Maybe OpenStreamsFailureReason -> XMPPT m Bool)) (Maybe OpenStreamsFailureReason -> XMPPT m Bool)
-
-type Hook m = (HookId, HookPayload m)
-
-
 -- Internal events - events to be processed within Pontarius.
 
 -- data InternalEvent s m = IEC (ClientEvent s m) | IEE EnumeratorEvent | IET (TimeoutEvent s m) deriving (Show)
 
-data InternalEvent m
-    = OpenStreamsEvent HostName PortNumber
-    -- | DisconnectEvent
-    | RegisterStreamsOpenedHook (Maybe (Maybe OpenStreamsFailureReason -> XMPPT m Bool)) (Maybe OpenStreamsFailureReason -> XMPPT m Bool)
-    -- | IEEE EnumeratorEvent
 
 instance Show (InternalEvent m) where
   show _ = "InternalEvent"
@@ -121,17 +85,6 @@ data Event = -- ConnectedEvent (Either IntFailureReason Resource)
 --     | CAFR AuthenticateFailureReason
 
 
--- TODO: Possible ways opening a stream can fail.
-data OpenStreamsFailureReason = OpenStreamsFailureReason deriving (Show)
-
--- data TLSSecureFailureReason = TLSSecureFailureReason
-
--- data AuthenticateFailureReason = AuthenticateFailureReason
-
-data DisconnectReason = DisconnectReason deriving (Show)
-
-
-
 -- The "hook modification" events have a higher priority than other events, and
 -- are thus sent through a Chan of their own. The boolean returns value signals
 -- whether or not the hook should be removed.
@@ -153,30 +106,34 @@ stateLoop = do
   rs <- get
   event <- liftIO $ readChan $ evtChan rs
   liftIO $ putStrLn $ "Processing " ++ (show event) ++ "..."
-  actions <- processEvent event
-  sequence actions
+  processEvent event
+  -- sequence_ IO actions frmo procesEvent?
   stateLoop
 
 
 -- Processes an internal event and generates a list of impure actions.
 
-processEvent :: MonadIO m => InternalEvent m -> XMPPT m [XMPPT m ()]
+processEvent :: MonadIO m => InternalEvent m -> XMPPT m ()
 
-processEvent (OpenStreamsEvent h p) = return [openStreamAction h p]
+processEvent (OpenStreamsEvent h p) = openStreamAction h p
   where
     openStreamAction :: MonadIO m => HostName -> PortNumber -> XMPPT m ()
     openStreamAction h p = let p' = fromIntegral p
-                               computation = do
+                               computation chan = do -- chan ugly
+                                 -- threadID <-
                                  handle <- N.connectTo h (N.PortNumber p')
                                  hSetBuffering handle NoBuffering
-                                 hPutStr handle $ encodeString "<?xml version='1.0'?><stream:stream to='" ++ h ++ "' version='1.0' xmlns='jabber:client' xmlns:stream='http://etherx.jabber.org/streams'>"
+                                 forkIO $ conduit chan (Left handle) -- This must be done after hSetBuffering
+                                 hPutStr handle $ encodeString "<stream:stream to='" ++ h ++ "' version='1.0' xmlns='jabber:client' xmlns:stream='http://etherx.jabber.org/streams'>" -- didn't work with <?xml version='1.0'>
                                  hFlush handle
+                                 return ()
                            in do
-                             result <- liftIO $ CE.try computation
+                             rs <- get
+                             result <- liftIO $ CE.try (computation $ evtChan rs)
                              case result of
                                Right () -> do
                                  fireStreamsOpenedEvent Nothing
-                                 -- -- threadID <- lift $ liftIO $ forkIO $ xmlEnumerator (stateChannel state) (Left handle)
+                                 return ()
                                  -- -- lift $ liftIO $ putMVar (stateThreadID state) threadID
                                Left (CE.SomeException e) -> do -- TODO: Safe to do this?
                                  fireStreamsOpenedEvent $ Just OpenStreamsFailureReason

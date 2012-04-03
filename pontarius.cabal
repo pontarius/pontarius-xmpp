@@ -23,12 +23,12 @@ Tested-With: GHC ==7.0.4
 
 Library
   Exposed: True
-  Build-Depends: base >= 2 && < 5, parsec, enumerator, crypto-api, base64-string, pureMD5,
+  Build-Depends: base >= 2 && < 5, parsec, crypto-api, base64-string, pureMD5,
                  utf8-string, network, xml-types, text, transformers,
-                 bytestring, cereal, random, xml-enumerator,
+                 bytestring, cereal, random,
                  tls, tls-extra, containers, mtl, text-icu,
                  stringprep, asn1-data, cryptohash, time,
-                 certificate, ranges, uuid
+                 certificate, ranges, uuid, conduit, xml-conduit
   -- Other-Modules:
   -- HS-Source-Dirs:
   -- Extensions:
