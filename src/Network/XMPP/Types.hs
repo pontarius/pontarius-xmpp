@@ -34,8 +34,8 @@ instance Show JID where
 type XMPPMonad a = StateT XMPPState (ResourceT IO) a
 
 data XMPPState = XMPPState
-               { sConSrc    :: BufferedSource (ResourceT IO) Event
-               , sRawSrc    :: BufferedSource (ResourceT IO) BS.ByteString
+               { sConSrc    :: Source (ResourceT IO) Event
+               , sRawSrc    :: Source (ResourceT IO) BS.ByteString
                , sConPush   :: [Event] -> ResourceT IO ()
                , sConPushBS :: BS.ByteString -> IO ()
                , sConHandle :: Maybe Handle

@@ -14,7 +14,8 @@ import           Network.XMPP.Pickle
 import           Network.XMPP.Types
 
 import           Data.Conduit
-import qualified Data.Conduit.Hexpat as CH
+import           Data.Default(def)
+-- import qualified Data.Conduit.Hexpat as CH
 import           Data.Conduit.List as CL
 import           Data.Conduit.Text as CT
 import           Data.Default(def)
@@ -25,7 +26,7 @@ import           Data.XML.Types
 
 -- import qualified Text.XML.Stream.Parse as XP
 import           Text.XML.Stream.Elements
-
+import           Text.XML.Stream.Parse as XP
 
 -- import Text.XML.Stream.Elements
 
@@ -54,7 +55,7 @@ xmppRestartStream :: XMPPMonad ()
 xmppRestartStream = do
   raw <- gets sRawSrc
   src <- gets sConSrc
-  newsrc <- lift (bufferSource $ raw $= CH.parseBS CH.defaultParseOptions)
+  let newsrc = raw $= XP.parseBytes def
   modify (\s -> s{sConSrc = newsrc})
   xmppStartStream
 

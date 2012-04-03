@@ -40,8 +40,7 @@ xmppStartTLS params = do
       pushN starttlsE
       Element "{urn:ietf:params:xml:ns:xmpp-tls}proceed" [] [] <- pullE
       Just handle <- gets sConHandle
-      (raw', snk, push) <- lift $ TLS.tlsinit params handle
-      raw <- lift . bufferSource $ raw'
+      (raw, snk, push) <- lift $ TLS.tlsinit params handle
       modify (\x -> x
                      { sRawSrc = raw
 --                   , sConSrc =  -- Note: this momentarily leaves us in an
