@@ -29,7 +29,6 @@ library
                , resourcet         -any
                , containers        -any
                , random            -any
-               , hexpat-internals  -any
                , tls               -any
                , tls-extra         -any
                , pureMD5           -any
