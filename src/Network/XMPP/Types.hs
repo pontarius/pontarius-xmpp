@@ -133,6 +133,19 @@ data IQType = Get | Result | Set | IQError deriving (Eq, Ord)
 
 data ShowType = Available | Away | FreeChat | DND | XAway deriving Eq
 
+data ErrorType = Auth -- retry after providing credentials
+               | Cancel -- do not retry (the error cannot be remedied)
+               | Continue -- proceed (the condition was only a warning)
+               | Modify -- retry after changing the data sent
+               | Wait -- retry after waiting (the error is temporary)
+
+instance Show ErrorType where
+  show Auth     = "auth"
+  show Cancel   = "cancel"
+  show Continue = "continue"
+  show Modify   = "modify"
+  show Wait     = "wait"
+
 instance Show MessageType where
   show Chat = "chat"
   show GroupChat = "groupchat"
@@ -203,6 +216,13 @@ instance Read ShowType where
   readsPrec _  "invisible"    = [( Available ,"")]
   readsPrec _  _              =  error "incorrect <show> value"
 
+instance Read ErrorType where
+  readsPrec _ "auth"     = [( Auth    , "")]
+  readsPrec _ "cancel"   = [( Cancel  , "")]
+  readsPrec _ "continue" = [( Continue, "")]
+  readsPrec _ "modify"   = [( Modify  , "")]
+  readsPrec _ "wait"     = [( Wait    , "")]
+  readsPrec _  _         =  error "incorrect <error type> value"
 
 toText :: Show a => a -> Text
 toText   = Text.pack . show
