@@ -1,5 +1,16 @@
 {-# LANGUAGE NoMonomorphismRestriction, OverloadedStrings  #-}
-module Network.XMPP where
+module Network.XMPP
+  ( module Network.XMPP.Bind
+  , module Network.XMPP.Concurrent
+  , module Network.XMPP.Monad
+  , module Network.XMPP.SASL
+  , module Network.XMPP.Session
+  , module Network.XMPP.Stream
+  , module Network.XMPP.TLS
+  , module Network.XMPP.Types
+  , connectXMPP
+  , sessionConnect
+  ) where
 
 import           Control.Monad
 import           Control.Monad.IO.Class
@@ -31,7 +42,7 @@ fromHandle handle hostname username resource password a =
       -- on it's own
       xmppStartTLS exampleParams
       xmppSASL password
-      xmppBind
+      xmppBind resource
       xmppSession
       runThreaded a
       return ()
@@ -47,7 +58,7 @@ fromHandle' handle hostname username resource password a =
         -- on it's own
         singleThreaded $ xmppStartTLS exampleParams
         singleThreaded $ xmppSASL password
-        singleThreaded $ xmppBind
+        singleThreaded $ xmppBind resource
         singleThreaded $ xmppSession
         a
       return ()
@@ -58,3 +69,11 @@ connectXMPP host hostname username resource passwd a = do
   con <- connectTo host (PortNumber 5222)
   hSetBuffering con NoBuffering
   fromHandle' con hostname username resource passwd a
+
+sessionConnect  :: HostName -> Text -> Text
+                   -> Maybe Text -> XMPPThread a -> IO (a, XMPPState)
+sessionConnect host hostname username resource a = do
+  con <- connectTo host (PortNumber 5222)
+  hSetBuffering con NoBuffering
+  xmppFromHandle con hostname username resource $
+    xmppStartStream >> runThreaded a

@@ -334,6 +334,6 @@ sendIQ to tp body = do -- TODO: add timeout
         -- TODO: Check for id collisions (shouldn't happen?)
       return resRef
   sendS . SIQ $ IQ Nothing (Just to) newId tp body
-  return (readTMVar ref)
+  return ref
 
 

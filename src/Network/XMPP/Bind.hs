@@ -27,9 +27,8 @@ bindReqIQ resource= SIQ $ IQ Nothing Nothing "bind" Set
 jidP :: PU [Node] JID
 jidP = bindP $ xpElemNodes "jid" (xpContent xpPrim)
 
-xmppBind :: XMPPMonad ()
-xmppBind = do
-  res <- gets sResource
+xmppBind :: Maybe Text -> XMPPMonad ()
+xmppBind res = do
   push $ bindReqIQ res
   answer <- pull
   let SIQ (IQ Nothing Nothing _ Result b) = answer

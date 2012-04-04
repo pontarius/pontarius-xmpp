@@ -39,41 +39,21 @@ mirror = forever $ do
           (Just $ "you wrote: " `T.append` bd) thr []
     _ -> return ()
 
--- killer = forever $ do
---   st <- readChanS
---   case st of
---     Message _ _ id tp subject "kill" thr _ ->
---       killConnection >> return ()
---     _ -> return ()
 
 main :: IO ()
 main = do
-  putStrLn "hello world"
-  wait <- newEmptyMVar
-  connectXMPP "localhost" "species64739.dyndns.org" "bot" (Just "botsi") "pwd"
-    $ do
-      liftIO $ putStrLn "----------------------------"
-
--- sendS  . SPresence $
-      --   Presence Nothing Nothing Nothing Nothing (Just Available) Nothing  Nothing []
+  sessionConnect "localhost" "species64739.dyndns.org" "bot" Nothing $ do
+      singleThreaded $ xmppStartTLS exampleParams
+      singleThreaded $ xmppSASL "pwd"
+      singleThreaded $ xmppBind (Just "botsi")
+      singleThreaded $ xmppSession
       forkXMPP autoAccept
       forkXMPP mirror
---       withNewThread killer
       sendS . SPresence $ Presence Nothing Nothing Nothing Nothing
                 (Just Available) Nothing Nothing []
-      liftIO $ putStrLn "----------------------------"
-
       sendS . SMessage $ Message Nothing philonous Nothing Nothing Nothing
         (Just "bla") Nothing []
---      forever $ pullMessage >>= liftIO . print
---      withNewThread . void $ (liftIO $ threadDelay 15000000) >> killConnection
-
-    -- forever $ do
-    --   next <- nextM
-    --   outStanza $ Message Nothing philonous "" Chat "" "pong!" "" []
-    --  liftIO $ print next
-      liftIO $ putMVar wait ()
+      liftIO  . forever $ threadDelay 1000000
       return ()
-  takeMVar wait
   return ()
 

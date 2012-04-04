@@ -33,7 +33,7 @@ starttlsE =
 exampleParams :: TLSParams
 exampleParams = TLS.defaultParams {TLS.pCiphers = TLS.ciphersuite_strong}
 
-xmppStartTLS :: TLSParams -> XMPPMonad Bool
+xmppStartTLS :: TLSParams -> XMPPMonad ()
 xmppStartTLS params = do
   features <- gets sFeatures
   unless (stls features == Nothing) $ do
@@ -51,5 +51,5 @@ xmppStartTLS params = do
                      })
       xmppRestartStream
       modify (\s -> s{sHaveTLS = True})
-  gets sHaveTLS
+  return ()
 
