@@ -40,6 +40,7 @@ library
                , bytestring        -any
                , transformers      -any
                , network           -any
+               , lifted-base       -any
                , split             -any
                , stm               -any
                , xml-types         -any

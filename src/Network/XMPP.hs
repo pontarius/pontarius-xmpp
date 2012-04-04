@@ -36,9 +36,25 @@ fromHandle handle hostname username resource password a =
       runThreaded a
       return ()
 
+--fromHandle :: Handle -> Text -> Text -> Maybe Text -> Text -> IO ((), XMPPState)
+fromHandle' :: Handle -> Text -> Text -> Maybe Text -> Text -> XMPPThread a
+            -> IO ((), XMPPState)
+fromHandle' handle hostname username resource password a =
+  xmppFromHandle handle hostname username resource $ do
+      xmppStartStream
+      runThreaded $ do
+        -- this will check whether the server supports tls
+        -- on it's own
+        singleThreaded $ xmppStartTLS exampleParams
+        singleThreaded $ xmppSASL password
+        singleThreaded $ xmppBind
+        singleThreaded $ xmppSession
+        a
+      return ()
+
 connectXMPP  :: HostName -> Text -> Text -> Maybe Text
                 -> Text -> XMPPThread a -> IO ((), XMPPState)
 connectXMPP host hostname username resource passwd a = do
   con <- connectTo host (PortNumber 5222)
   hSetBuffering con NoBuffering
-  fromHandle con hostname username resource passwd a
+  fromHandle' con hostname username resource passwd a

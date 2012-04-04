@@ -1,17 +1,13 @@
 module Network.XMPP.Types where
 -- proudly "borrowed" from haskell-xmpp
 
-import Control.Applicative((<$>))
-import Control.Monad
 import Control.Monad.Trans.State
 
 import qualified Data.ByteString as BS
 import Data.Conduit
 import Data.Default
 import Data.List.Split as L
-import Data.Maybe
 import Data.Text as Text
-import Data.String as Str
 
 import Data.XML.Types
 
@@ -26,9 +22,9 @@ data JID = JID { node :: Maybe Text
                -- ^ Resource name
                }
 instance Show JID where
-  show (JID nd domain res) =
+  show (JID nd dmn res) =
             maybe "" ((++ "@") . Text.unpack) nd ++
-            (Text.unpack domain)               ++
+            (Text.unpack dmn)               ++
             maybe "" (('/' :) . Text.unpack)   res
 
 type XMPPMonad a = StateT XMPPState (ResourceT IO) a
@@ -62,14 +58,15 @@ instance Default ServerFeatures where
 
 
 -- Ugh, that smells a bit.
+parseJID :: [Char] -> JID
 parseJID jid =
   let (jid', rst) = case L.splitOn "@" jid of
                       [rest] -> (JID Nothing, rest)
-                      [node,rest] -> (JID (Just (Text.pack node)), rest)
+                      [nd,rest] -> (JID (Just (Text.pack nd)), rest)
                       _ -> error $  "Couldn't parse JID: \"" ++ jid ++ "\""
   in case L.splitOn "/" rst of
-      [domain] -> jid' (Text.pack domain) Nothing
-      [domain, resource] -> jid' (Text.pack domain) (Just (Text.pack resource))
+      [dmn] -> jid' (Text.pack dmn) Nothing
+      [dmn, rsrc] -> jid' (Text.pack dmn) (Just (Text.pack rsrc))
       _ -> error $ "Couldn't parse JID: \"" ++ jid ++ "\""
 
 instance Read JID where

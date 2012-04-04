@@ -56,8 +56,8 @@ main = do
 
 -- sendS  . SPresence $
       --   Presence Nothing Nothing Nothing Nothing (Just Available) Nothing  Nothing []
-      withNewThread autoAccept
-      withNewThread mirror
+      forkXMPP autoAccept
+      forkXMPP mirror
 --       withNewThread killer
       sendS . SPresence $ Presence Nothing Nothing Nothing Nothing
                 (Just Available) Nothing Nothing []
