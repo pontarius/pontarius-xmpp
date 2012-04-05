@@ -27,6 +27,7 @@ import qualified Data.Conduit.List as CL
 import           Data.Default (def)
 import           Data.IORef
 import qualified Data.Map as Map
+import           Data.Maybe
 import qualified Data.Text as Text
 import           Data.Text(Text)
 import           Data.Typeable
@@ -78,7 +79,6 @@ readWorker messageC presenceC iqC s = Ex.catch (forever . flip runStateT s $ do
                            return ()
         SIQ       i -> liftIO . atomically $ do
                            writeTChan iqC i
-                           _ <-readTChan iqC
                            return ()
     )
     ( \(ReaderSignal a) -> do
@@ -96,29 +96,26 @@ writeWorker stCh writeR = forever $ do
   _ <- forM outBS write
   atomically $ putTMVar writeR write
 
-
 handleIQs  :: MonadIO m => TVar IQHandlers -> TChan IQ -> m a
 handleIQs handlers iqC = liftIO . forever . atomically $ do
     iq <- readTChan iqC
     (byNS, byID) <- readTVar handlers
-    let iqNS' = nameNamespace . elementName . iqBody $ iq
-    case iqNS' of
-      Nothing -> return () -- TODO: send error stanza
-      Just iqNS -> case iqType iq of
-         Get -> case Map.lookup (Get, iqNS) byNS of
-           Nothing -> return () -- TODO: send error stanza
-           Just ch -> writeTChan ch iq
-         Set -> case Map.lookup (Set, iqNS) byNS of
-           Nothing -> return () -- TODO: send error stanza
-           Just ch -> writeTChan ch iq
-         -- Result / Error :
-         _ -> case Map.updateLookupWithKey (\_ _ -> Nothing)
-                         (iqId iq) byID of
-           (Nothing, _) -> return () -- we are not supposed
-                                     -- to send an error
-           (Just tmvar, byID')  -> do
-               _ <- tryPutTMVar tmvar iq -- don't block
-               writeTVar handlers (byNS, byID')
+    let iqNS = fromMaybe ("") (nameNamespace . elementName . iqBody $ iq)
+    case iqType iq of
+       Get -> case Map.lookup (Get, iqNS) byNS of
+         Nothing -> return () -- TODO: send error stanza
+         Just ch -> writeTChan ch iq
+       Set -> case Map.lookup (Set, iqNS) byNS of
+         Nothing -> return () -- TODO: send error stanza
+         Just ch -> writeTChan ch iq
+       -- Result / Error :
+       _ -> case Map.updateLookupWithKey (\_ _ -> Nothing)
+                       (iqId iq) byID of
+         (Nothing, _) -> return () -- we are not supposed
+                                   -- to send an error
+         (Just tmvar, byID')  -> do
+             _ <- tryPutTMVar tmvar iq -- don't block
+             writeTVar handlers (byNS, byID')
 
 
 
@@ -313,7 +310,10 @@ singleThreaded a = do
 
 -- | Sends an IQ, returns a 'TMVar' that will be filled with the first inbound
 -- IQ with a matching ID that has type @result@ or @error@
-sendIQ :: JID -> IQType -> Element -> XMPPThread (TMVar IQ)
+sendIQ :: Maybe JID -- ^ Recipient (to)
+          -> IQType  -- ^ IQ type (Get or Set)
+          -> Element -- ^ The iq body (there has to be exactly one)
+          -> XMPPThread (TMVar IQ)
 sendIQ to tp body = do -- TODO: add timeout
   newId <- liftIO =<< asks idGenerator
   handlers <- asks iqHandlers
@@ -323,7 +323,11 @@ sendIQ to tp body = do -- TODO: add timeout
       writeTVar handlers (byNS, Map.insert newId resRef byId)
         -- TODO: Check for id collisions (shouldn't happen?)
       return resRef
-  sendS . SIQ $ IQ Nothing (Just to) newId tp body
+  sendS . SIQ $ IQ Nothing (to) newId tp body
   return ref
 
-
+-- | like 'sendIQ', but waits for the answer IQ
+sendIQ' :: Maybe JID -> IQType -> Element -> XMPPThread IQ
+sendIQ' to tp body = do
+  ref <- sendIQ to tp body
+  liftIO . atomically $ takeTMVar ref

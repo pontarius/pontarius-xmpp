@@ -38,9 +38,10 @@ mirror = forever $ do
 main :: IO ()
 main = do
   sessionConnect "localhost" "species64739.dyndns.org" "bot" Nothing $ do
-      singleThreaded $ xmppStartTLS exampleParams
+--      singleThreaded $ xmppStartTLS exampleParams
       singleThreaded $ xmppSASL "pwd"
-      singleThreaded $ xmppBind (Just "botsi")
+      xmppThreadedBind (Just "botsi")
+--      singleThreaded $ xmppBind (Just "botsi")
       singleThreaded $ xmppSession
       forkXMPP autoAccept
       forkXMPP mirror
