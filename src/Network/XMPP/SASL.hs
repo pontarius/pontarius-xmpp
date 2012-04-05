@@ -1,38 +1,31 @@
 {-# LANGUAGE NoMonomorphismRestriction, OverloadedStrings  #-}
 module Network.XMPP.SASL where
 
-import Control.Applicative
-import Control.Monad
-import Control.Monad.IO.Class
-import Control.Monad.Trans.Class
-import Control.Monad.Trans.State
+import           Control.Applicative
+import           Control.Monad
+import           Control.Monad.IO.Class
+import           Control.Monad.Trans.State
 
 import qualified Crypto.Classes as CC
 
 import qualified Data.Attoparsec.ByteString.Char8 as AP
 import qualified Data.Binary as Binary
 import qualified Data.ByteString as BS
+import qualified Data.ByteString.Base64 as B64
 import qualified Data.ByteString.Char8 as BS8
 import qualified Data.ByteString.Lazy as BL
-import qualified Data.ByteString.Lazy.Char8 as BL8
-import qualified Data.ByteString.Base64 as B64
-import qualified Data.List as L
 import qualified Data.Digest.Pure.MD5 as MD5
-import Data.List
-import Data.XML.Pickle
-import Data.XML.Types
+import qualified Data.List as L
+import           Data.XML.Pickle
+import           Data.XML.Types
 
 import qualified Data.Text as Text
-import Data.Text(Text)
-import Data.Text (Text)
+import           Data.Text (Text)
 import qualified Data.Text.Encoding as Text
 
-import Network.XMPP.Monad
-import Network.XMPP.Pickle
-import Network.XMPP.Stream
-import Network.XMPP.Types
-
-import Numeric
+import           Network.XMPP.Monad
+import           Network.XMPP.Stream
+import           Network.XMPP.Types
 
 import qualified System.Random as Random
 
@@ -66,7 +59,7 @@ xmppSASL passwd = do
   challenge2 <- pullPickle (xpEither failurePickle challengePickle)
   case challenge2 of
     Left x -> error $ show x
-    Right c -> return ()
+    Right _ -> return ()
   pushN saslResponse2E
   Element "{urn:ietf:params:xml:ns:xmpp-sasl}success" [] [] <- pullE
   xmppRestartStream
@@ -111,7 +104,7 @@ toPairs :: BS.ByteString -> Either String [(BS.ByteString, BS.ByteString)]
 toPairs = AP.parseOnly . flip AP.sepBy1 (void $ AP.char ',') $ do
   AP.skipSpace
   name <- AP.takeWhile1 (/= '=')
-  AP.char '='
+  _ <- AP.char '='
   quote <- ((AP.char '"' >> return True) `mplus` return False)
   content <- AP.takeWhile1 (AP.notInClass ",\"" )
   when quote . void $ AP.char '"'
@@ -125,8 +118,20 @@ hashRaw :: [BS8.ByteString] -> BS8.ByteString
 hashRaw = toStrict . Binary.encode
           . (CC.hash' :: BS.ByteString -> MD5.MD5Digest) . BS.intercalate (":")
 
+toStrict :: BL.ByteString -> BS8.ByteString
 toStrict = BS.concat . BL.toChunks
+
 -- TODO: this only handles MD5-sess
+
+md5Digest :: BS8.ByteString
+          -> BS8.ByteString
+          -> BS8.ByteString
+          -> BS8.ByteString
+          -> BS8.ByteString
+          -> BS8.ByteString
+          -> BS8.ByteString
+          -> BS8.ByteString
+          -> BS8.ByteString
 md5Digest uname realm password digestURI nc qop nonce cnonce=
   let ha1 = hash [hashRaw [uname,realm,password], nonce, cnonce]
       ha2 = hash ["AUTHENTICATE", digestURI]

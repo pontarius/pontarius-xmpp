@@ -1,17 +1,12 @@
 {-# LANGUAGE PackageImports, OverloadedStrings #-}
-module Main where
+module Example where
 
 import Data.Text as T
 
 import Network.XMPP
-import Network.XMPP.Concurrent
-import Network.XMPP.Types
-import Network
-import GHC.IO.Handle
 import Control.Concurrent
 import Control.Concurrent.STM
 import Control.Monad
-import Control.Monad.Trans.State
 import Control.Monad.IO.Class
 
 philonous :: JID
@@ -24,18 +19,18 @@ autoAccept :: XMPPThread ()
 autoAccept = forever $ do
   st <- pullPresence
   case st of
-    Presence from _ id (Just Subscribe) _ _ _ _  ->
+    Presence from _ idq (Just Subscribe) _ _ _ _  ->
       sendS . SPresence $
-           Presence Nothing from id (Just Subscribed) Nothing Nothing Nothing []
+           Presence Nothing from idq (Just Subscribed) Nothing Nothing Nothing []
     _ -> return ()
 
 mirror :: XMPPThread ()
 mirror = forever $ do
   st <- pullMessage
   case st of
-    Message (Just from) _ id tp subject (Just bd) thr _ ->
+    Message (Just from) _ idq tp subject (Just bd) thr _ ->
       sendS . SMessage $
-        Message Nothing from id tp subject
+        Message Nothing from idq tp subject
           (Just $ "you wrote: " `T.append` bd) thr []
     _ -> return ()
 

@@ -3,33 +3,26 @@
 
 module Network.XMPP.Stream where
 
-import           Control.Applicative((<$>))
-import           Control.Monad(unless, forever)
-import           Control.Monad.Trans.Class
-import           Control.Monad.Trans.State
-import           Control.Monad.IO.Class
+import Control.Applicative((<$>))
+import Control.Monad(unless)
+import Control.Monad.Trans.State
 
-import           Network.XMPP.Monad
-import           Network.XMPP.Pickle
-import           Network.XMPP.Types
+import Data.Conduit
+import Data.Conduit.List as CL
+import Data.Text as T
+import Data.XML.Pickle
+import Data.XML.Types
 
-import           Data.Conduit
-import           Data.Default(def)
--- import qualified Data.Conduit.Hexpat as CH
-import           Data.Conduit.List as CL
-import           Data.Conduit.Text as CT
-import           Data.Default(def)
-import qualified Data.List as L
-import           Data.Text as T
-import           Data.XML.Pickle
-import           Data.XML.Types
+import Network.XMPP.Monad
+import Network.XMPP.Pickle
+import Network.XMPP.Types
 
--- import qualified Text.XML.Stream.Parse as XP
-import           Text.XML.Stream.Elements
-import           Text.XML.Stream.Parse as XP
+import Text.XML.Stream.Elements
+import Text.XML.Stream.Parse as XP
 
 -- import Text.XML.Stream.Elements
 
+throwOutJunk :: Monad m => Sink Event m ()
 throwOutJunk = do
   next <- CL.peek
   case next of
@@ -37,6 +30,7 @@ throwOutJunk = do
     Just (EventBeginElement _ _) -> return ()
     _ -> CL.drop 1 >> throwOutJunk
 
+openElementFromEvents :: Monad m => Sink Event m Element
 openElementFromEvents = do
   throwOutJunk
   Just (EventBeginElement name attrs) <- CL.head
@@ -54,7 +48,6 @@ xmppStartStream = do
 xmppRestartStream :: XMPPMonad ()
 xmppRestartStream = do
   raw <- gets sRawSrc
-  src <- gets sConSrc
   let newsrc = raw $= XP.parseBytes def
   modify (\s -> s{sConSrc = newsrc})
   xmppStartStream

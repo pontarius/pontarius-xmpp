@@ -2,20 +2,13 @@
 
 module Network.XMPP.Marshal where
 
-import Control.Applicative((<$>))
+import           Data.XML.Pickle
+import           Data.XML.Types
 
-import Data.Maybe
-import Data.Text(Text)
-
-import Data.XML.Types
-import Data.XML.Pickle
-
-import qualified Data.Text as Text
-
-import Network.XMPP.Pickle
-import Network.XMPP.Types
+import           Network.XMPP.Types
 
 
+stanzaSel :: Num a => Stanza -> a
 stanzaSel (SMessage  _) = 0
 stanzaSel (SPresence _) = 1
 stanzaSel (SIQ       _) = 2
@@ -28,10 +21,10 @@ stanzaP = xpAlt stanzaSel
                ]
 
 messageP :: PU [Node] Message
-messageP = xpWrap   (\((from, to, id, tp),(sub, body, thr,ext))
-                             -> Message from to id tp sub body thr ext)
-                    (\(Message from to id tp sub body thr ext)
-                             -> ((from, to, id, tp), (sub, body, thr,ext)))
+messageP = xpWrap   (\((from, to, qid, tp),(sub, body, thr,ext))
+                             -> Message from to qid tp sub body thr ext)
+                    (\(Message from to qid tp sub body thr ext)
+                             -> ((from, to, qid, tp), (sub, body, thr,ext)))
                     $
            xpElem "{jabber:client}message"
              (xp4Tuple
@@ -48,10 +41,10 @@ messageP = xpWrap   (\((from, to, id, tp),(sub, body, thr,ext))
              )
 
 presenceP :: PU [Node] Presence
-presenceP = xpWrap   (\((from, to, id, tp),(shw, stat, prio, ext))
-                             -> Presence from to id tp shw stat prio ext)
-                     (\(Presence from to id tp shw stat prio ext)
-                             -> ((from, to, id, tp), (shw, stat, prio, ext)))
+presenceP = xpWrap   (\((from, to, qid, tp),(shw, stat, prio, ext))
+                             -> Presence from to qid tp shw stat prio ext)
+                     (\(Presence from to qid tp shw stat prio ext)
+                             -> ((from, to, qid, tp), (shw, stat, prio, ext)))
                      $
            xpElem "{jabber:client}presence"
              (xp4Tuple
@@ -68,8 +61,8 @@ presenceP = xpWrap   (\((from, to, id, tp),(shw, stat, prio, ext))
              )
 
 iqP :: PU [Node] IQ
-iqP = xpWrap  (\((from, to, id, tp),body) -> IQ from to id tp body)
-              (\(IQ from to id tp body) -> ((from, to, id, tp), body))
+iqP = xpWrap  (\((from, to, qid, tp),body) -> IQ from to qid tp body)
+              (\(IQ from to qid tp body) -> ((from, to, qid, tp), body))
               $
            xpElem "{jabber:client}iq"
              (xp4Tuple

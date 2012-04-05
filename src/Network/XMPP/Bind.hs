@@ -12,16 +12,14 @@ import Data.XML.Types
 import Network.XMPP.Monad
 import Network.XMPP.Types
 import Network.XMPP.Pickle
-import Network.XMPP.Marshal
-
 
 
 bindReqIQ :: Maybe Text -> Stanza
-bindReqIQ resource= SIQ $ IQ Nothing Nothing "bind" Set
+bindReqIQ rsrc= SIQ $ IQ Nothing Nothing "bind" Set
                     (pickleElem
                       (bindP . xpOption
                          $ xpElemNodes "resource" (xpContent xpId))
-                      resource
+                      rsrc
                     )
 
 jidP :: PU [Node] JID
@@ -32,7 +30,7 @@ xmppBind res = do
   push $ bindReqIQ res
   answer <- pull
   let SIQ (IQ Nothing Nothing _ Result b) = answer
-  let (JID n d (Just r)) = unpickleElem jidP b
+  let (JID _n _d (Just r)) = unpickleElem jidP b
   modify (\s -> s{sResource = Just r})
 
 bindP  :: PU [Node] b -> PU [Node] b

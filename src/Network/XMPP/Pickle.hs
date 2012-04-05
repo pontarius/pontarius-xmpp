@@ -7,20 +7,11 @@
 
 module Network.XMPP.Pickle where
 
-import Control.Applicative((<$>))
-
-import qualified Data.ByteString as BS
-
-import qualified Data.Text as Text
-import Data.Text.Encoding as Text
-
 import Data.XML.Types
 import Data.XML.Pickle
 
-import Network.XMPP.Types
 
-
-
+mbToBool :: Maybe t -> Bool
 mbToBool (Just _) = True
 mbToBool _ = False
 
@@ -38,8 +29,8 @@ xpElemEmpty name = xpWrap (\((),()) -> ())
 xpNodeElem :: PU [Node] a -> PU Element a
 xpNodeElem xp = PU { pickleTree = \x -> head $ (pickleTree xp x) >>= \y ->
                       case y of
-                        NodeContent _ -> []
                         NodeElement e -> [e]
+                        _ -> []
              , unpickleTree = \x -> case unpickleTree xp $ [NodeElement x] of
                         Left l -> Left l
                         Right (a,(_,c)) -> Right (a,(Nothing,c))
@@ -48,12 +39,15 @@ xpNodeElem xp = PU { pickleTree = \x -> head $ (pickleTree xp x) >>= \y ->
 ignoreAttrs :: PU t ((), b) -> PU t b
 ignoreAttrs = xpWrap snd ((),)
 
+mbl :: Maybe [a] -> [a]
 mbl (Just l) = l
 mbl Nothing = []
 
+lmb :: [t] -> Maybe [t]
 lmb [] = Nothing
 lmb x = Just x
 
+right :: Either [Char] t -> t
 right (Left l) = error l
 right (Right r) = r
 

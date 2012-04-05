@@ -3,38 +3,30 @@
 module Network.XMPP.Monad where
 
 import Control.Applicative((<$>))
-
-import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Resource
 import Control.Monad.Trans.State
 
 import Data.ByteString as BS
-import Data.Default(def)
-import Data.Text(Text)
-
 import Data.Conduit
 import Data.Conduit.Binary as CB
--- import Data.Conduit.Hexpat as CH
 import Data.Conduit.List as CL
-import Data.Conduit.Text as CT
 import Data.Conduit.TLS
-
+import Data.Text(Text)
 import Data.XML.Pickle
 import Data.XML.Types
-import Text.XML.Stream.Parse as XP
-import Text.XML.Stream.Render as XR
-import Text.XML.Stream.Elements
-
-
-import qualified Data.Text as Text
 
 import Network.XMPP.Types
 import Network.XMPP.Marshal
 import Network.XMPP.Pickle
 
 import System.IO
+
+import Text.XML.Stream.Elements
+import Text.XML.Stream.Parse as XP
+import Text.XML.Stream.Render as XR
+
 
 pushN :: Element -> XMPPMonad ()
 pushN x = do
@@ -70,7 +62,7 @@ xmppFromHandle
   :: Handle -> Text -> Text -> Maybe Text
      -> XMPPMonad a
      -> IO (a, XMPPState)
-xmppFromHandle handle hostname username resource f = runResourceT $ do
+xmppFromHandle handle hostname username res f = runResourceT $ do
   liftIO $ hSetBuffering handle NoBuffering
   let raw = CB.sourceHandle handle $= conduitStdout
   let src = raw $= XP.parseBytes def
@@ -85,6 +77,6 @@ xmppFromHandle handle hostname username resource f = runResourceT $ do
              False
              hostname
              username
-             resource
+             res
   runStateT f st
 

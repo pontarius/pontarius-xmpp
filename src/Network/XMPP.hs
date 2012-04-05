@@ -12,12 +12,6 @@ module Network.XMPP
   , sessionConnect
   ) where
 
-import           Control.Monad
-import           Control.Monad.IO.Class
-import           Control.Monad.Trans.Class
-import           Control.Monad.Trans.State
-
-import qualified Data.ByteString as BS
 import           Data.Text as Text
 
 import           Network
@@ -35,45 +29,29 @@ import           System.IO
 --fromHandle :: Handle -> Text -> Text -> Maybe Text -> Text -> IO ((), XMPPState)
 fromHandle :: Handle -> Text -> Text -> Maybe Text -> Text -> XMPPThread a
             -> IO ((), XMPPState)
-fromHandle handle hostname username resource password a =
-  xmppFromHandle handle hostname username resource $ do
+fromHandle handle hostname username rsrc password a =
+  xmppFromHandle handle hostname username rsrc $ do
       xmppStartStream
       -- this will check whether the server supports tls
       -- on it's own
       xmppStartTLS exampleParams
       xmppSASL password
-      xmppBind resource
+      xmppBind rsrc
       xmppSession
-      runThreaded a
-      return ()
-
---fromHandle :: Handle -> Text -> Text -> Maybe Text -> Text -> IO ((), XMPPState)
-fromHandle' :: Handle -> Text -> Text -> Maybe Text -> Text -> XMPPThread a
-            -> IO ((), XMPPState)
-fromHandle' handle hostname username resource password a =
-  xmppFromHandle handle hostname username resource $ do
-      xmppStartStream
-      runThreaded $ do
-        -- this will check whether the server supports tls
-        -- on it's own
-        singleThreaded $ xmppStartTLS exampleParams
-        singleThreaded $ xmppSASL password
-        singleThreaded $ xmppBind resource
-        singleThreaded $ xmppSession
-        a
+      _ <- runThreaded a
       return ()
 
 connectXMPP  :: HostName -> Text -> Text -> Maybe Text
                 -> Text -> XMPPThread a -> IO ((), XMPPState)
-connectXMPP host hostname username resource passwd a = do
+connectXMPP host hostname username rsrc passwd a = do
   con <- connectTo host (PortNumber 5222)
   hSetBuffering con NoBuffering
-  fromHandle' con hostname username resource passwd a
+  fromHandle con hostname username rsrc passwd a
 
 sessionConnect  :: HostName -> Text -> Text
                    -> Maybe Text -> XMPPThread a -> IO (a, XMPPState)
-sessionConnect host hostname username resource a = do
+sessionConnect host hostname username rsrc a = do
   con <- connectTo host (PortNumber 5222)
   hSetBuffering con NoBuffering
-  xmppFromHandle con hostname username resource $
+  xmppFromHandle con hostname username rsrc $
     xmppStartStream >> runThreaded a
