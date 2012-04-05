@@ -2,9 +2,9 @@
 
 Copyright © 2010-2012 Jon Kristensen.
 
-This file (IBR.hs) illustrates how to connect and perform a simple
-In-Band Registration request using Pontarius. The contents of this
-file may be used freely, as if it is in the public domain.
+This file (IBR.hs) illustrates how to connect and perform an XEP-0077:
+In-Band Registration registration using Pontarius. The contents of
+this file may be used freely, as if it is in the public domain.
 
 -}
 
@@ -13,48 +13,34 @@ module Examples.IBR () where
 
 import Network.XMPP
 
-import Control.Monad.IO.Class (liftIO)
 
-
--- Server details.
+-- Server and authentication details.
 
 hostName = "nejla.com"
 portNumber = 5222
+userName = "test"
+password = ""
 
 
--- The main function initializes Pontarius and specifies the (XMPPT)
--- actions the be executed, hooking the client into the appropriate
--- events and tries to open the streams to the server.
+-- Start an XMPP session with the default settings, open the streams
+-- to the XMPP server, send the `register' IQ, wait for and interpret
+-- the response, and destroy the session.
 
 main :: IO ()
 
-main = create $ do
-  hookStreamsOpenedEvent onStreamsOpened Nothing
-  hookDisconnectedEvent onDisconnected Nothing
-  openStreams hostName portNumber
-    
-    where
-
-      -- When the streams has been opened, print a message and unhook
-      -- ourselves from future "Streams Opened" events.
-
-        onStreamsOpened Nothing = do
-            liftIO $ putStrLn $ "The server streams has been successfully opened."
-            -- sendIQRequest Nothing hostName (LangTag "en" []) Set elem cb
-            return False
-
-        -- When the opening of the streams fails, print the error and
-        -- shut down the XMPP session.
-
-        onStreamsOpened (Just e) = do
-            liftIO $ putStrLn $ "Could not open the streams due to the following error: " ++ (show e)
-            destroy
-            return True
-
-        -- When disconnected, print the reason and shut down the XMPP
-        -- session.
-
-        onDisconnected r = do
-            liftIO $ putStrLn $ "Disconnected with the reason: " ++ (show r)
-            destroy
-            return True
+main = session default $ do
+  liftIO $ putStrLn "Welcome to the Pontarius IBR example!"
+  openStreamsResult <- openStreams "nejla.com"
+  case openStreamsResult of
+    Nothing -> do
+      liftIO $ putStrLn "Streams opened, now registering!"
+      pushIQReq Nothing Set query Nothing $ \reply -> do
+        case reply of
+          Right (IQResponse {}) -> liftIO $ putStrLn "Registered!" -- TODO: iqRequestPayload may be empty!
+          Right (IQError {}) -> liftIO $ putStrLn "Registration error!" -- TODO: More details from error stanza
+          Left _ -> liftIO $ putStrLn "Registration error!" -- TODO: More details from error
+        destroy
+    Just error -> liftIO $ putStrLn "Error: " ++ $ show exception
+  where
+    query :: Element
+    query = undefined -- TODO: <query xmlns='jabber:iq:register'><username>userName</username><password>password</password></query>
