@@ -9,7 +9,6 @@ module Data.Conduit.TLS
 
 import Control.Applicative
 import Control.Monad.IO.Class
-import Control.Monad.Trans.Class
 import Control.Monad.Trans.Resource
 
 import Crypto.Random
@@ -22,9 +21,6 @@ import Network.TLS as TLS
 import Network.TLS.Extra as TLSExtra
 
 import System.IO(Handle)
-import System.Random
-
-import System.IO
 
 tlsinit
   :: (MonadIO m, MonadIO m1, MonadResource m1) =>
@@ -43,7 +39,7 @@ tlsinit tlsParams handle = do
     let snk = sinkIO
          (return clientContext)
          (\_ -> return ())
-         (\con bs -> sendData clientContext (BL.fromChunks [bs])
+         (\con bs -> sendData con (BL.fromChunks [bs])
                      >> return IOProcessing )
          (\_ -> return ())
     return ( src

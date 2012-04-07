@@ -14,8 +14,6 @@ import Network.XMPP.Types
 import Network.XMPP.Pickle
 import Network.XMPP.Concurrent
 
-import Control.Monad.IO.Class
-
 bindBody :: Maybe Text -> Element
 bindBody rsrc = (pickleElem
                     (bindP . xpOption $ xpElemNodes "resource" (xpContent xpId))
