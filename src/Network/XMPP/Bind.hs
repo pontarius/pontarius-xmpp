@@ -42,9 +42,7 @@ bindP c = xpElemNodes "{urn:ietf:params:xml:ns:xmpp-bind}bind" c
 
 xmppThreadedBind  :: Maybe Text -> XMPPThread Text
 xmppThreadedBind rsrc = do
-   liftIO $ putStrLn "bind..."
    answer <- sendIQ' Nothing Set (bindBody rsrc)
-   liftIO . putStrLn $ "Answer: " ++ show answer
    let (IQ Nothing Nothing _ Result b) = answer
    let (JID _n _d (Just r)) = unpickleElem jidP b
    return r

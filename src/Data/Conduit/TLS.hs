@@ -1,7 +1,7 @@
 {-# Language NoMonomorphismRestriction #-}
 module Data.Conduit.TLS
        ( tlsinit
-       , conduitStdout
+--       , conduitStdout
        , module TLS
        , module TLSExtra
        )
@@ -50,14 +50,3 @@ tlsinit tlsParams handle = do
            , snk
            , \s -> sendData clientContext $ BL.fromChunks [s] )
 
--- TODO: remove
-
-conduitStdout
-  :: MonadResource m => Conduit BS.ByteString m BS.ByteString
-conduitStdout = conduitIO
-    (return ())
-    (\_ -> return ())
-    (\_ bs -> do
-        liftIO $ BS.putStrLn bs
-        return $ IOProducing [bs])
-    (const $ return [])

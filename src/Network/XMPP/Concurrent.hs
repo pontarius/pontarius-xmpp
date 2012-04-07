@@ -41,7 +41,9 @@ import           Network.XMPP.Pickle
 import           Text.XML.Stream.Elements
 import qualified Text.XML.Stream.Render as XR
 
-type IQHandlers = (Map.Map (IQType, Text) (TChan IQ), Map.Map Text (TMVar IQ))
+type IQHandlers = (Map.Map (IQType, Text) (TChan (IQ, TVar Bool))
+                  , Map.Map Text (TMVar IQ)
+                  )
 
 data Thread = Thread { messagesRef :: IORef (Maybe (TChan Message))
                      , presenceRef :: IORef (Maybe (TChan Presence))
@@ -101,21 +103,19 @@ handleIQs handlers iqC = liftIO . forever . atomically $ do
     iq <- readTChan iqC
     (byNS, byID) <- readTVar handlers
     let iqNS = fromMaybe ("") (nameNamespace . elementName . iqBody $ iq)
-    case iqType iq of
-       Get -> case Map.lookup (Get, iqNS) byNS of
-         Nothing -> return () -- TODO: send error stanza
-         Just ch -> writeTChan ch iq
-       Set -> case Map.lookup (Set, iqNS) byNS of
-         Nothing -> return () -- TODO: send error stanza
-         Just ch -> writeTChan ch iq
-       -- Result / Error :
-       _ -> case Map.updateLookupWithKey (\_ _ -> Nothing)
-                       (iqId iq) byID of
-         (Nothing, _) -> return () -- we are not supposed
-                                   -- to send an error
-         (Just tmvar, byID')  -> do
-             _ <- tryPutTMVar tmvar iq -- don't block
-             writeTVar handlers (byNS, byID')
+    case () of () | (iqType iq) `elem` [Get, Set] ->
+                       case Map.lookup (Get, iqNS) byNS of
+                            Nothing -> return () -- TODO: send error stanza
+                            Just ch -> do
+                              sent <- newTVar False
+                              writeTChan ch (iq, sent)
+                  | otherwise -> case Map.updateLookupWithKey (\_ _ -> Nothing)
+                                     (iqId iq) byID of
+                       (Nothing, _) -> return () -- we are not supposed
+                                                 -- to send an error
+                       (Just tmvar, byID')  -> do
+                           _ <- tryPutTMVar tmvar iq -- don't block
+                           writeTVar handlers (byNS, byID')
 
 
 
@@ -126,9 +126,7 @@ handleIQs handlers iqC = liftIO . forever . atomically $ do
 startThreads
   :: XMPPMonad ( TChan Message
                , TChan Presence
-               , TVar ( Map.Map (IQType, Text) (TChan IQ)
-                      , Map.Map Text (TMVar IQ)
-                      )
+               , TVar IQHandlers
                , TChan Stanza, IO ()
                , TMVar (BS.ByteString -> IO ())
                , ThreadId
@@ -161,7 +159,7 @@ startThreads = do
 -- them
 listenIQChan :: IQType  -- ^ type of IQs to receive (Get / Set)
                 -> Text -- ^ namespace of the child element
-                -> XMPPThread (Bool, TChan IQ)
+                -> XMPPThread (Bool, TChan (IQ, TVar Bool))
 listenIQChan tp ns = do
   handlers <- asks iqHandlers
   liftIO . atomically $ do
@@ -171,8 +169,8 @@ listenIQChan tp ns = do
                                                      (tp,ns) iqCh byNS
     writeTVar handlers (byNS', byID)
     return $ case present of
-               Nothing -> (False, iqCh)
-               Just iqCh' -> (True, iqCh')
+               Nothing -> (True, iqCh)
+               Just iqCh' -> (False, iqCh')
 
 -- | Start worker threads and run action. The supplied action will run
 -- in the calling thread. use 'forkXMPP' to start another thread.
@@ -331,3 +329,15 @@ sendIQ' :: Maybe JID -> IQType -> Element -> XMPPThread IQ
 sendIQ' to tp body = do
   ref <- sendIQ to tp body
   liftIO . atomically $ takeTMVar ref
+
+answerIQ :: MonadIO m => (IQ, TVar Bool) -> Element -> ReaderT Thread m Bool
+answerIQ ((IQ from _to id _tp _bd), sentRef) body = do
+  out <- asks outCh
+  liftIO . atomically $ do
+       sent <- readTVar sentRef
+       case sent of
+         False -> do
+             writeTVar sentRef True
+             writeTChan out . SIQ $ IQ Nothing from id Result body
+             return True
+         True -> return False

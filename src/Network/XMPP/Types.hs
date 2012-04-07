@@ -1,17 +1,17 @@
 module Network.XMPP.Types where
 -- proudly "borrowed" from haskell-xmpp
 
-import Control.Monad.Trans.State
+import           Control.Monad.Trans.State
 
 import qualified Data.ByteString as BS
-import Data.Conduit
-import Data.Default
-import Data.List.Split as L
-import Data.Text as Text
+import           Data.Conduit
+import           Data.Default
+import           Data.List.Split as L
+import           Data.Text as Text
 
-import Data.XML.Types
+import           Data.XML.Types
 
-import System.IO
+import           System.IO
 
 -- | Jabber ID (JID) datatype
 data JID = JID { node :: Maybe Text

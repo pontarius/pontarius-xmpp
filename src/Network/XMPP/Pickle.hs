@@ -53,7 +53,9 @@ right (Right r) = r
 
 
 unpickleElem :: PU [Node] c -> Element -> c
-unpickleElem p = right . unpickle (xpNodeElem p)
+unpickleElem p x = case unpickle (xpNodeElem p) x of
+  Left l -> error $ l ++ "\n  saw: " ++ show x
+  Right r -> r
 
 pickleElem :: PU [Node] a -> a -> Element
 pickleElem p = pickle  $ xpNodeElem p

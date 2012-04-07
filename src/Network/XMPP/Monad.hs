@@ -12,7 +12,6 @@ import Data.ByteString as BS
 import Data.Conduit
 import Data.Conduit.Binary as CB
 import Data.Conduit.List as CL
-import Data.Conduit.TLS
 import Data.Text(Text)
 import Data.XML.Pickle
 import Data.XML.Types
@@ -64,13 +63,13 @@ xmppFromHandle
      -> IO (a, XMPPState)
 xmppFromHandle handle hostname username res f = runResourceT $ do
   liftIO $ hSetBuffering handle NoBuffering
-  let raw = CB.sourceHandle handle $= conduitStdout
+  let raw = CB.sourceHandle handle
   let src = raw $= XP.parseBytes def
   let st = XMPPState
              src
              (raw)
              (\xs -> CL.sourceList xs
-                     $$ XR.renderBytes def =$ conduitStdout =$ CB.sinkHandle handle)
+                     $$ XR.renderBytes def =$ CB.sinkHandle handle)
              (BS.hPut handle)
              (Just handle)
              def
