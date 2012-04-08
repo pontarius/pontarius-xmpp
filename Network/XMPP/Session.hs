@@ -132,7 +132,6 @@ processEvent (OpenStreamsEvent h p) = openStreamAction h p
                              result <- liftIO $ CE.try (computation $ evtChan rs)
                              case result of
                                Right () -> do
-                                 fireStreamsOpenedEvent Nothing
                                  return ()
                                  -- -- lift $ liftIO $ putMVar (stateThreadID state) threadID
                                Left (CE.SomeException e) -> do -- TODO: Safe to do this?
