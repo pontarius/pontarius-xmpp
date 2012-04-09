@@ -8,23 +8,27 @@ module Network.XMPP
   , module Network.XMPP.Stream
   , module Network.XMPP.TLS
   , module Network.XMPP.Types
+  , module Network.XMPP.Presence
+  , module Network.XMPP.Message
   , connectXMPP
   , sessionConnect
   ) where
 
-import           Data.Text as Text
+import Data.Text as Text
 
-import           Network
-import           Network.XMPP.Bind
-import           Network.XMPP.Concurrent
-import           Network.XMPP.Monad
-import           Network.XMPP.SASL
-import           Network.XMPP.Session
-import           Network.XMPP.Stream
-import           Network.XMPP.TLS
-import           Network.XMPP.Types
+import Network
+import Network.XMPP.Bind
+import Network.XMPP.Concurrent
+import Network.XMPP.Message
+import Network.XMPP.Monad
+import Network.XMPP.Presence
+import Network.XMPP.SASL
+import Network.XMPP.Session
+import Network.XMPP.Stream
+import Network.XMPP.TLS
+import Network.XMPP.Types
 
-import           System.IO
+import System.IO
 
 --fromHandle :: Handle -> Text -> Text -> Maybe Text -> Text -> IO ((), XMPPState)
 fromHandle :: Handle -> Text -> Text -> Maybe Text -> Text -> XMPPThread a

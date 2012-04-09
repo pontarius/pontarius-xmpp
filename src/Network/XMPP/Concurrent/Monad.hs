@@ -124,7 +124,6 @@ waitForPresence f = do
     else do
       waitForPresence f
 
-
 -- | Run an XMPPMonad action in isolation.
 -- Reader and writer workers will be temporarily stopped
 -- and resumed with the new session details once the action returns.
@@ -141,3 +140,8 @@ singleThreaded a = do
     liftIO . atomically $ putTMVar writeLock out
   return ()
 
+sendPresence :: Presence -> XMPPThread ()
+sendPresence = sendS . SPresence
+
+sendMessage :: Message -> XMPPThread ()
+sendMessage = sendS . SMessage

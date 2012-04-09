@@ -60,23 +60,16 @@ iqResponder = do
 
 autoAccept :: XMPPThread ()
 autoAccept = forever $ do
-  st <- pullPresence
-  case st of
-    Presence from _ idq (Just Subscribe) _ _ _ _  ->
-      sendS . SPresence $
-           Presence Nothing from idq (Just Subscribed) Nothing Nothing Nothing []
-    _ -> return ()
+  st <- waitForPresence isPresenceSubscribe
+  sendPresence $ presenceSubscribed (fromJust $ pFrom st)
 
-sendUser txt = sendS . SMessage $ Message Nothing superviser Nothing Nothing Nothing
-        (Just (Text.pack txt)) Nothing []
-
+sendUser  = sendMessage . simpleMessage superviser . Text.pack
 
 expect debug x y | x == y = debug "Ok."
                  | otherwise = do
                             let failMSG = "failed" ++ show x ++ " /= " ++ show y
                             debug failMSG
                             sendUser failMSG
-
 
 
 runMain :: (String -> STM ()) -> Int -> IO ()
@@ -93,19 +86,20 @@ runMain debug number = do
       singleThreaded $ xmppSASL "pwd"
       xmppThreadedBind (resource we)
       singleThreaded $ xmppSession
-      sendS . SPresence $ Presence Nothing Nothing Nothing Nothing (Just Available) Nothing Nothing []
+      sendPresence presenceOnline
       forkXMPP autoAccept
       forkXMPP iqResponder
       -- sendS . SPresence $ Presence Nothing (Just them) Nothing (Just Subscribe) Nothing Nothing Nothing  []
       let delay = if active then 1000000 else 5000000
-      when active . void . forkXMPP . void . forM [1..10] $ \count -> do
-        let message = Text.pack . show $ node we
-        let payload = Payload count (even count) (Text.pack $ show count)
-        let body = pickleElem payloadP payload
-        answer <- sendIQ' (Just them) Get body
-        let answerPayload = unpickleElem payloadP (iqBody answer)
-        expect debug' (invertPayload payload) answerPayload
-        liftIO $ threadDelay delay
+      when active . void . forkXMPP $ do
+        forM [1..10] $ \count -> do
+            let message = Text.pack . show $ node we
+            let payload = Payload count (even count) (Text.pack $ show count)
+            let body = pickleElem payloadP payload
+            answer <- sendIQ' (Just them) Get body
+            let answerPayload = unpickleElem payloadP (iqBody answer)
+            expect debug' (invertPayload payload) answerPayload
+            liftIO $ threadDelay delay
         sendUser "All tests done"
       liftIO  . forever $ threadDelay 10000000
       return ()
