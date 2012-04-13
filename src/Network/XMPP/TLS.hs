@@ -1,30 +1,59 @@
--- Copyright © 2010-2012 Jon Kristensen. See the LICENSE file in the
--- Pontarius distribution for more details.
+{-# LANGUAGE OverloadedStrings  #-}
 
--- TODO: TLS12 when supported in tls; TODO: TLS11 results in a read error - bug?
--- TODO: cipher_AES128_SHA1 = TLS_RSA_WITH_AES_128_CBC_SHA?
--- TODO: Compression?
--- TODO: Validate certificate
+module Network.XMPP.TLS where
 
-{-# OPTIONS_HADDOCK hide #-}
+import           Control.Monad
+import           Control.Monad.Trans.Class
+import           Control.Monad.Trans.State
 
-module Network.XMPP.TLS (tlsParams) where
+import           Data.Conduit
+import           Data.Conduit.List as CL
+import           Data.Conduit.TLS as TLS
+import           Data.Default
+import           Data.XML.Types
 
-import Network.TLS (TLSCertificateUsage (CertificateUsageAccept),
-                    TLSParams (..), Version (SSL3, TLS10, TLS11),
-                    defaultLogging, nullCompression)
-import Network.TLS.Extra (cipher_AES128_SHA1)
+import qualified Network.TLS as TLS
+import qualified Network.TLS.Extra as TLS
+import           Network.XMPP.Monad
+import           Network.XMPP.Stream
+import           Network.XMPP.Types
+
+import qualified Text.XML.Stream.Render as XR
 
 
-tlsParams :: TLSParams
+starttlsE :: Element
+starttlsE =
+  Element "{urn:ietf:params:xml:ns:xmpp-tls}starttls" [] []
 
-tlsParams = TLSParams { pConnectVersion    = TLS10
-                      , pAllowedVersions   = [SSL3, TLS10,TLS11]
-                      , pCiphers           = [cipher_AES128_SHA1]
-                      , pCompressions      = [nullCompression]
+exampleParams :: TLS.TLSParams
+exampleParams = TLS.TLSParams { pConnectVersion    = TLS.TLS10
+                      , pAllowedVersions   = [TLS.SSL3, TLS.TLS10, TLS.TLS11]
+                      , pCiphers           = [TLS.cipher_AES128_SHA1]
+                      , pCompressions      = [TLS.nullCompression]
                       , pWantClientCert    = False -- Used for servers
                       , pUseSecureRenegotiation = False -- No renegotiation
                       , pCertificates      = [] -- TODO
-                      , pLogging           = defaultLogging -- TODO
+                      , pLogging           = TLS.defaultLogging -- TODO
                       , onCertificatesRecv = \ certificate ->
-                                             return CertificateUsageAccept }
+                                             return TLS.CertificateUsageAccept }
+
+xmppStartTLS :: TLS.TLSParams -> XMPPConMonad ()
+xmppStartTLS params = do
+  features <- gets sFeatures
+  unless (stls features == Nothing) $ do
+      pushN starttlsE
+      Element "{urn:ietf:params:xml:ns:xmpp-tls}proceed" [] [] <- pullE
+      Just handle <- gets sConHandle
+      (raw, snk, psh) <- lift $ TLS.tlsinit params handle
+      modify (\x -> x
+                     { sRawSrc = raw
+--                   , sConSrc =  -- Note: this momentarily leaves us in an
+                                  -- inconsistent state
+                     , sConPush = \xs -> CL.sourceList xs
+                     $$ XR.renderBytes def =$ snk
+                     , sConPushBS = psh
+                     })
+      xmppRestartStream
+      modify (\s -> s{sHaveTLS = True})
+  return ()
+

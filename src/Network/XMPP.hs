@@ -1,4 +1,6 @@
--- Copyright © 2010-2012 Jon Kristensen. See the LICENSE file in the
+-- Copyright © 2010-2012 Jon Kristensen.
+-- Copyright 2012 Philipp Balzarek
+-- See the LICENSE file in the
 -- Pontarius distribution for more details.
 
 -- |
@@ -25,65 +27,66 @@
 -- this time as it's still in an experimental stage and will have its
 -- API and data types modified frequently.
 
-module Network.XMPP ( -- Network.XMPP.JID
-                      Address (..)
-                      , Localpart
-                      , Domainpart
-                      , Resourcepart
-                    , isFull
-                    , isBare
-                    , fromString
-                    , fromStrings
+{-# LANGUAGE NoMonomorphismRestriction, OverloadedStrings  #-}
 
-                      -- Network.XMPP.Session
-                    , runXMPPT
-                    , hookStreamsOpenedEvent
-                    , hookDisconnectedEvent
-                    , destroy
-                    , openStreams
-                    , create
-                      
-                    -- , ClientHandler (..)
-                    -- , ClientState (..)
-                    -- , ConnectResult (..)
-                    -- , HostName
-                    -- , Password
-                    -- , PortNumber
-                    -- , Resource
-                    -- , Session
-                    -- , TerminationReason
-                    -- , UserName
-                    -- , sendIQ
-                    -- , sendPresence
-                    -- , sendMessage
-                    -- , connect
-                    -- , openStreams
-                    -- , tlsSecureStreams
-                    -- , authenticate
-                    -- , session
-                    -- , OpenStreamResult (..)
-                    -- , SecureWithTLSResult (..)
-                    -- , AuthenticateResult (..)
+module Network.XMPP
+  ( module Network.XMPP.Bind
+  , module Network.XMPP.Concurrent
+  , module Network.XMPP.Monad
+  , module Network.XMPP.SASL
+  , module Network.XMPP.Session
+  , module Network.XMPP.Stream
+  , module Network.XMPP.TLS
+  , module Network.XMPP.Types
+  , module Network.XMPP.Presence
+  , module Network.XMPP.Message
+--  , connectXMPP
+  , sessionConnect
+  ) where
 
-                      -- Network.XMPP.Stanza
-                    , StanzaID (SID)
-                    , From
-                    , To
-                    , LangTag
-                    , MessageType (..)
-                    , Message (..)
-                    , PresenceType (..)
-                    , Presence (..)
-                    , IQ (..)
-                    , iqPayloadNamespace
-                    , iqPayload ) where
+import Data.Text as Text
 
-import Network.XMPP.Address
--- import Network.XMPP.SASL
+import Network
+import Network.XMPP.Bind
+import Network.XMPP.Concurrent
+import Network.XMPP.Message
+import Network.XMPP.Monad
+import Network.XMPP.Presence
+import Network.XMPP.SASL
 import Network.XMPP.Session
-import Network.XMPP.Stanza
-import Network.XMPP.Utilities
-import Network.XMPP.Types
--- import Network.XMPP.TLS
 import Network.XMPP.Stream
+import Network.XMPP.TLS
+import Network.XMPP.Types
+
+import System.IO
+
+--fromHandle :: Handle -> Text -> Text -> Maybe Text -> Text -> IO ((), XMPPState)
+-- fromHandle :: Handle -> Text -> Text -> Maybe Text -> Text -> XMPPThread a
+--             -> IO ((), XMPPState)
+-- fromHandle handle hostname username rsrc password a =
+--   xmppFromHandle handle hostname username rsrc $ do
+--       xmppStartStream
+--       -- this will check whether the server supports tls
+--       -- on it's own
+--       xmppStartTLS exampleParams
+--       xmppSASL password
+--       xmppBind rsrc
+--       xmppSession
+--       _ <- runThreaded a
+--       return ()
+
+-- connectXMPP  :: HostName -> Text -> Text -> Maybe Text
+--                 -> Text -> XMPPThread a -> IO ((), XMPPState)
+-- connectXMPP host hostname username rsrc passwd a = do
+--   con <- connectTo host (PortNumber 5222)
+--   hSetBuffering con NoBuffering
+--   fromHandle con hostname username rsrc passwd a
+
+sessionConnect  :: HostName -> Text -> Text
+                   -> Maybe Text -> XMPPThread a -> IO (a, XMPPConState)
+sessionConnect host hostname username rsrc a = do
+  con <- connectTo host (PortNumber 5222)
+  hSetBuffering con NoBuffering
+  xmppFromHandle con hostname username rsrc $
+    xmppStartStream >> runThreaded a
 

@@ -1,172 +1,150 @@
--- Copyright © 2010-2012 Jon Kristensen. See the LICENSE file in the
--- Pontarius distribution for more details.
+{-# LANGUAGE NoMonomorphismRestriction, OverloadedStrings  #-}
+module Network.XMPP.SASL where
 
-{-# OPTIONS_HADDOCK hide #-}
+import           Control.Applicative
+import           Control.Monad
+import           Control.Monad.IO.Class
+import           Control.Monad.Trans.State
 
--- TODO: Make it possible to include host.
--- TODO: Host is assumed to be ISO 8859-1; make list of assumptions.
--- TODO: Can it contain newline characters?
+import qualified Crypto.Classes as CC
 
-module Network.XMPP.SASL (replyToChallenge, saltedPassword, clientKey, storedKey, authMessage, clientSignature, clientProof, serverKey, serverSignature) where
+import qualified Data.Attoparsec.ByteString.Char8 as AP
+import qualified Data.Binary as Binary
+import qualified Data.ByteString as BS
+import qualified Data.ByteString.Base64 as B64
+import qualified Data.ByteString.Char8 as BS8
+import qualified Data.ByteString.Lazy as BL
+import qualified Data.Digest.Pure.MD5 as MD5
+import qualified Data.List as L
+import           Data.XML.Pickle
+import           Data.XML.Types
 
-import Prelude hiding (concat, zipWith)
-import Data.ByteString.Internal (c2w)
-import Data.Char (isLatin1)
-import Data.Digest.Pure.MD5
-import qualified Data.ByteString.Lazy as DBL (ByteString, append, pack,
-                                              fromChunks, toChunks, null)
-import qualified Data.ByteString.Lazy.Char8 as DBLC (append, pack, unpack)
-import qualified Data.List as DL
-import Data.Text (empty, singleton)
-import Text.StringPrep (StringPrepProfile (..), a1, b1, c12, c21, c22, c3, c4, c5, c6, c7, c8, c9, runStringPrep)
-import Data.Ranges (inRanges, ranges)
+import qualified Data.Text as Text
+import           Data.Text (Text)
+import qualified Data.Text.Encoding as Text
 
-import Crypto.HMAC (MacKey (MacKey), hmac)
-import Crypto.Hash.SHA1 (SHA1, hash)
-import Data.Bits (xor)
-import Data.ByteString ()
-import Data.ByteString.Lazy (ByteString, concat, fromChunks, pack, toChunks, zipWith)
-import Data.Serialize (Serialize, encodeLazy)
-import Data.Serialize.Put (putWord32be, runPutLazy)
+import           Network.XMPP.Monad
+import           Network.XMPP.Stream
+import           Network.XMPP.Types
 
-import Data.Maybe (fromJust, isJust)
-
-import qualified Data.Text as DT
-
-import Text.StringPrep (runStringPrep)
-
-data Challenge1Error = C1MultipleCriticalAttributes       |
-                       C1NotAllParametersPresent          |
-                       C1SomeParamtersPresentMoreThanOnce |
-                       C1WrongRealm                       |
-                       C1UnsupportedAlgorithm             |
-                       C1UnsupportedCharset               |
-                       C1UnsupportedQOP
-                       deriving Show
+import qualified System.Random as Random
 
 
--- Will produce a list of key-value pairs given a string in the format of
--- realm="somerealm",nonce="OA6MG9tEQGm2hh",qop="auth",charset=utf-8...
-stringToList :: String -> [(String, String)]
-stringToList "" = []
-stringToList s' = let (next, rest) = break' s' ','
-                  in break' next '=' : stringToList rest
-  where
-    -- Like break, but will remove the first char of the continuation, if
-    -- present.
-    break' :: String -> Char -> (String, String)
-    break' s' c = let (first, second) = break ((==) c) s'
-                  in (first, removeCharIfPresent second c)
+saslInitE :: Text -> Element
+saslInitE mechanism =
+    Element "{urn:ietf:params:xml:ns:xmpp-sasl}auth"
+        [ ("mechanism", [ContentText  mechanism]) ]
+        []
 
-    -- Removes the first character, if present; "=hello" with '=' becomes
-    -- "hello".
-    removeCharIfPresent :: String -> Char -> String
-    removeCharIfPresent [] _               = []
-    removeCharIfPresent (c:t) c' | c == c' = t
-    removeCharIfPresent s' c               = s'
+saslResponseE :: Text -> Element
+saslResponseE resp =
+    Element "{urn:ietf:params:xml:ns:xmpp-sasl}response"
+    []
+    [NodeContent $ ContentText resp]
 
--- Counts the number of directives in the pair list.
-countDirectives :: String -> [(String, String)] -> Int
-countDirectives v l = DL.length $ filter (isEntry v) l
-  where
-    isEntry :: String -> (String, String) -> Bool
-    isEntry name (name', _) | name == name' = True
-                            | otherwise     = False
+saslResponse2E :: Element
+saslResponse2E =
+    Element "{urn:ietf:params:xml:ns:xmpp-sasl}response"
+    []
+    []
 
+xmppSASL  :: Text -> XMPPConMonad ()
+xmppSASL passwd = do
+  mechanisms <- gets $ saslMechanisms . sFeatures
+  unless ("DIGEST-MD5" `elem` mechanisms) .  error $ "No usable auth mechanism: " ++ show mechanisms
+  pushN $ saslInitE "DIGEST-MD5"
+  Right challenge <- B64.decode . Text.encodeUtf8<$> pullPickle challengePickle
+  let Right pairs = toPairs challenge
+  pushN . saslResponseE =<< createResponse passwd pairs
+  challenge2 <- pullPickle (xpEither failurePickle challengePickle)
+  case challenge2 of
+    Left x -> error $ show x
+    Right _ -> return ()
+  pushN saslResponse2E
+  Element "{urn:ietf:params:xml:ns:xmpp-sasl}success" [] [] <- pullE
+  xmppRestartStream
+  return ()
 
--- Returns the given directive in the list of pairs, or Nothing.
-lookupDirective :: String -> [(String, String)] -> Maybe String
-lookupDirective d []                      = Nothing
-lookupDirective d ((d', v):t) | d == d'   = Just v
-                              | otherwise = lookupDirective d t
+createResponse :: Text -> [(BS8.ByteString, BS8.ByteString)] -> XMPPConMonad Text
+createResponse passwd' pairs = do
+  let Just qop = L.lookup "qop" pairs
+  let Just nonce = L.lookup "nonce" pairs
+  uname <- Text.encodeUtf8 <$> gets sUsername
+  let passwd = Text.encodeUtf8 passwd'
+  realm <- Text.encodeUtf8 <$> gets sHostname
+  g <- liftIO $ Random.newStdGen
+  let cnonce = BS.tail . BS.init .
+               B64.encode . BS.pack . take 8 $ Random.randoms g
+  let nc = "00000001"
+  let digestURI = ("xmpp/" `BS.append` realm)
+  let digest = md5Digest
+                 uname
+                 realm
+                 passwd
+                 digestURI
+                 nc
+                 qop
+                 nonce
+                 cnonce
+  let response = BS.intercalate"," . map (BS.intercalate "=") $
+       [["username"  , quote uname     ]
+       ,["realm"     , quote realm     ]
+       ,["nonce"     , quote nonce     ]
+       ,["cnonce"    , quote cnonce    ]
+       ,["nc"        ,       nc        ]
+       ,["qop"       ,       qop       ]
+       ,["digest-uri", quote digestURI ]
+       ,["response"  ,       digest    ]
+       ,["charset"   ,       "utf-8"   ]
+       ]
+  return . Text.decodeUtf8 $ B64.encode response
+  where quote x = BS.concat ["\"",x,"\""]
 
+toPairs :: BS.ByteString -> Either String [(BS.ByteString, BS.ByteString)]
+toPairs = AP.parseOnly . flip AP.sepBy1 (void $ AP.char ',') $ do
+  AP.skipSpace
+  name <- AP.takeWhile1 (/= '=')
+  _ <- AP.char '='
+  quote <- ((AP.char '"' >> return True) `mplus` return False)
+  content <- AP.takeWhile1 (AP.notInClass ",\"" )
+  when quote . void $ AP.char '"'
+  return (name,content)
 
--- Returns the given directive in the list of pairs, or the default value
--- otherwise.
-lookupDirectiveWithDefault :: String -> [(String, String)] -> String -> String
-lookupDirectiveWithDefault di l de
-  | lookup == Nothing = de
-  | otherwise         = let Just r = lookup in r
-  where
-    lookup = lookupDirective di l
+hash :: [BS8.ByteString] -> BS8.ByteString
+hash = BS8.pack . show
+       . (CC.hash' :: BS.ByteString -> MD5.MD5Digest) . BS.intercalate (":")
 
+hashRaw :: [BS8.ByteString] -> BS8.ByteString
+hashRaw = toStrict . Binary.encode
+          . (CC.hash' :: BS.ByteString -> MD5.MD5Digest) . BS.intercalate (":")
 
--- Implementation of "Hi()" as specified in the Notation section of RFC 5802
--- ("SCRAM"). It takes a string "str", a salt, and an interation count, and
--- returns an octet string. The iteration count must be greater than zero.
+toStrict :: BL.ByteString -> BS8.ByteString
+toStrict = BS.concat . BL.toChunks
 
-hi :: ByteString -> ByteString -> Integer -> ByteString
+-- TODO: this only handles MD5-sess
 
-hi str salt i | i > 0 = xorUs $ us (concat [salt, runPutLazy $ putWord32be 1]) i
-    where
-
-        -- Calculates the U's (U1 ... Ui) using the HMAC algorithm
-        us :: ByteString -> Integer -> [ByteString]
-        us a 1 = [encodeLazy (hmac (MacKey (head $ toChunks str)) a :: SHA1)]
-        us a x = [encodeLazy (hmac (MacKey (head $ toChunks str)) a :: SHA1)] ++ (us (encodeLazy (hmac (MacKey (head $ toChunks str)) a :: SHA1)) (x - 1))
-
-        -- XORs the ByteStrings: U1 XOR U2 XOR ... XOR Ui
-        xorUs :: [ByteString] -> ByteString
-        xorUs (b:bs) = foldl (\ x y -> pack $ zipWith xor x y) b bs
-
-
-saltedPassword :: String -> ByteString -> Integer -> Maybe ByteString
-
-saltedPassword password salt i = if isJust password' then Just $ hi (DBLC.pack $ DT.unpack $ fromJust password') salt i else Nothing
-    where
-        password' = runStringPrep saslprepProfile (DT.pack password)
-
-clientKey :: ByteString -> ByteString
-
-clientKey sp = encodeLazy (hmac (MacKey (head $ toChunks sp)) (DBLC.pack "Client Key") :: SHA1)
-
-
-storedKey :: ByteString -> ByteString
-
-storedKey ck = fromChunks [hash $ head $ toChunks ck]
-
-
-authMessage :: String -> String -> String -> ByteString
-
-authMessage cfmb sfm cfmwp = DBLC.pack $ cfmb ++ "," ++ sfm ++ "," ++ cfmwp
-
-
-clientSignature :: ByteString -> ByteString -> ByteString
-
-clientSignature sk am = encodeLazy (hmac (MacKey (head $ toChunks sk)) am :: SHA1)
-
-
-clientProof :: ByteString -> ByteString -> ByteString
-
-clientProof ck cs = pack $ zipWith xor ck cs
-
-
-serverKey :: ByteString -> ByteString
-
-serverKey sp = encodeLazy (hmac (MacKey (head $ toChunks sp)) (DBLC.pack "Server Key") :: SHA1)
-
-
-serverSignature :: ByteString -> ByteString -> ByteString
-
-serverSignature servkey am = encodeLazy (hmac (MacKey (head $ toChunks servkey)) am :: SHA1)
-
-
--- TODO: Implement SCRAM.
-
-replyToChallenge = replyToChallenge
+md5Digest :: BS8.ByteString
+          -> BS8.ByteString
+          -> BS8.ByteString
+          -> BS8.ByteString
+          -> BS8.ByteString
+          -> BS8.ByteString
+          -> BS8.ByteString
+          -> BS8.ByteString
+          -> BS8.ByteString
+md5Digest uname realm password digestURI nc qop nonce cnonce=
+  let ha1 = hash [hashRaw [uname,realm,password], nonce, cnonce]
+      ha2 = hash ["AUTHENTICATE", digestURI]
+  in hash [ha1,nonce, nc, cnonce,qop,ha2]
 
 
--- Stripts the quotations around a string, if any; "\"hello\"" becomes "hello".
+-- Pickling
 
-stripQuotations :: String -> String
-stripQuotations ""                                     = ""
-stripQuotations s | (head s == '"') && (last s == '"') = tail $ init s
-                  | otherwise                          = s
+failurePickle :: PU [Node] (Element)
+failurePickle = xpElemNodes "{urn:ietf:params:xml:ns:xmpp-sasl}failure"
+                 (xpIsolate xpElemVerbatim)
 
+challengePickle :: PU [Node] Text.Text
+challengePickle =  xpElemNodes "{urn:ietf:params:xml:ns:xmpp-sasl}challenge"
+                     (xpIsolate $ xpContent xpId)
 
-saslprepProfile :: StringPrepProfile
-
-saslprepProfile = Profile { maps = [\ char -> if char `inRanges` (ranges c12) then singleton '\x0020' else singleton char, b1]
-                          , shouldNormalize = True
-                          , prohibited = [a1] ++ [c12, c21, c22, c3, c4, c5, c6, c7, c8, c9]
-                          , shouldCheckBidi = True }
