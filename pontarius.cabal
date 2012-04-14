@@ -1,11 +1,11 @@
 Name: pontarius
-Version: 0.0.8.0
+Version: 0.1.0.0
 Cabal-Version: >= 1.6
 Build-Type: Simple
 -- License:
 License-File: LICENSE
 Copyright: Copyright © 2010-2012, Jon Kristensen
-Author: Jon Kristensen, Mahdi Abdinejadi
+Author: Jon Kristensen, Mahdi Abdinejadi, Philipp Balzarek
 Maintainer: jon.kristensen@nejla.com
 Stability: alpha
 -- Homepage:
@@ -15,45 +15,59 @@ Synopsis: An incomplete implementation of RFC 6120 (XMPP: Core)
 Description: Pontarius is a work in progress of an implementation of
              RFC 6120 (XMPP: Core).
 Category: Network
-Tested-With: GHC ==7.0.4
+Tested-With: GHC == 7.4.1
 -- Data-Files:
 -- Data-Dir:
 -- Extra-Source-Files:
 -- Extra-Tmp-Files:
 
 Library
+  hs-source-dirs: src
   Exposed: True
-  Build-Depends: base >= 2 && < 5, parsec, crypto-api, base64-string, pureMD5,
-                 utf8-string, network, xml-types, text, transformers,
-                 bytestring, cereal, random,
-                 tls, tls-extra, containers, mtl, text-icu,
-                 stringprep, asn1-data, cryptohash, time,
-                 certificate, ranges, uuid, conduit, xml-conduit
-  -- Other-Modules:
-  -- HS-Source-Dirs:
-  -- Extensions:
-  -- Build-Tools:
-  -- Buildable:
-  -- GHC-Options:
-  -- GHC-Prof-Options:
-  -- Hugs-Options:
-  -- NHC98-Options:
-  -- Includes:
-  -- Install-Includes:
-  -- Include-Dirs:
-  -- C-Sources:
-  -- Extra-Libraries:
-  -- Extra-Lib-Dirs:
-  -- CC-Options:
-  -- LD-Options:
-  -- Pkgconfig-Depends:
-  -- Frameworks:
+  Build-Depends: base          >4 && <5
+               , conduit           -any
+               , resourcet         -any
+               , containers        -any
+               , random            -any
+               , tls               -any
+               , tls-extra         -any
+               , pureMD5           -any
+               , base64-bytestring -any
+               , binary            -any
+               , attoparsec        -any
+               , crypto-api        -any
+               , text              -any
+               , bytestring        -any
+               , transformers      -any
+               , mtl               -any
+               , network           -any
+               , lifted-base       -any
+               , split             -any
+               , stm               -any
+               , xml-types         -any
+               , xml-conduit       -any
+               , xml-types-pickle  -any
+               , data-default      -any
+  Exposed-modules: Network.XMPP.Types
+   -- Network.XMPP
+
+                 -- , Network.XMPP.SASL
+                 -- , Network.XMPP.Stream
+                 -- , Network.XMPP.Pickle
+                 -- , Network.XMPP.Marshal
+                 -- , Network.XMPP.Monad
+                 -- , Network.XMPP.Concurrent
+                 -- , Network.XMPP.TLS
+                 -- , Network.XMPP.Bind
+                 -- , Network.XMPP.Session
+                 -- , Text.XML.Stream.Elements
+                 -- , Data.Conduit.TLS
+  GHC-Options: -Wall
+
 
 Source-Repository head
   Type: git
-  -- Module:
   Location: git://github.com/nejla/pontarius.git
-  -- Subdir:
 
 -- Source-Repository this
 --   Type: git

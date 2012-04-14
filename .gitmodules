@@ -1,0 +1,3 @@
+[submodule "xml-types-pickle"]
+        path = xml-types-pickle
+        url = git@github.com:Philonous/xml-types-pickle.git
