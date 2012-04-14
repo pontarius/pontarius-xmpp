@@ -78,11 +78,11 @@ runMain debug number = do
                              1 -> (testUser1, testUser2,True)
                              2 -> (testUser2, testUser1,False)
                              _ -> error "Need either 1 or 2"
+  let debug' = liftIO . atomically .
+               debug . (("Thread " ++ show number ++ ":") ++)
   sessionConnect "localhost"
                  "species64739.dyndns.org"
                  (fromJust $ node we) (resource we) $ do
-      let debug' = liftIO . atomically . debug .
-                    (("Thread " ++ show number ++ ":") ++)
       withConnection $ xmppSASL "pwd"
       xmppThreadedBind (resource we)
       withConnection $ xmppSession
@@ -90,7 +90,6 @@ runMain debug number = do
       forkXMPP autoAccept
       forkXMPP iqResponder
       -- sendS . SPresence $ Presence Nothing (Just them) Nothing (Just Subscribe) Nothing Nothing Nothing  []
-      let delay = if active then 1000000 else 5000000
       when active . void . forkXMPP $ do
         forM [1..10] $ \count -> do
             let message = Text.pack . show $ node we
@@ -100,7 +99,7 @@ runMain debug number = do
             let answerPayload = unpickleElem payloadP
                                   (fromJust $ iqResultPayload answer)
             expect debug' (invertPayload payload) answerPayload
-            liftIO $ threadDelay delay
+            liftIO $ threadDelay 500000
         sendUser "All tests done"
       liftIO  . forever $ threadDelay 10000000
       return ()

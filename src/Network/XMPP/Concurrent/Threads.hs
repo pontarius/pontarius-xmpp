@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Network.XMPP.Concurrent.Threads where
 
@@ -36,40 +37,51 @@ import qualified Text.XML.Stream.Render as XR
 readWorker :: TChan (Either MessageError Message)
            -> TChan (Either PresenceError Presence)
            -> TVar IQHandlers
-           -> XMPPConState
-           -> ResourceT IO ()
-readWorker messageC presenceC handlers s = Ex.catch
-                                                (forever . flip runStateT s $ do
-    sta <- pull
-    liftIO .atomically $ do
-      case sta of
-        MessageS  m -> do writeTChan messageC $ Right m
-                          _ <- readTChan messageC -- Sic!
-                          return ()
-                       -- this may seem ridiculous, but to prevent
-                       -- the channel from filling up we immedtiately remove the
-                       -- Stanza we just put in. It will still be
-                       -- available in duplicates.
-        MessageErrorS m -> do writeTChan messageC $ Left m
-                              _ <- readTChan messageC
-                              return ()
-        PresenceS      p -> do
-                         writeTChan presenceC $ Right p
-                         _ <- readTChan presenceC
-                         return ()
-        PresenceErrorS p ->  do
-                               writeTChan presenceC $ Left p
-                               _ <- readTChan presenceC
-                               return ()
+           -> TMVar XMPPConState
+           -> IO ()
+readWorker messageC presenceC handlers stateRef =
+    Ex.mask_ . forever $ do
+        s <- liftIO . atomically $ takeTMVar stateRef
+        (sta', s') <- flip runStateT s $ Ex.catch ( do
+                -- we don't know whether pull will necessarily be interruptible
+                                           liftIO $ Ex.allowInterrupt
+                                           Just <$> pull
+                                         )
+                                         (\(Interrupt t) -> do
+                                           liftIO . atomically $
+                                               putTMVar stateRef s
+                                           liftIO . atomically $ takeTMVar t
+                                           return Nothing
+                                         )
+        liftIO . atomically $ do
+          case sta' of
+              Nothing -> return ()
+              Just sta -> do
+                putTMVar stateRef s'
+                case sta of
+                    MessageS  m -> do writeTChan messageC $ Right m
+                                      _ <- readTChan messageC -- Sic!
+                                      return ()
+                                   -- this may seem ridiculous, but to prevent
+                                   -- the channel from filling up we immedtiately remove the
+                                   -- Stanza we just put in. It will still be
+                                   -- available in duplicates.
+                    MessageErrorS m -> do writeTChan messageC $ Left m
+                                          _ <- readTChan messageC
+                                          return ()
+                    PresenceS      p -> do
+                                     writeTChan presenceC $ Right p
+                                     _ <- readTChan presenceC
+                                     return ()
+                    PresenceErrorS p ->  do
+                                           writeTChan presenceC $ Left p
+                                           _ <- readTChan presenceC
+                                           return ()
 
-        IQRequestS     i -> handleIQRequest handlers i
-        IQResultS      i -> handleIQResponse handlers (Right i)
-        IQErrorS       i -> handleIQResponse handlers (Left i)
-    )
-    ( \(ReaderSignal a) -> do
-           ((),s') <- runStateT a s
-           readWorker messageC presenceC handlers s'
-    )
+                    IQRequestS     i -> handleIQRequest handlers i
+                    IQResultS      i -> handleIQResponse handlers (Right i)
+                    IQErrorS       i -> handleIQResponse handlers (Left i)
+
 
 handleIQRequest handlers iq = do
   (byNS, _) <- readTVar handlers
@@ -110,8 +122,10 @@ startThreads
   :: XMPPConMonad ( TChan (Either MessageError Message)
                   , TChan (Either PresenceError Presence)
                   , TVar IQHandlers
-                  , TChan Stanza, IO ()
+                  , TChan Stanza
+                  , IO ()
                   , TMVar (BS.ByteString -> IO ())
+                  , TMVar XMPPConState
                   , ThreadId
                   )
 
@@ -122,24 +136,28 @@ startThreads = do
   iqC  <- liftIO newTChanIO
   outC <- liftIO  newTChanIO
   handlers <- liftIO $ newTVarIO ( Map.empty, Map.empty)
+  conS <- liftIO . newTMVarIO =<< get
   lw <- liftIO . forkIO $ writeWorker outC writeLock
   cp <- liftIO . forkIO $ connPersist writeLock
   s <- get
-  rd <- lift . resourceForkIO $ readWorker messageC presenceC handlers s
-  return (messageC, presenceC, handlers, outC, killConnection writeLock [lw, rd, cp], writeLock, rd)
+  rd <- liftIO . forkIO $ readWorker messageC presenceC handlers conS
+  return (messageC, presenceC, handlers, outC
+         , killConnection writeLock [lw, rd, cp]
+         , writeLock, conS ,rd)
   where
       killConnection writeLock threads = liftIO $ do
         _ <- atomically $ takeTMVar writeLock -- Should we put it back?
         _ <- forM threads killThread
         return()
 
-
 -- | Start worker threads and run action. The supplied action will run
 -- in the calling thread. use 'forkXMPP' to start another thread.
 runThreaded  :: XMPPThread a
                 -> XMPPConMonad a
 runThreaded a = do
-    (mC, pC, hand, outC, _stopThreads, writeR, rdr ) <- startThreads
+    liftIO . putStrLn $ "starting threads"
+    (mC, pC, hand, outC, _stopThreads, writeR, conS, rdr ) <- startThreads
+    liftIO . putStrLn $ "threads running"
     workermCh <- liftIO . newIORef $ Nothing
     workerpCh <- liftIO . newIORef $ Nothing
     idRef <- liftIO $ newTVarIO 1
@@ -147,7 +165,10 @@ runThreaded a = do
             curId <- readTVar idRef
             writeTVar idRef (curId + 1 :: Integer)
             return . read. show $ curId
-    liftIO $ runReaderT a (Thread workermCh workerpCh mC pC outC hand writeR rdr getId)
+    s <- get
+    liftIO . putStrLn $ "starting application"
+    liftIO $ runReaderT a (Thread workermCh workerpCh mC pC outC hand writeR rdr getId conS)
+
 
 -- | Sends a blank space every 30 seconds to keep the connection alive
 connPersist ::  TMVar (BS.ByteString -> IO ()) -> IO ()

@@ -38,11 +38,11 @@ data Thread = Thread { messagesRef :: IORef (Maybe ( TChan (Either
                      , writeRef :: TMVar (BS.ByteString -> IO () )
                      , readerThread :: ThreadId
                      , idGenerator :: IO StanzaId
+                     , conStateRef :: TMVar XMPPConState
                      }
 
 type XMPPThread a = ReaderT Thread IO a
 
-
-data ReaderSignal = ReaderSignal (XMPPConMonad ()) deriving Typeable
-instance Show ReaderSignal where show _ = "<ReaderSignal>"
-instance Ex.Exception ReaderSignal
+data Interrupt = Interrupt (TMVar ()) deriving Typeable
+instance Show Interrupt where show _ = "<Interrupt>"
+instance Ex.Exception Interrupt

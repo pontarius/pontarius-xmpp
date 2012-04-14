@@ -4,6 +4,7 @@ import           Network.XMPP.Types
 
 import           Control.Concurrent
 import           Control.Concurrent.STM
+import qualified Control.Exception.Lifted as Ex
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.State
@@ -141,18 +142,26 @@ waitForPresence f = do
 -- | Run an XMPPMonad action in isolation.
 -- Reader and writer workers will be temporarily stopped
 -- and resumed with the new session details once the action returns.
--- The Action will run in the reader thread.
-withConnection :: XMPPConMonad () -> XMPPThread ()
+-- The Action will run in the calling thread/
+-- NB: This will /not/ catch any exceptions. If you action dies, deadlocks
+-- or otherwisely exits abnormaly the XMPP session will be dead.
+withConnection :: XMPPConMonad a -> XMPPThread a
 withConnection a = do
-  writeLock <- asks writeRef
-  rdr <- asks readerThread
-  _ <- liftIO . atomically  $ takeTMVar writeLock -- we replace it with the
-                                                  -- one returned by a
-  liftIO . throwTo rdr . ReaderSignal $ do
-    a
-    out <- gets sConPushBS
-    liftIO . atomically $ putTMVar writeLock out
-  return ()
+  readerId <- asks readerThread
+  stateRef <- asks conStateRef
+  write <- asks writeRef
+  wait <- liftIO $ newEmptyTMVarIO
+  liftIO . throwTo readerId $ Interrupt wait
+  s <- liftIO . atomically $ do
+    putTMVar wait ()
+    takeTMVar write
+    takeTMVar stateRef
+  (res, s') <- liftIO $ runStateT a s
+  liftIO . atomically $ do
+    putTMVar write (sConPushBS s')
+    putTMVar stateRef s'
+  return res
+
 
 sendPresence :: Presence -> XMPPThread ()
 sendPresence = sendS . PresenceS

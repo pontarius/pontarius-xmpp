@@ -7,9 +7,8 @@ module Data.Conduit.TLS
        )
        where
 
-import Control.Applicative
+import Control.Monad(liftM)
 import Control.Monad.IO.Class
-import Control.Monad.Trans.Resource
 
 import Crypto.Random
 
@@ -23,7 +22,7 @@ import Network.TLS.Extra as TLSExtra
 import System.IO(Handle)
 
 tlsinit
-  :: (MonadIO m, MonadIO m1, MonadResource m1) =>
+  :: (MonadIO m, MonadIO m1) =>
      TLSParams
      -> Handle -> m ( Source m1 BS.ByteString
                     , Sink BS.ByteString m1 ()
@@ -32,15 +31,13 @@ tlsinit tlsParams handle = do
     gen <- liftIO $ (newGenIO :: IO SystemRandom) -- TODO: Find better random source?
     clientContext <- client tlsParams gen handle
     handshake clientContext
-    let src = sourceIO
-               (return clientContext)
-               (bye)
-               (\con -> IOOpen <$> recvData con)
-    let snk = sinkIO
-         (return clientContext)
-         (\_ -> return ())
+    let src = sourceState
+               clientContext
+               (\con -> StateOpen con `liftM` recvData con)
+    let snk = sinkState
+         clientContext
          (\con bs -> sendData con (BL.fromChunks [bs])
-                     >> return IOProcessing )
+                     >> return (StateProcessing  con))
          (\_ -> return ())
     return ( src
            , snk

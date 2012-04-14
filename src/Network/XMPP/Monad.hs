@@ -5,7 +5,7 @@ module Network.XMPP.Monad where
 import Control.Applicative((<$>))
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
-import Control.Monad.Trans.Resource
+--import Control.Monad.Trans.Resource
 import Control.Monad.Trans.State
 
 import Data.ByteString as BS
@@ -16,6 +16,7 @@ import Data.Text(Text)
 import Data.XML.Pickle
 import Data.XML.Types
 
+import Network
 import Network.XMPP.Types
 import Network.XMPP.Marshal
 import Network.XMPP.Pickle
@@ -41,7 +42,7 @@ pushOpen e = do
   lift . sink $ openElementToEvents e
   return ()
 
-pulls :: Sink Event (ResourceT IO) b -> XMPPConMonad b
+pulls :: Sink Event IO b -> XMPPConMonad b
 pulls snk = do
   source <- gets sConSrc
   (src', r) <- lift $ source $$+ snk
@@ -63,15 +64,15 @@ xmppFromHandle :: Handle
                -> Maybe Text
                -> XMPPConMonad a
                -> IO (a, XMPPConState)
-xmppFromHandle handle hostname username res f = runResourceT $ do
+xmppFromHandle handle hostname username res f = do
   liftIO $ hSetBuffering handle NoBuffering
-  let raw = CB.sourceHandle handle
+  let raw = sourceHandle' handle
   let src = raw $= XP.parseBytes def
   let st = XMPPConState
              src
              (raw)
              (\xs -> CL.sourceList xs
-                     $$ XR.renderBytes def =$ CB.sinkHandle handle)
+                     $$ XR.renderBytes def =$ sinkHandle' handle)
              (BS.hPut handle)
              (Just handle)
              (SF Nothing [] [])
@@ -80,4 +81,54 @@ xmppFromHandle handle hostname username res f = runResourceT $ do
              username
              res
   runStateT f st
+
+-- TODO: Once pullrequest has been merged, switch back to upstream
+sourceHandle' :: MonadIO m => Handle -> Source m BS.ByteString
+sourceHandle' h =
+    src
+  where
+    src = PipeM pull close
+
+    pull = do
+        bs <- liftIO (BS.hGetSome h 4096)
+        if BS.null bs
+            then return $ Done Nothing ()
+            else return $ HaveOutput src close bs
+
+    close = return ()
+
+sinkHandle' :: MonadIO m
+           => Handle
+           -> Sink BS.ByteString m ()
+sinkHandle' h =
+    NeedInput push close
+  where
+    push input = PipeM
+        (liftIO (BS.hPut h input) >> return (NeedInput push close))
+        (return ())
+    close = return ()
+
+xmppConnect :: HostName -> Text -> XMPPConMonad ()
+xmppConnect host hostname = do
+  uname <- gets sUsername
+  con <- liftIO $ do
+      con <- connectTo host (PortNumber 5222)
+      hSetBuffering con NoBuffering
+      return con
+  let raw = sourceHandle' con
+  let src = raw $= XP.parseBytes def
+  let st = XMPPConState
+             src
+             (raw)
+             (\xs -> CL.sourceList xs
+                     $$ XR.renderBytes def =$ sinkHandle' con)
+             (BS.hPut con)
+             (Just con)
+             (SF Nothing [] [])
+             False
+             hostname
+             uname
+             Nothing
+  put st
+  return ()
 

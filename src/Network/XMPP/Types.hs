@@ -608,9 +608,9 @@ data ServerFeatures = SF
   } deriving Show
 
 data XMPPConState = XMPPConState
-               { sConSrc    :: Source (ResourceT IO) Event
-               , sRawSrc    :: Source (ResourceT IO) BS.ByteString
-               , sConPush   :: [Event] -> ResourceT IO ()
+               { sConSrc    :: Source IO Event
+               , sRawSrc    :: Source IO BS.ByteString
+               , sConPush   :: [Event] -> IO ()
                , sConPushBS :: BS.ByteString -> IO ()
                , sConHandle :: Maybe Handle
                , sFeatures  :: ServerFeatures
@@ -627,7 +627,7 @@ data XMPPConState = XMPPConState
 
 newtype XMPPT m a = XMPPT { runXMPPT :: StateT XMPPConState m a } deriving (Monad, MonadIO)
 
-type XMPPConMonad a = StateT XMPPConState (ResourceT IO) a
+type XMPPConMonad a = StateT XMPPConState IO a
 
 -- Make XMPPT derive the Monad and MonadIO instances.
 

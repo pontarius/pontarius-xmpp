@@ -53,12 +53,12 @@ xmppRestartStream = do
   xmppStartStream
 
 
-xmppStream :: Sink Event (ResourceT IO) ServerFeatures
+xmppStream :: Sink Event IO ServerFeatures
 xmppStream = do
   xmppStreamHeader
   xmppStreamFeatures
 
-xmppStreamHeader :: Sink Event (ResourceT IO) ()
+xmppStreamHeader :: Sink Event IO ()
 xmppStreamHeader = do
   throwOutJunk
   (ver, _, _) <- unpickleElem pickleStream <$> openElementFromEvents
@@ -66,7 +66,7 @@ xmppStreamHeader = do
   return()
 
 
-xmppStreamFeatures :: Sink Event (ResourceT IO) ServerFeatures
+xmppStreamFeatures :: Sink Event IO ServerFeatures
 xmppStreamFeatures = unpickleElem pickleStreamFeatures <$> elementFromEvents
 
 
