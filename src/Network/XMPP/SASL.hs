@@ -48,14 +48,27 @@ saslResponse2E =
     []
     []
 
-xmppSASL  :: Text -> XMPPConMonad ()
-xmppSASL passwd = do
+xmppSASL:: Text -> Text -> XMPPConMonad (Either String Text)
+xmppSASL uname passwd = do
+    realm <- gets sHostname
+    case realm of
+      Just realm' -> do
+          xmppStartSASL realm' uname passwd
+          modify (\s -> s{sUsername = Just uname})
+          return $ Right uname
+      Nothing -> return $ Left "No connection found"
+
+xmppStartSASL  :: Text
+               -> Text
+               -> Text
+               -> XMPPConMonad ()
+xmppStartSASL realm username passwd = do
   mechanisms <- gets $ saslMechanisms . sFeatures
   unless ("DIGEST-MD5" `elem` mechanisms) .  error $ "No usable auth mechanism: " ++ show mechanisms
   pushN $ saslInitE "DIGEST-MD5"
   Right challenge <- B64.decode . Text.encodeUtf8<$> pullPickle challengePickle
   let Right pairs = toPairs challenge
-  pushN . saslResponseE =<< createResponse passwd pairs
+  pushN . saslResponseE =<< createResponse realm username passwd pairs
   challenge2 <- pullPickle (xpEither failurePickle challengePickle)
   case challenge2 of
     Left x -> error $ show x
@@ -65,13 +78,17 @@ xmppSASL passwd = do
   xmppRestartStream
   return ()
 
-createResponse :: Text -> [(BS8.ByteString, BS8.ByteString)] -> XMPPConMonad Text
-createResponse passwd' pairs = do
+createResponse :: Text
+               -> Text
+               -> Text
+               -> [(BS8.ByteString, BS8.ByteString)]
+               -> XMPPConMonad Text
+createResponse hostname username passwd' pairs = do
   let Just qop = L.lookup "qop" pairs
   let Just nonce = L.lookup "nonce" pairs
-  uname <- Text.encodeUtf8 <$> gets sUsername
+  let uname = Text.encodeUtf8 username
   let passwd = Text.encodeUtf8 passwd'
-  realm <- Text.encodeUtf8 <$> gets sHostname
+  let realm = Text.encodeUtf8 hostname
   g <- liftIO $ Random.newStdGen
   let cnonce = BS.tail . BS.init .
                B64.encode . BS.pack . take 8 $ Random.randoms g

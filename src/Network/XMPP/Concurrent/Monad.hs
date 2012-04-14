@@ -162,7 +162,6 @@ withConnection a = do
     putTMVar stateRef s'
   return res
 
-
 sendPresence :: Presence -> XMPPThread ()
 sendPresence = sendS . PresenceS
 

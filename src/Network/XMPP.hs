@@ -40,8 +40,8 @@ module Network.XMPP
   , module Network.XMPP.Types
   , module Network.XMPP.Presence
   , module Network.XMPP.Message
---  , connectXMPP
-  , sessionConnect
+  , xmppConnect
+  , xmppNewSession
   ) where
 
 import Data.Text as Text
@@ -58,35 +58,8 @@ import Network.XMPP.Stream
 import Network.XMPP.TLS
 import Network.XMPP.Types
 
-import System.IO
+xmppConnect :: HostName -> Text -> XMPPConMonad ()
+xmppConnect  address hostname = xmppRawConnect address hostname >> xmppStartStream
 
---fromHandle :: Handle -> Text -> Text -> Maybe Text -> Text -> IO ((), XMPPState)
--- fromHandle :: Handle -> Text -> Text -> Maybe Text -> Text -> XMPPThread a
---             -> IO ((), XMPPState)
--- fromHandle handle hostname username rsrc password a =
---   xmppFromHandle handle hostname username rsrc $ do
---       xmppStartStream
---       -- this will check whether the server supports tls
---       -- on it's own
---       xmppStartTLS exampleParams
---       xmppSASL password
---       xmppBind rsrc
---       xmppSession
---       _ <- runThreaded a
---       return ()
-
--- connectXMPP  :: HostName -> Text -> Text -> Maybe Text
---                 -> Text -> XMPPThread a -> IO ((), XMPPState)
--- connectXMPP host hostname username rsrc passwd a = do
---   con <- connectTo host (PortNumber 5222)
---   hSetBuffering con NoBuffering
---   fromHandle con hostname username rsrc passwd a
-
-sessionConnect  :: HostName -> Text -> Text
-                   -> Maybe Text -> XMPPThread a -> IO (a, XMPPConState)
-sessionConnect host hostname username rsrc a = do
-  con <- connectTo host (PortNumber 5222)
-  hSetBuffering con NoBuffering
-  xmppFromHandle con hostname username rsrc $
-    xmppStartStream >> runThreaded a
-
+xmppNewSession :: XMPPThread a -> IO (a, XMPPConState)
+xmppNewSession = withNewSession . runThreaded

@@ -610,13 +610,12 @@ data ServerFeatures = SF
 data XMPPConState = XMPPConState
                { sConSrc    :: Source IO Event
                , sRawSrc    :: Source IO BS.ByteString
-               , sConPush   :: [Event] -> IO ()
                , sConPushBS :: BS.ByteString -> IO ()
                , sConHandle :: Maybe Handle
                , sFeatures  :: ServerFeatures
                , sHaveTLS   :: Bool
-               , sHostname  :: Text
-               , sUsername  :: Text
+               , sHostname  :: Maybe Text
+               , sUsername  :: Maybe Text
                , sResource  :: Maybe Text
                }
 

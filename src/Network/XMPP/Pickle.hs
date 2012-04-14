@@ -10,6 +10,7 @@ module Network.XMPP.Pickle where
 import Data.XML.Types
 import Data.XML.Pickle
 
+import Text.XML.Stream.Elements
 
 mbToBool :: Maybe t -> Bool
 mbToBool (Just _) = True
@@ -51,14 +52,11 @@ right :: Either [Char] t -> t
 right (Left l) = error l
 right (Right r) = r
 
-
 unpickleElem :: PU [Node] c -> Element -> c
 unpickleElem p x = case unpickle (xpNodeElem p) x of
-  Left l -> error $ l ++ "\n  saw: " ++ show x
+  Left l -> error $ l ++ "\n  saw: " ++ ppElement x
   Right r -> r
 
 pickleElem :: PU [Node] a -> a -> Element
 pickleElem p = pickle  $ xpNodeElem p
-
-
 

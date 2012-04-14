@@ -1,7 +1,6 @@
-{-# LANGUAGE PackageImports, OverloadedStrings #-}
+{-# LANGUAGE PackageImports, OverloadedStrings, NoMonomorphismRestriction #-}
 module Example where
 
-import           Network.XMPP
 import           Control.Concurrent
 import           Control.Concurrent.STM
 import           Control.Monad
@@ -13,9 +12,11 @@ import qualified Data.Text as Text
 import           Data.XML.Pickle
 import           Data.XML.Types
 
+import           Network.XMPP
 import           Network.XMPP.Pickle
 
 import           System.Environment
+import Text.XML.Stream.Elements
 
 testUser1 :: JID
 testUser1 = read "testuser1@species64739.dyndns.org/bot1"
@@ -72,6 +73,9 @@ expect debug x y | x == y = debug "Ok."
                             sendUser failMSG
 
 
+wait3 :: MonadIO m => m ()
+wait3 = liftIO $ threadDelay 1000000
+
 runMain :: (String -> STM ()) -> Int -> IO ()
 runMain debug number = do
   let (we, them, active) = case number of
@@ -80,16 +84,21 @@ runMain debug number = do
                              _ -> error "Need either 1 or 2"
   let debug' = liftIO . atomically .
                debug . (("Thread " ++ show number ++ ":") ++)
-  sessionConnect "localhost"
-                 "species64739.dyndns.org"
-                 (fromJust $ node we) (resource we) $ do
-      withConnection $ xmppSASL "pwd"
+  xmppNewSession $ do
+      debug' "running"
+      withConnection $ do
+        xmppConnect "localhost" "species64739.dyndns.org"
+        xmppStartTLS exampleParams
+        saslResponse <- xmppSASL (fromJust $ node we) "pwd"
+        case saslResponse of
+          Right _ -> return ()
+          Left e -> error e
       xmppThreadedBind (resource we)
       withConnection $ xmppSession
+      debug' "session standing"
       sendPresence presenceOnline
       forkXMPP autoAccept
       forkXMPP iqResponder
-      -- sendS . SPresence $ Presence Nothing (Just them) Nothing (Just Subscribe) Nothing Nothing Nothing  []
       when active . void . forkXMPP $ do
         forM [1..10] $ \count -> do
             let message = Text.pack . show $ node we
@@ -99,7 +108,7 @@ runMain debug number = do
             let answerPayload = unpickleElem payloadP
                                   (fromJust $ iqResultPayload answer)
             expect debug' (invertPayload payload) answerPayload
-            liftIO $ threadDelay 500000
+            liftIO $ threadDelay 100000
         sendUser "All tests done"
       liftIO  . forever $ threadDelay 10000000
       return ()

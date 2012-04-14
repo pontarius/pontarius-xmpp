@@ -1,23 +1,26 @@
 module Text.XML.Stream.Elements where
 
-import Control.Applicative ((<$>))
-import Control.Monad.Trans.Class
-import Control.Monad.Trans.Resource as R
+import           Control.Applicative ((<$>))
+import           Control.Monad.Trans.Class
+import           Control.Monad.Trans.Resource as R
 
-import Data.Text as T
-import Text.XML.Unresolved
-import Data.XML.Types
+import qualified Data.ByteString as BS
+import qualified Data.Text as Text
+import qualified Data.Text.Encoding as Text
+import           Data.XML.Types
+import qualified Text.XML.Stream.Render as TXSR
+import           Text.XML.Unresolved as TXU
 
-import Data.Conduit as C
-import Data.Conduit.List as CL
+import           Data.Conduit as C
+import           Data.Conduit.List as CL
 
-import Text.XML.Stream.Parse
+import           System.IO.Unsafe(unsafePerformIO)
 
 compressNodes :: [Node] -> [Node]
 compressNodes [] = []
 compressNodes [x] = [x]
 compressNodes (NodeContent (ContentText x) : NodeContent (ContentText y) : z) =
-    compressNodes $ NodeContent (ContentText $ x `T.append` y) : z
+    compressNodes $ NodeContent (ContentText $ x `Text.append` y) : z
 compressNodes (x:xs) = x : compressNodes xs
 
 elementFromEvents :: R.MonadThrow m => C.Sink Event m Element
@@ -27,7 +30,7 @@ elementFromEvents = do
             Just (EventBeginElement n as) -> goE n as
             _ -> lift $ R.monadThrow $ InvalidEventStream $ "not an element: " ++ show x
   where
-    many f =
+    many' f =
         go id
       where
         go front = do
@@ -38,7 +41,7 @@ elementFromEvents = do
     dropReturn x = CL.drop 1 >> return x
     goE n as = do
         CL.drop 1
-        ns <- many goN
+        ns <- many' goN
         y <- CL.head
         if y == Just (EventEndElement n)
             then return $ Element n as $ compressNodes ns
@@ -57,15 +60,10 @@ elementFromEvents = do
 openElementToEvents :: Element -> [Event]
 openElementToEvents (Element name as ns) = EventBeginElement name as : goN ns []
   where
-    goM [] = id
-    goM [x] = (goM' x :)
-    goM (x:xs) = (goM' x :) . goM xs
-    goM' (MiscInstruction i) = EventInstruction i
-    goM' (MiscComment t) = EventComment t
-    goE (Element name as ns) =
-          (EventBeginElement name as :)
-        . goN ns
-        . (EventEndElement name :)
+    goE (Element name' as' ns') =
+          (EventBeginElement name' as' :)
+        . goN ns'
+        . (EventEndElement name' :)
     goN [] = id
     goN [x] = goN' x
     goN (x:xs) = goN' x . goN xs
@@ -76,3 +74,15 @@ openElementToEvents (Element name as ns) = EventBeginElement name as : goN ns []
 
 elementToEvents :: Element -> [Event]
 elementToEvents e@(Element name _ _) = openElementToEvents e ++ [EventEndElement name]
+
+
+renderOpenElement :: Element -> BS.ByteString
+renderOpenElement e = Text.encodeUtf8 . Text.concat . unsafePerformIO
+    $ CL.sourceList (openElementToEvents e) $$ TXSR.renderText def =$ CL.consume
+
+renderElement :: Element -> BS.ByteString
+renderElement e = Text.encodeUtf8 . Text.concat . unsafePerformIO
+    $ CL.sourceList (elementToEvents e) $$ TXSR.renderText def =$ CL.consume
+
+ppElement :: Element -> String
+ppElement = Text.unpack . Text.decodeUtf8 . renderElement

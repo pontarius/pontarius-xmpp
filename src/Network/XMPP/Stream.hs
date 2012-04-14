@@ -40,7 +40,7 @@ openElementFromEvents = do
 xmppStartStream :: XMPPConMonad ()
 xmppStartStream = do
   hostname <- gets sHostname
-  pushOpen $ pickleElem pickleStream ("1.0",Nothing, Just hostname)
+  pushOpen $ pickleElem pickleStream ("1.0",Nothing, hostname)
   features <- pulls xmppStream
   modify (\s -> s {sFeatures = features})
   return ()

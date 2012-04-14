@@ -26,7 +26,8 @@ starttlsE =
   Element "{urn:ietf:params:xml:ns:xmpp-tls}starttls" [] []
 
 exampleParams :: TLS.TLSParams
-exampleParams = TLS.TLSParams { pConnectVersion    = TLS.TLS10
+exampleParams = TLS.defaultParams
+                      {pConnectVersion    = TLS.TLS10
                       , pAllowedVersions   = [TLS.SSL3, TLS.TLS10, TLS.TLS11]
                       , pCiphers           = [TLS.cipher_AES128_SHA1]
                       , pCompressions      = [TLS.nullCompression]
@@ -35,7 +36,8 @@ exampleParams = TLS.TLSParams { pConnectVersion    = TLS.TLS10
                       , pCertificates      = [] -- TODO
                       , pLogging           = TLS.defaultLogging -- TODO
                       , onCertificatesRecv = \ certificate ->
-                                             return TLS.CertificateUsageAccept }
+                                             return TLS.CertificateUsageAccept
+                      }
 
 xmppStartTLS :: TLS.TLSParams -> XMPPConMonad ()
 xmppStartTLS params = do
@@ -49,8 +51,6 @@ xmppStartTLS params = do
                      { sRawSrc = raw
 --                   , sConSrc =  -- Note: this momentarily leaves us in an
                                   -- inconsistent state
-                     , sConPush = \xs -> CL.sourceList xs
-                     $$ XR.renderBytes def =$ snk
                      , sConPushBS = psh
                      })
       xmppRestartStream

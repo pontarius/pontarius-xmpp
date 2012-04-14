@@ -3,9 +3,11 @@
 module Network.XMPP.Monad where
 
 import Control.Applicative((<$>))
+import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
 --import Control.Monad.Trans.Resource
+import Control.Concurrent
 import Control.Monad.Trans.State
 
 import Data.ByteString as BS
@@ -30,16 +32,16 @@ import Text.XML.Stream.Render as XR
 
 pushN :: Element -> XMPPConMonad ()
 pushN x = do
-  sink <- gets sConPush
-  lift . sink $ elementToEvents x
+  sink <- gets sConPushBS
+  liftIO . sink $ renderElement x
 
 push :: Stanza -> XMPPConMonad ()
 push = pushN . pickleElem stanzaP
 
 pushOpen :: Element -> XMPPConMonad ()
 pushOpen e = do
-  sink <- gets sConPush
-  lift . sink $ openElementToEvents e
+  sink <- gets sConPushBS
+  liftIO . sink $ renderOpenElement e
   return ()
 
 pulls :: Sink Event IO b -> XMPPConMonad b
@@ -71,14 +73,12 @@ xmppFromHandle handle hostname username res f = do
   let st = XMPPConState
              src
              (raw)
-             (\xs -> CL.sourceList xs
-                     $$ XR.renderBytes def =$ sinkHandle' handle)
              (BS.hPut handle)
              (Just handle)
              (SF Nothing [] [])
              False
-             hostname
-             username
+             (Just hostname)
+             (Just username)
              res
   runStateT f st
 
@@ -108,8 +108,24 @@ sinkHandle' h =
         (return ())
     close = return ()
 
-xmppConnect :: HostName -> Text -> XMPPConMonad ()
-xmppConnect host hostname = do
+zeroSource :: Source IO output
+zeroSource = sourceState () (\_ -> forever $ threadDelay 10000000)
+
+xmppZeroConState :: XMPPConState
+xmppZeroConState = XMPPConState
+               { sConSrc    = zeroSource
+               , sRawSrc    = zeroSource
+               , sConPushBS = (\_ -> return ())
+               , sConHandle = Nothing
+               , sFeatures  = SF Nothing [] []
+               , sHaveTLS   = False
+               , sHostname  = Nothing
+               , sUsername  = Nothing
+               , sResource  = Nothing
+               }
+
+xmppRawConnect :: HostName -> Text -> XMPPConMonad ()
+xmppRawConnect host hostname = do
   uname <- gets sUsername
   con <- liftIO $ do
       con <- connectTo host (PortNumber 5222)
@@ -120,15 +136,15 @@ xmppConnect host hostname = do
   let st = XMPPConState
              src
              (raw)
-             (\xs -> CL.sourceList xs
-                     $$ XR.renderBytes def =$ sinkHandle' con)
              (BS.hPut con)
              (Just con)
              (SF Nothing [] [])
              False
-             hostname
+             (Just hostname)
              uname
              Nothing
   put st
-  return ()
 
+withNewSession :: XMPPConMonad a -> IO (a, XMPPConState)
+withNewSession action = do
+  runStateT action xmppZeroConState

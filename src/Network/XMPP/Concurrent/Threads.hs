@@ -109,9 +109,7 @@ writeWorker stCh writeR = forever $ do
   (write, next) <- atomically $ (,) <$>
                      takeTMVar writeR <*>
                      readTChan stCh
-  outBS <- CL.sourceList (elementToEvents $ pickleElem stanzaP next)
-             $= XR.renderBytes def $$ CL.consume
-  _ <- forM outBS write
+  _ <- write $ renderElement (pickleElem stanzaP next)
   atomically $ putTMVar writeR write
 
 -- Two streams: input and output. Threads read from input stream and write to output stream.
