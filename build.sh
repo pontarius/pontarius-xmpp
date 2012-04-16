@@ -1,0 +1,6 @@
+#!/bin/sh
+git submodule init
+git submodule update
+cabal-dev install ./xml-types-pickle
+cabal-dev install-deps
+cabal-dev build
