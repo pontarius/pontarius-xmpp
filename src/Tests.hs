@@ -54,7 +54,7 @@ iqResponder = do
                 >> error "hanging up"
   forever $ do
     next@(iq,_) <- liftIO . atomically $ readTChan chan
-    let payload = unpickleElem payloadP $ iqRequestPayload iq
+    let Right payload = unpickleElem payloadP $ iqRequestPayload iq
     let answerPayload = invertPayload payload
     let answerBody = pickleElem payloadP answerPayload
     answerIQ next (Right $ Just answerBody)
@@ -105,7 +105,7 @@ runMain debug number = do
             let payload = Payload count (even count) (Text.pack $ show count)
             let body = pickleElem payloadP payload
             Right answer <- sendIQ' (Just them) Get Nothing body
-            let answerPayload = unpickleElem payloadP
+            let Right answerPayload = unpickleElem payloadP
                                   (fromJust $ iqResultPayload answer)
             expect debug' (invertPayload payload) answerPayload
             liftIO $ threadDelay 100000

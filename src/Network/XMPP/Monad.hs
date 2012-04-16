@@ -8,7 +8,7 @@ import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
 --import Control.Monad.Trans.Resource
 import Control.Concurrent
-import Control.Monad.Trans.State
+import Control.Monad.State.Strict
 
 import Data.ByteString as BS
 import Data.Conduit
@@ -55,7 +55,7 @@ pullE :: XMPPConMonad Element
 pullE = pulls elementFromEvents
 
 pullPickle :: PU [Node] a -> XMPPConMonad a
-pullPickle p = unpickleElem p <$> pullE
+pullPickle p = unpickleElem' p <$> pullE
 
 pull :: XMPPConMonad Stanza
 pull = pullPickle stanzaP

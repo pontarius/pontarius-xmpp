@@ -26,6 +26,7 @@ Library
   Exposed: True
   Build-Depends: base          >4 && <5
                , conduit           -any
+               , void              -any
                , resourcet         -any
                , containers        -any
                , random            -any
@@ -48,6 +49,7 @@ Library
                , xml-conduit       -any
                , xml-types-pickle  -any
                , data-default      -any
+--               , stringprep        -any
   Exposed-modules: Network.XMPP
                  , Network.XMPP.Types
                  , Network.XMPP.SASL

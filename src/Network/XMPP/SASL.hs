@@ -4,7 +4,7 @@ module Network.XMPP.SASL where
 import           Control.Applicative
 import           Control.Monad
 import           Control.Monad.IO.Class
-import           Control.Monad.Trans.State
+import           Control.Monad.State.Strict
 
 import qualified Crypto.Classes as CC
 

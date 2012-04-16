@@ -52,10 +52,13 @@ right :: Either [Char] t -> t
 right (Left l) = error l
 right (Right r) = r
 
-unpickleElem :: PU [Node] c -> Element -> c
-unpickleElem p x = case unpickle (xpNodeElem p) x of
+unpickleElem' :: PU [Node] c -> Element -> c
+unpickleElem' p x = case unpickle (xpNodeElem p) x of
   Left l -> error $ l ++ "\n  saw: " ++ ppElement x
   Right r -> r
+
+unpickleElem :: PU [Node] a -> Element -> Either String a
+unpickleElem p x = unpickle (xpNodeElem p) x
 
 pickleElem :: PU [Node] a -> a -> Element
 pickleElem p = pickle  $ xpNodeElem p
