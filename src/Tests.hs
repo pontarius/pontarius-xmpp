@@ -89,11 +89,11 @@ runMain debug number = do
       withConnection $ do
         xmppConnect "localhost" "species64739.dyndns.org"
         xmppStartTLS exampleParams
-        saslResponse <- xmppSASL (fromJust $ node we) "pwd"
+        saslResponse <- xmppSASL (fromJust $ localpart we) "pwd"
         case saslResponse of
           Right _ -> return ()
           Left e -> error e
-      xmppThreadedBind (resource we)
+      xmppThreadedBind (resourcepart we)
       withConnection $ xmppSession
       debug' "session standing"
       sendPresence presenceOnline
@@ -101,7 +101,7 @@ runMain debug number = do
       forkXMPP iqResponder
       when active . void . forkXMPP $ do
         forM [1..10] $ \count -> do
-            let message = Text.pack . show $ node we
+            let message = Text.pack . show $ localpart we
             let payload = Payload count (even count) (Text.pack $ show count)
             let body = pickleElem payloadP payload
             Right answer <- sendIQ' (Just them) Get Nothing body

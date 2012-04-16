@@ -73,11 +73,11 @@ instance IsString StanzaId where
 -- @From@ is a readability type synonym for @Address@.
 
 -- | Jabber ID (JID) datatype
-data JID = JID { node :: Maybe Text
+data JID = JID { localpart :: Maybe Text
                -- ^ Account name
-               , domain :: Text
+               , domainpart :: Text
                -- ^ Server adress
-               , resource :: Maybe Text
+               , resourcepart :: Maybe Text
                -- ^ Resource name
                }
 
