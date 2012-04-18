@@ -44,5 +44,5 @@ xmppThreadedBind  :: Maybe Text -> XMPPThread Text
 xmppThreadedBind rsrc = do
    answer <- sendIQ' Nothing Set Nothing (bindBody rsrc)
    let (Right IQResult{iqResultPayload = Just b}) = answer -- TODO: Error handling
-   let (JID _n _d (Just r)) = unpickleElem jidP b
+   let Right (JID _n _d (Just r)) = unpickleElem jidP b
    return r

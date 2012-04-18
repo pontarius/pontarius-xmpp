@@ -4,14 +4,17 @@
 module Network.XMPP.Stream where
 
 import Control.Applicative((<$>))
+import Control.Exception(throwIO)
 import Control.Monad(unless)
-import Control.Monad.Trans.State
+import Control.Monad.Error
+import Control.Monad.State.Strict
 
 import Data.Conduit
 import Data.Conduit.List as CL
 import Data.Text as T
 import Data.XML.Pickle
 import Data.XML.Types
+import Data.Void(Void)
 
 import Network.XMPP.Monad
 import Network.XMPP.Pickle
@@ -22,6 +25,16 @@ import Text.XML.Stream.Parse as XP
 
 -- import Text.XML.Stream.Elements
 
+streamUnpickleElem :: PU [Node] a
+                   -> Element
+                   -> ErrorT StreamError (Pipe Event Void IO) a
+streamUnpickleElem p x = do
+  case unpickleElem p x of
+    Left l -> throwError $ StreamUnpickleError l
+    Right r -> return r
+
+type StreamSink a =  ErrorT StreamError (Pipe Event Void IO) a
+
 throwOutJunk :: Monad m => Sink Event m ()
 throwOutJunk = do
   next <- CL.peek
@@ -30,22 +43,26 @@ throwOutJunk = do
     Just (EventBeginElement _ _) -> return ()
     _ -> CL.drop 1 >> throwOutJunk
 
-openElementFromEvents :: Monad m => Sink Event m Element
+openElementFromEvents :: StreamSink Element
 openElementFromEvents = do
-  throwOutJunk
-  Just (EventBeginElement name attrs) <- CL.head
-  return $ Element name attrs []
+  lift throwOutJunk
+  hd <- lift CL.head
+  case hd of
+    Just (EventBeginElement name attrs) -> return $ Element name attrs []
+    _ -> throwError $ StreamConnectionError
 
-
-xmppStartStream :: XMPPConMonad ()
-xmppStartStream = do
-  hostname <- gets sHostname
-  pushOpen $ pickleElem pickleStream ("1.0",Nothing, hostname)
-  features <- pulls xmppStream
+xmppStartStream :: XMPPConMonad (Either StreamError ())
+xmppStartStream = runErrorT $ do
+  hostname' <- gets sHostname
+  case hostname' of
+    Nothing -> throwError StreamConnectionError
+    Just hostname -> lift . pushOpen $
+                       pickleElem pickleStream ("1.0",Nothing, Just hostname)
+  features <- ErrorT . pulls $ runErrorT xmppStream
   modify (\s -> s {sFeatures = features})
   return ()
 
-xmppRestartStream :: XMPPConMonad ()
+xmppRestartStream :: XMPPConMonad (Either StreamError ())
 xmppRestartStream = do
   raw <- gets sRawSrc
   let newsrc = raw $= XP.parseBytes def
@@ -53,22 +70,22 @@ xmppRestartStream = do
   xmppStartStream
 
 
-xmppStream :: Sink Event IO ServerFeatures
+xmppStream :: StreamSink ServerFeatures
 xmppStream = do
   xmppStreamHeader
   xmppStreamFeatures
 
-xmppStreamHeader :: Sink Event IO ()
+xmppStreamHeader :: StreamSink ()
 xmppStreamHeader = do
-  throwOutJunk
-  (ver, _, _) <- unpickleElem pickleStream <$> openElementFromEvents
-  unless (ver == "1.0")  $ error  "Not XMPP version 1.0 "
+  lift $ throwOutJunk
+  (ver, _, _) <- streamUnpickleElem pickleStream =<< openElementFromEvents
+  unless (ver == "1.0") . throwError $ StreamWrongVersion ver
   return()
 
 
-xmppStreamFeatures :: Sink Event IO ServerFeatures
-xmppStreamFeatures = unpickleElem pickleStreamFeatures <$> elementFromEvents
-
+xmppStreamFeatures :: StreamSink ServerFeatures
+xmppStreamFeatures = streamUnpickleElem pickleStreamFeatures
+                       =<< lift elementFromEvents
 
 -- Pickling
 
