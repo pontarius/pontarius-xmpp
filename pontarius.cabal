@@ -49,7 +49,7 @@ Library
                , xml-conduit       -any
                , xml-types-pickle  -any
                , data-default      -any
---               , stringprep        -any
+               , stringprep        >= 0.1.5
   Exposed-modules: Network.XMPP
                  , Network.XMPP.Types
                  , Network.XMPP.SASL
