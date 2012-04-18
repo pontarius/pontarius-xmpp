@@ -33,6 +33,8 @@ import           Data.XML.Types
 
 import qualified Network as N
 
+import           Network.XMPP.JID
+
 import           System.IO
 
 
@@ -73,38 +75,6 @@ instance Read StanzaId where
 
 instance IsString StanzaId where
   fromString = SI . Text.pack
-
--- |
--- @From@ is a readability type synonym for @Address@.
-
--- | Jabber ID (JID) datatype
-data JID = JID { localpart :: !(Maybe Text)
-               -- ^ Account name
-               , domainpart :: !Text
-               -- ^ Server adress
-               , resourcepart :: !(Maybe Text)
-               -- ^ Resource name
-               }
-
-instance Show JID where
-  show (JID nd dmn res) =
-            maybe "" ((++ "@") . Text.unpack) nd ++
-            (Text.unpack dmn)               ++
-            maybe "" (('/' :) . Text.unpack)   res
-
-parseJID :: [Char] -> [JID]
-parseJID jid = do
-  (jid', rst) <- case L.splitOn "@" jid of
-                      [rest] -> [(JID Nothing, rest)]
-                      [nd,rest] -> [(JID (Just (Text.pack nd)), rest)]
-                      _ -> []
-  case L.splitOn "/" rst of
-      [dmn] -> [jid' (Text.pack dmn) Nothing]
-      [dmn, rsrc] -> [jid' (Text.pack dmn) (Just (Text.pack rsrc))]
-      _ -> []
-
-instance Read JID where
-  readsPrec _ x = (,"") <$> parseJID x
 
 -- An Info/Query (IQ) stanza is either of the type "request" ("get" or
 -- "set") or "response" ("result" or "error"). The @IQ@ type wraps

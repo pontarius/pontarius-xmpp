@@ -15,28 +15,64 @@
 --
 -- This module does not internationalize hostnames.
 
-module Network.XMPP.JID (fromString, fromStrings, isBare, isFull) where
+module Network.XMPP.JID
+  ( JID(..)
+  , fromText
+  , fromStrings
+  , isBare
+  , isFull) where
 
 import           Control.Applicative ((<$>),(<|>))
 import           Control.Monad(guard)
 
 import qualified Data.Attoparsec.Text as AP
+import           Data.Maybe(fromJust)
+import qualified Data.Set as Set
+import           Data.String (IsString(..))
 import           Data.Text (Text)
 import qualified Data.Text as Text
 
 -- import           Network.URI (isIPv4address, isIPv6address)
-import           Network.XMPP.Types
 
 import qualified Text.NamePrep as SP
 import qualified Text.StringPrep as SP
 
 -- |
+-- @From@ is a readability type synonym for @Address@.
+
+-- | Jabber ID (JID) datatype
+data JID = JID { localpart :: !(Maybe Text)
+               -- ^ Account name
+               , domainpart :: !Text
+               -- ^ Server adress
+               , resourcepart :: !(Maybe Text)
+               -- ^ Resource name
+               }
+
+instance Show JID where
+  show (JID nd dmn res) =
+            maybe "" ((++ "@") . Text.unpack) nd ++
+            (Text.unpack dmn)               ++
+            maybe "" (('/' :) . Text.unpack)   res
+
+instance Read JID where
+  readsPrec _ x = case fromText (Text.pack x) of
+    Nothing -> []
+    Just j -> [(j,"")]
+
+
+instance IsString JID where
+  fromString = fromJust . fromText . Text.pack
+
+-- |
 -- Converts a string to a JID.
-fromString :: String -> Maybe JID
-fromString s = fromStrings l d r
-    where
-        Right (l, d, r) =
-            AP.parseOnly jidParts (Text.pack s)
+fromText :: Text -> Maybe JID
+fromText t = do
+  (l, d, r) <- eitherToMaybe $ AP.parseOnly jidParts t
+  fromStrings l d r
+  where
+    eitherToMaybe = either (const Nothing) Just
+
 
 -- |
 -- Converts localpart, domainpart, and resourcepart strings to a JID.
@@ -48,6 +84,8 @@ fromStrings l d r = do
           Just l'-> do
             l'' <- SP.runStringPrep nodeprepProfile l'
             guard $ validPartLength l''
+            let prohibMap = Set.fromList nodeprepExtraProhibitedCharacters
+            guard $ Text.all (`Set.notMember` prohibMap) l''
             return $ Just l''
         domainPart <- SP.runStringPrep (SP.namePrepProfile False) d
         guard $ validDomainPart domainPart
@@ -93,33 +131,32 @@ jidParts = do
     (x, Nothing, z) -> return (Nothing, x, z)
     -- When we do have an "@", x is the localpart
     (x, Just y, z) -> return (Just x, y, z)
-  where
-       firstPartP = AP.takeWhile1 (AP.notInClass ['@', '/'])
-       domainPartP = do
+
+firstPartP = AP.takeWhile1 (AP.notInClass ['@', '/'])
+domainPartP = do
            _ <- AP.char '@'
            AP.takeWhile1 (/= '/')
-       resourcePartP = do
+resourcePartP = do
            _ <- AP.char '/'
            AP.takeText
-
 
 nodeprepProfile :: SP.StringPrepProfile
 nodeprepProfile = SP.Profile
                              { SP.maps = [SP.b1, SP.b2]
                              , SP.shouldNormalize = True
                              , SP.prohibited = [SP.a1
-                                            , SP.c3
-                                            , SP.c4
-                                            , SP.c5
-                                            , SP.c6
-                                            , SP.c7
-                                            , SP.c8
-                                            , SP.c9
-                                            , SP.c11
-                                            , SP.c12
-                                            , SP.c21
-                                            , SP.c22
-                                            ]
+                                               , SP.c11
+                                               , SP.c12
+                                               , SP.c21
+                                               , SP.c22
+                                               , SP.c3
+                                               , SP.c4
+                                               , SP.c5
+                                               , SP.c6
+                                               , SP.c7
+                                               , SP.c8
+                                               , SP.c9
+                                               ]
                              , SP.shouldCheckBidi = True
                              }
 
@@ -136,16 +173,16 @@ resourceprepProfile = SP.Profile
                                  { SP.maps = [SP.b1]
                                  , SP.shouldNormalize = True
                                  , SP.prohibited = [ SP.a1
-                                                , SP.c3
-                                                , SP.c4
-                                                , SP.c5
-                                                , SP.c6
-                                                , SP.c7
-                                                , SP.c8
-                                                , SP.c9
-                                                , SP.c12
-                                                , SP.c21
-                                                , SP.c22
-                                                ]
+                                                   , SP.c12
+                                                   , SP.c21
+                                                   , SP.c22
+                                                   , SP.c3
+                                                   , SP.c4
+                                                   , SP.c5
+                                                   , SP.c6
+                                                   , SP.c7
+                                                   , SP.c8
+                                                   , SP.c9
+                                                   ]
                                  , SP.shouldCheckBidi = True
                                  }
