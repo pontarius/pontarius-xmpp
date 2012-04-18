@@ -58,7 +58,7 @@ import Network.XMPP.Stream
 import Network.XMPP.TLS
 import Network.XMPP.Types
 
-xmppConnect :: HostName -> Text -> XMPPConMonad ()
+xmppConnect :: HostName -> Text -> XMPPConMonad (Either StreamError ())
 xmppConnect  address hostname = xmppRawConnect address hostname >> xmppStartStream
 
 xmppNewSession :: XMPPThread a -> IO (a, XMPPConState)

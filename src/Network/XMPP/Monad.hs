@@ -8,7 +8,7 @@ import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
 --import Control.Monad.Trans.Resource
 import Control.Concurrent
-import Control.Monad.Trans.State
+import Control.Monad.State.Strict
 
 import Data.ByteString as BS
 import Data.Conduit
@@ -55,7 +55,7 @@ pullE :: XMPPConMonad Element
 pullE = pulls elementFromEvents
 
 pullPickle :: PU [Node] a -> XMPPConMonad a
-pullPickle p = unpickleElem p <$> pullE
+pullPickle p = unpickleElem' p <$> pullE
 
 pull :: XMPPConMonad Stanza
 pull = pullPickle stanzaP
@@ -68,7 +68,7 @@ xmppFromHandle :: Handle
                -> IO (a, XMPPConState)
 xmppFromHandle handle hostname username res f = do
   liftIO $ hSetBuffering handle NoBuffering
-  let raw = sourceHandle' handle
+  let raw = sourceHandle handle
   let src = raw $= XP.parseBytes def
   let st = XMPPConState
              src
@@ -81,32 +81,6 @@ xmppFromHandle handle hostname username res f = do
              (Just username)
              res
   runStateT f st
-
--- TODO: Once pullrequest has been merged, switch back to upstream
-sourceHandle' :: MonadIO m => Handle -> Source m BS.ByteString
-sourceHandle' h =
-    src
-  where
-    src = PipeM pull close
-
-    pull = do
-        bs <- liftIO (BS.hGetSome h 4096)
-        if BS.null bs
-            then return $ Done Nothing ()
-            else return $ HaveOutput src close bs
-
-    close = return ()
-
-sinkHandle' :: MonadIO m
-           => Handle
-           -> Sink BS.ByteString m ()
-sinkHandle' h =
-    NeedInput push close
-  where
-    push input = PipeM
-        (liftIO (BS.hPut h input) >> return (NeedInput push close))
-        (return ())
-    close = return ()
 
 zeroSource :: Source IO output
 zeroSource = sourceState () (\_ -> forever $ threadDelay 10000000)
@@ -131,7 +105,7 @@ xmppRawConnect host hostname = do
       con <- connectTo host (PortNumber 5222)
       hSetBuffering con NoBuffering
       return con
-  let raw = sourceHandle' con
+  let raw = sourceHandle con
   let src = raw $= XP.parseBytes def
   let st = XMPPConState
              src

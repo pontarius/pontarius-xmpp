@@ -4,7 +4,7 @@ module Network.XMPP.SASL where
 import           Control.Applicative
 import           Control.Monad
 import           Control.Monad.IO.Class
-import           Control.Monad.Trans.State
+import           Control.Monad.State.Strict
 
 import qualified Crypto.Classes as CC
 
@@ -68,7 +68,8 @@ xmppStartSASL realm username passwd = do
   pushN $ saslInitE "DIGEST-MD5"
   Right challenge <- B64.decode . Text.encodeUtf8<$> pullPickle challengePickle
   let Right pairs = toPairs challenge
-  pushN . saslResponseE =<< createResponse realm username passwd pairs
+  g <- liftIO $ Random.newStdGen
+  pushN . saslResponseE $ createResponse g realm username passwd pairs
   challenge2 <- pullPickle (xpEither failurePickle challengePickle)
   case challenge2 of
     Left x -> error $ show x
@@ -78,44 +79,46 @@ xmppStartSASL realm username passwd = do
   xmppRestartStream
   return ()
 
-createResponse :: Text
+createResponse :: Random.RandomGen g
+               => g
+               -> Text
                -> Text
                -> Text
                -> [(BS8.ByteString, BS8.ByteString)]
-               -> XMPPConMonad Text
-createResponse hostname username passwd' pairs = do
-  let Just qop = L.lookup "qop" pairs
-  let Just nonce = L.lookup "nonce" pairs
-  let uname = Text.encodeUtf8 username
-  let passwd = Text.encodeUtf8 passwd'
-  let realm = Text.encodeUtf8 hostname
-  g <- liftIO $ Random.newStdGen
-  let cnonce = BS.tail . BS.init .
-               B64.encode . BS.pack . take 8 $ Random.randoms g
-  let nc = "00000001"
-  let digestURI = ("xmpp/" `BS.append` realm)
-  let digest = md5Digest
-                 uname
-                 realm
-                 passwd
-                 digestURI
-                 nc
-                 qop
-                 nonce
-                 cnonce
-  let response = BS.intercalate"," . map (BS.intercalate "=") $
-       [["username"  , quote uname     ]
-       ,["realm"     , quote realm     ]
-       ,["nonce"     , quote nonce     ]
-       ,["cnonce"    , quote cnonce    ]
-       ,["nc"        ,       nc        ]
-       ,["qop"       ,       qop       ]
-       ,["digest-uri", quote digestURI ]
-       ,["response"  ,       digest    ]
-       ,["charset"   ,       "utf-8"   ]
-       ]
-  return . Text.decodeUtf8 $ B64.encode response
-  where quote x = BS.concat ["\"",x,"\""]
+               -> Text
+createResponse g hostname username passwd' pairs = let
+  Just qop = L.lookup "qop" pairs
+  Just nonce = L.lookup "nonce" pairs
+  uname = Text.encodeUtf8 username
+  passwd = Text.encodeUtf8 passwd'
+  realm = Text.encodeUtf8 hostname
+  cnonce = BS.tail . BS.init .
+           B64.encode . BS.pack . take 8 $ Random.randoms g
+  nc = "00000001"
+  digestURI = ("xmpp/" `BS.append` realm)
+  digest = md5Digest
+             uname
+             realm
+             passwd
+             digestURI
+             nc
+             qop
+             nonce
+             cnonce
+  response = BS.intercalate"," . map (BS.intercalate "=") $
+   [["username"  , quote uname     ]
+   ,["realm"     , quote realm     ]
+   ,["nonce"     , quote nonce     ]
+   ,["cnonce"    , quote cnonce    ]
+   ,["nc"        ,       nc        ]
+   ,["qop"       ,       qop       ]
+   ,["digest-uri", quote digestURI ]
+   ,["response"  ,       digest    ]
+   ,["charset"   ,       "utf-8"   ]
+   ]
+  in Text.decodeUtf8 $ B64.encode response
+  where
+    quote x = BS.concat ["\"",x,"\""]
 
 toPairs :: BS.ByteString -> Either String [(BS.ByteString, BS.ByteString)]
 toPairs = AP.parseOnly . flip AP.sepBy1 (void $ AP.char ',') $ do

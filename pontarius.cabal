@@ -26,6 +26,7 @@ Library
   Exposed: True
   Build-Depends: base          >4 && <5
                , conduit           -any
+               , void              -any
                , resourcet         -any
                , containers        -any
                , random            -any
@@ -48,20 +49,20 @@ Library
                , xml-conduit       -any
                , xml-types-pickle  -any
                , data-default      -any
-  Exposed-modules: Network.XMPP.Types
-   -- Network.XMPP
-
-                 -- , Network.XMPP.SASL
-                 -- , Network.XMPP.Stream
-                 -- , Network.XMPP.Pickle
-                 -- , Network.XMPP.Marshal
-                 -- , Network.XMPP.Monad
-                 -- , Network.XMPP.Concurrent
-                 -- , Network.XMPP.TLS
-                 -- , Network.XMPP.Bind
-                 -- , Network.XMPP.Session
-                 -- , Text.XML.Stream.Elements
-                 -- , Data.Conduit.TLS
+               , stringprep        >= 0.1.5
+  Exposed-modules: Network.XMPP
+                 , Network.XMPP.Types
+                 , Network.XMPP.SASL
+                 , Network.XMPP.Stream
+                 , Network.XMPP.Pickle
+                 , Network.XMPP.Marshal
+                 , Network.XMPP.Monad
+                 , Network.XMPP.Concurrent
+                 , Network.XMPP.TLS
+                 , Network.XMPP.Bind
+                 , Network.XMPP.Session
+                 , Text.XML.Stream.Elements
+                 , Data.Conduit.TLS
   GHC-Options: -Wall
 
 
