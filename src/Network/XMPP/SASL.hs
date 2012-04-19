@@ -16,6 +16,7 @@ import qualified Data.ByteString.Char8 as BS8
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.Digest.Pure.MD5 as MD5
 import qualified Data.List as L
+import           Data.Word (Word8)
 import           Data.XML.Pickle
 import           Data.XML.Types
 
@@ -88,18 +89,18 @@ createResponse :: Random.RandomGen g
                -> [(BS8.ByteString, BS8.ByteString)]
                -> Text
 createResponse g hostname username passwd' pairs = let
-  Just qop = L.lookup "qop" pairs
+  Just qop   = L.lookup "qop" pairs
   Just nonce = L.lookup "nonce" pairs
-  uname = Text.encodeUtf8 username
-  passwd = Text.encodeUtf8 passwd'
-  realm = Text.encodeUtf8 hostname
-  -- Using Char instead of Word8 for random 1.0.0.0 (GHC 7)
+  uname      = Text.encodeUtf8 username
+  passwd     = Text.encodeUtf8 passwd'
+  realm      = Text.encodeUtf8 hostname
+  -- Using Int instead of Word8 for random 1.0.0.0 (GHC 7)
   -- compatibility.
-  cnonce = BS.tail . BS.init .
+  cnonce     = BS.tail . BS.init .
            B64.encode . BS.pack . map toWord8 . take 8 $ Random.randoms g
-  nc = "00000001"
-  digestURI = ("xmpp/" `BS.append` realm)
-  digest = md5Digest
+  nc         = "00000001"
+  digestURI  = ("xmpp/" `BS.append` realm)
+  digest     = md5Digest
              uname
              realm
              passwd
@@ -122,7 +123,7 @@ createResponse g hostname username passwd' pairs = let
   in Text.decodeUtf8 $ B64.encode response
   where
     quote x = BS.concat ["\"",x,"\""]
-    toWord8 x = fromIntegral (abs (x :: Int) `mod` 256) :: Binary.Word8
+    toWord8 x = fromIntegral (x :: Int) :: Word8
 
 toPairs :: BS.ByteString -> Either String [(BS.ByteString, BS.ByteString)]
 toPairs = AP.parseOnly . flip AP.sepBy1 (void $ AP.char ',') $ do
