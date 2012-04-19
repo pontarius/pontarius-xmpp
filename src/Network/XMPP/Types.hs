@@ -11,7 +11,39 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 
-module Network.XMPP.Types where
+module Network.XMPP.Types
+    ( IQError(..)
+    , IQRequest(..)
+    , IQRequestType(..)
+    , IQResponse(..)
+    , IQResult(..)
+    , IdGenerator(..)
+    , LangTag (..)
+    , Message(..)
+    , MessageError(..)
+    , MessageType(..)
+    , Presence(..)
+    , PresenceError(..)
+    , PresenceType(..)
+    , SASLError(..)
+    , SASLFailure(..)
+    , ServerAddress(..)
+    , ServerFeatures(..)
+    , ShowType(..)
+    , Stanza(..)
+    , StanzaError(..)
+    , StanzaErrorCondition(..)
+    , StanzaErrorType(..)
+    , StanzaId(..)
+    , StreamError(..)
+    , Version(..)
+    , XMPPConMonad(..)
+    , XMPPConState(..)
+    , XMPPT(..)
+    , parseLangTag
+    , module Network.XMPP.JID
+    )
+       where
 
 -- import Network.XMPP.Utilities (idGenerator)
 
@@ -32,6 +64,8 @@ import           Data.Typeable(Typeable)
 import           Data.XML.Types
 
 import qualified Network as N
+
+import           Network.XMPP.JID
 
 import           System.IO
 
@@ -73,38 +107,6 @@ instance Read StanzaId where
 
 instance IsString StanzaId where
   fromString = SI . Text.pack
-
--- |
--- @From@ is a readability type synonym for @Address@.
-
--- | Jabber ID (JID) datatype
-data JID = JID { localpart :: !(Maybe Text)
-               -- ^ Account name
-               , domainpart :: !Text
-               -- ^ Server adress
-               , resourcepart :: !(Maybe Text)
-               -- ^ Resource name
-               }
-
-instance Show JID where
-  show (JID nd dmn res) =
-            maybe "" ((++ "@") . Text.unpack) nd ++
-            (Text.unpack dmn)               ++
-            maybe "" (('/' :) . Text.unpack)   res
-
-parseJID :: [Char] -> [JID]
-parseJID jid = do
-  (jid', rst) <- case L.splitOn "@" jid of
-                      [rest] -> [(JID Nothing, rest)]
-                      [nd,rest] -> [(JID (Just (Text.pack nd)), rest)]
-                      _ -> []
-  case L.splitOn "/" rst of
-      [dmn] -> [jid' (Text.pack dmn) Nothing]
-      [dmn, rsrc] -> [jid' (Text.pack dmn) (Just (Text.pack rsrc))]
-      _ -> []
-
-instance Read JID where
-  readsPrec _ x = (,"") <$> parseJID x
 
 -- An Info/Query (IQ) stanza is either of the type "request" ("get" or
 -- "set") or "response" ("result" or "error"). The @IQ@ type wraps
@@ -472,38 +474,67 @@ instance Read StanzaErrorCondition where
 -- =============================================================================
 
 data SASLFailure = SASLFailure { saslFailureCondition :: SASLError
-                               , saslFailureText :: Maybe Text } -- TODO: XMLLang
+                               , saslFailureText :: Maybe ( Maybe LangTag
+                                                          , Text
+                                                          )
+                               } deriving Show
 
 
-data SASLError = -- SASLAborted | -- Client aborted - should not happen
-                 SASLAccountDisabled | -- ^ The account has been temporarily
-                                       --   disabled
-                 SASLCredentialsExpired | -- ^ The authentication failed because
+data SASLError = SASLAborted              -- ^ Client aborted
+               | SASLAccountDisabled      -- ^ The account has been temporarily
+                                          --   disabled
+               | SASLCredentialsExpired   -- ^ The authentication failed because
                                           --   the credentials have expired
-                 SASLEncryptionRequired | -- ^ The mechanism requested cannot be
+               | SASLEncryptionRequired   -- ^ The mechanism requested cannot be
                                           --   used the confidentiality and
                                           --   integrity of the underlying
                                           --   stream is protected (typically
                                           --   with TLS)
-                 -- SASLIncorrectEncoding | -- The base64 encoding is incorrect
-                                            -- - should not happen
-                 -- SASLInvalidAuthzid | -- The authzid has an incorrect format,
-                                         -- or the initiating entity does not
-                                         -- have the appropriate permissions to
-                                         -- authorize that ID
-                 SASLInvalidMechanism | -- ^ The mechanism is not supported by
-                                        --   the receiving entity
-                 -- SASLMalformedRequest | -- Invalid syntax - should not happen
-                 SASLMechanismTooWeak | -- ^ The receiving entity policy
-                                        --   requires a stronger mechanism
-                 SASLNotAuthorized (Maybe Text) | -- ^ Invalid credentials
-                                                    --   provided, or some
-                                                    --   generic authentication
-                                                    --   failure has occurred
-                 SASLTemporaryAuthFailure -- ^ There receiving entity reported a
+               | SASLIncorrectEncoding    -- ^ The base64 encoding is incorrect
+               | SASLInvalidAuthzid       -- ^ The authzid has an incorrect
+                                          -- format or the initiating entity does
+                                          -- not have the appropriate permissions
+                                          -- to authorize that ID
+               | SASLInvalidMechanism     -- ^ The mechanism is not supported by
+                                          --   the receiving entity
+               | SASLMalformedRequest     -- ^ Invalid syntax
+               | SASLMechanismTooWeak     -- ^ The receiving entity policy
+                                          --   requires a stronger mechanism
+               | SASLNotAuthorized        -- ^ Invalid credentials
+                                          --   provided, or some
+                                          --   generic authentication
+                                          --   failure has occurred
+               | SASLTemporaryAuthFailure -- ^ There receiving entity reported a
                                           --   temporary error condition; the
                                           --   initiating entity is recommended
                                           --   to try again later
+
+instance Show SASLError where
+    show SASLAborted               = "aborted"
+    show SASLAccountDisabled       = "account-disabled"
+    show SASLCredentialsExpired    = "credentials-expired"
+    show SASLEncryptionRequired    = "encryption-required"
+    show SASLIncorrectEncoding     = "incorrect-encoding"
+    show SASLInvalidAuthzid        = "invalid-authzid"
+    show SASLInvalidMechanism      = "invalid-mechanism"
+    show SASLMalformedRequest      = "malformed-request"
+    show SASLMechanismTooWeak      = "mechanism-too-weak"
+    show SASLNotAuthorized         = "not-authorized"
+    show SASLTemporaryAuthFailure  = "temporary-auth-failure"
+
+instance Read SASLError where
+    readsPrec _ "aborted"                = [(SASLAborted              , "")]
+    readsPrec _ "account-disabled"       = [(SASLAccountDisabled      , "")]
+    readsPrec _ "credentials-expired"    = [(SASLCredentialsExpired   , "")]
+    readsPrec _ "encryption-required"    = [(SASLEncryptionRequired   , "")]
+    readsPrec _ "incorrect-encoding"     = [(SASLIncorrectEncoding    , "")]
+    readsPrec _ "invalid-authzid"        = [(SASLInvalidAuthzid       , "")]
+    readsPrec _ "invalid-mechanism"      = [(SASLInvalidMechanism     , "")]
+    readsPrec _ "malformed-request"      = [(SASLMalformedRequest     , "")]
+    readsPrec _ "mechanism-too-weak"     = [(SASLMechanismTooWeak     , "")]
+    readsPrec _ "not-authorized"         = [(SASLNotAuthorized        , "")]
+    readsPrec _ "temporary-auth-failure" = [(SASLTemporaryAuthFailure , "")]
+
 
 
 -- | Readability type for host name Texts.
