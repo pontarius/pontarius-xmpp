@@ -93,12 +93,10 @@ createResponse g hostname username passwd' pairs = let
   uname = Text.encodeUtf8 username
   passwd = Text.encodeUtf8 passwd'
   realm = Text.encodeUtf8 hostname
-
   -- Using Char instead of Word8 for random 1.0.0.0 (GHC 7)
   -- compatibility.
   cnonce = BS.tail . BS.init .
-           B64.encode . BS8.pack . take 8 $ Random.randoms g
-
+           B64.encode . BS.pack . map toWord8 . take 8 $ Random.randoms g
   nc = "00000001"
   digestURI = ("xmpp/" `BS.append` realm)
   digest = md5Digest
@@ -124,6 +122,7 @@ createResponse g hostname username passwd' pairs = let
   in Text.decodeUtf8 $ B64.encode response
   where
     quote x = BS.concat ["\"",x,"\""]
+    toWord8 x = fromIntegral (abs (x :: Int) `mod` 256) :: Binary.Word8
 
 toPairs :: BS.ByteString -> Either String [(BS.ByteString, BS.ByteString)]
 toPairs = AP.parseOnly . flip AP.sepBy1 (void $ AP.char ',') $ do
@@ -142,6 +141,7 @@ hash = BS8.pack . show
 hashRaw :: [BS8.ByteString] -> BS8.ByteString
 hashRaw = toStrict . Binary.encode
           . (CC.hash' :: BS.ByteString -> MD5.MD5Digest) . BS.intercalate (":")
+
 
 toStrict :: BL.ByteString -> BS8.ByteString
 toStrict = BS.concat . BL.toChunks
