@@ -42,11 +42,15 @@ module Network.XMPP
   , module Network.XMPP.Message
   , xmppConnect
   , xmppNewSession
+  , connect
+  , startTLS
+  , auth
   ) where
 
 import Data.Text as Text
 
 import Network
+import qualified Network.TLS as TLS
 import Network.XMPP.Bind
 import Network.XMPP.Concurrent
 import Network.XMPP.Message
@@ -63,3 +67,13 @@ xmppConnect  address hostname = xmppRawConnect address hostname >> xmppStartStre
 
 xmppNewSession :: XMPPThread a -> IO (a, XMPPConState)
 xmppNewSession = withNewSession . runThreaded
+
+
+startTLS  :: TLS.TLSParams -> XMPPThread (Either XMPPTLSError ())
+startTLS = withConnection . xmppStartTLS
+
+auth  :: Text.Text -> Text.Text -> XMPPThread (Either String Text.Text)
+auth username passwd = withConnection $ xmppSASL username passwd
+
+connect :: HostName -> Text -> XMPPThread (Either StreamError ())
+connect address hostname = withConnection $ xmppConnect address hostname

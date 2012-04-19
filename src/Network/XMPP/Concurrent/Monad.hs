@@ -16,6 +16,7 @@ import           Data.Text(Text)
 import           Network.XMPP.Concurrent.Types
 import           Network.XMPP.Monad
 
+
 -- | Register a new IQ listener. IQ requests matching the type and namespace will
 -- be put in the channel.
 listenIQChan :: IQRequestType  -- ^ type of IQs to receive (Get / Set)
@@ -196,3 +197,4 @@ endSession = do -- TODO: This has to be idempotent (is it?)
 -- | Close the connection to the server
 closeConnection :: XMPPThread ()
 closeConnection = withConnection xmppKillConnection
+

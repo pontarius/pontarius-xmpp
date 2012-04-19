@@ -86,11 +86,10 @@ runMain debug number = do
                debug . (("Thread " ++ show number ++ ":") ++)
   xmppNewSession $ do
       debug' "running"
-      withConnection $ do
-        xmppConnect "localhost" "species64739.dyndns.org"
-        xmppStartTLS exampleParams
-        saslResponse <- xmppSASL (fromJust $ localpart we) "pwd"
-        case saslResponse of
+      connect "localhost" "species64739.dyndns.org"
+      startTLS exampleParams
+      saslResponse <- auth (fromJust $ localpart we) "pwd"
+      case saslResponse of
           Right _ -> return ()
           Left e -> error e
       xmppThreadedBind (resourcepart we)
