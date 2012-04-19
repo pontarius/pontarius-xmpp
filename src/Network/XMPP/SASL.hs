@@ -26,6 +26,7 @@ import qualified Data.Text.Encoding as Text
 import           Network.XMPP.Monad
 import           Network.XMPP.Stream
 import           Network.XMPP.Types
+import           Network.XMPP.Pickle
 
 import qualified System.Random as Random
 
@@ -92,12 +93,12 @@ createResponse g hostname username passwd' pairs = let
   uname = Text.encodeUtf8 username
   passwd = Text.encodeUtf8 passwd'
   realm = Text.encodeUtf8 hostname
-  
+
   -- Using Char instead of Word8 for random 1.0.0.0 (GHC 7)
   -- compatibility.
   cnonce = BS.tail . BS.init .
            B64.encode . BS8.pack . take 8 $ Random.randoms g
-  
+
   nc = "00000001"
   digestURI = ("xmpp/" `BS.append` realm)
   digest = md5Digest
@@ -163,10 +164,24 @@ md5Digest uname realm password digestURI nc qop nonce cnonce=
 
 
 -- Pickling
+failurePickle :: PU [Node] (SASLFailure)
+failurePickle = xpWrap (\(txt,(failure,_,_))
+                           -> SASLFailure failure txt)
+                       (\(SASLFailure failure txt)
+                           -> (txt,(failure,(),())))
+                       (xpElemNodes
+                          "{urn:ietf:params:xml:ns:xmpp-sasl}failure"
+                          (xp2Tuple
+                              (xpOption $ xpElem
+                                   "{urn:ietf:params:xml:ns:xmpp-sasl}text"
+                                   xpLangTag
+                                   (xpContent xpId))
+                              (xpElemByNamespace
+                                   "urn:ietf:params:xml:ns:xmpp-sasl"
+                                   xpPrim
+                                   (xpUnit)
+                                   (xpUnit))))
 
-failurePickle :: PU [Node] (Element)
-failurePickle = xpElemNodes "{urn:ietf:params:xml:ns:xmpp-sasl}failure"
-                 (xpIsolate xpElemVerbatim)
 
 challengePickle :: PU [Node] Text.Text
 challengePickle =  xpElemNodes "{urn:ietf:params:xml:ns:xmpp-sasl}challenge"

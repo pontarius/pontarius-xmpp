@@ -10,6 +10,8 @@ module Network.XMPP.Pickle where
 import Data.XML.Types
 import Data.XML.Pickle
 
+import Network.XMPP.Types
+
 import Text.XML.Stream.Elements
 
 mbToBool :: Maybe t -> Bool
@@ -20,6 +22,12 @@ xpElemEmpty :: Name -> PU [Node] ()
 xpElemEmpty name = xpWrap (\((),()) -> ())
                           (\() -> ((),())) $
                               xpElem name xpUnit xpUnit
+
+xmlLang :: Name
+xmlLang = Name "lang" Nothing (Just "xml")
+
+xpLangTag :: PU [Attribute] (Maybe LangTag)
+xpLangTag = xpAttrImplied xmlLang xpPrim
 
 -- xpElemExists :: Name -> PU [Node] Bool
 -- xpElemExists name = xpWrap (\x -> mbToBool x)
