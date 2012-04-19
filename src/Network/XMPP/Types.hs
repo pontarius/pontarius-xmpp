@@ -535,8 +535,6 @@ instance Read SASLError where
     readsPrec _ "not-authorized"         = [(SASLNotAuthorized        , "")]
     readsPrec _ "temporary-auth-failure" = [(SASLTemporaryAuthFailure , "")]
 
-
-
 -- | Readability type for host name Texts.
 
 -- type HostName = Text -- This is defined in Network as well
@@ -659,6 +657,7 @@ data XMPPConState = XMPPConState
                , sHostname  :: Maybe Text
                , sUsername  :: Maybe Text
                , sResource  :: Maybe Text
+               , sCloseConnection :: IO ()
                }
 
 -- |

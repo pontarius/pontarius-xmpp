@@ -80,10 +80,11 @@ xmppFromHandle handle hostname username res f = do
              (Just hostname)
              (Just username)
              res
+             (hClose handle)
   runStateT f st
 
 zeroSource :: Source IO output
-zeroSource = sourceState () (\_ -> forever $ threadDelay 10000000)
+zeroSource = liftIO . forever $ threadDelay 10000000
 
 xmppZeroConState :: XMPPConState
 xmppZeroConState = XMPPConState
@@ -96,6 +97,7 @@ xmppZeroConState = XMPPConState
                , sHostname  = Nothing
                , sUsername  = Nothing
                , sResource  = Nothing
+               , sCloseConnection = return ()
                }
 
 xmppRawConnect :: HostName -> Text -> XMPPConMonad ()
@@ -117,8 +119,16 @@ xmppRawConnect host hostname = do
              (Just hostname)
              uname
              Nothing
+             (hClose con)
   put st
+
 
 withNewSession :: XMPPConMonad a -> IO (a, XMPPConState)
 withNewSession action = do
   runStateT action xmppZeroConState
+
+xmppKillConnection :: XMPPConMonad ()
+xmppKillConnection = do
+    cc <- gets sCloseConnection
+    liftIO cc
+    put xmppZeroConState

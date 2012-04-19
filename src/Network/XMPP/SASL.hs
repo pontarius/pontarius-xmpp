@@ -163,7 +163,6 @@ md5Digest uname realm password digestURI nc qop nonce cnonce=
       ha2 = hash ["AUTHENTICATE", digestURI]
   in hash [ha1,nonce, nc, cnonce,qop,ha2]
 
-
 -- Pickling
 failurePickle :: PU [Node] (SASLFailure)
 failurePickle = xpWrap (\(txt,(failure,_,_))

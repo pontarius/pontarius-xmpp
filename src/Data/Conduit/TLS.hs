@@ -26,7 +26,9 @@ tlsinit
      TLSParams
      -> Handle -> m ( Source m1 BS.ByteString
                     , Sink BS.ByteString m1 ()
-                    , BS.ByteString -> IO ())
+                    , BS.ByteString -> IO ()
+                    , TLSCtx Handle
+                    )
 tlsinit tlsParams handle = do
     gen <- liftIO $ (newGenIO :: IO SystemRandom) -- TODO: Find better random source?
     clientContext <- client tlsParams gen handle
@@ -41,5 +43,7 @@ tlsinit tlsParams handle = do
          (\_ -> return ())
     return ( src
            , snk
-           , \s -> sendData clientContext $ BL.fromChunks [s] )
+           , \s -> sendData clientContext $ BL.fromChunks [s]
+           , clientContext
+           )
 

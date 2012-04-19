@@ -14,6 +14,7 @@ import qualified Data.Map as Map
 import           Data.Text(Text)
 
 import           Network.XMPP.Concurrent.Types
+import           Network.XMPP.Monad
 
 -- | Register a new IQ listener. IQ requests matching the type and namespace will
 -- be put in the channel.
@@ -162,8 +163,36 @@ withConnection a = do
     putTMVar stateRef s'
   return res
 
+-- | Send a presence Stanza
 sendPresence :: Presence -> XMPPThread ()
 sendPresence = sendS . PresenceS
 
+-- | Send a Message Stanza
 sendMessage :: Message -> XMPPThread ()
 sendMessage = sendS . MessageS
+
+
+modifyHandlers :: (EventHandlers -> EventHandlers) -> XMPPThread ()
+modifyHandlers f = do
+    eh <- asks eventHandlers
+    liftIO . atomically $ modifyTVar eh f
+
+setSessionEndHandler :: XMPPThread () -> XMPPThread ()
+setSessionEndHandler eh = modifyHandlers (\s -> s{sessionEndHandler = eh})
+
+-- | run an event handler
+runHandler :: (EventHandlers -> XMPPThread a) -> XMPPThread a
+runHandler h = do
+  eh <- liftIO . atomically . readTVar  =<< asks eventHandlers
+  h eh
+
+-- | End the current xmpp session
+endSession :: XMPPThread ()
+endSession = do -- TODO: This has to be idempotent (is it?)
+    withConnection xmppKillConnection
+    liftIO =<< asks stopThreads
+    runHandler sessionEndHandler
+
+-- | Close the connection to the server
+closeConnection :: XMPPThread ()
+closeConnection = withConnection xmppKillConnection

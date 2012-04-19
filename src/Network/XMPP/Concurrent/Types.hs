@@ -21,6 +21,16 @@ type IQHandlers = (Map.Map (IQRequestType, Text) (TChan (IQRequest, TVar Bool))
                   , Map.Map StanzaId (TMVar IQResponse)
                   )
 
+data EventHandlers = EventHandlers
+                         { sessionEndHandler       :: XMPPThread ()
+                         , connectionClosedHandler :: XMPPThread ()
+                         }
+
+zeroEventHandlers = EventHandlers
+                         { sessionEndHandler       = return ()
+                         , connectionClosedHandler = return ()
+                         }
+
 data Thread = Thread { messagesRef :: IORef (Maybe ( TChan (Either
                                                               MessageError
                                                               Message
@@ -39,6 +49,8 @@ data Thread = Thread { messagesRef :: IORef (Maybe ( TChan (Either
                      , readerThread :: ThreadId
                      , idGenerator :: IO StanzaId
                      , conStateRef :: TMVar XMPPConState
+                     , eventHandlers :: TVar EventHandlers
+                     , stopThreads :: IO ()
                      }
 
 type XMPPThread a = ReaderT Thread IO a

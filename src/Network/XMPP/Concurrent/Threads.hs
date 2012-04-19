@@ -130,6 +130,7 @@ startThreads
                   , TMVar (BS.ByteString -> IO ())
                   , TMVar XMPPConState
                   , ThreadId
+                  , TVar EventHandlers
                   )
 
 startThreads = do
@@ -139,6 +140,7 @@ startThreads = do
   iqC  <- liftIO newTChanIO
   outC <- liftIO  newTChanIO
   handlers <- liftIO $ newTVarIO ( Map.empty, Map.empty)
+  eh <- liftIO $ newTVarIO  zeroEventHandlers
   conS <- liftIO . newTMVarIO =<< get
   lw <- liftIO . forkIO $ writeWorker outC writeLock
   cp <- liftIO . forkIO $ connPersist writeLock
@@ -146,7 +148,7 @@ startThreads = do
   rd <- liftIO . forkIO $ readWorker messageC presenceC handlers conS
   return (messageC, presenceC, handlers, outC
          , killConnection writeLock [lw, rd, cp]
-         , writeLock, conS ,rd)
+         , writeLock, conS ,rd, eh)
   where
       killConnection writeLock threads = liftIO $ do
         _ <- atomically $ takeTMVar writeLock -- Should we put it back?
@@ -159,7 +161,7 @@ runThreaded  :: XMPPThread a
                 -> XMPPConMonad a
 runThreaded a = do
     liftIO . putStrLn $ "starting threads"
-    (mC, pC, hand, outC, _stopThreads, writeR, conS, rdr ) <- startThreads
+    (mC, pC, hand, outC, stopThreads', writeR, conS, rdr, eh) <- startThreads
     liftIO . putStrLn $ "threads running"
     workermCh <- liftIO . newIORef $ Nothing
     workerpCh <- liftIO . newIORef $ Nothing
@@ -170,7 +172,7 @@ runThreaded a = do
             return . read. show $ curId
     s <- get
     liftIO . putStrLn $ "starting application"
-    liftIO $ runReaderT a (Thread workermCh workerpCh mC pC outC hand writeR rdr getId conS)
+    liftIO $ runReaderT a (Thread workermCh workerpCh mC pC outC hand writeR rdr getId conS eh stopThreads')
 
 
 -- | Sends a blank space every 30 seconds to keep the connection alive

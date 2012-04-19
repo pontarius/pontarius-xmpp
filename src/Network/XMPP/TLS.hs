@@ -68,12 +68,13 @@ xmppStartTLS params = Ex.handle (return . Left . TLSError)
       case answer of
         Element "{urn:ietf:params:xml:ns:xmpp-tls}proceed" [] [] -> return ()
         _ -> throwError $ TLSStreamError StreamXMLError
-      (raw, snk, psh) <- lift $ TLS.tlsinit params handle
+      (raw, snk, psh, ctx) <- lift $ TLS.tlsinit params handle
       lift $ modify (\x -> x
                     { sRawSrc = raw
 --                  , sConSrc =  -- Note: this momentarily leaves us in an
                                  -- inconsistent state
                     , sConPushBS = psh
+                    , sCloseConnection = TLS.bye ctx >> sCloseConnection x
                     })
       ErrorT $ (left TLSStreamError) <$> xmppRestartStream
       modify (\s -> s{sHaveTLS = True})
