@@ -33,6 +33,8 @@ import Network.XMPP.Concurrent.Types
 import Text.XML.Stream.Elements
 import qualified Text.XML.Stream.Render as XR
 
+import GHC.IO (unsafeUnmask)
+
 readWorker :: TChan (Either MessageError Message)
            -> TChan (Either PresenceError Presence)
            -> TVar IQHandlers
@@ -43,7 +45,7 @@ readWorker messageC presenceC handlers stateRef =
         s <- liftIO . atomically $ takeTMVar stateRef
         (sta', s') <- flip runStateT s $ Ex.catch ( do
                 -- we don't know whether pull will necessarily be interruptible
-                                           liftIO $ Ex.allowInterrupt
+                                           liftIO $ allowInterrupt
                                            Just <$> pull
                                          )
                                          (\(Interrupt t) -> do
@@ -80,7 +82,11 @@ readWorker messageC presenceC handlers stateRef =
                     IQRequestS     i -> handleIQRequest handlers i
                     IQResultS      i -> handleIQResponse handlers (Right i)
                     IQErrorS       i -> handleIQResponse handlers (Left i)
-
+  where
+    -- Defining an Control.Exception.allowInterrupt equivalent for
+    -- GHC 7 compatibility.
+    allowInterrupt :: IO ()
+    allowInterrupt = unsafeUnmask $ return ()
 
 handleIQRequest handlers iq = do
   (byNS, _) <- readTVar handlers
