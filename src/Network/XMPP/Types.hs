@@ -11,7 +11,39 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 
-module Network.XMPP.Types where
+module Network.XMPP.Types
+    ( IQError(..)
+    , IQRequest(..)
+    , IQRequestType(..)
+    , IQResponse(..)
+    , IQResult(..)
+    , IdGenerator(..)
+    , LangTag(..)
+    , Message(..)
+    , MessageError(..)
+    , MessageType(..)
+    , Presence(..)
+    , PresenceError(..)
+    , PresenceType(..)
+    , SASLError(..)
+    , SASLFailure(..)
+    , ServerAddress(..)
+    , ServerFeatures(..)
+    , ShowType(..)
+    , Stanza(..)
+    , StanzaError(..)
+    , StanzaErrorCondition(..)
+    , StanzaErrorType(..)
+    , StanzaId(..)
+    , StreamError(..)
+    , Version(..)
+    , XMPPConMonad(..)
+    , XMPPConState(..)
+    , XMPPT(..)
+    , parseLangTag
+    , module Network.XMPP.JID
+    )
+       where
 
 -- import Network.XMPP.Utilities (idGenerator)
 
