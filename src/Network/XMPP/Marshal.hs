@@ -5,6 +5,7 @@ module Network.XMPP.Marshal where
 import Data.XML.Pickle
 import Data.XML.Types
 
+import Network.XMPP.Pickle
 import Network.XMPP.Types
 
 stanzaSel :: Stanza -> Int
@@ -26,12 +27,6 @@ stanzaP = xpAlt stanzaSel
     , xpWrap PresenceS      (\(PresenceS      x) -> x) xpPresence
     , xpWrap PresenceErrorS (\(PresenceErrorS x) -> x) xpPresenceError
     ]
-
-xmlLang :: Name
-xmlLang = Name "lang" Nothing (Just "xml")
-
-xpLangTag :: PU [Attribute] (Maybe LangTag)
-xpLangTag = xpAttrImplied xmlLang xpPrim
 
 xpMessage :: PU [Node] (Message)
 xpMessage = xpWrap   (\((tp, qid, from, to, lang), (sub, body, thr, ext))

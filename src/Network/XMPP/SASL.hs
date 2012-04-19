@@ -16,6 +16,7 @@ import qualified Data.ByteString.Char8 as BS8
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.Digest.Pure.MD5 as MD5
 import qualified Data.List as L
+import           Data.Word (Word8)
 import           Data.XML.Pickle
 import           Data.XML.Types
 
@@ -26,6 +27,7 @@ import qualified Data.Text.Encoding as Text
 import           Network.XMPP.Monad
 import           Network.XMPP.Stream
 import           Network.XMPP.Types
+import           Network.XMPP.Pickle
 
 import qualified System.Random as Random
 
@@ -87,20 +89,18 @@ createResponse :: Random.RandomGen g
                -> [(BS8.ByteString, BS8.ByteString)]
                -> Text
 createResponse g hostname username passwd' pairs = let
-  Just qop = L.lookup "qop" pairs
+  Just qop   = L.lookup "qop" pairs
   Just nonce = L.lookup "nonce" pairs
-  uname = Text.encodeUtf8 username
-  passwd = Text.encodeUtf8 passwd'
-  realm = Text.encodeUtf8 hostname
-  
-  -- Using Char instead of Word8 for random 1.0.0.0 (GHC 7)
+  uname      = Text.encodeUtf8 username
+  passwd     = Text.encodeUtf8 passwd'
+  realm      = Text.encodeUtf8 hostname
+  -- Using Int instead of Word8 for random 1.0.0.0 (GHC 7)
   -- compatibility.
-  cnonce = BS.tail . BS.init .
-           B64.encode . BS8.pack . take 8 $ Random.randoms g
-  
-  nc = "00000001"
-  digestURI = ("xmpp/" `BS.append` realm)
-  digest = md5Digest
+  cnonce     = BS.tail . BS.init .
+           B64.encode . BS.pack . map toWord8 . take 8 $ Random.randoms g
+  nc         = "00000001"
+  digestURI  = ("xmpp/" `BS.append` realm)
+  digest     = md5Digest
              uname
              realm
              passwd
@@ -123,6 +123,7 @@ createResponse g hostname username passwd' pairs = let
   in Text.decodeUtf8 $ B64.encode response
   where
     quote x = BS.concat ["\"",x,"\""]
+    toWord8 x = fromIntegral (x :: Int) :: Word8
 
 toPairs :: BS.ByteString -> Either String [(BS.ByteString, BS.ByteString)]
 toPairs = AP.parseOnly . flip AP.sepBy1 (void $ AP.char ',') $ do
@@ -141,6 +142,7 @@ hash = BS8.pack . show
 hashRaw :: [BS8.ByteString] -> BS8.ByteString
 hashRaw = toStrict . Binary.encode
           . (CC.hash' :: BS.ByteString -> MD5.MD5Digest) . BS.intercalate (":")
+
 
 toStrict :: BL.ByteString -> BS8.ByteString
 toStrict = BS.concat . BL.toChunks
@@ -163,10 +165,24 @@ md5Digest uname realm password digestURI nc qop nonce cnonce=
 
 
 -- Pickling
+failurePickle :: PU [Node] (SASLFailure)
+failurePickle = xpWrap (\(txt,(failure,_,_))
+                           -> SASLFailure failure txt)
+                       (\(SASLFailure failure txt)
+                           -> (txt,(failure,(),())))
+                       (xpElemNodes
+                          "{urn:ietf:params:xml:ns:xmpp-sasl}failure"
+                          (xp2Tuple
+                              (xpOption $ xpElem
+                                   "{urn:ietf:params:xml:ns:xmpp-sasl}text"
+                                   xpLangTag
+                                   (xpContent xpId))
+                              (xpElemByNamespace
+                                   "urn:ietf:params:xml:ns:xmpp-sasl"
+                                   xpPrim
+                                   (xpUnit)
+                                   (xpUnit))))
 
-failurePickle :: PU [Node] (Element)
-failurePickle = xpElemNodes "{urn:ietf:params:xml:ns:xmpp-sasl}failure"
-                 (xpIsolate xpElemVerbatim)
 
 challengePickle :: PU [Node] Text.Text
 challengePickle =  xpElemNodes "{urn:ietf:params:xml:ns:xmpp-sasl}challenge"
