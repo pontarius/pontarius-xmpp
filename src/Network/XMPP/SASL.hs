@@ -92,8 +92,12 @@ createResponse g hostname username passwd' pairs = let
   uname = Text.encodeUtf8 username
   passwd = Text.encodeUtf8 passwd'
   realm = Text.encodeUtf8 hostname
+  
+  -- Using Char instead of Word8 for random 1.0.0.0 (GHC 7)
+  -- compatibility.
   cnonce = BS.tail . BS.init .
-           B64.encode . BS.pack . take 8 $ Random.randoms g
+           B64.encode . BS8.pack . take 8 $ Random.randoms g
+  
   nc = "00000001"
   digestURI = ("xmpp/" `BS.append` realm)
   digest = md5Digest
