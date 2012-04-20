@@ -10,18 +10,13 @@ import Control.Concurrent.STM
 import qualified Control.Exception.Lifted as Ex
 import Control.Monad
 import Control.Monad.IO.Class
-import Control.Monad.Trans
 import Control.Monad.Reader
 import Control.Monad.State.Strict
 
 import qualified Data.ByteString as BS
-import Data.Conduit
-import qualified Data.Conduit.List as CL
-import Data.Default (def)
 import Data.IORef
 import qualified Data.Map as Map
 import Data.Maybe
-import qualified Data.Text as Text
 
 import Data.XML.Types
 
@@ -31,7 +26,6 @@ import Network.XMPP.Pickle
 import Network.XMPP.Concurrent.Types
 
 import Text.XML.Stream.Elements
-import qualified Text.XML.Stream.Render as XR
 
 import GHC.IO (unsafeUnmask)
 
@@ -64,7 +58,8 @@ readWorker messageC presenceC handlers stateRef =
                                       _ <- readTChan messageC -- Sic!
                                       return ()
                                    -- this may seem ridiculous, but to prevent
-                                   -- the channel from filling up we immedtiately remove the
+                                   -- the channel from filling up we
+                                   -- immedtiately remove the
                                    -- Stanza we just put in. It will still be
                                    -- available in duplicates.
                     MessageErrorS m -> do writeTChan messageC $ Left m
@@ -88,6 +83,7 @@ readWorker messageC presenceC handlers stateRef =
     allowInterrupt :: IO ()
     allowInterrupt = unsafeUnmask $ return ()
 
+handleIQRequest :: TVar IQHandlers -> IQRequest -> STM ()
 handleIQRequest handlers iq = do
   (byNS, _) <- readTVar handlers
   let iqNS = fromMaybe "" (nameNamespace . elementName $ iqRequestPayload iq)
@@ -97,6 +93,7 @@ handleIQRequest handlers iq = do
         sent <- newTVar False
         writeTChan ch (iq, sent)
 
+handleIQResponse :: TVar IQHandlers -> Either IQError IQResult -> STM ()
 handleIQResponse handlers iq = do
   (byNS, byID) <- readTVar handlers
   case Map.updateLookupWithKey (\_ _ -> Nothing) (iqID iq) byID of
@@ -107,7 +104,7 @@ handleIQResponse handlers iq = do
                            writeTVar handlers (byNS, byID')
     where
       iqID (Left err) = iqErrorID err
-      iqID (Right iq) = iqResultID iq
+      iqID (Right iq') = iqResultID iq'
 
 writeWorker :: TChan Stanza -> TMVar (BS.ByteString -> IO ()) -> IO ()
 writeWorker stCh writeR = forever $ do
@@ -137,14 +134,12 @@ startThreads = do
   writeLock <- liftIO . newTMVarIO =<< gets sConPushBS
   messageC <- liftIO newTChanIO
   presenceC <- liftIO newTChanIO
-  iqC  <- liftIO newTChanIO
   outC <- liftIO  newTChanIO
   handlers <- liftIO $ newTVarIO ( Map.empty, Map.empty)
   eh <- liftIO $ newTVarIO  zeroEventHandlers
   conS <- liftIO . newTMVarIO =<< get
   lw <- liftIO . forkIO $ writeWorker outC writeLock
   cp <- liftIO . forkIO $ connPersist writeLock
-  s <- get
   rd <- liftIO . forkIO $ readWorker messageC presenceC handlers conS
   return (messageC, presenceC, handlers, outC
          , killConnection writeLock [lw, rd, cp]
@@ -170,7 +165,6 @@ runThreaded a = do
             curId <- readTVar idRef
             writeTVar idRef (curId + 1 :: Integer)
             return . read. show $ curId
-    s <- get
     liftIO . putStrLn $ "starting application"
     liftIO $ runReaderT a (Thread workermCh workerpCh mC pC outC hand writeR rdr getId conS eh stopThreads')
 
@@ -181,5 +175,4 @@ connPersist lock = forever $ do
   pushBS <- atomically $ takeTMVar lock
   pushBS " "
   atomically $ putTMVar lock pushBS
---  putStrLn "<space added>"
   threadDelay 30000000

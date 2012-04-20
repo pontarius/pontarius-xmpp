@@ -26,6 +26,7 @@ data EventHandlers = EventHandlers
                          , connectionClosedHandler :: XMPPThread ()
                          }
 
+zeroEventHandlers :: EventHandlers
 zeroEventHandlers = EventHandlers
                          { sessionEndHandler       = return ()
                          , connectionClosedHandler = return ()

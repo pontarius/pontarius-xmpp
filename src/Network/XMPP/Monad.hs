@@ -13,7 +13,6 @@ import Control.Monad.State.Strict
 import Data.ByteString as BS
 import Data.Conduit
 import Data.Conduit.Binary as CB
-import Data.Conduit.List as CL
 import Data.Text(Text)
 import Data.XML.Pickle
 import Data.XML.Types
@@ -27,8 +26,6 @@ import System.IO
 
 import Text.XML.Stream.Elements
 import Text.XML.Stream.Parse as XP
-import Text.XML.Stream.Render as XR
-
 
 pushN :: Element -> XMPPConMonad ()
 pushN x = do

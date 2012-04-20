@@ -15,7 +15,7 @@ module Network.XMPP.Types
     ( IQError(..)
     , IQRequest(..)
     , IQRequestType(..)
-    , IQResponse(..)
+    , IQResponse
     , IQResult(..)
     , IdGenerator(..)
     , LangTag (..)
@@ -37,7 +37,7 @@ module Network.XMPP.Types
     , StanzaId(..)
     , StreamError(..)
     , Version(..)
-    , XMPPConMonad(..)
+    , XMPPConMonad
     , XMPPConState(..)
     , XMPPT(..)
     , parseLangTag
@@ -56,7 +56,6 @@ import           Control.Monad.Error
 
 import qualified Data.ByteString as BS
 import           Data.Conduit
-import           Data.List.Split as L
 import           Data.String(IsString(..))
 import           Data.Text (Text)
 import qualified Data.Text as Text
@@ -68,15 +67,6 @@ import qualified Network as N
 import           Network.XMPP.JID
 
 import           System.IO
-
-
--- | The string prefix MUST be
-
-data SessionSettings =
-  SessionSettings { ssIdPrefix :: String
-                  , ssIdGenerator :: IdGenerator
-                  , ssStreamLang :: LangTag }
-
 
 -- =============================================================================
 --  STANZA TYPES
@@ -535,38 +525,13 @@ instance Read SASLError where
     readsPrec _ "mechanism-too-weak"     = [(SASLMechanismTooWeak     , "")]
     readsPrec _ "not-authorized"         = [(SASLNotAuthorized        , "")]
     readsPrec _ "temporary-auth-failure" = [(SASLTemporaryAuthFailure , "")]
+    readsPrec _ _                        = []
 
 -- | Readability type for host name Texts.
 
 -- type HostName = Text -- This is defined in Network as well
 
-
--- | Readability type for port number Integers.
-
-type PortNumber = Integer -- We use N(etwork).PortID (PortNumber) internally
-
-
--- | Readability type for user name Texts.
-
-type UserName = Text
-
-
--- | Readability type for password Texts.
-
-type Password = Text
-
-
--- | Readability type for (Address) resource identifier Texts.
-
-type Resource = Text
-
-
-type StreamID = Text
-
-
 data ServerAddress = ServerAddress N.HostName N.PortNumber deriving (Eq)
-
-type Timeout = Int
 
 data StreamError = StreamError String
                  | StreamWrongVersion Text
@@ -640,8 +605,6 @@ instance Read LangTag where
 --           all (\ (a, b) -> map toLower a == map toLower b) $ zip as bs
 --         | otherwise = False
 
-
-
 data ServerFeatures = SF
   { stls  :: Maybe Bool
   , saslMechanisms :: [Text.Text]
@@ -659,6 +622,7 @@ data XMPPConState = XMPPConState
                , sUsername  :: Maybe Text
                , sResource  :: Maybe Text
                , sCloseConnection :: IO ()
+                 -- TODO: add default Language
                }
 
 -- |

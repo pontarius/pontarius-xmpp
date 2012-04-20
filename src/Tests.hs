@@ -100,7 +100,7 @@ runMain debug number = do
           Right _ -> return ()
           Left e -> error e
       xmppThreadedBind (resourcepart we)
---      startSession
+      startSession
       debug' "session standing"
       sendPresence presenceOnline
       forkXMPP autoAccept

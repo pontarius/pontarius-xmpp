@@ -4,7 +4,6 @@ import           Network.XMPP.Types
 
 import           Control.Concurrent
 import           Control.Concurrent.STM
-import qualified Control.Exception.Lifted as Ex
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader
 import           Control.Monad.State.Strict
@@ -156,7 +155,7 @@ withConnection a = do
   liftIO . throwTo readerId $ Interrupt wait
   s <- liftIO . atomically $ do
     putTMVar wait ()
-    takeTMVar write
+    _ <- takeTMVar write
     takeTMVar stateRef
   (res, s') <- liftIO $ runStateT a s
   liftIO . atomically $ do

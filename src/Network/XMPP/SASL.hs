@@ -78,7 +78,7 @@ xmppStartSASL realm username passwd = do
     Right _ -> return ()
   pushN saslResponse2E
   Element "{urn:ietf:params:xml:ns:xmpp-sasl}success" [] [] <- pullE
-  xmppRestartStream
+  _ <- xmppRestartStream
   return ()
 
 createResponse :: Random.RandomGen g

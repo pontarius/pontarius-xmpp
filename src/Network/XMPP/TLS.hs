@@ -9,23 +9,14 @@ import qualified Control.Exception.Lifted as Ex
 import           Control.Monad
 import           Control.Monad.Error
 import           Control.Monad.State.Strict
-import           Control.Monad.Trans
 
-import           Data.Conduit
-import           Data.Conduit.List as CL
 import           Data.Conduit.TLS as TLS
-import           Data.Default
 import           Data.Typeable
 import           Data.XML.Types
 
-import qualified Network.TLS as TLS
-import qualified Network.TLS.Extra as TLS
 import           Network.XMPP.Monad
 import           Network.XMPP.Stream
 import           Network.XMPP.Types
-
-import qualified Text.XML.Stream.Render as XR
-
 
 starttlsE :: Element
 starttlsE =
@@ -41,7 +32,7 @@ exampleParams = TLS.defaultParams
                       , pUseSecureRenegotiation = False -- No renegotiation
                       , pCertificates      = [] -- TODO
                       , pLogging           = TLS.defaultLogging -- TODO
-                      , onCertificatesRecv = \ certificate ->
+                      , onCertificatesRecv = \ _certificate ->
                                              return TLS.CertificateUsageAccept
                       }
 
@@ -68,7 +59,7 @@ xmppStartTLS params = Ex.handle (return . Left . TLSError)
       case answer of
         Element "{urn:ietf:params:xml:ns:xmpp-tls}proceed" [] [] -> return ()
         _ -> throwError $ TLSStreamError StreamXMLError
-      (raw, snk, psh, ctx) <- lift $ TLS.tlsinit params handle
+      (raw, _snk, psh, ctx) <- lift $ TLS.tlsinit params handle
       lift $ modify (\x -> x
                     { sRawSrc = raw
 --                  , sConSrc =  -- Note: this momentarily leaves us in an

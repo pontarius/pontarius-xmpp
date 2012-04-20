@@ -3,9 +3,6 @@
 
 module Network.XMPP.Stream where
 
-import Control.Applicative((<$>))
-import Control.Exception(throwIO)
-import Control.Monad(unless)
 import Control.Monad.Error
 import Control.Monad.State.Strict
 
