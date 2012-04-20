@@ -29,12 +29,6 @@ xmlLang = Name "lang" Nothing (Just "xml")
 xpLangTag :: PU [Attribute] (Maybe LangTag)
 xpLangTag = xpAttrImplied xmlLang xpPrim
 
--- xpElemExists :: Name -> PU [Node] Bool
--- xpElemExists name = xpWrap (\x -> mbToBool x)
---                            (\x -> if x then Just () else Nothing) $
---                            xpOption (xpElemEmpty name)
-
-
 xpNodeElem :: PU [Node] a -> PU Element a
 xpNodeElem xp = PU { pickleTree = \x -> head $ (pickleTree xp x) >>= \y ->
                       case y of

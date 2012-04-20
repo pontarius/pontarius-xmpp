@@ -122,6 +122,7 @@ data Stanza = IQRequestS     IQRequest
             | MessageErrorS  MessageError
             | PresenceS      Presence
             | PresenceErrorS PresenceError
+              deriving Show
 
 -- |
 -- A "request" Info/Query (IQ) stanza is one with either "get" or

@@ -34,7 +34,11 @@ attXmpp = liftIO . atomically
 testNS :: Text
 testNS = "xmpp:library:test"
 
-data Payload = Payload Int Bool Text deriving (Eq, Show)
+data Payload = Payload
+               { payloadCounter ::Int
+               , payloadFlag :: Bool
+               , payloadText :: Text
+               } deriving (Eq, Show)
 
 payloadP = xpWrap (\((counter,flag) , message) -> Payload counter flag message)
                   (\(Payload counter flag message) ->((counter,flag) , message)) $
@@ -58,6 +62,7 @@ iqResponder = do
     let answerPayload = invertPayload payload
     let answerBody = pickleElem payloadP answerPayload
     answerIQ next (Right $ Just answerBody)
+    when (payloadCounter payload == 10) endSession
 
 autoAccept :: XMPPThread ()
 autoAccept = forever $ do
@@ -84,7 +89,9 @@ runMain debug number = do
                              _ -> error "Need either 1 or 2"
   let debug' = liftIO . atomically .
                debug . (("Thread " ++ show number ++ ":") ++)
+  wait <- newEmptyTMVarIO
   xmppNewSession $ do
+      setSessionEndHandler (liftIO . atomically $ putTMVar wait ())
       debug' "running"
       connect "localhost" "species64739.dyndns.org"
       startTLS exampleParams
@@ -93,23 +100,29 @@ runMain debug number = do
           Right _ -> return ()
           Left e -> error e
       xmppThreadedBind (resourcepart we)
-      withConnection $ xmppSession
+--      startSession
       debug' "session standing"
       sendPresence presenceOnline
       forkXMPP autoAccept
+      sendPresence $ presenceSubscribe them
       forkXMPP iqResponder
-      when active . void . forkXMPP $ do
-        forM [1..10] $ \count -> do
-            let message = Text.pack . show $ localpart we
-            let payload = Payload count (even count) (Text.pack $ show count)
-            let body = pickleElem payloadP payload
-            Right answer <- sendIQ' (Just them) Get Nothing body
-            let Right answerPayload = unpickleElem payloadP
-                                  (fromJust $ iqResultPayload answer)
-            expect debug' (invertPayload payload) answerPayload
-            liftIO $ threadDelay 100000
-        sendUser "All tests done"
-      liftIO  . forever $ threadDelay 10000000
+      when active $ do
+        liftIO $ threadDelay 1000000 -- Wait for the other thread to go online
+        void . forkXMPP $ do
+          forM [1..10] $ \count -> do
+              let message = Text.pack . show $ localpart we
+              let payload = Payload count (even count) (Text.pack $ show count)
+              let body = pickleElem payloadP payload
+              debug' "sending"
+              Right answer <- sendIQ' (Just them) Get Nothing body
+              debug' "received"
+              let Right answerPayload = unpickleElem payloadP
+                                    (fromJust $ iqResultPayload answer)
+              expect debug' (invertPayload payload) answerPayload
+              liftIO $ threadDelay 100000
+          sendUser "All tests done"
+          endSession
+      liftIO . atomically $ takeTMVar wait
       return ()
   return ()
 
