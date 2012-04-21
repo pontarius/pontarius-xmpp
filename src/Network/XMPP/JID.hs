@@ -120,25 +120,43 @@ isFull jid = not $ isBare jid
 -- Parses an JID string and returns its three parts. It performs no
 -- validation or transformations. We are using Parsec to parse the
 -- JIDs. There is no input for which 'jidParts' fails.
-jidParts :: AP.Parser (Maybe Text, Text, Maybe Text)
-jidParts = do
-  a <- firstPartP
-  b <- Just <$> domainPartP <|> (return Nothing)
-  c <- Just <$> resourcePartP <|> (return Nothing)
-  case (a,b,c) of
-    -- Whether or not we have a resource part, if there is no "@"
-    -- x is the domain
-    (x, Nothing, z) -> return (Nothing, x, z)
-    -- When we do have an "@", x is the localpart
-    (x, Just y, z) -> return (Just x, y, z)
 
-firstPartP = AP.takeWhile1 (AP.notInClass ['@', '/'])
-domainPartP = do
-           _ <- AP.char '@'
-           AP.takeWhile1 (/= '/')
-resourcePartP = do
-           _ <- AP.char '/'
-           AP.takeText
+jidParts = do
+  -- Read until we reach an '@', a '/', or EOF.
+  a <- AP.takeWhile1 (AP.notInClass ['@', '/'])
+  -- Case 1: We found an '@', and thus the localpart. At least the
+  -- domainpart is remaining. Read the '@' and until a '/' or EOF.
+  do
+    b <- domainPartP
+    -- Case 1A: We found a '/' and thus have all the JID parts. Read
+    -- the '/' and until EOF.
+    do
+      c <- resourcePartP -- Parse resourcepart
+      return (Just a, b, Just c)
+    -- Case 1B: We have reached EOF; the JID is in the form
+    -- localpart@domainpart.
+      <|> do
+        AP.endOfInput
+        return (Just a, b, Nothing)
+    -- Case 2: We found a '/'; the JID is in the form
+    -- domainpart/resourcepart.
+    <|> do
+      b <- resourcePartP
+      AP.endOfInput
+      return (Nothing, a, Just b)
+    -- Case 3: We have reached EOF; we have an JID consisting of only
+    -- a domainpart.
+    <|> do
+      AP.endOfInput
+      return (Nothing, a, Nothing)
+  where
+    domainPartP = do
+               _ <- AP.char '@'
+               AP.takeWhile1 (/= '/')
+    resourcePartP = do
+               _ <- AP.char '/'
+               AP.takeText
+
 
 nodeprepProfile :: SP.StringPrepProfile
 nodeprepProfile = SP.Profile
