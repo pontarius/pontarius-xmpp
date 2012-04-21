@@ -38,8 +38,11 @@ idGenerator prefix = atomically $ do
     next :: TVar [Text.Text] -> IO Text.Text
     next tvar = atomically $ do
         list <- readTVar tvar
-        writeTVar tvar $ tail list
-        return $ head list
+        case list of
+          [] -> error "empty list in Utilities.hs"
+          (x:xs) -> do
+            writeTVar tvar xs
+            return x
 
     -- Generates an infinite and predictable list of IDs, all beginning with the
     -- provided prefix.
