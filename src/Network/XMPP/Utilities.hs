@@ -14,6 +14,7 @@ import Network.XMPP.Types
 import Control.Monad.STM
 import Control.Concurrent.STM.TVar
 import Prelude
+import Control.Applicative (many)
 
 import qualified Data.Attoparsec.Text as AP
 import qualified Data.Text as Text
@@ -83,7 +84,37 @@ versionFromNumbers major minor = Version major minor
 versionParser :: AP.Parser Version
 versionParser = do
     major <- AP.many1 AP.digit
-    AP.skip (\ c -> c == '.')
+    AP.skip (== '.')
     minor <- AP.many1 AP.digit
     AP.endOfInput
     return $ Version (read major) (read minor)
+
+
+-- | Parses, validates, and possibly constructs a "LangTag" object.
+langTag :: Text.Text -> Maybe LangTag
+langTag s = case AP.parseOnly langTagParser s of
+              Right tag -> Just tag
+              Left _ -> Nothing
+
+
+-- Parses a language tag as defined by RFC 1766 and constructs a LangTag object.
+langTagParser :: AP.Parser LangTag
+langTagParser = do
+    -- Read until we reach a '-' character, or EOF. This is the `primary tag'.
+    primTag <- tag
+    -- Read zero or more subtags.
+    subTags <- many subtag
+    AP.endOfInput
+    return $ LangTag primTag subTags
+    where
+        tag :: AP.Parser Text.Text
+        tag = do
+            t <- AP.takeWhile1 $ AP.inClass tagChars
+            return t
+        subtag :: AP.Parser Text.Text
+        subtag = do
+            AP.skip (== '-')
+            subtag <- tag
+            return subtag
+        tagChars :: [Char]
+        tagChars = ['a'..'z'] ++ ['A'..'Z']
