@@ -15,6 +15,7 @@ import Control.Monad.STM
 import Control.Concurrent.STM.TVar
 import Prelude
 
+import qualified Data.Attoparsec.Text as AP
 import qualified Data.Text as Text
 
 
@@ -61,3 +62,25 @@ idGenerator prefix = atomically $ do
         -- Characters allowed in IDs.
         repertoire :: String
         repertoire = ['a'..'z']
+
+
+-- Converts a "<major>.<minor>" numeric version number to a @Version@ object.
+versionFromString :: Text.Text -> Maybe Version
+versionFromString s = case AP.parseOnly versionParser s of
+                        Right version -> Just version
+                        Left _ -> Nothing
+
+
+-- Constructs a "Version" based on the major and minor version numbers.
+versionFromNumbers :: Integer -> Integer -> Version
+versionFromNumbers major minor = Version major minor
+
+
+-- Read numbers, a dot, more numbers, and end-of-file.
+versionParser :: AP.Parser Version
+versionParser = do
+    major <- AP.many1 AP.digit
+    AP.skip (\ c -> c == '.')
+    minor <- AP.many1 AP.digit
+    AP.endOfInput
+    return $ Version (read major) (read minor)
