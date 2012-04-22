@@ -14,7 +14,9 @@ import Network.XMPP.Types
 import Control.Monad.STM
 import Control.Concurrent.STM.TVar
 import Prelude
+import Control.Applicative (many)
 
+import qualified Data.Attoparsec.Text as AP
 import qualified Data.Text as Text
 
 
@@ -37,8 +39,11 @@ idGenerator prefix = atomically $ do
     next :: TVar [Text.Text] -> IO Text.Text
     next tvar = atomically $ do
         list <- readTVar tvar
-        writeTVar tvar $ tail list
-        return $ head list
+        case list of
+          [] -> error "empty list in Utilities.hs"
+          (x:xs) -> do
+            writeTVar tvar xs
+            return x
 
     -- Generates an infinite and predictable list of IDs, all beginning with the
     -- provided prefix.
@@ -61,3 +66,55 @@ idGenerator prefix = atomically $ do
         -- Characters allowed in IDs.
         repertoire :: String
         repertoire = ['a'..'z']
+
+
+-- Converts a "<major>.<minor>" numeric version number to a @Version@ object.
+versionFromString :: Text.Text -> Maybe Version
+versionFromString s = case AP.parseOnly versionParser s of
+                        Right version -> Just version
+                        Left _ -> Nothing
+
+
+-- Constructs a "Version" based on the major and minor version numbers.
+versionFromNumbers :: Integer -> Integer -> Version
+versionFromNumbers major minor = Version major minor
+
+
+-- Read numbers, a dot, more numbers, and end-of-file.
+versionParser :: AP.Parser Version
+versionParser = do
+    major <- AP.many1 AP.digit
+    AP.skip (== '.')
+    minor <- AP.many1 AP.digit
+    AP.endOfInput
+    return $ Version (read major) (read minor)
+
+
+-- | Parses, validates, and possibly constructs a "LangTag" object.
+langTag :: Text.Text -> Maybe LangTag
+langTag s = case AP.parseOnly langTagParser s of
+              Right tag -> Just tag
+              Left _ -> Nothing
+
+
+-- Parses a language tag as defined by RFC 1766 and constructs a LangTag object.
+langTagParser :: AP.Parser LangTag
+langTagParser = do
+    -- Read until we reach a '-' character, or EOF. This is the `primary tag'.
+    primTag <- tag
+    -- Read zero or more subtags.
+    subTags <- many subtag
+    AP.endOfInput
+    return $ LangTag primTag subTags
+    where
+        tag :: AP.Parser Text.Text
+        tag = do
+            t <- AP.takeWhile1 $ AP.inClass tagChars
+            return t
+        subtag :: AP.Parser Text.Text
+        subtag = do
+            AP.skip (== '-')
+            subtag <- tag
+            return subtag
+        tagChars :: [Char]
+        tagChars = ['a'..'z'] ++ ['A'..'Z']
