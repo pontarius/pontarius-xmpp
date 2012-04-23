@@ -120,7 +120,6 @@ isFull jid = not $ isBare jid
 -- Parses an JID string and returns its three parts. It performs no
 -- validation or transformations. We are using Parsec to parse the
 -- JIDs. There is no input for which 'jidParts' fails.
-
 jidParts = do
   -- Read until we reach an '@', a '/', or EOF.
   a <- AP.takeWhile1 (AP.notInClass ['@', '/'])

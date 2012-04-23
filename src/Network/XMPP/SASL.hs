@@ -2,7 +2,9 @@
 module Network.XMPP.SASL where
 
 import           Control.Applicative
+import           Control.Arrow (left)
 import           Control.Monad
+import           Control.Monad.Error
 import           Control.Monad.IO.Class
 import           Control.Monad.State.Strict
 
@@ -50,35 +52,53 @@ saslResponse2E =
     []
     []
 
-xmppSASL:: Text -> Text -> XMPPConMonad (Either String Text)
-xmppSASL uname passwd = do
+data SaslError = SaslXmlError
+               | SaslMechanismError [Text]
+               | SaslChallengeError
+               | SaslStreamError StreamError
+               | SaslConnectionError
+
+instance Error SaslError where
+    noMsg = SaslXmlError
+
+xmppSASL:: Text -> Text -> XMPPConMonad (Either SaslError Text)
+xmppSASL uname passwd = runErrorT $ do
     realm <- gets sHostname
     case realm of
       Just realm' -> do
-          xmppStartSASL realm' uname passwd
+          ErrorT $ xmppStartSASL realm' uname passwd
           modify (\s -> s{sUsername = Just uname})
-          return $ Right uname
-      Nothing -> return $ Left "No connection found"
+          return uname
+      Nothing -> throwError SaslConnectionError
 
 xmppStartSASL  :: Text
                -> Text
                -> Text
-               -> XMPPConMonad ()
-xmppStartSASL realm username passwd = do
+               -> XMPPConMonad (Either SaslError ())
+xmppStartSASL realm username passwd = runErrorT $ do
   mechanisms <- gets $ saslMechanisms . sFeatures
-  unless ("DIGEST-MD5" `elem` mechanisms) .  error $ "No usable auth mechanism: " ++ show mechanisms
-  pushN $ saslInitE "DIGEST-MD5"
-  Right challenge <- B64.decode . Text.encodeUtf8<$> pullPickle challengePickle
-  let Right pairs = toPairs challenge
+  unless ("DIGEST-MD5" `elem` mechanisms)
+      . throwError $ SaslMechanismError mechanisms
+  lift . pushN $ saslInitE "DIGEST-MD5"
+  challenge' <- lift $ B64.decode . Text.encodeUtf8<$> pullPickle challengePickle
+  challenge <- case challenge' of
+                  Left _e -> throwError SaslChallengeError
+                  Right r -> return r
+  pairs <- case toPairs challenge of
+      Left _ -> throwError SaslChallengeError
+      Right p -> return p
   g <- liftIO $ Random.newStdGen
-  pushN . saslResponseE $ createResponse g realm username passwd pairs
-  challenge2 <- pullPickle (xpEither failurePickle challengePickle)
+  lift . pushN . saslResponseE $ createResponse g realm username passwd pairs
+  challenge2 <- lift $ pullPickle (xpEither failurePickle challengePickle)
   case challenge2 of
-    Left x -> error $ show x
+    Left _x -> throwError $ SaslXmlError
     Right _ -> return ()
-  pushN saslResponse2E
-  Element "{urn:ietf:params:xml:ns:xmpp-sasl}success" [] [] <- pullE
-  _ <- xmppRestartStream
+  lift $ pushN saslResponse2E
+  e <- lift pullE
+  case e of
+      Element "{urn:ietf:params:xml:ns:xmpp-sasl}success" [] [] -> return ()
+      _ -> throwError SaslXmlError -- TODO: investigate
+  _ <- ErrorT $ left SaslStreamError <$> xmppRestartStream
   return ()
 
 createResponse :: Random.RandomGen g
@@ -93,16 +113,15 @@ createResponse g hostname username passwd' pairs = let
   Just nonce = L.lookup "nonce" pairs
   uname      = Text.encodeUtf8 username
   passwd     = Text.encodeUtf8 passwd'
-  realm      = Text.encodeUtf8 hostname
   -- Using Int instead of Word8 for random 1.0.0.0 (GHC 7)
   -- compatibility.
   cnonce     = BS.tail . BS.init .
            B64.encode . BS.pack . map toWord8 . take 8 $ Random.randoms g
   nc         = "00000001"
-  digestURI  = ("xmpp/" `BS.append` realm)
+  digestURI  = ("xmpp/" `BS.append` (Text.encodeUtf8 hostname))
   digest     = md5Digest
              uname
-             realm
+             (lookup "realm" pairs)
              passwd
              digestURI
              nc
@@ -110,15 +129,18 @@ createResponse g hostname username passwd' pairs = let
              nonce
              cnonce
   response = BS.intercalate"," . map (BS.intercalate "=") $
-   [["username"  , quote uname     ]
-   ,["realm"     , quote realm     ]
-   ,["nonce"     , quote nonce     ]
-   ,["cnonce"    , quote cnonce    ]
-   ,["nc"        ,       nc        ]
-   ,["qop"       ,       qop       ]
-   ,["digest-uri", quote digestURI ]
-   ,["response"  ,       digest    ]
-   ,["charset"   ,       "utf-8"   ]
+   [  ["username"  , quote uname     ]]
+   ++ case L.lookup "realm" pairs of
+       Just realm -> [["realm" , quote realm ]]
+       Nothing -> []
+   ++
+   [  ["nonce"     , quote nonce     ]
+   ,  ["cnonce"    , quote cnonce    ]
+   ,  ["nc"        ,       nc        ]
+   ,  ["qop"       ,       qop       ]
+   ,  ["digest-uri", quote digestURI ]
+   ,  ["response"  ,       digest    ]
+   ,  ["charset"   ,       "utf-8"   ]
    ]
   in Text.decodeUtf8 $ B64.encode response
   where
@@ -150,7 +172,7 @@ toStrict = BS.concat . BL.toChunks
 -- TODO: this only handles MD5-sess
 
 md5Digest :: BS8.ByteString
-          -> BS8.ByteString
+          -> Maybe BS8.ByteString
           -> BS8.ByteString
           -> BS8.ByteString
           -> BS8.ByteString
@@ -159,7 +181,7 @@ md5Digest :: BS8.ByteString
           -> BS8.ByteString
           -> BS8.ByteString
 md5Digest uname realm password digestURI nc qop nonce cnonce=
-  let ha1 = hash [hashRaw [uname,realm,password], nonce, cnonce]
+  let ha1 = hash [hashRaw [uname, maybe "" id realm, password], nonce, cnonce]
       ha2 = hash ["AUTHENTICATE", digestURI]
   in hash [ha1,nonce, nc, cnonce,qop,ha2]
 
