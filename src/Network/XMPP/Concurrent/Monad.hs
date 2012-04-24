@@ -175,7 +175,7 @@ sendMessage = sendS . MessageS
 modifyHandlers :: (EventHandlers -> EventHandlers) -> XMPPThread ()
 modifyHandlers f = do
     eh <- asks eventHandlers
-    liftIO . atomically $ modifyTVar eh f
+    liftIO . atomically $ writeTVar eh . f =<< readTVar eh
 
 setSessionEndHandler :: XMPPThread () -> XMPPThread ()
 setSessionEndHandler eh = modifyHandlers (\s -> s{sessionEndHandler = eh})
