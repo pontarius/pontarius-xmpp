@@ -1,9 +1,10 @@
+{-# OPTIONS_HADDOCK hide #-}
 module Network.XMPP.Presence where
 
 import Data.Text(Text)
 import Network.XMPP.Types
 
-
+-- | The empty presence.
 presence :: Presence
 presence = Presence { presenceID       = Nothing
                     , presenceFrom     = Nothing
@@ -16,6 +17,7 @@ presence = Presence { presenceID       = Nothing
                     , presencePayload  = []
                     }
 
+-- | Request subscription with an entity
 presenceSubscribe :: JID -> Presence
 presenceSubscribe to = presence { presenceTo = Just to
                                 , presenceType = Just Subscribe
@@ -45,14 +47,15 @@ presenceUnsubscribe to = presence { presenceTo = Just to
 isPresenceUnsubscribe :: Presence -> Bool
 isPresenceUnsubscribe pres = presenceType pres == (Just Unsubscribe)
 
--- | Signals to the server that the client is available for communication
+-- | Signal to the server that the client is available for communication
 presenceOnline :: Presence
 presenceOnline = presence
 
--- | Signals to the server that the client is no longer available for communication.
+-- | Signal to the server that the client is no longer available for communication.
 presenceOffline :: Presence
 presenceOffline = presence {presenceType = Just Unavailable}
 
+-- Change your status
 status
   :: Maybe Text     -- ^ Status message
   -> Maybe ShowType -- ^ Status Type
@@ -63,16 +66,16 @@ status txt showType prio = presence { presenceShowType = showType
                                     , presenceStatus   = txt
                                     }
 
--- | Sets the current availability status. This implicitly sets the clients
+-- | Set the current availability status. This implicitly sets the clients
 -- status online
 presenceAvail :: ShowType -> Presence
 presenceAvail showType = status Nothing (Just showType) Nothing
 
--- | Sets the current status message. This implicitly sets the clients
+-- | Set the current status message. This implicitly sets the clients
 -- status online
 presenceMessage :: Text -> Presence
 presenceMessage txt = status (Just txt) Nothing Nothing
 
--- | Adds a recipient to a presence notification
+-- | Add a recipient to a presence notification
 presTo :: Presence -> JID -> Presence
 presTo pres to = pres{presenceTo = Just to}

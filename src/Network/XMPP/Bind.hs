@@ -40,8 +40,8 @@ jidP = bindP $ xpElemNodes "jid" (xpContent xpPrim)
 -- server-generated resource and extract the JID from the non-error
 -- response.
 
-xmppThreadedBind  :: Maybe Text -> XMPPThread Text
-xmppThreadedBind rsrc = do
+xmppBind  :: Maybe Text -> XMPPThread Text
+xmppBind rsrc = do
    answer <- sendIQ' Nothing Set Nothing (bindBody rsrc)
    let (Right IQResult{iqResultPayload = Just b}) = answer -- TODO: Error handling
    let Right (JID _n _d (Just r)) = unpickleElem jidP b

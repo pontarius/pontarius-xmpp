@@ -1,4 +1,5 @@
 {-# Language NoMonomorphismRestriction #-}
+{-# OPTIONS_HADDOCK hide #-}
 module Data.Conduit.TLS
        ( tlsinit
 --       , conduitStdout

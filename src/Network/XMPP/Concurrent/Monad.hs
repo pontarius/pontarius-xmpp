@@ -18,20 +18,23 @@ import           Network.XMPP.Monad
 
 -- | Register a new IQ listener. IQ requests matching the type and namespace will
 -- be put in the channel.
+--
+-- Return the new channel or Nothing if this namespace/'IQRequestType'
+-- combination was alread handled
 listenIQChan :: IQRequestType  -- ^ type of IQs to receive (Get / Set)
                 -> Text -- ^ namespace of the child element
-                -> XMPPThread (Bool, TChan (IQRequest, TVar Bool))
+                -> XMPPThread (Maybe ( TChan (IQRequest, TVar Bool)))
 listenIQChan tp ns = do
   handlers <- asks iqHandlers
   liftIO . atomically $ do
     (byNS, byID) <- readTVar handlers
     iqCh <- newTChan
-    let (present, byNS') = Map.insertLookupWithKey' (\_ new _ -> new)
+    let (present, byNS') = Map.insertLookupWithKey' (\_ _ old -> old)
                                                      (tp,ns) iqCh byNS
     writeTVar handlers (byNS', byID)
     return $ case present of
-               Nothing -> (True, iqCh)
-               Just iqCh' -> (False, iqCh')
+               Nothing -> Just iqCh
+               Just iqCh' -> Nothing
 
 -- | get the inbound stanza channel, duplicates from master if necessary
 -- please note that once duplicated it will keep filling up, call

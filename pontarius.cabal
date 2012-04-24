@@ -12,7 +12,7 @@ Stability: alpha
 Bug-Reports: mailto:jon.kristensen@nejla.com
 -- Package-URL:
 Synopsis: An incomplete implementation of RFC 6120 (XMPP: Core)
-Description: Pontarius is a work in progress of an implementation of
+Description: Pontarius is a work in progress implementation of
              RFC 6120 (XMPP: Core).
 Category: Network
 Tested-With: GHC == 7.4.1
@@ -61,8 +61,10 @@ Library
                  , Network.XMPP.TLS
                  , Network.XMPP.Bind
                  , Network.XMPP.Session
-                 , Text.XML.Stream.Elements
-                 , Data.Conduit.TLS
+  Other-modules:   Network.XMPP.JID
+                 , Network.XMPP.Concurrent.IQ
+                 , Network.XMPP.Concurrent.Threads
+                 , Network.XMPP.Concurrent.Monad
   GHC-Options: -Wall
 
 

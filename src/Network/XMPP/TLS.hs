@@ -36,6 +36,7 @@ exampleParams = TLS.defaultParams
                                              return TLS.CertificateUsageAccept
                       }
 
+-- | Error conditions that may arise during TLS negotiation.
 data XMPPTLSError = TLSError TLSError
                   | TLSNoServerSupport
                   | TLSNoConnection

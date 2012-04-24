@@ -53,9 +53,11 @@ payloadP = xpWrap (\((counter,flag) , message) -> Payload counter flag message)
 invertPayload (Payload count flag message) = Payload (count + 1) (not flag) (Text.reverse message)
 
 iqResponder = do
-  (free, chan) <- listenIQChan Get testNS
-  unless free $ liftIO $ putStrLn "Channel was already taken"
-                >> error "hanging up"
+  chan' <- listenIQChan Get testNS
+  chan <- case chan' of
+      Nothing -> liftIO $ putStrLn "Channel was already taken"
+                     >> error "hanging up"
+      Just c -> return c
   forever $ do
     next@(iq,_) <- liftIO . atomically $ readTChan chan
     let Right payload = unpickleElem payloadP $ iqRequestPayload iq
@@ -95,12 +97,10 @@ runMain debug number = do
       debug' "running"
       connect "localhost" "species64739.dyndns.org"
       startTLS exampleParams
-      saslResponse <- auth (fromJust $ localpart we) "pwd"
+      saslResponse <- auth (fromJust $ localpart we) "pwd" (resourcepart we)
       case saslResponse of
           Right _ -> return ()
-          Left e -> error e
-      xmppThreadedBind (resourcepart we)
-      startSession
+          Left e -> error "saslerror"
       debug' "session standing"
       sendPresence presenceOnline
       forkXMPP autoAccept

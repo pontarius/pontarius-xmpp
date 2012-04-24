@@ -37,16 +37,41 @@ import qualified Data.Text as Text
 import qualified Text.NamePrep as SP
 import qualified Text.StringPrep as SP
 
--- |
--- @From@ is a readability type synonym for @Address@.
+data JID = JID {
+                -- | The @localpart@ of a JID is an optional identifier
+                -- placed before the domainpart and separated from the
+                -- latter by a \'\@\' character.  Typically a
+                -- localpart uniquely identifies the entity requesting
+                -- and using network access provided by a server
+                -- (i.e., a local account), although it can also
+                -- represent other kinds of entities (e.g., a chat
+                -- room associated with a multi-user chat service).
+                -- The entity represented by an XMPP localpart is
+                -- addressed within the context of a specific domain
+                -- (i.e., @localpart\@domainpart@).
 
--- | Jabber ID (JID) datatype
-data JID = JID { localpart :: !(Maybe Text)
-               -- ^ Account name
+                 localpart :: !(Maybe Text)
+                -- | The domainpart typically identifies the /home/
+                -- server to which clients connect for XML routing and
+                -- data management functionality.  However, it is not
+                -- necessary for an XMPP domainpart to identify an
+                -- entity that provides core XMPP server functionality
+                -- (e.g., a domainpart can identify an entity such as a
+                -- multi-user chat service, a publish-subscribe
+                -- service, or a user directory).
                , domainpart :: !Text
-               -- ^ Server adress
+                -- | The resourcepart of a JID is an optional
+                -- identifier placed after the domainpart and
+                -- separated from the latter by the \'\/\' character.  A
+                -- resourcepart can modify either a
+                -- @localpart\@domainpart@ address or a mere
+                -- @domainpart@ address.  Typically a resourcepart
+                -- uniquely identifies a specific connection (e.g., a
+                -- device or location) or object (e.g., an occupant
+                -- in a multi-user chat room) belonging to the entity
+                -- associated with an XMPP localpart at a domain
+                -- (i.e., @localpart\@domainpart/resourcepart@).
                , resourcepart :: !(Maybe Text)
-               -- ^ Resource name
                }
 
 instance Show JID where
@@ -64,8 +89,7 @@ instance Read JID where
 instance IsString JID where
   fromString = fromJust . fromText . Text.pack
 
--- |
--- Converts a string to a JID.
+-- | Converts a Text to a JID.
 fromText :: Text -> Maybe JID
 fromText t = do
   (l, d, r) <- eitherToMaybe $ AP.parseOnly jidParts t
@@ -73,9 +97,7 @@ fromText t = do
   where
     eitherToMaybe = either (const Nothing) Just
 
-
--- |
--- Converts localpart, domainpart, and resourcepart strings to a JID.
+-- | Converts localpart, domainpart, and resourcepart strings to a JID.
 -- Runs the appropriate stringprep profiles and validates the parts.
 fromStrings :: Maybe Text -> Text -> Maybe Text -> Maybe JID
 fromStrings l d r = do
@@ -108,7 +130,7 @@ fromStrings l d r = do
     -- validHostname :: Text -> Bool
     -- validHostname _ = True -- TODO
 
--- | Returns True if the JID is `bare', and False otherwise.
+-- | Returns True if the JID is /bare/, and False otherwise.
 isBare :: JID -> Bool
 isBare j | resourcepart j == Nothing = True
          | otherwise                 = False

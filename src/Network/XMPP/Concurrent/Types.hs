@@ -1,3 +1,4 @@
+{-# OPTIONS_HADDOCK hide #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 
 module Network.XMPP.Concurrent.Types where
