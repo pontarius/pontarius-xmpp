@@ -133,7 +133,8 @@ module Network.XMPP
   , iqResultPayload
   -- * Threads
   , XMPP
-  , forkXMPP
+  , fork
+  , forkSession
   -- * Misc
   , exampleParams
   ) where

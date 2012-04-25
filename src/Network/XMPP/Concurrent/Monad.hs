@@ -98,15 +98,19 @@ sendS a = do
   liftIO . atomically $ writeTChan out a
   return ()
 
+-- | Create a forked session object without forking a thread
+forkSession :: Session -> IO Session
+forkSession sess = do
+    mCH' <- newIORef Nothing
+    pCH' <- newIORef Nothing
+    return $ sess {messagesRef = mCH' ,presenceRef = pCH'}
+
 -- | Fork a new thread
-forkXMPP :: XMPP () -> XMPP ThreadId
-forkXMPP a = do
-  thread <- ask
-  mCH' <- liftIO $ newIORef Nothing
-  pCH' <- liftIO $ newIORef Nothing
-  liftIO $ forkIO $ runReaderT a (thread {messagesRef = mCH'
-                                         ,presenceRef = pCH'
-                                         })
+fork :: XMPP () -> XMPP ThreadId
+fork a = do
+  sess <- ask
+  sess' <- liftIO $ forkSession sess
+  liftIO $ forkIO $ runReaderT a sess'
 
 filterMessages :: (MessageError -> Bool)
                -> (Message -> Bool)
