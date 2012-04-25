@@ -119,28 +119,28 @@ writeWorker stCh writeR = forever $ do
 -- returns channel of incoming and outgoing stances, respectively
 -- and an Action to stop the Threads and close the connection
 startThreads
-  :: XMPPConMonad ( TChan (Either MessageError Message)
-                  , TChan (Either PresenceError Presence)
-                  , TVar IQHandlers
-                  , TChan Stanza
-                  , IO ()
-                  , TMVar (BS.ByteString -> IO ())
-                  , TMVar XMPPConState
-                  , ThreadId
-                  , TVar EventHandlers
-                  )
+  :: IO ( TChan (Either MessageError Message)
+        , TChan (Either PresenceError Presence)
+        , TVar IQHandlers
+        , TChan Stanza
+        , IO ()
+        , TMVar (BS.ByteString -> IO ())
+        , TMVar XMPPConState
+        , ThreadId
+        , TVar EventHandlers
+        )
 
 startThreads = do
-  writeLock <- liftIO . newTMVarIO =<< gets sConPushBS
-  messageC <- liftIO newTChanIO
-  presenceC <- liftIO newTChanIO
-  outC <- liftIO  newTChanIO
-  handlers <- liftIO $ newTVarIO ( Map.empty, Map.empty)
-  eh <- liftIO $ newTVarIO  zeroEventHandlers
-  conS <- liftIO . newTMVarIO =<< get
-  lw <- liftIO . forkIO $ writeWorker outC writeLock
-  cp <- liftIO . forkIO $ connPersist writeLock
-  rd <- liftIO . forkIO $ readWorker messageC presenceC handlers conS
+  writeLock <- newEmptyTMVarIO
+  messageC <- newTChanIO
+  presenceC <- newTChanIO
+  outC <- newTChanIO
+  handlers <- newTVarIO ( Map.empty, Map.empty)
+  eh <- newTVarIO  zeroEventHandlers
+  conS <- newEmptyTMVarIO
+  lw <- forkIO $ writeWorker outC writeLock
+  cp <- forkIO $ connPersist writeLock
+  rd <- forkIO $ readWorker messageC presenceC handlers conS
   return (messageC, presenceC, handlers, outC
          , killConnection writeLock [lw, rd, cp]
          , writeLock, conS ,rd, eh)
@@ -150,24 +150,24 @@ startThreads = do
         _ <- forM threads killThread
         return()
 
--- | Start worker threads and run action. The supplied action will run
--- in the calling thread. use 'forkXMPP' to start another thread.
-runThreaded  :: XMPPThread a
-                -> XMPPConMonad a
-runThreaded a = do
-    liftIO . putStrLn $ "starting threads"
+-- | Creates and initializes a new XMPP session.
+newSession :: IO Session
+newSession = do
     (mC, pC, hand, outC, stopThreads', writeR, conS, rdr, eh) <- startThreads
-    liftIO . putStrLn $ "threads running"
-    workermCh <- liftIO . newIORef $ Nothing
-    workerpCh <- liftIO . newIORef $ Nothing
-    idRef <- liftIO $ newTVarIO 1
+    workermCh <- newIORef $ Nothing
+    workerpCh <- newIORef $ Nothing
+    idRef <- newTVarIO 1
     let getId = atomically $ do
             curId <- readTVar idRef
             writeTVar idRef (curId + 1 :: Integer)
             return . read. show $ curId
-    liftIO . putStrLn $ "starting application"
-    liftIO $ runReaderT a (Thread workermCh workerpCh mC pC outC hand writeR rdr getId conS eh stopThreads')
+    return (Session workermCh workerpCh mC pC outC hand writeR rdr getId conS eh stopThreads')
 
+withNewSession :: XMPP b -> IO b
+withNewSession a = newSession >>= runReaderT a
+
+withSession :: Session -> XMPP a -> IO a
+withSession = flip runReaderT
 
 -- | Sends a blank space every 30 seconds to keep the connection alive
 connPersist ::  TMVar (BS.ByteString -> IO ()) -> IO ()

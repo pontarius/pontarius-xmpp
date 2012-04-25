@@ -34,7 +34,7 @@
 
 module Network.XMPP
   ( -- * Session management
-    xmppNewSession
+    withNewSession
   , connect
   , startTLS
   , auth
@@ -132,7 +132,7 @@ module Network.XMPP
   , iqRequestPayload
   , iqResultPayload
   -- * Threads
-  , XMPPThread
+  , XMPP
   , forkXMPP
   -- * Misc
   , exampleParams
@@ -155,10 +155,6 @@ import Network.XMPP.Types
 
 import Control.Monad.Error
 
--- | Create a new, pristine session without an active connection.
-xmppNewSession :: XMPPThread a -> IO (a, XMPPConState)
-xmppNewSession = withNewSession . runThreaded
-
 -- | Connect to host with given address.
 xmppConnect :: HostName -> Text -> XMPPConMonad (Either StreamError ())
 xmppConnect  address hostname = xmppRawConnect address hostname >> xmppStartStream
@@ -166,10 +162,8 @@ xmppConnect  address hostname = xmppRawConnect address hostname >> xmppStartStre
 -- | Attempts to secure the connection using TLS. Will return
 -- 'TLSNoServerSupport' when the server does not offer TLS or does not
 -- expect it at this time.
-startTLS  :: TLS.TLSParams -> XMPPThread (Either XMPPTLSError ())
+startTLS  :: TLS.TLSParams -> XMPP (Either XMPPTLSError ())
 startTLS = withConnection . xmppStartTLS
-
-
 
 -- | Authenticate to the server with the given username and password
 -- and bind a resource
@@ -177,7 +171,7 @@ auth  :: Text.Text  -- ^ The username
       -> Text.Text  -- ^ The password
       -> Maybe Text -- ^ The desired resource or 'Nothing' to let the server
                     -- assign one
-      -> XMPPThread (Either SaslError Text.Text)
+      -> XMPP (Either SaslError Text.Text)
 auth username passwd resource = runErrorT $ do
     ErrorT . withConnection $ xmppSASL username passwd
     res <- lift $ xmppBind resource
@@ -185,5 +179,5 @@ auth username passwd resource = runErrorT $ do
     return res
 
 -- | Connect to an xmpp server
-connect :: HostName -> Text -> XMPPThread (Either StreamError ())
+connect :: HostName -> Text -> XMPP (Either StreamError ())
 connect address hostname = withConnection $ xmppConnect address hostname

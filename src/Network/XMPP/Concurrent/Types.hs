@@ -23,8 +23,8 @@ type IQHandlers = (Map.Map (IQRequestType, Text) (TChan (IQRequest, TVar Bool))
                   )
 
 data EventHandlers = EventHandlers
-                         { sessionEndHandler       :: XMPPThread ()
-                         , connectionClosedHandler :: XMPPThread ()
+                         { sessionEndHandler       :: XMPP ()
+                         , connectionClosedHandler :: XMPP ()
                          }
 
 zeroEventHandlers :: EventHandlers
@@ -33,29 +33,29 @@ zeroEventHandlers = EventHandlers
                          , connectionClosedHandler = return ()
                          }
 
-data Thread = Thread { messagesRef :: IORef (Maybe ( TChan (Either
+data Session = Session { messagesRef :: IORef (Maybe ( TChan (Either
                                                               MessageError
                                                               Message
-                                                           )))
-                     , presenceRef :: IORef (Maybe (TChan (Either
-                                                              PresenceError
-                                                              Presence
-                                                          )))
-                     , mShadow :: TChan (Either MessageError
-                                                Message) -- the original chan
-                     , pShadow :: TChan (Either PresenceError
-                                                Presence) -- the original chan
-                     , outCh :: TChan Stanza
-                     , iqHandlers :: TVar IQHandlers
-                     , writeRef :: TMVar (BS.ByteString -> IO () )
-                     , readerThread :: ThreadId
-                     , idGenerator :: IO StanzaId
-                     , conStateRef :: TMVar XMPPConState
-                     , eventHandlers :: TVar EventHandlers
-                     , stopThreads :: IO ()
-                     }
+                                                             )))
+                       , presenceRef :: IORef (Maybe (TChan (Either
+                                            PresenceError Presence )))
+                       , mShadow :: TChan (Either MessageError
+                                                  Message)
+                                          -- the original chan
+                       , pShadow :: TChan (Either PresenceError
+                                                  Presence)
+                                           -- the original chan
+                       , outCh :: TChan Stanza
+                       , iqHandlers :: TVar IQHandlers
+                       , writeRef :: TMVar (BS.ByteString -> IO () )
+                       , readerThread :: ThreadId
+                       , idGenerator :: IO StanzaId
+                       , conStateRef :: TMVar XMPPConState
+                       , eventHandlers :: TVar EventHandlers
+                       , stopThreads :: IO ()
+                       }
 
-type XMPPThread a = ReaderT Thread IO a
+type XMPP a = ReaderT Session IO a
 
 data Interrupt = Interrupt (TMVar ()) deriving Typeable
 instance Show Interrupt where show _ = "<Interrupt>"

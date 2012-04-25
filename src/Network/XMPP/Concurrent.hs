@@ -1,6 +1,6 @@
 module Network.XMPP.Concurrent
-  ( Thread
-  , XMPPThread
+  ( Session
+  , XMPP
   , module Network.XMPP.Concurrent.Monad
   , module Network.XMPP.Concurrent.Threads
   , module Network.XMPP.Concurrent.IQ

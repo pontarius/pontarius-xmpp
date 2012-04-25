@@ -120,8 +120,8 @@ xmppRawConnect host hostname = do
   put st
 
 
-withNewSession :: XMPPConMonad a -> IO (a, XMPPConState)
-withNewSession action = do
+xmppNewSession :: XMPPConMonad a -> IO (a, XMPPConState)
+xmppNewSession action = do
   runStateT action xmppZeroConState
 
 xmppKillConnection :: XMPPConMonad ()

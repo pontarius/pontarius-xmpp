@@ -32,7 +32,7 @@ xmppSession = do
   let IQResultS (IQResult "sess" Nothing Nothing _lang _body) = answer
   return ()
 
-startSession :: XMPPThread ()
+startSession :: XMPP ()
 startSession = do
     answer <- sendIQ' Nothing Set Nothing sessionXML
     case answer of
