@@ -40,6 +40,7 @@ module Network.XMPP.Types
     , XMPPConMonad
     , XMPPConState(..)
     , XMPPT(..)
+    , XmppStreamError(..)
     , parseLangTag
     , module Network.XMPP.JID
     )
@@ -338,7 +339,6 @@ instance Read ShowType where
 -- wrapped in the @StanzaError@ type.
 
 -- TODO: Sender XML is (optional and is) not included.
-
 data StanzaError = StanzaError { stanzaErrorType :: StanzaErrorType
                                , stanzaErrorCondition :: StanzaErrorCondition
                                , stanzaErrorText :: Maybe (Maybe LangTag, Text)
@@ -537,14 +537,103 @@ instance Read SASLError where
 
 data ServerAddress = ServerAddress N.HostName N.PortNumber deriving (Eq)
 
-data StreamError = StreamError String
+-- TODO: document the error cases
+data StreamErrorCondition = StreamBadFormat
+                     | StreamBadNamespacePrefix
+                     | StreamConflict
+                     | StreamConnectionTimeout
+                     | StreamHostGone
+                     | StreamHostUnknown
+                     | StreamImproperAddressing
+                     | StreamInternalServerError
+                     | StreamInvalidFrom
+                     | StreamInvalidNamespace
+                     | StreamInvalidXml
+                     | StreamNotAuthorized
+                     | StreamNotWellFormed
+                     | StreamPolicyViolation
+                     | StreamRemoteConnectionFailed
+                     | StreamReset
+                     | StreamResourceConstraint
+                     | StreamRestrictedXml
+                     | StreamSeeOtherHost
+                     | StreamSystemShutdown
+                     | StreamUndefinedCondition
+                     | StreamUnsupportedEncoding
+                     | StreamUnsupportedFeature
+                     | StreamUnsupportedStanzaType
+                     | StreamUnsupportedVersion
+                       deriving Eq
+
+instance Show StreamErrorCondition where
+    show StreamBadFormat              = "bad-format"
+    show StreamBadNamespacePrefix     = "bad-namespace-prefix"
+    show StreamConflict               = "conflict"
+    show StreamConnectionTimeout      = "connection-timeout"
+    show StreamHostGone               = "host-gone"
+    show StreamHostUnknown            = "host-unknown"
+    show StreamImproperAddressing     = "improper-addressing"
+    show StreamInternalServerError    = "internal-server-error"
+    show StreamInvalidFrom            = "invalid-from"
+    show StreamInvalidNamespace       = "invalid-namespace"
+    show StreamInvalidXml             = "invalid-xml"
+    show StreamNotAuthorized          = "not-authorized"
+    show StreamNotWellFormed          = "not-well-formed"
+    show StreamPolicyViolation        = "policy-violation"
+    show StreamRemoteConnectionFailed = "remote-connection-failed"
+    show StreamReset                  = "reset"
+    show StreamResourceConstraint     = "resource-constraint"
+    show StreamRestrictedXml          = "restricted-xml"
+    show StreamSeeOtherHost           = "see-other-host"
+    show StreamSystemShutdown         = "system-shutdown"
+    show StreamUndefinedCondition     = "undefined-condition"
+    show StreamUnsupportedEncoding    = "unsupported-encoding"
+    show StreamUnsupportedFeature     = "unsupported-feature"
+    show StreamUnsupportedStanzaType  = "unsupported-stanza-type"
+    show StreamUnsupportedVersion     = "unsupported-version"
+
+instance Read StreamErrorCondition where
+  readsPrec _ "bad-format"               = [(StreamBadFormat              , "")]
+  readsPrec _ "bad-namespace-prefix"     = [(StreamBadNamespacePrefix     , "")]
+  readsPrec _ "conflict"                 = [(StreamConflict               , "")]
+  readsPrec _ "connection-timeout"       = [(StreamConnectionTimeout      , "")]
+  readsPrec _ "host-gone"                = [(StreamHostGone               , "")]
+  readsPrec _ "host-unknown"             = [(StreamHostUnknown            , "")]
+  readsPrec _ "improper-addressing"      = [(StreamImproperAddressing     , "")]
+  readsPrec _ "internal-server-error"    = [(StreamInternalServerError    , "")]
+  readsPrec _ "invalid-from"             = [(StreamInvalidFrom            , "")]
+  readsPrec _ "invalid-namespace"        = [(StreamInvalidNamespace       , "")]
+  readsPrec _ "invalid-xml"              = [(StreamInvalidXml             , "")]
+  readsPrec _ "not-authorized"           = [(StreamNotAuthorized          , "")]
+  readsPrec _ "not-well-formed"          = [(StreamNotWellFormed          , "")]
+  readsPrec _ "policy-violation"         = [(StreamPolicyViolation        , "")]
+  readsPrec _ "remote-connection-failed" = [(StreamRemoteConnectionFailed , "")]
+  readsPrec _ "reset"                    = [(StreamReset                  , "")]
+  readsPrec _ "resource-constraint"      = [(StreamResourceConstraint     , "")]
+  readsPrec _ "restricted-xml"           = [(StreamRestrictedXml          , "")]
+  readsPrec _ "see-other-host"           = [(StreamSeeOtherHost           , "")]
+  readsPrec _ "system-shutdown"          = [(StreamSystemShutdown         , "")]
+  readsPrec _ "undefined-condition"      = [(StreamUndefinedCondition     , "")]
+  readsPrec _ "unsupported-encoding"     = [(StreamUnsupportedEncoding    , "")]
+  readsPrec _ "unsupported-feature"      = [(StreamUnsupportedFeature     , "")]
+  readsPrec _ "unsupported-stanza-type"  = [(StreamUnsupportedStanzaType  , "")]
+  readsPrec _ "unsupported-version"      = [(StreamUnsupportedVersion     , "")]
+  readsPrec _ _                          = [(StreamUndefinedCondition     , "")]
+
+data XmppStreamError = XmppStreamError
+                           { errorCondition :: StreamErrorCondition
+                           , errorText :: Maybe (Maybe LangTag, Text)
+                           , errorXML :: Maybe Element
+                           } deriving (Show, Eq)
+
+
+data StreamError = StreamError XmppStreamError
                  | StreamWrongVersion Text
-                 | StreamXMLError
-                 | StreamUnpickleError String
+                 | StreamXMLError String
                  | StreamConnectionError
                  deriving (Show, Eq, Typeable)
 instance Exception StreamError
-instance Error StreamError where strMsg = StreamError
+instance Error StreamError where noMsg = StreamConnectionError
 
 -- =============================================================================
 --  XML TYPES

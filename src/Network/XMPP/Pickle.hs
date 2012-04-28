@@ -5,7 +5,21 @@
 -- Marshalling between XML and Native Types
 
 
-module Network.XMPP.Pickle where
+module Network.XMPP.Pickle
+    ( mbToBool
+    , xpElemEmpty
+    , xmlLang
+    , xpLangTag
+    , xpNodeElem
+    , ignoreAttrs
+    , mbl
+    , lmb
+    , right
+    , unpickleElem'
+    , unpickleElem
+    , pickleElem
+    , ppElement
+    ) where
 
 import Data.XML.Types
 import Data.XML.Pickle
@@ -64,4 +78,5 @@ unpickleElem p x = unpickle (xpNodeElem p) x
 
 pickleElem :: PU [Node] a -> a -> Element
 pickleElem p = pickle  $ xpNodeElem p
+
 

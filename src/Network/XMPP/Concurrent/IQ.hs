@@ -27,7 +27,7 @@ sendIQ to tp lang body = do -- TODO: add timeout
       writeTVar handlers (byNS, Map.insert newId resRef byId)
         -- TODO: Check for id collisions (shouldn't happen?)
       return resRef
-  sendS . IQRequestS $ IQRequest newId Nothing to lang tp body
+  sendStanza . IQRequestS $ IQRequest newId Nothing to lang tp body
   return ref
 
 -- | like 'sendIQ', but waits for the answer IQ

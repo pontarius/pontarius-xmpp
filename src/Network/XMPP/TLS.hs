@@ -3,8 +3,6 @@
 
 module Network.XMPP.TLS where
 
-import           Control.Applicative((<$>))
-import           Control.Arrow(left)
 import qualified Control.Exception.Lifted as Ex
 import           Control.Monad
 import           Control.Monad.Error
@@ -15,6 +13,7 @@ import           Data.Typeable
 import           Data.XML.Types
 
 import           Network.XMPP.Monad
+import           Network.XMPP.Pickle(ppElement)
 import           Network.XMPP.Stream
 import           Network.XMPP.Types
 
@@ -45,7 +44,6 @@ data XMPPTLSError = TLSError TLSError
 
 instance Error XMPPTLSError where
   noMsg = TLSNoConnection -- TODO: What should we choose here?
-instance Ex.Exception XMPPTLSError
 
 
 xmppStartTLS :: TLS.TLSParams -> XMPPConMonad (Either XMPPTLSError ())
@@ -56,10 +54,14 @@ xmppStartTLS params = Ex.handle (return . Left . TLSError)
       handle <- maybe (throwError TLSNoConnection) return handle'
       when (stls features == Nothing) $ throwError TLSNoServerSupport
       lift $ pushN starttlsE
-      answer <- lift $ pullE
+      answer <- lift $ pullElement
       case answer of
         Element "{urn:ietf:params:xml:ns:xmpp-tls}proceed" [] [] -> return ()
-        _ -> throwError $ TLSStreamError StreamXMLError
+        Element "{urn:ietf:params:xml:ns:xmpp-tls}failure" _ _
+            -> lift . Ex.throwIO $ StreamConnectionError
+                 -- TODO: find something more suitable
+        e -> lift . Ex.throwIO . StreamXMLError
+               $ "Unexpected element: " ++ ppElement e
       (raw, _snk, psh, ctx) <- lift $ TLS.tlsinit params handle
       lift $ modify (\x -> x
                     { sRawSrc = raw
@@ -68,7 +70,7 @@ xmppStartTLS params = Ex.handle (return . Left . TLSError)
                     , sConPushBS = psh
                     , sCloseConnection = TLS.bye ctx >> sCloseConnection x
                     })
-      ErrorT $ (left TLSStreamError) <$> xmppRestartStream
+      either (lift . Ex.throwIO) return =<< lift xmppRestartStream
       modify (\s -> s{sHaveTLS = True})
       return ()
 

@@ -28,7 +28,7 @@ sessionIQ = IQRequestS $ IQRequest { iqRequestID      = "sess"
 xmppSession :: XMPPConMonad ()
 xmppSession = do
   push $ sessionIQ
-  answer <- pull
+  answer <- pullStanza
   let IQResultS (IQResult "sess" Nothing Nothing _lang _body) = answer
   return ()
 

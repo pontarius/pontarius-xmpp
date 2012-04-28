@@ -5,7 +5,6 @@ import           Control.Applicative
 import           Control.Arrow (left)
 import           Control.Monad
 import           Control.Monad.Error
-import           Control.Monad.IO.Class
 import           Control.Monad.State.Strict
 
 import qualified Crypto.Classes as CC
@@ -80,7 +79,8 @@ xmppStartSASL realm username passwd = runErrorT $ do
   unless ("DIGEST-MD5" `elem` mechanisms)
       . throwError $ SaslMechanismError mechanisms
   lift . pushN $ saslInitE "DIGEST-MD5"
-  challenge' <- lift $ B64.decode . Text.encodeUtf8<$> pullPickle challengePickle
+  challenge' <-  lift $ B64.decode . Text.encodeUtf8
+                         <$> pullPickle challengePickle
   challenge <- case challenge' of
                   Left _e -> throwError SaslChallengeError
                   Right r -> return r
@@ -94,7 +94,7 @@ xmppStartSASL realm username passwd = runErrorT $ do
     Left _x -> throwError $ SaslXmlError
     Right _ -> return ()
   lift $ pushN saslResponse2E
-  e <- lift pullE
+  e <- lift pullElement
   case e of
       Element "{urn:ietf:params:xml:ns:xmpp-sasl}success" [] [] -> return ()
       _ -> throwError SaslXmlError -- TODO: investigate

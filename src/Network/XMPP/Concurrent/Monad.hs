@@ -4,6 +4,7 @@ import           Network.XMPP.Types
 
 import           Control.Concurrent
 import           Control.Concurrent.STM
+import qualified Control.Exception.Lifted as Ex
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader
 import           Control.Monad.State.Strict
@@ -34,7 +35,7 @@ listenIQChan tp ns = do
     writeTVar handlers (byNS', byID)
     return $ case present of
                Nothing -> Just iqCh
-               Just iqCh' -> Nothing
+               Just _iqCh' -> Nothing
 
 -- | get the inbound stanza channel, duplicates from master if necessary
 -- please note that once duplicated it will keep filling up, call
@@ -92,8 +93,8 @@ pullPresence = do
   liftIO $ atomically $ readTChan c
 
 -- | Send a stanza to the server
-sendS :: Stanza -> XMPP ()
-sendS a = do
+sendStanza :: Stanza -> XMPP ()
+sendStanza a = do
   out <- asks outCh
   liftIO . atomically $ writeTChan out a
   return ()
@@ -159,24 +160,38 @@ withConnection a = do
   stateRef <- asks conStateRef
   write <- asks writeRef
   wait <- liftIO $ newEmptyTMVarIO
-  liftIO . throwTo readerId $ Interrupt wait
-  s <- liftIO . atomically $ do
-    putTMVar wait ()
-    _ <- takeTMVar write
-    takeTMVar stateRef
-  (res, s') <- liftIO $ runStateT a s
-  liftIO . atomically $ do
-    putTMVar write (sConPushBS s')
-    putTMVar stateRef s'
-  return res
+  liftIO . Ex.mask_ $ do
+      throwTo readerId $ Interrupt wait
+      s <- Ex.catch ( atomically $ do
+                         _ <- takeTMVar write
+                         s <- takeTMVar stateRef
+                         putTMVar wait ()
+                         return s
+                    )
+               (\e -> atomically (putTMVar wait ())
+                      >>  Ex.throwIO (e :: Ex.SomeException)
+                      -- No MVar taken
+               )
+      Ex.catch ( do
+                   (res, s') <- runStateT a s
+                   atomically $ do
+                       _ <- tryPutTMVar write (sConPushBS s')
+                       _ <- tryPutTMVar stateRef s'
+                       return ()
+                   return res
+               )
+             -- we treat all Exceptions as fatal
+             (\e -> runStateT xmppKillConnection s
+                     >> Ex.throwIO (e :: Ex.SomeException)
+             )
 
 -- | Send a presence Stanza
 sendPresence :: Presence -> XMPP ()
-sendPresence = sendS . PresenceS
+sendPresence = sendStanza . PresenceS
 
 -- | Send a Message Stanza
 sendMessage :: Message -> XMPP ()
-sendMessage = sendS . MessageS
+sendMessage = sendStanza . MessageS
 
 
 modifyHandlers :: (EventHandlers -> EventHandlers) -> XMPP ()

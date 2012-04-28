@@ -35,6 +35,8 @@
 module Network.XMPP
   ( -- * Session management
     withNewSession
+  , withSession
+  , newSession
   , connect
   , startTLS
   , auth

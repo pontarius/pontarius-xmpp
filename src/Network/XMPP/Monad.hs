@@ -2,30 +2,31 @@
 
 module Network.XMPP.Monad where
 
-import Control.Applicative((<$>))
-import Control.Monad
-import Control.Monad.IO.Class
-import Control.Monad.Trans.Class
+import           Control.Applicative((<$>))
+import           Control.Monad
+import           Control.Monad.IO.Class
+import           Control.Monad.Trans.Class
 --import Control.Monad.Trans.Resource
-import Control.Concurrent
-import Control.Monad.State.Strict
+import           Control.Concurrent
+import qualified Control.Exception as Ex
+import           Control.Monad.State.Strict
 
-import Data.ByteString as BS
-import Data.Conduit
-import Data.Conduit.Binary as CB
-import Data.Text(Text)
-import Data.XML.Pickle
-import Data.XML.Types
+import           Data.ByteString as BS
+import           Data.Conduit
+import           Data.Conduit.Binary as CB
+import           Data.Text(Text)
+import           Data.XML.Pickle
+import           Data.XML.Types
 
-import Network
-import Network.XMPP.Types
-import Network.XMPP.Marshal
-import Network.XMPP.Pickle
+import           Network
+import           Network.XMPP.Types
+import           Network.XMPP.Marshal
+import           Network.XMPP.Pickle
 
-import System.IO
+import           System.IO
 
-import Text.XML.Stream.Elements
-import Text.XML.Stream.Parse as XP
+import           Text.XML.Stream.Elements
+import           Text.XML.Stream.Parse as XP
 
 pushN :: Element -> XMPPConMonad ()
 pushN x = do
@@ -33,7 +34,7 @@ pushN x = do
   liftIO . sink $ renderElement x
 
 push :: Stanza -> XMPPConMonad ()
-push = pushN . pickleElem stanzaP
+push = pushN . pickleElem xpStanza
 
 pushOpen :: Element -> XMPPConMonad ()
 pushOpen e = do
@@ -41,21 +42,29 @@ pushOpen e = do
   liftIO . sink $ renderOpenElement e
   return ()
 
-pulls :: Sink Event IO b -> XMPPConMonad b
-pulls snk = do
+pullSink :: Sink Event IO b -> XMPPConMonad b
+pullSink snk = do
   source <- gets sConSrc
   (src', r) <- lift $ source $$+ snk
   modify $ (\s -> s {sConSrc = src'})
   return r
 
-pullE :: XMPPConMonad Element
-pullE = pulls elementFromEvents
+pullElement :: XMPPConMonad Element
+pullElement = pullSink elementFromEvents
 
 pullPickle :: PU [Node] a -> XMPPConMonad a
-pullPickle p = unpickleElem' p <$> pullE
+pullPickle p = do
+    res <- unpickleElem p <$> pullElement
+    case res of
+        Left e -> liftIO . Ex.throwIO $ StreamXMLError e
+        Right r -> return r
 
-pull :: XMPPConMonad Stanza
-pull = pullPickle stanzaP
+pullStanza  :: XMPPConMonad Stanza
+pullStanza = do
+    res <- pullPickle xpStreamEntity
+    case res of
+        Left e -> liftIO . Ex.throwIO $ StreamError e
+        Right r -> return r
 
 xmppFromHandle :: Handle
                -> Text
@@ -118,7 +127,6 @@ xmppRawConnect host hostname = do
              Nothing
              (hClose con)
   put st
-
 
 xmppNewSession :: XMPPConMonad a -> IO (a, XMPPConState)
 xmppNewSession action = do

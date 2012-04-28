@@ -32,6 +32,7 @@ import GHC.IO (unsafeUnmask)
 -- While waiting for the first semaphore(s) to flip we might receive
 -- another interrupt. When that happens we add it's semaphore to the
 -- list and retry waiting
+handleInterrupts :: [TMVar ()] -> IO [()]
 handleInterrupts ts =
     Ex.catch (atomically $ forM ts takeTMVar)
           ( \(Interrupt t) -> handleInterrupts (t:ts))
@@ -51,11 +52,11 @@ readWorker messageC presenceC handlers stateRef =
                            -- we don't know whether pull will
                            -- necessarily be interruptible
                            allowInterrupt
-                           Just <$> runStateT pull s
+                           Just <$> runStateT pullStanza s
                        )
                    )
                    (\(Interrupt t) -> do
-                        handleInterrupts [t]
+                        void $ handleInterrupts [t]
                         return Nothing
                    )
         liftIO . atomically $ do
@@ -121,7 +122,7 @@ writeWorker stCh writeR = forever $ do
   (write, next) <- atomically $ (,) <$>
                      takeTMVar writeR <*>
                      readTChan stCh
-  _ <- write $ renderElement (pickleElem stanzaP next)
+  _ <- write $ renderElement (pickleElem xpStanza next)
   atomically $ putTMVar writeR write
 
 -- Two streams: input and output. Threads read from input stream and write to output stream.
@@ -141,13 +142,13 @@ startThreads
         )
 
 startThreads = do
-  writeLock <- newEmptyTMVarIO
+  writeLock <- newTMVarIO (\_ -> return ())
   messageC <- newTChanIO
   presenceC <- newTChanIO
   outC <- newTChanIO
   handlers <- newTVarIO ( Map.empty, Map.empty)
   eh <- newTVarIO  zeroEventHandlers
-  conS <- newEmptyTMVarIO
+  conS <- newTMVarIO xmppZeroConState
   lw <- forkIO $ writeWorker outC writeLock
   cp <- forkIO $ connPersist writeLock
   rd <- forkIO $ readWorker messageC presenceC handlers conS
@@ -173,8 +174,11 @@ newSession = do
             return . read. show $ curId
     return (Session workermCh workerpCh mC pC outC hand writeR rdr getId conS eh stopThreads')
 
-withNewSession :: XMPP b -> IO b
-withNewSession a = newSession >>= runReaderT a
+withNewSession :: XMPP b -> IO (Session, b)
+withNewSession a = do
+  sess <- newSession
+  ret <- runReaderT a sess
+  return (sess, ret)
 
 withSession :: Session -> XMPP a -> IO a
 withSession = flip runReaderT
