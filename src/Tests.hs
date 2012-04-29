@@ -95,13 +95,14 @@ runMain debug number = do
   withNewSession $ do
       setSessionEndHandler (liftIO . atomically $ putTMVar wait ())
       debug' "running"
-      connect "localhost" "species64739.dyndns.org"
-      startTLS exampleParams
-      saslResponse <- auth (fromJust $ localpart we) "pwd" (resourcepart we)
-      case saslResponse of
-          Right _ -> return ()
-          Left e -> error $ show e
-      debug' "session standing"
+      withConnection $ do
+          connect "localhost" "species64739.dyndns.org"
+          startTLS exampleParams
+          saslResponse <- auth (fromJust $ localpart we) "pwd" (resourcepart we)
+          case saslResponse of
+              Right _ -> return ()
+              Left e -> error $ show e
+          debug' "session standing"
       sendPresence presenceOnline
       fork autoAccept
       sendPresence $ presenceSubscribe them

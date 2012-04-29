@@ -137,3 +137,16 @@ xmppKillConnection = do
     cc <- gets sCloseConnection
     liftIO cc
     put xmppZeroConState
+
+xmppSendIQ' iqID to tp lang body = do
+    push . IQRequestS $ IQRequest iqID Nothing to lang tp body
+    res <- pullPickle $ xpEither xpIQError xpIQResult
+    case res of
+        Left e -> return $ Left e
+        Right iq' -> do
+            unless (iqID == iqResultID iq') . liftIO . Ex.throwIO $
+                StreamXMLError
+              ("In xmppSendIQ' IDs don't match: " ++ show iqID ++
+              " /= " ++ show (iqResultID iq') ++ " .")
+            return $ Right iq'
+

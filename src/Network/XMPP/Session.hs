@@ -25,12 +25,13 @@ sessionIQ = IQRequestS $ IQRequest { iqRequestID      = "sess"
                                    , iqRequestPayload = sessionXML
                                    }
 
-xmppSession :: XMPPConMonad ()
-xmppSession = do
-  push $ sessionIQ
-  answer <- pullStanza
-  let IQResultS (IQResult "sess" Nothing Nothing _lang _body) = answer
-  return ()
+xmppStartSession :: XMPPConMonad ()
+xmppStartSession = do
+    answer <- xmppSendIQ' "session" Nothing Set Nothing sessionXML
+    case answer of
+        Left e -> error $ show e
+        Right _ -> return ()
+
 
 startSession :: XMPP ()
 startSession = do

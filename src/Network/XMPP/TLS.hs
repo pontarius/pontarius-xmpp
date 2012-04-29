@@ -45,9 +45,8 @@ data XMPPTLSError = TLSError TLSError
 instance Error XMPPTLSError where
   noMsg = TLSNoConnection -- TODO: What should we choose here?
 
-
-xmppStartTLS :: TLS.TLSParams -> XMPPConMonad (Either XMPPTLSError ())
-xmppStartTLS params = Ex.handle (return . Left . TLSError)
+startTLS :: TLS.TLSParams -> XMPPConMonad (Either XMPPTLSError ())
+startTLS params = Ex.handle (return . Left . TLSError)
   . runErrorT $ do
       features <- lift $ gets sFeatures
       handle' <- lift $ gets sConHandle

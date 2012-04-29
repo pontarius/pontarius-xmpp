@@ -37,6 +37,7 @@ module Network.XMPP
     withNewSession
   , withSession
   , newSession
+  , withConnection
   , connect
   , startTLS
   , auth
@@ -161,14 +162,8 @@ import Network.XMPP.Types
 import Control.Monad.Error
 
 -- | Connect to host with given address.
-xmppConnect :: HostName -> Text -> XMPPConMonad (Either StreamError ())
-xmppConnect  address hostname = xmppRawConnect address hostname >> xmppStartStream
-
--- | Attempts to secure the connection using TLS. Will return
--- 'TLSNoServerSupport' when the server does not offer TLS or does not
--- expect it at this time.
-startTLS  :: TLS.TLSParams -> XMPP (Either XMPPTLSError ())
-startTLS = withConnection . xmppStartTLS
+connect :: HostName -> Text -> XMPPConMonad (Either StreamError ())
+connect  address hostname = xmppRawConnect address hostname >> xmppStartStream
 
 -- | Authenticate to the server with the given username and password
 -- and bind a resource
@@ -176,13 +171,9 @@ auth  :: Text.Text  -- ^ The username
       -> Text.Text  -- ^ The password
       -> Maybe Text -- ^ The desired resource or 'Nothing' to let the server
                     -- assign one
-      -> XMPP (Either AuthError Text.Text)
+      -> XMPPConMonad (Either AuthError Text.Text)
 auth username passwd resource = runErrorT $ do
-    ErrorT . withConnection $ xmppSASL username passwd
-    res <- lift $ xmppBind resource
-    lift $ startSession
-    return res
-
--- | Connect to an xmpp server
-connect :: HostName -> Text -> XMPP (Either StreamError ())
-connect address hostname = withConnection $ xmppConnect address hostname
+        ErrorT $ xmppSASL username passwd
+        res <- lift $ xmppBind resource
+        lift $ xmppStartSession
+        return res
