@@ -44,17 +44,13 @@ readWorker :: TChan (Either MessageError Message)
            -> IO ()
 readWorker messageC presenceC handlers stateRef =
     Ex.mask_ . forever $ do
-        res <- liftIO $ Ex.catch (
-                   Ex.bracket
-                       (atomically $ takeTMVar stateRef)
-                       (atomically . putTMVar stateRef )
-                       (\s -> do
-                           -- we don't know whether pull will
-                           -- necessarily be interruptible
-                           allowInterrupt
-                           Just <$> runStateT pullStanza s
-                       )
-                   )
+        res <- liftIO $ Ex.catch ( do
+                       -- we don't know whether pull will
+                       -- necessarily be interruptible
+                       s <- liftIO . atomically $ readTMVar stateRef
+                       allowInterrupt
+                       Just <$> runStateT pullStanza s
+                                 )
                    (\(Interrupt t) -> do
                         void $ handleInterrupts [t]
                         return Nothing
@@ -62,8 +58,7 @@ readWorker messageC presenceC handlers stateRef =
         liftIO . atomically $ do
           case res of
               Nothing -> return ()
-              Just (sta, s') -> do
-                putTMVar stateRef s'
+              Just (sta, _s) -> do
                 case sta of
                     MessageS  m -> do writeTChan messageC $ Right m
                                       _ <- readTChan messageC -- Sic!

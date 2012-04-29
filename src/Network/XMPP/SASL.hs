@@ -51,16 +51,17 @@ saslResponse2E =
     []
     []
 
-data SaslError = SaslXmlError
-               | SaslMechanismError [Text]
-               | SaslChallengeError
-               | SaslStreamError StreamError
-               | SaslConnectionError
+data AuthError = AuthXmlError
+               | AuthMechanismError [Text]
+               | AuthChallengeError
+               | AuthStreamError StreamError
+               | AuthConnectionError
+                 deriving Show
 
-instance Error SaslError where
-    noMsg = SaslXmlError
+instance Error AuthError where
+    noMsg = AuthXmlError
 
-xmppSASL:: Text -> Text -> XMPPConMonad (Either SaslError Text)
+xmppSASL:: Text -> Text -> XMPPConMonad (Either AuthError Text)
 xmppSASL uname passwd = runErrorT $ do
     realm <- gets sHostname
     case realm of
@@ -68,37 +69,37 @@ xmppSASL uname passwd = runErrorT $ do
           ErrorT $ xmppStartSASL realm' uname passwd
           modify (\s -> s{sUsername = Just uname})
           return uname
-      Nothing -> throwError SaslConnectionError
+      Nothing -> throwError AuthConnectionError
 
 xmppStartSASL  :: Text
                -> Text
                -> Text
-               -> XMPPConMonad (Either SaslError ())
+               -> XMPPConMonad (Either AuthError ())
 xmppStartSASL realm username passwd = runErrorT $ do
   mechanisms <- gets $ saslMechanisms . sFeatures
   unless ("DIGEST-MD5" `elem` mechanisms)
-      . throwError $ SaslMechanismError mechanisms
+      . throwError $ AuthMechanismError mechanisms
   lift . pushN $ saslInitE "DIGEST-MD5"
   challenge' <-  lift $ B64.decode . Text.encodeUtf8
                          <$> pullPickle challengePickle
   challenge <- case challenge' of
-                  Left _e -> throwError SaslChallengeError
+                  Left _e -> throwError AuthChallengeError
                   Right r -> return r
   pairs <- case toPairs challenge of
-      Left _ -> throwError SaslChallengeError
+      Left _ -> throwError AuthChallengeError
       Right p -> return p
   g <- liftIO $ Random.newStdGen
   lift . pushN . saslResponseE $ createResponse g realm username passwd pairs
   challenge2 <- lift $ pullPickle (xpEither failurePickle challengePickle)
   case challenge2 of
-    Left _x -> throwError $ SaslXmlError
+    Left _x -> throwError $ AuthXmlError
     Right _ -> return ()
   lift $ pushN saslResponse2E
   e <- lift pullElement
   case e of
       Element "{urn:ietf:params:xml:ns:xmpp-sasl}success" [] [] -> return ()
-      _ -> throwError SaslXmlError -- TODO: investigate
-  _ <- ErrorT $ left SaslStreamError <$> xmppRestartStream
+      _ -> throwError AuthXmlError -- TODO: investigate
+  _ <- ErrorT $ left AuthStreamError <$> xmppRestartStream
   return ()
 
 createResponse :: Random.RandomGen g
@@ -186,10 +187,10 @@ md5Digest uname realm password digestURI nc qop nonce cnonce=
   in hash [ha1,nonce, nc, cnonce,qop,ha2]
 
 -- Pickling
-failurePickle :: PU [Node] (SASLFailure)
+failurePickle :: PU [Node] (SaslFailure)
 failurePickle = xpWrap (\(txt,(failure,_,_))
-                           -> SASLFailure failure txt)
-                       (\(SASLFailure failure txt)
+                           -> SaslFailure failure txt)
+                       (\(SaslFailure failure txt)
                            -> (txt,(failure,(),())))
                        (xpElemNodes
                           "{urn:ietf:params:xml:ns:xmpp-sasl}failure"

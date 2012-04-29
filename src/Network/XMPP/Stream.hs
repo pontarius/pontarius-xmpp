@@ -7,6 +7,7 @@ import Control.Monad.Error
 import Control.Monad.State.Strict
 
 import Data.Conduit
+import Data.Conduit.BufferedSource
 import Data.Conduit.List as CL
 import Data.Text as T
 import Data.XML.Pickle
@@ -55,14 +56,14 @@ xmppStartStream = runErrorT $ do
     Nothing -> throwError StreamConnectionError
     Just hostname -> lift . pushOpen $
                        pickleElem pickleStream ("1.0",Nothing, Just hostname)
-  features <-  ErrorT . pullSink $ runErrorT xmppStream
+  features <- ErrorT . pullSink $ runErrorT xmppStream
   modify (\s -> s {sFeatures = features})
   return ()
 
 xmppRestartStream :: XMPPConMonad (Either StreamError ())
 xmppRestartStream = do
   raw <- gets sRawSrc
-  let newsrc = raw $= XP.parseBytes def
+  newsrc <- liftIO . bufferSource $ raw $= XP.parseBytes def
   modify (\s -> s{sConSrc = newsrc})
   xmppStartStream
 

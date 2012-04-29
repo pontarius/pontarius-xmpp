@@ -28,7 +28,7 @@ supervisor :: JID
 supervisor = read "uart14@species64739.dyndns.org"
 
 
-attXmpp :: STM a -> XMPPThread a
+attXmpp :: STM a -> XMPP a
 attXmpp = liftIO . atomically
 
 testNS :: Text
@@ -66,7 +66,7 @@ iqResponder = do
     answerIQ next (Right $ Just answerBody)
     when (payloadCounter payload == 10) endSession
 
-autoAccept :: XMPPThread ()
+autoAccept :: XMPP ()
 autoAccept = forever $ do
   st <- waitForPresence isPresenceSubscribe
   sendPresence $ presenceSubscribed (fromJust $ presenceFrom st)
@@ -92,7 +92,7 @@ runMain debug number = do
   let debug' = liftIO . atomically .
                debug . (("Thread " ++ show number ++ ":") ++)
   wait <- newEmptyTMVarIO
-  xmppNewSession $ do
+  withNewSession $ do
       setSessionEndHandler (liftIO . atomically $ putTMVar wait ())
       debug' "running"
       connect "localhost" "species64739.dyndns.org"
@@ -100,15 +100,15 @@ runMain debug number = do
       saslResponse <- auth (fromJust $ localpart we) "pwd" (resourcepart we)
       case saslResponse of
           Right _ -> return ()
-          Left e -> error "saslerror"
+          Left e -> error $ show e
       debug' "session standing"
       sendPresence presenceOnline
-      forkXMPP autoAccept
+      fork autoAccept
       sendPresence $ presenceSubscribe them
-      forkXMPP iqResponder
+      fork iqResponder
       when active $ do
         liftIO $ threadDelay 1000000 -- Wait for the other thread to go online
-        void . forkXMPP $ do
+        void . fork $ do
           forM [1..10] $ \count -> do
               let message = Text.pack . show $ localpart we
               let payload = Payload count (even count) (Text.pack $ show count)

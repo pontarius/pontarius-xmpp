@@ -25,8 +25,8 @@ module Network.XMPP.Types
     , Presence(..)
     , PresenceError(..)
     , PresenceType(..)
-    , SASLError(..)
-    , SASLFailure(..)
+    , SaslError(..)
+    , SaslFailure(..)
     , ServerAddress(..)
     , ServerFeatures(..)
     , ShowType(..)
@@ -468,67 +468,67 @@ instance Read StanzaErrorCondition where
 --  OTHER STUFF
 -- =============================================================================
 
-data SASLFailure = SASLFailure { saslFailureCondition :: SASLError
+data SaslFailure = SaslFailure { saslFailureCondition :: SaslError
                                , saslFailureText :: Maybe ( Maybe LangTag
                                                           , Text
                                                           )
                                } deriving Show
 
 
-data SASLError = SASLAborted              -- ^ Client aborted
-               | SASLAccountDisabled      -- ^ The account has been temporarily
+data SaslError = SaslAborted              -- ^ Client aborted
+               | SaslAccountDisabled      -- ^ The account has been temporarily
                                           --   disabled
-               | SASLCredentialsExpired   -- ^ The authentication failed because
+               | SaslCredentialsExpired   -- ^ The authentication failed because
                                           --   the credentials have expired
-               | SASLEncryptionRequired   -- ^ The mechanism requested cannot be
+               | SaslEncryptionRequired   -- ^ The mechanism requested cannot be
                                           --   used the confidentiality and
                                           --   integrity of the underlying
                                           --   stream is protected (typically
                                           --   with TLS)
-               | SASLIncorrectEncoding    -- ^ The base64 encoding is incorrect
-               | SASLInvalidAuthzid       -- ^ The authzid has an incorrect
+               | SaslIncorrectEncoding    -- ^ The base64 encoding is incorrect
+               | SaslInvalidAuthzid       -- ^ The authzid has an incorrect
                                           -- format or the initiating entity does
                                           -- not have the appropriate permissions
                                           -- to authorize that ID
-               | SASLInvalidMechanism     -- ^ The mechanism is not supported by
+               | SaslInvalidMechanism     -- ^ The mechanism is not supported by
                                           --   the receiving entity
-               | SASLMalformedRequest     -- ^ Invalid syntax
-               | SASLMechanismTooWeak     -- ^ The receiving entity policy
+               | SaslMalformedRequest     -- ^ Invalid syntax
+               | SaslMechanismTooWeak     -- ^ The receiving entity policy
                                           --   requires a stronger mechanism
-               | SASLNotAuthorized        -- ^ Invalid credentials
+               | SaslNotAuthorized        -- ^ Invalid credentials
                                           --   provided, or some
                                           --   generic authentication
                                           --   failure has occurred
-               | SASLTemporaryAuthFailure -- ^ There receiving entity reported a
+               | SaslTemporaryAuthFailure -- ^ There receiving entity reported a
                                           --   temporary error condition; the
                                           --   initiating entity is recommended
                                           --   to try again later
 
-instance Show SASLError where
-    show SASLAborted               = "aborted"
-    show SASLAccountDisabled       = "account-disabled"
-    show SASLCredentialsExpired    = "credentials-expired"
-    show SASLEncryptionRequired    = "encryption-required"
-    show SASLIncorrectEncoding     = "incorrect-encoding"
-    show SASLInvalidAuthzid        = "invalid-authzid"
-    show SASLInvalidMechanism      = "invalid-mechanism"
-    show SASLMalformedRequest      = "malformed-request"
-    show SASLMechanismTooWeak      = "mechanism-too-weak"
-    show SASLNotAuthorized         = "not-authorized"
-    show SASLTemporaryAuthFailure  = "temporary-auth-failure"
+instance Show SaslError where
+    show SaslAborted               = "aborted"
+    show SaslAccountDisabled       = "account-disabled"
+    show SaslCredentialsExpired    = "credentials-expired"
+    show SaslEncryptionRequired    = "encryption-required"
+    show SaslIncorrectEncoding     = "incorrect-encoding"
+    show SaslInvalidAuthzid        = "invalid-authzid"
+    show SaslInvalidMechanism      = "invalid-mechanism"
+    show SaslMalformedRequest      = "malformed-request"
+    show SaslMechanismTooWeak      = "mechanism-too-weak"
+    show SaslNotAuthorized         = "not-authorized"
+    show SaslTemporaryAuthFailure  = "temporary-auth-failure"
 
-instance Read SASLError where
-    readsPrec _ "aborted"                = [(SASLAborted              , "")]
-    readsPrec _ "account-disabled"       = [(SASLAccountDisabled      , "")]
-    readsPrec _ "credentials-expired"    = [(SASLCredentialsExpired   , "")]
-    readsPrec _ "encryption-required"    = [(SASLEncryptionRequired   , "")]
-    readsPrec _ "incorrect-encoding"     = [(SASLIncorrectEncoding    , "")]
-    readsPrec _ "invalid-authzid"        = [(SASLInvalidAuthzid       , "")]
-    readsPrec _ "invalid-mechanism"      = [(SASLInvalidMechanism     , "")]
-    readsPrec _ "malformed-request"      = [(SASLMalformedRequest     , "")]
-    readsPrec _ "mechanism-too-weak"     = [(SASLMechanismTooWeak     , "")]
-    readsPrec _ "not-authorized"         = [(SASLNotAuthorized        , "")]
-    readsPrec _ "temporary-auth-failure" = [(SASLTemporaryAuthFailure , "")]
+instance Read SaslError where
+    readsPrec _ "aborted"                = [(SaslAborted              , "")]
+    readsPrec _ "account-disabled"       = [(SaslAccountDisabled      , "")]
+    readsPrec _ "credentials-expired"    = [(SaslCredentialsExpired   , "")]
+    readsPrec _ "encryption-required"    = [(SaslEncryptionRequired   , "")]
+    readsPrec _ "incorrect-encoding"     = [(SaslIncorrectEncoding    , "")]
+    readsPrec _ "invalid-authzid"        = [(SaslInvalidAuthzid       , "")]
+    readsPrec _ "invalid-mechanism"      = [(SaslInvalidMechanism     , "")]
+    readsPrec _ "malformed-request"      = [(SaslMalformedRequest     , "")]
+    readsPrec _ "mechanism-too-weak"     = [(SaslMechanismTooWeak     , "")]
+    readsPrec _ "not-authorized"         = [(SaslNotAuthorized        , "")]
+    readsPrec _ "temporary-auth-failure" = [(SaslTemporaryAuthFailure , "")]
     readsPrec _ _                        = []
 
 -- | Readability type for host name Texts.

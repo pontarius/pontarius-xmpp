@@ -84,8 +84,10 @@ module Network.XMPP
   -- <http://xmpp.org/rfcs/rfc6120.html#stanzas-semantics-message>
   , Message
   , MessageError
+  , MessageType(..)
   -- *** creating
-  , module Network.XMPP.Message
+  , simpleMessage
+  , answerMessage
   -- *** sending
   , sendMessage
   -- *** receiving
@@ -174,7 +176,7 @@ auth  :: Text.Text  -- ^ The username
       -> Text.Text  -- ^ The password
       -> Maybe Text -- ^ The desired resource or 'Nothing' to let the server
                     -- assign one
-      -> XMPP (Either SaslError Text.Text)
+      -> XMPP (Either AuthError Text.Text)
 auth username passwd resource = runErrorT $ do
     ErrorT . withConnection $ xmppSASL username passwd
     res <- lift $ xmppBind resource

@@ -13,6 +13,7 @@ import           Control.Monad.State.Strict
 
 import           Data.ByteString as BS
 import           Data.Conduit
+import           Data.Conduit.BufferedSource
 import           Data.Conduit.Binary as CB
 import           Data.Text(Text)
 import           Data.XML.Pickle
@@ -45,8 +46,7 @@ pushOpen e = do
 pullSink :: Sink Event IO b -> XMPPConMonad b
 pullSink snk = do
   source <- gets sConSrc
-  (src', r) <- lift $ source $$+ snk
-  modify $ (\s -> s {sConSrc = src'})
+  (_, r) <- lift $ source $$+ snk
   return r
 
 pullElement :: XMPPConMonad Element
@@ -114,7 +114,7 @@ xmppRawConnect host hostname = do
       hSetBuffering con NoBuffering
       return con
   let raw = sourceHandle con
-  let src = raw $= XP.parseBytes def
+  src <- liftIO . bufferSource $ raw $= XP.parseBytes def
   let st = XMPPConState
              src
              (raw)
