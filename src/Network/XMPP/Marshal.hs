@@ -5,7 +5,11 @@ module Network.XMPP.Marshal where
 import Data.XML.Pickle
 import Data.XML.Types
 
+import Network.XMPP.Pickle
 import Network.XMPP.Types
+
+xpStreamEntity :: PU [Node] (Either XmppStreamError Stanza)
+xpStreamEntity = xpEither xpStreamError xpStanza
 
 stanzaSel :: Stanza -> Int
 stanzaSel (IQRequestS     _) = 0
@@ -16,8 +20,8 @@ stanzaSel (MessageErrorS  _) = 4
 stanzaSel (PresenceS      _) = 5
 stanzaSel (PresenceErrorS _) = 6
 
-stanzaP :: PU [Node] Stanza
-stanzaP = xpAlt stanzaSel
+xpStanza :: PU [Node] Stanza
+xpStanza = xpAlt stanzaSel
     [ xpWrap IQRequestS     (\(IQRequestS     x) -> x) xpIQRequest
     , xpWrap IQResultS      (\(IQResultS      x) -> x) xpIQResult
     , xpWrap IQErrorS       (\(IQErrorS       x) -> x) xpIQError
@@ -26,12 +30,6 @@ stanzaP = xpAlt stanzaSel
     , xpWrap PresenceS      (\(PresenceS      x) -> x) xpPresence
     , xpWrap PresenceErrorS (\(PresenceErrorS x) -> x) xpPresenceError
     ]
-
-xmlLang :: Name
-xmlLang = Name "lang" Nothing (Just "xml")
-
-xpLangTag :: PU [Attribute] (Maybe LangTag)
-xpLangTag = xpAttrImplied xmlLang xpPrim
 
 xpMessage :: PU [Node] (Message)
 xpMessage = xpWrap   (\((tp, qid, from, to, lang), (sub, body, thr, ext))
@@ -192,4 +190,28 @@ xpIQError = xpWrap  (\((qid, from, to, lang, _tp),(err, body))
               xpStanzaError
               (xpOption xpElemVerbatim)
              )
+
+xpStreamError :: PU [Node] XmppStreamError
+xpStreamError = xpWrap
+                (\((cond,() ,()), txt, el) -> XmppStreamError cond txt el)
+                (\(XmppStreamError cond txt el) ->((cond,() ,()), txt, el))
+                (xpElemNodes
+                  (Name "error"
+                        (Just "http://etherx.jabber.org/streams")
+                        (Just "stream")
+                  ) $ xp3Tuple
+                  (xpElemByNamespace
+                    "urn:ietf:params:xml:ns:xmpp-streams" xpPrim
+                    xpUnit
+                    xpUnit
+                  )
+                  (xpOption $ xpElem
+                     "{urn:ietf:params:xml:ns:xmpp-streams}text"
+                     xpLangTag
+                     (xpContent xpId))
+                  ( xpOption xpElemVerbatim
+                    -- application specific error conditions
+                  )
+                )
+
 

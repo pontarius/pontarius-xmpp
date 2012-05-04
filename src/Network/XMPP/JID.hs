@@ -15,183 +15,213 @@
 --
 -- This module does not internationalize hostnames.
 
+module Network.XMPP.JID
+  ( JID(..)
+  , fromText
+  , fromStrings
+  , isBare
+  , isFull) where
 
-module Network.XMPP.JID (fromString, fromStrings, isBare, isFull) where
+import           Control.Applicative ((<$>),(<|>))
+import           Control.Monad(guard)
 
-import Network.XMPP.Types
+import qualified Data.Attoparsec.Text as AP
+import           Data.Maybe(fromJust)
+import qualified Data.Set as Set
+import           Data.String (IsString(..))
+import           Data.Text (Text)
+import qualified Data.Text as Text
 
-import Data.Maybe (fromJust, isJust)
-import Text.Parsec ((<|>), anyToken, char, eof, many, noneOf, parse)
-import Text.Parsec.ByteString (GenParser)
+-- import           Network.URI (isIPv4address, isIPv6address)
 
-import Text.StringPrep (StringPrepProfile (..), a1, b1, b2, c11, c12, c21, c22,
-                        c3, c4, c5, c6, c7, c8, c9, runStringPrep)
-import Text.NamePrep (namePrepProfile)
+import qualified Text.NamePrep as SP
+import qualified Text.StringPrep as SP
 
-import Network.URI (isIPv4address, isIPv6address)
+data JID = JID {
+                -- | The @localpart@ of a JID is an optional identifier
+                -- placed before the domainpart and separated from the
+                -- latter by a \'\@\' character.  Typically a
+                -- localpart uniquely identifies the entity requesting
+                -- and using network access provided by a server
+                -- (i.e., a local account), although it can also
+                -- represent other kinds of entities (e.g., a chat
+                -- room associated with a multi-user chat service).
+                -- The entity represented by an XMPP localpart is
+                -- addressed within the context of a specific domain
+                -- (i.e., @localpart\@domainpart@).
 
-import qualified Data.ByteString.Char8 as DBC (pack)
-import qualified Data.Text as DT (pack, unpack)
+                 localpart :: !(Maybe Text)
+                -- | The domainpart typically identifies the /home/
+                -- server to which clients connect for XML routing and
+                -- data management functionality.  However, it is not
+                -- necessary for an XMPP domainpart to identify an
+                -- entity that provides core XMPP server functionality
+                -- (e.g., a domainpart can identify an entity such as a
+                -- multi-user chat service, a publish-subscribe
+                -- service, or a user directory).
+               , domainpart :: !Text
+                -- | The resourcepart of a JID is an optional
+                -- identifier placed after the domainpart and
+                -- separated from the latter by the \'\/\' character.  A
+                -- resourcepart can modify either a
+                -- @localpart\@domainpart@ address or a mere
+                -- @domainpart@ address.  Typically a resourcepart
+                -- uniquely identifies a specific connection (e.g., a
+                -- device or location) or object (e.g., an occupant
+                -- in a multi-user chat room) belonging to the entity
+                -- associated with an XMPP localpart at a domain
+                -- (i.e., @localpart\@domainpart/resourcepart@).
+               , resourcepart :: !(Maybe Text)
+               }
+
+instance Show JID where
+  show (JID nd dmn res) =
+            maybe "" ((++ "@") . Text.unpack) nd ++
+            (Text.unpack dmn)               ++
+            maybe "" (('/' :) . Text.unpack)   res
+
+instance Read JID where
+  readsPrec _ x = case fromText (Text.pack x) of
+    Nothing -> []
+    Just j -> [(j,"")]
 
 
--- |
--- Converts a string to a JID.
+instance IsString JID where
+  fromString = fromJust . fromText . Text.pack
 
-fromString :: String -> Maybe JID
-
-fromString s = fromStrings localpart domainpart resourcepart
-    where
-        Right (localpart, domainpart, resourcepart) =
-            parse jidParts "" (DBC.pack s)
-
-
--- |
--- Converts localpart, domainpart, and resourcepart strings to a JID.
-
--- Runs the appropriate stringprep profiles and validates the parts.
-
-fromStrings :: Maybe String -> String -> Maybe String -> Maybe JID
-
-fromStrings l s r
-  | domainpart == Nothing = Nothing
-  | otherwise = if validateNonDomainpart localpart &&
-                   isJust domainpart' &&
-                   validateNonDomainpart resourcepart
-                then Just (JID localpart (fromJust domainpart') resourcepart)
-                else Nothing
+-- | Converts a Text to a JID.
+fromText :: Text -> Maybe JID
+fromText t = do
+  (l, d, r) <- eitherToMaybe $ AP.parseOnly jidParts t
+  fromStrings l d r
   where
-    
-    -- Applies the nodeprep profile on the localpart string, if any.
-    localpart :: Maybe String
-    localpart = case l of
-      Just l' -> case runStringPrep nodeprepProfile (DT.pack l') of
-        Just l'' -> Just $ DT.unpack l''
-        Nothing -> Nothing
-      Nothing -> Nothing
+    eitherToMaybe = either (const Nothing) Just
 
-    -- Applies the nameprep profile on the domainpart string.
-    -- TODO: Allow unassigned?
-    domainpart :: Maybe String
-    domainpart = case runStringPrep (namePrepProfile False) (DT.pack s) of
-      Just s' -> Just $ DT.unpack s'
-      Nothing -> Nothing
-
-    -- Applies the resourceprep profile on the resourcepart string, if
-    -- any.
-    resourcepart :: Maybe String
-    resourcepart = case r of
-      Just r' -> case runStringPrep resourceprepProfile (DT.pack r') of
-        Just r'' -> Just $ DT.unpack r''
-        Nothing -> Nothing
-      Nothing -> Nothing
-
+-- | Converts localpart, domainpart, and resourcepart strings to a JID.
+-- Runs the appropriate stringprep profiles and validates the parts.
+fromStrings :: Maybe Text -> Text -> Maybe Text -> Maybe JID
+fromStrings l d r = do
+        localPart <- case l of
+          Nothing -> return Nothing
+          Just l'-> do
+            l'' <- SP.runStringPrep nodeprepProfile l'
+            guard $ validPartLength l''
+            let prohibMap = Set.fromList nodeprepExtraProhibitedCharacters
+            guard $ Text.all (`Set.notMember` prohibMap) l''
+            return $ Just l''
+        domainPart <- SP.runStringPrep (SP.namePrepProfile False) d
+        guard $ validDomainPart domainPart
+        resourcePart <- case r of
+          Nothing -> return Nothing
+          Just r' -> do
+            r'' <- SP.runStringPrep resourceprepProfile r'
+            guard $ validPartLength r''
+            return $ Just r''
+        return $ JID localPart domainPart resourcePart
+  where
     -- Returns the domainpart if it was a valid IP or if the toASCII
     -- function was successful, or Nothing otherwise.
-    domainpart' :: Maybe String
-    domainpart' | isIPv4address s || isIPv6address s = Just s
-                | validHostname s = Just s
-                | otherwise = Nothing
+    validDomainPart _s = True -- TODO
+      -- isIPv4address s || isIPv6address s || validHostname s
 
-    -- Validates that non-domainpart strings have an appropriate
-    -- length.
-    validateNonDomainpart :: Maybe String -> Bool
-    validateNonDomainpart Nothing = True
-    validateNonDomainpart (Just l) = validPartLength l
-      where
-        validPartLength :: String -> Bool
-        validPartLength p = length p > 0 && length p < 1024
-
+    validPartLength :: Text -> Bool
+    validPartLength p = Text.length p > 0 && Text.length p < 1024
     -- Validates a host name
-    validHostname :: String -> Bool
-    validHostname _ = True -- TODO
+    -- validHostname :: Text -> Bool
+    -- validHostname _ = True -- TODO
 
-
--- | Returns True if the JID is `bare', and False otherwise.
-
+-- | Returns True if the JID is /bare/, and False otherwise.
 isBare :: JID -> Bool
-
 isBare j | resourcepart j == Nothing = True
          | otherwise                 = False
 
-
 -- | Returns True if the JID is `full', and False otherwise.
-
 isFull :: JID -> Bool
-
 isFull jid = not $ isBare jid
-
 
 -- Parses an JID string and returns its three parts. It performs no
 -- validation or transformations. We are using Parsec to parse the
 -- JIDs. There is no input for which 'jidParts' fails.
-
-jidParts :: GenParser Char st (Maybe String, String, Maybe String)
-
 jidParts = do
-
   -- Read until we reach an '@', a '/', or EOF.
-  a <- many $ noneOf ['@', '/']
-
+  a <- AP.takeWhile1 (AP.notInClass ['@', '/'])
   -- Case 1: We found an '@', and thus the localpart. At least the
   -- domainpart is remaining. Read the '@' and until a '/' or EOF.
   do
-    char '@'
-    b <- many $ noneOf ['/']
-
+    b <- domainPartP
     -- Case 1A: We found a '/' and thus have all the JID parts. Read
     -- the '/' and until EOF.
     do
-      char '/' -- Resourcepart remaining
-      c <- many $ anyToken -- Parse resourcepart
-      eof
+      c <- resourcePartP -- Parse resourcepart
       return (Just a, b, Just c)
-
     -- Case 1B: We have reached EOF; the JID is in the form
     -- localpart@domainpart.
       <|> do
-        eof
+        AP.endOfInput
         return (Just a, b, Nothing)
-
     -- Case 2: We found a '/'; the JID is in the form
     -- domainpart/resourcepart.
     <|> do
-      char '/'
-      b <- many $ anyToken
-      eof
+      b <- resourcePartP
+      AP.endOfInput
       return (Nothing, a, Just b)
-
     -- Case 3: We have reached EOF; we have an JID consisting of only
     -- a domainpart.
     <|> do
-      eof
+      AP.endOfInput
       return (Nothing, a, Nothing)
+  where
+    domainPartP = do
+               _ <- AP.char '@'
+               AP.takeWhile1 (/= '/')
+    resourcePartP = do
+               _ <- AP.char '/'
+               AP.takeText
 
 
-nodeprepProfile :: StringPrepProfile
-
-nodeprepProfile = Profile { maps = [b1, b2]
-                          , shouldNormalize = True
-                          , prohibited = [a1] ++ [c11, c12, c21, c22,
-                                                  c3, c4, c5, c6, c7,
-                                                  c8, c9]
-                          , shouldCheckBidi = True }
-
+nodeprepProfile :: SP.StringPrepProfile
+nodeprepProfile = SP.Profile
+                             { SP.maps = [SP.b1, SP.b2]
+                             , SP.shouldNormalize = True
+                             , SP.prohibited = [SP.a1
+                                               , SP.c11
+                                               , SP.c12
+                                               , SP.c21
+                                               , SP.c22
+                                               , SP.c3
+                                               , SP.c4
+                                               , SP.c5
+                                               , SP.c6
+                                               , SP.c7
+                                               , SP.c8
+                                               , SP.c9
+                                               ]
+                             , SP.shouldCheckBidi = True
+                             }
 
 -- These needs to be checked for after normalization. We could also
 -- look up the Unicode mappings and include a list of characters in
 -- the prohibited field above. Let's defer that until we know that we
 -- are going to use stringprep.
-
+nodeprepExtraProhibitedCharacters :: [Char]
 nodeprepExtraProhibitedCharacters = ['\x22', '\x26', '\x27', '\x2F',
                                      '\x3A', '\x3C', '\x3E', '\x40']
 
-
-
-resourceprepProfile :: StringPrepProfile
-
-resourceprepProfile = Profile { maps = [b1]
-                              , shouldNormalize = True
-                              , prohibited = [a1] ++ [c12, c21, c22,
-                                                      c3, c4, c5, c6,
-                                                      c7, c8, c9]
-                              , shouldCheckBidi = True }
+resourceprepProfile :: SP.StringPrepProfile
+resourceprepProfile = SP.Profile
+                                 { SP.maps = [SP.b1]
+                                 , SP.shouldNormalize = True
+                                 , SP.prohibited = [ SP.a1
+                                                   , SP.c12
+                                                   , SP.c21
+                                                   , SP.c22
+                                                   , SP.c3
+                                                   , SP.c4
+                                                   , SP.c5
+                                                   , SP.c6
+                                                   , SP.c7
+                                                   , SP.c8
+                                                   , SP.c9
+                                                   ]
+                                 , SP.shouldCheckBidi = True
+                                 }

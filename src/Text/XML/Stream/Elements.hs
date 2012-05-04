@@ -1,3 +1,4 @@
+{-# OPTIONS_HADDOCK hide #-}
 module Text.XML.Stream.Elements where
 
 import           Control.Applicative ((<$>))

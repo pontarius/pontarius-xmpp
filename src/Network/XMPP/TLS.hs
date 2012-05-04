@@ -3,29 +3,19 @@
 
 module Network.XMPP.TLS where
 
-import           Control.Applicative((<$>))
-import           Control.Arrow(left)
 import qualified Control.Exception.Lifted as Ex
 import           Control.Monad
 import           Control.Monad.Error
 import           Control.Monad.State.Strict
-import           Control.Monad.Trans
 
-import           Data.Conduit
-import           Data.Conduit.List as CL
 import           Data.Conduit.TLS as TLS
-import           Data.Default
 import           Data.Typeable
 import           Data.XML.Types
 
-import qualified Network.TLS as TLS
-import qualified Network.TLS.Extra as TLS
 import           Network.XMPP.Monad
+import           Network.XMPP.Pickle(ppElement)
 import           Network.XMPP.Stream
 import           Network.XMPP.Types
-
-import qualified Text.XML.Stream.Render as XR
-
 
 starttlsE :: Element
 starttlsE =
@@ -41,10 +31,11 @@ exampleParams = TLS.defaultParams
                       , pUseSecureRenegotiation = False -- No renegotiation
                       , pCertificates      = [] -- TODO
                       , pLogging           = TLS.defaultLogging -- TODO
-                      , onCertificatesRecv = \ certificate ->
+                      , onCertificatesRecv = \ _certificate ->
                                              return TLS.CertificateUsageAccept
                       }
 
+-- | Error conditions that may arise during TLS negotiation.
 data XMPPTLSError = TLSError TLSError
                   | TLSNoServerSupport
                   | TLSNoConnection
@@ -53,29 +44,32 @@ data XMPPTLSError = TLSError TLSError
 
 instance Error XMPPTLSError where
   noMsg = TLSNoConnection -- TODO: What should we choose here?
-instance Ex.Exception XMPPTLSError
 
-
-xmppStartTLS :: TLS.TLSParams -> XMPPConMonad (Either XMPPTLSError ())
-xmppStartTLS params = Ex.handle (return . Left . TLSError)
+startTLS :: TLS.TLSParams -> XMPPConMonad (Either XMPPTLSError ())
+startTLS params = Ex.handle (return . Left . TLSError)
   . runErrorT $ do
       features <- lift $ gets sFeatures
       handle' <- lift $ gets sConHandle
       handle <- maybe (throwError TLSNoConnection) return handle'
       when (stls features == Nothing) $ throwError TLSNoServerSupport
       lift $ pushN starttlsE
-      answer <- lift $ pullE
+      answer <- lift $ pullElement
       case answer of
         Element "{urn:ietf:params:xml:ns:xmpp-tls}proceed" [] [] -> return ()
-        _ -> throwError $ TLSStreamError StreamXMLError
-      (raw, snk, psh) <- lift $ TLS.tlsinit params handle
+        Element "{urn:ietf:params:xml:ns:xmpp-tls}failure" _ _
+            -> lift . Ex.throwIO $ StreamConnectionError
+                 -- TODO: find something more suitable
+        e -> lift . Ex.throwIO . StreamXMLError
+               $ "Unexpected element: " ++ ppElement e
+      (raw, _snk, psh, ctx) <- lift $ TLS.tlsinit params handle
       lift $ modify (\x -> x
                     { sRawSrc = raw
 --                  , sConSrc =  -- Note: this momentarily leaves us in an
                                  -- inconsistent state
                     , sConPushBS = psh
+                    , sCloseConnection = TLS.bye ctx >> sCloseConnection x
                     })
-      ErrorT $ (left TLSStreamError) <$> xmppRestartStream
-      modify (\s -> s{sHaveTLS = True})
+      either (lift . Ex.throwIO) return =<< lift xmppRestartStream
+      modify (\s -> s{sConnectionState = XmppConnectionSecured})
       return ()
 

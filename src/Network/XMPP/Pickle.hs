@@ -5,10 +5,26 @@
 -- Marshalling between XML and Native Types
 
 
-module Network.XMPP.Pickle where
+module Network.XMPP.Pickle
+    ( mbToBool
+    , xpElemEmpty
+    , xmlLang
+    , xpLangTag
+    , xpNodeElem
+    , ignoreAttrs
+    , mbl
+    , lmb
+    , right
+    , unpickleElem'
+    , unpickleElem
+    , pickleElem
+    , ppElement
+    ) where
 
 import Data.XML.Types
 import Data.XML.Pickle
+
+import Network.XMPP.Types
 
 import Text.XML.Stream.Elements
 
@@ -21,11 +37,11 @@ xpElemEmpty name = xpWrap (\((),()) -> ())
                           (\() -> ((),())) $
                               xpElem name xpUnit xpUnit
 
--- xpElemExists :: Name -> PU [Node] Bool
--- xpElemExists name = xpWrap (\x -> mbToBool x)
---                            (\x -> if x then Just () else Nothing) $
---                            xpOption (xpElemEmpty name)
+xmlLang :: Name
+xmlLang = Name "lang" Nothing (Just "xml")
 
+xpLangTag :: PU [Attribute] (Maybe LangTag)
+xpLangTag = xpAttrImplied xmlLang xpPrim
 
 xpNodeElem :: PU [Node] a -> PU Element a
 xpNodeElem xp = PU { pickleTree = \x -> head $ (pickleTree xp x) >>= \y ->
@@ -62,4 +78,5 @@ unpickleElem p x = unpickle (xpNodeElem p) x
 
 pickleElem :: PU [Node] a -> a -> Element
 pickleElem p = pickle  $ xpNodeElem p
+
 
