@@ -14,28 +14,33 @@ import qualified Data.Map as Map
 import           Data.Text(Text)
 
 import           Network.XMPP.Concurrent.Types
+import           Network.XMPP.Monad
+
 
 -- | Register a new IQ listener. IQ requests matching the type and namespace will
 -- be put in the channel.
+--
+-- Return the new channel or Nothing if this namespace/'IQRequestType'
+-- combination was alread handled
 listenIQChan :: IQRequestType  -- ^ type of IQs to receive (Get / Set)
                 -> Text -- ^ namespace of the child element
-                -> XMPPThread (Bool, TChan (IQRequest, TVar Bool))
+                -> XMPP (Maybe ( TChan (IQRequest, TVar Bool)))
 listenIQChan tp ns = do
   handlers <- asks iqHandlers
   liftIO . atomically $ do
     (byNS, byID) <- readTVar handlers
     iqCh <- newTChan
-    let (present, byNS') = Map.insertLookupWithKey' (\_ new _ -> new)
+    let (present, byNS') = Map.insertLookupWithKey' (\_ _ old -> old)
                                                      (tp,ns) iqCh byNS
     writeTVar handlers (byNS', byID)
     return $ case present of
-               Nothing -> (True, iqCh)
-               Just iqCh' -> (False, iqCh')
+               Nothing -> Just iqCh
+               Just _iqCh' -> Nothing
 
 -- | get the inbound stanza channel, duplicates from master if necessary
 -- please note that once duplicated it will keep filling up, call
 -- 'dropMessageChan' to allow it to be garbage collected
-getMessageChan :: XMPPThread (TChan (Either MessageError Message))
+getMessageChan :: XMPP (TChan (Either MessageError Message))
 getMessageChan = do
   mChR <- asks messagesRef
   mCh <- liftIO $ readIORef mChR
@@ -48,7 +53,7 @@ getMessageChan = do
     Just mCh' -> return mCh'
 
 -- | see 'getMessageChan'
-getPresenceChan :: XMPPThread (TChan (Either PresenceError Presence))
+getPresenceChan :: XMPP (TChan (Either PresenceError Presence))
 getPresenceChan = do
   pChR <- asks presenceRef
   pCh <- liftIO $ readIORef pChR
@@ -62,51 +67,55 @@ getPresenceChan = do
 
 -- | Drop the local end of the inbound stanza channel
 -- from our context so it can be GC-ed
-dropMessageChan :: XMPPThread ()
+dropMessageChan :: XMPP ()
 dropMessageChan = do
   r <- asks messagesRef
   liftIO $ writeIORef r Nothing
 
 -- | see 'dropMessageChan'
-dropPresenceChan :: XMPPThread ()
+dropPresenceChan :: XMPP ()
 dropPresenceChan = do
   r <- asks presenceRef
   liftIO $ writeIORef r Nothing
 
 -- | Read an element from the inbound stanza channel, acquiring a copy
 -- of the channel as necessary
-pullMessage :: XMPPThread (Either MessageError Message)
+pullMessage :: XMPP (Either MessageError Message)
 pullMessage = do
   c <- getMessageChan
   liftIO $ atomically $ readTChan c
 
 -- | Read an element from the inbound stanza channel, acquiring a copy
 -- of the channel as necessary
-pullPresence :: XMPPThread (Either PresenceError Presence)
+pullPresence :: XMPP (Either PresenceError Presence)
 pullPresence = do
   c <- getPresenceChan
   liftIO $ atomically $ readTChan c
 
 -- | Send a stanza to the server
-sendS :: Stanza -> XMPPThread ()
-sendS a = do
+sendStanza :: Stanza -> XMPP ()
+sendStanza a = do
   out <- asks outCh
   liftIO . atomically $ writeTChan out a
   return ()
 
+-- | Create a forked session object without forking a thread
+forkSession :: Session -> IO Session
+forkSession sess = do
+    mCH' <- newIORef Nothing
+    pCH' <- newIORef Nothing
+    return $ sess {messagesRef = mCH' ,presenceRef = pCH'}
+
 -- | Fork a new thread
-forkXMPP :: XMPPThread () -> XMPPThread ThreadId
-forkXMPP a = do
-  thread <- ask
-  mCH' <- liftIO $ newIORef Nothing
-  pCH' <- liftIO $ newIORef Nothing
-  liftIO $ forkIO $ runReaderT a (thread {messagesRef = mCH'
-                                         ,presenceRef = pCH'
-                                         })
+fork :: XMPP () -> XMPP ThreadId
+fork a = do
+  sess <- ask
+  sess' <- liftIO $ forkSession sess
+  liftIO $ forkIO $ runReaderT a sess'
 
 filterMessages :: (MessageError -> Bool)
                -> (Message -> Bool)
-               -> XMPPThread (Either MessageError Message)
+               -> XMPP (Either MessageError Message)
 filterMessages f g = do
   s <- pullMessage
   case s of
@@ -115,7 +124,7 @@ filterMessages f g = do
     Right m | g m -> return $ Right m
             | otherwise -> filterMessages f g
 
-waitForMessage :: (Message -> Bool) -> XMPPThread Message
+waitForMessage :: (Message -> Bool) -> XMPP Message
 waitForMessage f = do
   s <- pullMessage
   case s of
@@ -123,7 +132,7 @@ waitForMessage f = do
     Right m | f m -> return m
             | otherwise -> waitForMessage f
 
-waitForMessageError :: (MessageError -> Bool) -> XMPPThread MessageError
+waitForMessageError :: (MessageError -> Bool) -> XMPP MessageError
 waitForMessageError f = do
   s <- pullMessage
   case s of
@@ -131,7 +140,7 @@ waitForMessageError f = do
     Left  m | f m -> return m
             | otherwise -> waitForMessageError f
 
-waitForPresence :: (Presence -> Bool) -> XMPPThread Presence
+waitForPresence :: (Presence -> Bool) -> XMPP Presence
 waitForPresence f = do
   s <- pullPresence
   case s of
@@ -145,25 +154,68 @@ waitForPresence f = do
 -- The Action will run in the calling thread/
 -- NB: This will /not/ catch any exceptions. If you action dies, deadlocks
 -- or otherwisely exits abnormaly the XMPP session will be dead.
-withConnection :: XMPPConMonad a -> XMPPThread a
+withConnection :: XMPPConMonad a -> XMPP a
 withConnection a = do
   readerId <- asks readerThread
   stateRef <- asks conStateRef
   write <- asks writeRef
   wait <- liftIO $ newEmptyTMVarIO
-  liftIO . throwTo readerId $ Interrupt wait
-  s <- liftIO . atomically $ do
-    putTMVar wait ()
-    takeTMVar write
-    takeTMVar stateRef
-  (res, s') <- liftIO $ runStateT a s
-  liftIO . atomically $ do
-    putTMVar write (sConPushBS s')
-    putTMVar stateRef s'
-  return res
+  liftIO . Ex.mask_ $ do
+      throwTo readerId $ Interrupt wait
+      s <- Ex.catch ( atomically $ do
+                         _ <- takeTMVar write
+                         s <- takeTMVar stateRef
+                         putTMVar wait ()
+                         return s
+                    )
+               (\e -> atomically (putTMVar wait ())
+                      >>  Ex.throwIO (e :: Ex.SomeException)
+                      -- No MVar taken
+               )
+      Ex.catch ( do
+                   (res, s') <- runStateT a s
+                   atomically $ do
+                       _ <- tryPutTMVar write (sConPushBS s')
+                       _ <- tryPutTMVar stateRef s'
+                       return ()
+                   return res
+               )
+             -- we treat all Exceptions as fatal
+             (\e -> runStateT xmppKillConnection s
+                     >> Ex.throwIO (e :: Ex.SomeException)
+             )
 
-sendPresence :: Presence -> XMPPThread ()
-sendPresence = sendS . PresenceS
+-- | Send a presence Stanza
+sendPresence :: Presence -> XMPP ()
+sendPresence = sendStanza . PresenceS
 
-sendMessage :: Message -> XMPPThread ()
-sendMessage = sendS . MessageS
+-- | Send a Message Stanza
+sendMessage :: Message -> XMPP ()
+sendMessage = sendStanza . MessageS
+
+
+modifyHandlers :: (EventHandlers -> EventHandlers) -> XMPP ()
+modifyHandlers f = do
+    eh <- asks eventHandlers
+    liftIO . atomically $ writeTVar eh . f =<< readTVar eh
+
+setSessionEndHandler :: XMPP () -> XMPP ()
+setSessionEndHandler eh = modifyHandlers (\s -> s{sessionEndHandler = eh})
+
+-- | run an event handler
+runHandler :: (EventHandlers -> XMPP a) -> XMPP a
+runHandler h = do
+  eh <- liftIO . atomically . readTVar  =<< asks eventHandlers
+  h eh
+
+-- | End the current xmpp session
+endSession :: XMPP ()
+endSession = do -- TODO: This has to be idempotent (is it?)
+    withConnection xmppKillConnection
+    liftIO =<< asks stopThreads
+    runHandler sessionEndHandler
+
+-- | Close the connection to the server
+closeConnection :: XMPP ()
+closeConnection = withConnection xmppKillConnection
+

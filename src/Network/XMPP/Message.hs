@@ -1,11 +1,21 @@
 {-# LANGUAGE RecordWildCards #-}
-module Network.XMPP.Message where
+-- | Message handling
+module Network.XMPP.Message
+       ( Message(..)
+       , MessageType(..)
+       , MessageError(..)
+       , message
+       , simpleMessage
+       , answerMessage
+       )
+       where
 
 import Data.Text(Text)
 import Data.XML.Types
 
 import Network.XMPP.Types
 
+-- The empty message
 message :: Message
 message = Message { messageID      = Nothing
                   , messageFrom    = Nothing
@@ -18,7 +28,11 @@ message = Message { messageID      = Nothing
                   , messagePayload = []
                   }
 
-simpleMessage :: JID -> Text -> Message
+
+-- | Create simple message, containing nothing but a body text
+simpleMessage :: JID   -- ^ Recipient
+              -> Text  -- ^ Myssage body
+              -> Message
 simpleMessage to txt = message { messageTo = Just to
                                , messageBody = Just txt
                                }

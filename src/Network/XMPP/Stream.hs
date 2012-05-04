@@ -3,13 +3,11 @@
 
 module Network.XMPP.Stream where
 
-import Control.Applicative((<$>))
-import Control.Exception(throwIO)
-import Control.Monad(unless)
 import Control.Monad.Error
 import Control.Monad.State.Strict
 
 import Data.Conduit
+import Data.Conduit.BufferedSource
 import Data.Conduit.List as CL
 import Data.Text as T
 import Data.XML.Pickle
@@ -30,7 +28,7 @@ streamUnpickleElem :: PU [Node] a
                    -> ErrorT StreamError (Pipe Event Void IO) a
 streamUnpickleElem p x = do
   case unpickleElem p x of
-    Left l -> throwError $ StreamUnpickleError l
+    Left l -> throwError $ StreamXMLError l
     Right r -> return r
 
 type StreamSink a =  ErrorT StreamError (Pipe Event Void IO) a
@@ -58,14 +56,14 @@ xmppStartStream = runErrorT $ do
     Nothing -> throwError StreamConnectionError
     Just hostname -> lift . pushOpen $
                        pickleElem pickleStream ("1.0",Nothing, Just hostname)
-  features <- ErrorT . pulls $ runErrorT xmppStream
+  features <- ErrorT . pullSink $ runErrorT xmppStream
   modify (\s -> s {sFeatures = features})
   return ()
 
 xmppRestartStream :: XMPPConMonad (Either StreamError ())
 xmppRestartStream = do
   raw <- gets sRawSrc
-  let newsrc = raw $= XP.parseBytes def
+  newsrc <- liftIO . bufferSource $ raw $= XP.parseBytes def
   modify (\s -> s{sConSrc = newsrc})
   xmppStartStream
 
