@@ -17,7 +17,7 @@ sendIQ :: Maybe JID -- ^ Recipient (to)
           -> IQRequestType  -- ^ IQ type (Get or Set)
           -> Maybe LangTag  -- ^ Language tag of the payload (Nothing for default)
           -> Element -- ^ The iq body (there has to be exactly one)
-          -> XMPPThread (TMVar IQResponse)
+          -> XMPP (TMVar IQResponse)
 sendIQ to tp lang body = do -- TODO: add timeout
   newId <- liftIO =<< asks idGenerator
   handlers <- asks iqHandlers
@@ -27,7 +27,7 @@ sendIQ to tp lang body = do -- TODO: add timeout
       writeTVar handlers (byNS, Map.insert newId resRef byId)
         -- TODO: Check for id collisions (shouldn't happen?)
       return resRef
-  sendS . IQRequestS $ IQRequest newId Nothing to lang tp body
+  sendStanza . IQRequestS $ IQRequest newId Nothing to lang tp body
   return ref
 
 -- | like 'sendIQ', but waits for the answer IQ
@@ -35,14 +35,14 @@ sendIQ' :: Maybe JID
         -> IQRequestType
         -> Maybe LangTag
         -> Element
-        -> XMPPThread IQResponse
+        -> XMPP IQResponse
 sendIQ' to tp lang body = do
   ref <- sendIQ to tp lang body
   liftIO . atomically $ takeTMVar ref
 
 answerIQ :: (IQRequest, TVar Bool)
          -> Either StanzaError (Maybe Element)
-         -> XMPPThread Bool
+         -> XMPP Bool
 answerIQ ((IQRequest iqid from _to lang _tp bd), sentRef) answer = do
   out <- asks outCh
   let response = case answer of

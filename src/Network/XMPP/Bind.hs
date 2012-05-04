@@ -11,7 +11,7 @@ import Data.XML.Types
 
 import Network.XMPP.Types
 import Network.XMPP.Pickle
-import Network.XMPP.Concurrent
+import Network.XMPP.Monad
 
 
 -- A `bind' element.
@@ -29,7 +29,6 @@ bindBody rsrc = (pickleElem
                      rsrc
                  )
 
-
 -- Extracts the character data in the `jid' element.
 
 jidP :: PU [Node] JID
@@ -39,10 +38,10 @@ jidP = bindP $ xpElemNodes "jid" (xpContent xpPrim)
 -- Sends a (synchronous) IQ set request for a (`Just') given or
 -- server-generated resource and extract the JID from the non-error
 -- response.
-
-xmppThreadedBind  :: Maybe Text -> XMPPThread Text
-xmppThreadedBind rsrc = do
-   answer <- sendIQ' Nothing Set Nothing (bindBody rsrc)
+xmppBind  :: Maybe Text -> XMPPConMonad Text
+xmppBind rsrc = do
+   answer <- xmppSendIQ' "bind" Nothing Set Nothing (bindBody rsrc)
    let (Right IQResult{iqResultPayload = Just b}) = answer -- TODO: Error handling
    let Right (JID _n _d (Just r)) = unpickleElem jidP b
    return r
+

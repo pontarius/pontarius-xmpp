@@ -28,13 +28,17 @@ supervisor :: JID
 supervisor = read "uart14@species64739.dyndns.org"
 
 
-attXmpp :: STM a -> XMPPThread a
+attXmpp :: STM a -> XMPP a
 attXmpp = liftIO . atomically
 
 testNS :: Text
 testNS = "xmpp:library:test"
 
-data Payload = Payload Int Bool Text deriving (Eq, Show)
+data Payload = Payload
+               { payloadCounter ::Int
+               , payloadFlag :: Bool
+               , payloadText :: Text
+               } deriving (Eq, Show)
 
 payloadP = xpWrap (\((counter,flag) , message) -> Payload counter flag message)
                   (\(Payload counter flag message) ->((counter,flag) , message)) $
@@ -49,17 +53,20 @@ payloadP = xpWrap (\((counter,flag) , message) -> Payload counter flag message)
 invertPayload (Payload count flag message) = Payload (count + 1) (not flag) (Text.reverse message)
 
 iqResponder = do
-  (free, chan) <- listenIQChan Get testNS
-  unless free $ liftIO $ putStrLn "Channel was already taken"
-                >> error "hanging up"
+  chan' <- listenIQChan Get testNS
+  chan <- case chan' of
+      Nothing -> liftIO $ putStrLn "Channel was already taken"
+                     >> error "hanging up"
+      Just c -> return c
   forever $ do
     next@(iq,_) <- liftIO . atomically $ readTChan chan
     let Right payload = unpickleElem payloadP $ iqRequestPayload iq
     let answerPayload = invertPayload payload
     let answerBody = pickleElem payloadP answerPayload
     answerIQ next (Right $ Just answerBody)
+    when (payloadCounter payload == 10) endSession
 
-autoAccept :: XMPPThread ()
+autoAccept :: XMPP ()
 autoAccept = forever $ do
   st <- waitForPresence isPresenceSubscribe
   sendPresence $ presenceSubscribed (fromJust $ presenceFrom st)
@@ -84,33 +91,39 @@ runMain debug number = do
                              _ -> error "Need either 1 or 2"
   let debug' = liftIO . atomically .
                debug . (("Thread " ++ show number ++ ":") ++)
-  xmppNewSession $ do
+  wait <- newEmptyTMVarIO
+  withNewSession $ do
+      setSessionEndHandler (liftIO . atomically $ putTMVar wait ())
       debug' "running"
       withConnection $ do
-        xmppConnect "localhost" "species64739.dyndns.org"
-        xmppStartTLS exampleParams
-        saslResponse <- xmppSASL (fromJust $ localpart we) "pwd"
-        case saslResponse of
-          Right _ -> return ()
-          Left e -> error e
-      xmppThreadedBind (resourcepart we)
-      withConnection $ xmppSession
-      debug' "session standing"
+          connect "localhost" "species64739.dyndns.org"
+          startTLS exampleParams
+          saslResponse <- auth (fromJust $ localpart we) "pwd" (resourcepart we)
+          case saslResponse of
+              Right _ -> return ()
+              Left e -> error $ show e
+          debug' "session standing"
       sendPresence presenceOnline
-      forkXMPP autoAccept
-      forkXMPP iqResponder
-      when active . void . forkXMPP $ do
-        forM [1..10] $ \count -> do
-            let message = Text.pack . show $ localpart we
-            let payload = Payload count (even count) (Text.pack $ show count)
-            let body = pickleElem payloadP payload
-            Right answer <- sendIQ' (Just them) Get Nothing body
-            let Right answerPayload = unpickleElem payloadP
-                                  (fromJust $ iqResultPayload answer)
-            expect debug' (invertPayload payload) answerPayload
-            liftIO $ threadDelay 100000
-        sendUser "All tests done"
-      liftIO  . forever $ threadDelay 10000000
+      fork autoAccept
+      sendPresence $ presenceSubscribe them
+      fork iqResponder
+      when active $ do
+        liftIO $ threadDelay 1000000 -- Wait for the other thread to go online
+        void . fork $ do
+          forM [1..10] $ \count -> do
+              let message = Text.pack . show $ localpart we
+              let payload = Payload count (even count) (Text.pack $ show count)
+              let body = pickleElem payloadP payload
+              debug' "sending"
+              Right answer <- sendIQ' (Just them) Get Nothing body
+              debug' "received"
+              let Right answerPayload = unpickleElem payloadP
+                                    (fromJust $ iqResultPayload answer)
+              expect debug' (invertPayload payload) answerPayload
+              liftIO $ threadDelay 100000
+          sendUser "All tests done"
+          endSession
+      liftIO . atomically $ takeTMVar wait
       return ()
   return ()
 

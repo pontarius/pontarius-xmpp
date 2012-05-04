@@ -1,34 +1,33 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Network.XMPP.Monad where
 
-import Control.Applicative((<$>))
-import Control.Monad
-import Control.Monad.IO.Class
-import Control.Monad.Trans.Class
+import           Control.Applicative((<$>))
+import           Control.Monad
+import           Control.Monad.IO.Class
+import           Control.Monad.Trans.Class
 --import Control.Monad.Trans.Resource
-import Control.Concurrent
-import Control.Monad.State.Strict
+import qualified Control.Exception as Ex
+import           Control.Monad.State.Strict
 
-import Data.ByteString as BS
-import Data.Conduit
-import Data.Conduit.Binary as CB
-import Data.Conduit.List as CL
-import Data.Text(Text)
-import Data.XML.Pickle
-import Data.XML.Types
+import           Data.ByteString as BS
+import           Data.Conduit
+import           Data.Conduit.BufferedSource
+import           Data.Conduit.Binary as CB
+import           Data.Text(Text)
+import           Data.XML.Pickle
+import           Data.XML.Types
 
-import Network
-import Network.XMPP.Types
-import Network.XMPP.Marshal
-import Network.XMPP.Pickle
+import           Network
+import           Network.XMPP.Types
+import           Network.XMPP.Marshal
+import           Network.XMPP.Pickle
 
-import System.IO
+import           System.IO
 
-import Text.XML.Stream.Elements
-import Text.XML.Stream.Parse as XP
-import Text.XML.Stream.Render as XR
-
+import           Text.XML.Stream.Elements
+import           Text.XML.Stream.Parse as XP
 
 pushN :: Element -> XMPPConMonad ()
 pushN x = do
@@ -36,7 +35,7 @@ pushN x = do
   liftIO . sink $ renderElement x
 
 push :: Stanza -> XMPPConMonad ()
-push = pushN . pickleElem stanzaP
+push = pushN . pickleElem xpStanza
 
 pushOpen :: Element -> XMPPConMonad ()
 pushOpen e = do
@@ -44,58 +43,65 @@ pushOpen e = do
   liftIO . sink $ renderOpenElement e
   return ()
 
-pulls :: Sink Event IO b -> XMPPConMonad b
-pulls snk = do
+pullSink :: Sink Event IO b -> XMPPConMonad b
+pullSink snk = do
   source <- gets sConSrc
-  (src', r) <- lift $ source $$+ snk
-  modify $ (\s -> s {sConSrc = src'})
+  (_, r) <- lift $ source $$+ snk
   return r
 
-pullE :: XMPPConMonad Element
-pullE = pulls elementFromEvents
+pullElement :: XMPPConMonad Element
+pullElement = pullSink elementFromEvents
 
 pullPickle :: PU [Node] a -> XMPPConMonad a
-pullPickle p = unpickleElem' p <$> pullE
+pullPickle p = do
+    res <- unpickleElem p <$> pullElement
+    case res of
+        Left e -> liftIO . Ex.throwIO $ StreamXMLError e
+        Right r -> return r
 
-pull :: XMPPConMonad Stanza
-pull = pullPickle stanzaP
+pullStanza  :: XMPPConMonad Stanza
+pullStanza = do
+    res <- pullPickle xpStreamEntity
+    case res of
+        Left e -> liftIO . Ex.throwIO $ StreamError e
+        Right r -> return r
 
 xmppFromHandle :: Handle
                -> Text
-               -> Text
-               -> Maybe Text
                -> XMPPConMonad a
-               -> IO (a, XMPPConState)
-xmppFromHandle handle hostname username res f = do
+               -> IO (a, XmppConnection)
+xmppFromHandle handle hostname f = do
   liftIO $ hSetBuffering handle NoBuffering
   let raw = sourceHandle handle
   let src = raw $= XP.parseBytes def
-  let st = XMPPConState
+  let st = XmppConnection
              src
              (raw)
              (BS.hPut handle)
              (Just handle)
              (SF Nothing [] [])
-             False
+             XmppConnectionPlain
              (Just hostname)
-             (Just username)
-             res
+             Nothing
+             Nothing
+             (hClose handle)
   runStateT f st
 
 zeroSource :: Source IO output
-zeroSource = sourceState () (\_ -> forever $ threadDelay 10000000)
+zeroSource = liftIO . Ex.throwIO $ XmppNoConnection
 
-xmppZeroConState :: XMPPConState
-xmppZeroConState = XMPPConState
+xmppNoConnection :: XmppConnection
+xmppNoConnection = XmppConnection
                { sConSrc    = zeroSource
                , sRawSrc    = zeroSource
-               , sConPushBS = (\_ -> return ())
+               , sConPushBS = \_ -> Ex.throwIO $ XmppNoConnection
                , sConHandle = Nothing
                , sFeatures  = SF Nothing [] []
-               , sHaveTLS   = False
+               , sConnectionState = XmppConnectionClosed
                , sHostname  = Nothing
                , sUsername  = Nothing
                , sResource  = Nothing
+               , sCloseConnection = return ()
                }
 
 xmppRawConnect :: HostName -> Text -> XMPPConMonad ()
@@ -106,19 +112,42 @@ xmppRawConnect host hostname = do
       hSetBuffering con NoBuffering
       return con
   let raw = sourceHandle con
-  let src = raw $= XP.parseBytes def
-  let st = XMPPConState
+  src <- liftIO . bufferSource $ raw $= XP.parseBytes def
+  let st = XmppConnection
              src
              (raw)
              (BS.hPut con)
              (Just con)
              (SF Nothing [] [])
-             False
+             XmppConnectionPlain
              (Just hostname)
              uname
              Nothing
+             (hClose con)
   put st
 
-withNewSession :: XMPPConMonad a -> IO (a, XMPPConState)
-withNewSession action = do
-  runStateT action xmppZeroConState
+xmppNewSession :: XMPPConMonad a -> IO (a, XmppConnection)
+xmppNewSession action = do
+  runStateT action xmppNoConnection
+
+xmppKillConnection :: XMPPConMonad ()
+xmppKillConnection = do
+    cc <- gets sCloseConnection
+    void . liftIO $ (Ex.try cc :: IO (Either Ex.SomeException ()))
+    put xmppNoConnection
+
+xmppSendIQ' :: StanzaId -> Maybe JID -> IQRequestType
+            -> Maybe LangTag -> Element
+            -> XMPPConMonad (Either IQError IQResult)
+xmppSendIQ' iqID to tp lang body = do
+    push . IQRequestS $ IQRequest iqID Nothing to lang tp body
+    res <- pullPickle $ xpEither xpIQError xpIQResult
+    case res of
+        Left e -> return $ Left e
+        Right iq' -> do
+            unless (iqID == iqResultID iq') . liftIO . Ex.throwIO $
+                StreamXMLError
+              ("In xmppSendIQ' IDs don't match: " ++ show iqID ++
+              " /= " ++ show (iqResultID iq') ++ " .")
+            return $ Right iq'
+
