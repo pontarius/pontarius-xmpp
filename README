@@ -1,15 +1,2 @@
-Pontarius is a work in progress to build a Haskell XMPP library that
+Pontarius is an active work in progress to build a Haskell XMPP library that
 implements the client capabilities of RFC 6120 ("XMPP Core").
-
-The latest version, 1.0 Alpha 8, is the first release since the
-project was put on ice in around July, as well as the first release by
-Nejla. The new release primarily brings a new API, a rewritten Session
-module, a new event system and updated code to unbreak Pontarius with
-regards to new versions of dependencies (most notably the conduit and
-xml-conduit packages). However, there are a number of features that
-are (temporarily) missing from this rewrite of library, such as TLS
-security and SASL authentication.
-
-Overall, we are working on cleaning up the code, the final
-architectural details and towards feature-completeness to be able to
-move the project into beta.
