@@ -38,7 +38,9 @@ module Network.XMPP.Types
     , StreamError(..)
     , Version(..)
     , XMPPConMonad
-    , XMPPConState(..)
+    , XmppConnection(..)
+    , XmppConnectionState(..)
+    , XmppNoConnection(..)
     , XMPPT(..)
     , XmppStreamError(..)
     , parseLangTag
@@ -704,16 +706,24 @@ data ServerFeatures = SF
   , other :: [Element]
   } deriving Show
 
-data XMPPConState = XMPPConState
-               { sConSrc    :: Source IO Event
-               , sRawSrc    :: Source IO BS.ByteString
-               , sConPushBS :: BS.ByteString -> IO ()
-               , sConHandle :: Maybe Handle
-               , sFeatures  :: ServerFeatures
-               , sHaveTLS   :: Bool
-               , sHostname  :: Maybe Text
-               , sUsername  :: Maybe Text
-               , sResource  :: Maybe Text
+data XmppConnectionState = XmppConnectionClosed  -- ^ No connection at
+                                                 -- this point
+                         | XmppConnectionPlain   -- ^ Connection
+                                                 -- established, but
+                                                 -- not secured
+                         | XmppConnectionSecured -- ^ Connection
+                                                 -- established and
+                                                 -- secured via TLS
+data XmppConnection = XmppConnection
+               { sConSrc          :: Source IO Event
+               , sRawSrc          :: Source IO BS.ByteString
+               , sConPushBS       :: BS.ByteString -> IO ()
+               , sConHandle       :: Maybe Handle
+               , sFeatures        :: ServerFeatures
+               , sConnectionState :: XmppConnectionState
+               , sHostname        :: Maybe Text
+               , sUsername        :: Maybe Text
+               , sResource        :: Maybe Text
                , sCloseConnection :: IO ()
                  -- TODO: add default Language
                }
@@ -723,14 +733,14 @@ data XMPPConState = XMPPConState
 -- work with Pontarius. Pontarius clients needs to operate in this
 -- context.
 
-newtype XMPPT m a = XMPPT { runXMPPT :: StateT XMPPConState m a } deriving (Monad, MonadIO)
+newtype XMPPT m a = XMPPT { runXMPPT :: StateT XmppConnection m a } deriving (Monad, MonadIO)
 
-type XMPPConMonad a = StateT XMPPConState IO a
+type XMPPConMonad a = StateT XmppConnection IO a
 
 -- Make XMPPT derive the Monad and MonadIO instances.
 
-deriving instance (Monad m, MonadIO m) => MonadState (XMPPConState) (XMPPT m)
+deriving instance (Monad m, MonadIO m) => MonadState (XmppConnection) (XMPPT m)
 
+data XmppNoConnection = XmppNoConnection deriving (Show, Typeable)
+instance Exception XmppNoConnection
 
--- We need a channel because multiple threads needs to append events,
--- and we need to wait for events when there are none.

@@ -152,8 +152,7 @@ waitForPresence f = do
 -- Reader and writer workers will be temporarily stopped
 -- and resumed with the new session details once the action returns.
 -- The Action will run in the calling thread/
--- NB: This will /not/ catch any exceptions. If you action dies, deadlocks
--- or otherwisely exits abnormaly the XMPP session will be dead.
+-- Any uncaught exceptions will be interpreted as connection failure
 withConnection :: XMPPConMonad a -> XMPP a
 withConnection a = do
   readerId <- asks readerThread

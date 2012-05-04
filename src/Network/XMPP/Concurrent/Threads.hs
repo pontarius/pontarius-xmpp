@@ -40,7 +40,7 @@ handleInterrupts ts =
 readWorker :: TChan (Either MessageError Message)
            -> TChan (Either PresenceError Presence)
            -> TVar IQHandlers
-           -> TMVar XMPPConState
+           -> TMVar XmppConnection
            -> IO ()
 readWorker messageC presenceC handlers stateRef =
     Ex.mask_ . forever $ do
@@ -131,7 +131,7 @@ startThreads
         , TChan Stanza
         , IO ()
         , TMVar (BS.ByteString -> IO ())
-        , TMVar XMPPConState
+        , TMVar XmppConnection
         , ThreadId
         , TVar EventHandlers
         )
@@ -143,7 +143,7 @@ startThreads = do
   outC <- newTChanIO
   handlers <- newTVarIO ( Map.empty, Map.empty)
   eh <- newTVarIO  zeroEventHandlers
-  conS <- newTMVarIO xmppZeroConState
+  conS <- newTMVarIO xmppNoConnection
   lw <- forkIO $ writeWorker outC writeLock
   cp <- forkIO $ connPersist writeLock
   rd <- forkIO $ readWorker messageC presenceC handlers conS

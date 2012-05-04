@@ -8,7 +8,6 @@ import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Class
 --import Control.Monad.Trans.Resource
-import           Control.Concurrent
 import qualified Control.Exception as Ex
 import           Control.Monad.State.Strict
 
@@ -69,38 +68,36 @@ pullStanza = do
 
 xmppFromHandle :: Handle
                -> Text
-               -> Text
-               -> Maybe Text
                -> XMPPConMonad a
-               -> IO (a, XMPPConState)
-xmppFromHandle handle hostname username res f = do
+               -> IO (a, XmppConnection)
+xmppFromHandle handle hostname f = do
   liftIO $ hSetBuffering handle NoBuffering
   let raw = sourceHandle handle
   let src = raw $= XP.parseBytes def
-  let st = XMPPConState
+  let st = XmppConnection
              src
              (raw)
              (BS.hPut handle)
              (Just handle)
              (SF Nothing [] [])
-             False
+             XmppConnectionPlain
              (Just hostname)
-             (Just username)
-             res
+             Nothing
+             Nothing
              (hClose handle)
   runStateT f st
 
 zeroSource :: Source IO output
-zeroSource = liftIO . forever $ threadDelay 10000000
+zeroSource = liftIO . Ex.throwIO $ XmppNoConnection
 
-xmppZeroConState :: XMPPConState
-xmppZeroConState = XMPPConState
+xmppNoConnection :: XmppConnection
+xmppNoConnection = XmppConnection
                { sConSrc    = zeroSource
                , sRawSrc    = zeroSource
-               , sConPushBS = (\_ -> return ())
+               , sConPushBS = \_ -> Ex.throwIO $ XmppNoConnection
                , sConHandle = Nothing
                , sFeatures  = SF Nothing [] []
-               , sHaveTLS   = False
+               , sConnectionState = XmppConnectionClosed
                , sHostname  = Nothing
                , sUsername  = Nothing
                , sResource  = Nothing
@@ -116,29 +113,32 @@ xmppRawConnect host hostname = do
       return con
   let raw = sourceHandle con
   src <- liftIO . bufferSource $ raw $= XP.parseBytes def
-  let st = XMPPConState
+  let st = XmppConnection
              src
              (raw)
              (BS.hPut con)
              (Just con)
              (SF Nothing [] [])
-             False
+             XmppConnectionPlain
              (Just hostname)
              uname
              Nothing
              (hClose con)
   put st
 
-xmppNewSession :: XMPPConMonad a -> IO (a, XMPPConState)
+xmppNewSession :: XMPPConMonad a -> IO (a, XmppConnection)
 xmppNewSession action = do
-  runStateT action xmppZeroConState
+  runStateT action xmppNoConnection
 
 xmppKillConnection :: XMPPConMonad ()
 xmppKillConnection = do
     cc <- gets sCloseConnection
     void . liftIO $ (Ex.try cc :: IO (Either Ex.SomeException ()))
-    put xmppZeroConState
+    put xmppNoConnection
 
+xmppSendIQ' :: StanzaId -> Maybe JID -> IQRequestType
+            -> Maybe LangTag -> Element
+            -> XMPPConMonad (Either IQError IQResult)
 xmppSendIQ' iqID to tp lang body = do
     push . IQRequestS $ IQRequest iqID Nothing to lang tp body
     res <- pullPickle $ xpEither xpIQError xpIQResult

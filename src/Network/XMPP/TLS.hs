@@ -70,6 +70,6 @@ startTLS params = Ex.handle (return . Left . TLSError)
                     , sCloseConnection = TLS.bye ctx >> sCloseConnection x
                     })
       either (lift . Ex.throwIO) return =<< lift xmppRestartStream
-      modify (\s -> s{sHaveTLS = True})
+      modify (\s -> s{sConnectionState = XmppConnectionSecured})
       return ()
 

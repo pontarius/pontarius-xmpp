@@ -50,7 +50,7 @@ data Session = Session { messagesRef :: IORef (Maybe ( TChan (Either
                        , writeRef :: TMVar (BS.ByteString -> IO () )
                        , readerThread :: ThreadId
                        , idGenerator :: IO StanzaId
-                       , conStateRef :: TMVar XMPPConState
+                       , conStateRef :: TMVar XmppConnection
                        , eventHandlers :: TVar EventHandlers
                        , stopThreads :: IO ()
                        }
