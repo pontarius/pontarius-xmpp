@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Network.XMPP.Monad where
@@ -135,7 +136,7 @@ xmppNewSession action = do
 xmppKillConnection :: XMPPConMonad ()
 xmppKillConnection = do
     cc <- gets sCloseConnection
-    liftIO cc
+    void . liftIO $ (Ex.try cc :: IO (Either Ex.SomeException ()))
     put xmppZeroConState
 
 xmppSendIQ' iqID to tp lang body = do
