@@ -4,7 +4,7 @@ Cabal-Version: >= 1.6
 Build-Type: Simple
 -- License:
 License-File: LICENSE
-Copyright: Copyright © 2010-2012, Jon Kristensen
+-- Copyright:
 Author: Jon Kristensen, Mahdi Abdinejadi, Philipp Balzarek
 Maintainer: jon.kristensen@nejla.com
 Stability: alpha
@@ -53,6 +53,7 @@ Library
   Exposed-modules: Network.XMPP
                  , Network.XMPP.Bind
                  , Network.XMPP.Concurrent
+                 , Network.XMPP.IM
                  , Network.XMPP.Marshal
                  , Network.XMPP.Monad
                  , Network.XMPP.Message
@@ -63,7 +64,8 @@ Library
                  , Network.XMPP.Stream
                  , Network.XMPP.TLS
                  , Network.XMPP.Types
-  Other-modules:   Network.XMPP.JID
+  Other-modules:   
+                 Network.XMPP.JID
                  , Network.XMPP.Concurrent.Types
                  , Network.XMPP.Concurrent.IQ
                  , Network.XMPP.Concurrent.Threads
