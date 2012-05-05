@@ -1,20 +1,19 @@
 {-# LANGUAGE RecordWildCards #-}
--- | Message handling
-module Network.XMPP.Message
-       ( Message(..)
-       , MessageType(..)
-       , MessageError(..)
-       , message
-       , answerMessage
-       )
-       where
 
-import Data.Text(Text)
+module Network.XMPP.Message
+    ( Message(..)
+    , MessageError(..)
+    , MessageType(..)
+    , answerMessage
+    , message
+    ) where
+
+import Data.Text (Text)
 import Data.XML.Types
 
 import Network.XMPP.Types
 
--- The empty message
+-- | An empty message.
 message :: Message
 message = Message { messageID      = Nothing
                   , messageFrom    = Nothing
@@ -24,22 +23,14 @@ message = Message { messageID      = Nothing
                   , messagePayload = []
                   }
 
-
----- | Create simple message, containing nothing but a body text
---simpleMessage :: JID   -- ^ Recipient
---              -> Text  -- ^ Myssage body
---              -> Message
---simpleMessage to txt = message { messageTo = Just to
---                               , messageBody = Just txt
---                               }
-
-answerMessage  :: Message -> Text -> [Element] -> Maybe Message
-answerMessage Message{messageFrom = Just frm, ..} txt payload =
-   Just $ Message{ messageFrom    = messageTo
-                 , messageID      = Nothing
-                 , messageTo      = Just frm
-                 , messagePayload = payload
-                 , ..
-                 }
-answerMessage _ _ _ = Nothing
-
+-- Produce an answer message with the given payload, switching the "from" and
+-- "to" attributes in the original message.
+answerMessage :: Message -> [Element] -> Maybe Message
+answerMessage Message{messageFrom = Just frm, ..} payload =
+    Just Message{ messageFrom    = messageTo
+                , messageID      = Nothing
+                , messageTo      = Just frm
+                , messagePayload = payload
+                , ..
+                }
+answerMessage _ _ = Nothing
