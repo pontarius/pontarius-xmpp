@@ -83,11 +83,10 @@ module Network.XMPP
   -- a system such as email.
   --
   -- <http://xmpp.org/rfcs/rfc6120.html#stanzas-semantics-message>
-  , Message
-  , MessageError
+  , Message(..)
+  , MessageError(..)
   , MessageType(..)
   -- *** creating
-  , simpleMessage
   , answerMessage
   -- *** sending
   , sendMessage
@@ -105,7 +104,6 @@ module Network.XMPP
   -- <http://xmpp.org/rfcs/rfc6120.html#stanzas-semantics-presence>
   , Presence(..)
   , PresenceError(..)
-  , ShowType(..)
   -- *** creating
   , module Network.XMPP.Presence
   -- *** sending

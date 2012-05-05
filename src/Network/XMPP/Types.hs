@@ -29,7 +29,6 @@ module Network.XMPP.Types
     , SaslFailure(..)
     , ServerAddress(..)
     , ServerFeatures(..)
-    , ShowType(..)
     , Stanza(..)
     , StanzaError(..)
     , StanzaErrorCondition(..)
@@ -170,9 +169,6 @@ data Message = Message { messageID      :: Maybe StanzaId
                        , messageTo      :: Maybe JID
                        , messageLangTag :: Maybe LangTag
                        , messageType    :: MessageType
-                       , messageSubject :: Maybe Text
-                       , messageThread  :: Maybe Text
-                       , messageBody    :: Maybe Text
                        , messagePayload :: [Element]
                        }
                deriving (Show)
@@ -254,9 +250,6 @@ data Presence = Presence { presenceID       :: Maybe StanzaId
                          , presenceTo       :: Maybe JID
                          , presenceLangTag  :: Maybe LangTag
                          , presenceType     :: Maybe PresenceType
-                         , presenceShowType :: Maybe ShowType
-                         , presenceStatus   :: Maybe Text
-                         , presencePriority :: Maybe Int
                          , presencePayload  :: [Element]
                          }
                 deriving (Show)
@@ -310,29 +303,29 @@ instance Read PresenceType where
   readsPrec _  "probe"        = [( Probe ,"")]
   readsPrec _  _              = []
 
-data ShowType = Available
-                | Away
-                | FreeChat
-                | DND
-                | XAway
-                deriving Eq
-
-instance Show ShowType where
-  show Available = ""
-  show Away = "away"
-  show FreeChat = "chat"
-  show DND = "dnd"
-  show XAway = "xa"
-
-instance Read ShowType where
-  readsPrec _  ""             = [( Available ,"")]
-  readsPrec _  "available"    = [( Available ,"")]
-  readsPrec _  "away"         = [( Away ,"")]
-  readsPrec _  "chat"         = [( FreeChat ,"")]
-  readsPrec _  "dnd"          = [( DND ,"")]
-  readsPrec _  "xa"           = [( XAway ,"")]
-  readsPrec _  "invisible"    = [( Available ,"")]
-  readsPrec _  _              = []
+--data ShowType = Available
+--                | Away
+--                | FreeChat
+--                | DND
+--                | XAway
+--                deriving Eq
+--
+--instance Show ShowType where
+--  show Available = ""
+--  show Away = "away"
+--  show FreeChat = "chat"
+--  show DND = "dnd"
+--  show XAway = "xa"
+--
+--instance Read ShowType where
+--  readsPrec _  ""             = [( Available ,"")]
+--  readsPrec _  "available"    = [( Available ,"")]
+--  readsPrec _  "away"         = [( Away ,"")]
+--  readsPrec _  "chat"         = [( FreeChat ,"")]
+--  readsPrec _  "dnd"          = [( DND ,"")]
+--  readsPrec _  "xa"           = [( XAway ,"")]
+--  readsPrec _  "invisible"    = [( Available ,"")]
+--  readsPrec _  _              = []
 
 
 -- |
