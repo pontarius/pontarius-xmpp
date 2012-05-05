@@ -9,6 +9,7 @@ import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Class
 --import Control.Monad.Trans.Resource
 import qualified Control.Exception as Ex
+import qualified GHC.IO.Exception as Ex
 import           Control.Monad.State.Strict
 
 import           Data.ByteString as BS
@@ -30,19 +31,18 @@ import           System.IO
 import           Text.XML.Stream.Elements
 import           Text.XML.Stream.Parse as XP
 
-pushN :: Element -> XMPPConMonad ()
+pushN :: Element -> XMPPConMonad Bool
 pushN x = do
   sink <- gets sConPushBS
   liftIO . sink $ renderElement x
 
-push :: Stanza -> XMPPConMonad ()
+push :: Stanza -> XMPPConMonad Bool
 push = pushN . pickleElem xpStanza
 
-pushOpen :: Element -> XMPPConMonad ()
+pushOpen :: Element -> XMPPConMonad Bool
 pushOpen e = do
   sink <- gets sConPushBS
   liftIO . sink $ renderOpenElement e
-  return ()
 
 pullSink :: Sink Event IO b -> XMPPConMonad b
 pullSink snk = do
@@ -71,6 +71,12 @@ pullStanza = do
         Left e -> liftIO . Ex.throwIO $ StreamError e
         Right r -> return r
 
+catchPush p = Ex.catch (p >> return True)
+                       (\e -> case Ex.ioe_type e of
+                                   Ex.ResourceVanished -> return False
+                                   _ -> Ex.throwIO e
+                       )
+
 xmppFromHandle :: Handle
                -> Text
                -> XMPPConMonad a
@@ -82,7 +88,7 @@ xmppFromHandle handle hostname f = do
   let st = XmppConnection
              src
              (raw)
-             (BS.hPut handle)
+             (catchPush . BS.hPut handle)
              (Just handle)
              (SF Nothing [] [])
              XmppConnectionPlain
@@ -99,7 +105,7 @@ xmppNoConnection :: XmppConnection
 xmppNoConnection = XmppConnection
                { sConSrc    = zeroSource
                , sRawSrc    = zeroSource
-               , sConPushBS = \_ -> return ()
+               , sConPushBS = \_ -> return False
                , sConHandle = Nothing
                , sFeatures  = SF Nothing [] []
                , sConnectionState = XmppConnectionClosed
@@ -121,7 +127,7 @@ xmppRawConnect host hostname = do
   let st = XmppConnection
              src
              (raw)
-             (BS.hPut con)
+             (catchPush . BS.hPut con)
              (Just con)
              (SF Nothing [] [])
              XmppConnectionPlain

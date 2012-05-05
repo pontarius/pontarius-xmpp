@@ -200,6 +200,10 @@ modifyHandlers f = do
 setSessionEndHandler :: XMPP () -> XMPP ()
 setSessionEndHandler eh = modifyHandlers (\s -> s{sessionEndHandler = eh})
 
+setConnectionClosedHandler :: XMPP () -> XMPP ()
+setConnectionClosedHandler eh = modifyHandlers
+                                (\s -> s{connectionClosedHandler = eh})
+
 -- | run an event handler
 runHandler :: (EventHandlers -> XMPP a) -> XMPP a
 runHandler h = do

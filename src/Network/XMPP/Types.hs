@@ -718,7 +718,7 @@ data XmppConnectionState = XmppConnectionClosed  -- ^ No connection at
 data XmppConnection = XmppConnection
                { sConSrc          :: Source IO Event
                , sRawSrc          :: Source IO BS.ByteString
-               , sConPushBS       :: BS.ByteString -> IO ()
+               , sConPushBS       :: BS.ByteString -> IO Bool
                , sConHandle       :: Maybe Handle
                , sFeatures        :: ServerFeatures
                , sConnectionState :: XmppConnectionState
