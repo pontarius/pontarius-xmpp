@@ -3,23 +3,24 @@
 
 module Network.XMPP.Stream where
 
-import Control.Monad.Error
-import Control.Monad.State.Strict
+import qualified Control.Exception as Ex
+import           Control.Monad.Error
+import           Control.Monad.State.Strict
 
-import Data.Conduit
-import Data.Conduit.BufferedSource
-import Data.Conduit.List as CL
-import Data.Text as T
-import Data.XML.Pickle
-import Data.XML.Types
-import Data.Void(Void)
+import           Data.Conduit
+import           Data.Conduit.BufferedSource
+import           Data.Conduit.List as CL
+import           Data.Text as T
+import           Data.XML.Pickle
+import           Data.XML.Types
+import           Data.Void(Void)
 
-import Network.XMPP.Monad
-import Network.XMPP.Pickle
-import Network.XMPP.Types
+import           Network.XMPP.Monad
+import           Network.XMPP.Pickle
+import           Network.XMPP.Types
 
-import Text.XML.Stream.Elements
-import Text.XML.Stream.Parse as XP
+import           Text.XML.Stream.Elements
+import           Text.XML.Stream.Parse as XP
 
 -- import Text.XML.Stream.Elements
 
@@ -82,8 +83,11 @@ xmppStreamHeader = do
 
 
 xmppStreamFeatures :: StreamSink ServerFeatures
-xmppStreamFeatures = streamUnpickleElem pickleStreamFeatures
-                       =<< lift elementFromEvents
+xmppStreamFeatures = do
+    e <- lift $ elements =$ CL.head
+    case e of
+        Nothing -> liftIO $ Ex.throwIO XmppNoConnection
+        Just r -> streamUnpickleElem pickleStreamFeatures r
 
 -- Pickling
 

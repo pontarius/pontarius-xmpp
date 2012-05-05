@@ -13,6 +13,7 @@ import           Control.Monad.State.Strict
 
 import           Data.ByteString as BS
 import           Data.Conduit
+import qualified Data.Conduit.List as CL
 import           Data.Conduit.BufferedSource
 import           Data.Conduit.Binary as CB
 import           Data.Text(Text)
@@ -50,7 +51,11 @@ pullSink snk = do
   return r
 
 pullElement :: XMPPConMonad Element
-pullElement = pullSink elementFromEvents
+pullElement = do
+    e <- pullSink (elements =$ CL.head)
+    case e of
+        Nothing -> liftIO $ Ex.throwIO XmppNoConnection
+        Just r -> return r
 
 pullPickle :: PU [Node] a -> XMPPConMonad a
 pullPickle p = do
@@ -94,7 +99,7 @@ xmppNoConnection :: XmppConnection
 xmppNoConnection = XmppConnection
                { sConSrc    = zeroSource
                , sRawSrc    = zeroSource
-               , sConPushBS = \_ -> Ex.throwIO $ XmppNoConnection
+               , sConPushBS = \_ -> return ()
                , sConHandle = Nothing
                , sFeatures  = SF Nothing [] []
                , sConnectionState = XmppConnectionClosed

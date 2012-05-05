@@ -174,9 +174,8 @@ withConnection a = do
       Ex.catch ( do
                    (res, s') <- runStateT a s
                    atomically $ do
-                       _ <- tryPutTMVar write (sConPushBS s')
-                       _ <- tryPutTMVar stateRef s'
-                       return ()
+                       putTMVar write (sConPushBS s')
+                       putTMVar stateRef s'
                    return res
                )
              -- we treat all Exceptions as fatal

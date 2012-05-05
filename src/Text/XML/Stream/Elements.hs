@@ -24,11 +24,14 @@ compressNodes (NodeContent (ContentText x) : NodeContent (ContentText y) : z) =
     compressNodes $ NodeContent (ContentText $ x `Text.append` y) : z
 compressNodes (x:xs) = x : compressNodes xs
 
-elementFromEvents :: R.MonadThrow m => C.Sink Event m Element
-elementFromEvents = do
-        x <- CL.peek
+elements :: R.MonadThrow m => C.Conduit Event m Element
+elements = do
+        x <- C.await
         case x of
-            Just (EventBeginElement n as) -> goE n as
+            Just (EventBeginElement n as) -> do
+                                                 goE n as >>= C.yield
+                                                 elements
+            Nothing -> return ()
             _ -> lift $ R.monadThrow $ InvalidEventStream $ "not an element: " ++ show x
   where
     many' f =
@@ -37,25 +40,22 @@ elementFromEvents = do
         go front = do
             x <- f
             case x of
-                Nothing -> return $ front []
-                Just y -> go (front . (:) y)
-    dropReturn x = CL.drop 1 >> return x
+                Left x -> return $ (x, front [])
+                Right y -> go (front . (:) y)
     goE n as = do
-        CL.drop 1
-        ns <- many' goN
-        y <- CL.head
+        (y, ns) <- many' goN
         if y == Just (EventEndElement n)
             then return $ Element n as $ compressNodes ns
             else lift $ R.monadThrow $ InvalidEventStream $ "Missing end element for " ++ show n ++ ", got: " ++ show y
     goN = do
-        x <- CL.peek
+        x <- await
         case x of
-            Just (EventBeginElement n as) -> (Just . NodeElement) <$> goE n as
-            Just (EventInstruction i) -> dropReturn $ Just $ NodeInstruction i
-            Just (EventContent c) -> dropReturn $ Just $ NodeContent c
-            Just (EventComment t) -> dropReturn $ Just $ NodeComment t
-            Just (EventCDATA t) -> dropReturn $ Just $ NodeContent $ ContentText t
-            _ -> return Nothing
+            Just (EventBeginElement n as) -> (Right . NodeElement) <$> goE n as
+            Just (EventInstruction i) -> return $ Right $ NodeInstruction i
+            Just (EventContent c) -> return $ Right $ NodeContent c
+            Just (EventComment t) -> return $ Right $ NodeComment t
+            Just (EventCDATA t) -> return $ Right $ NodeContent $ ContentText t
+            _ -> return $ Left x
 
 
 openElementToEvents :: Element -> [Event]

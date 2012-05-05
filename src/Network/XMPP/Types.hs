@@ -714,6 +714,7 @@ data XmppConnectionState = XmppConnectionClosed  -- ^ No connection at
                          | XmppConnectionSecured -- ^ Connection
                                                  -- established and
                                                  -- secured via TLS
+                           deriving (Show, Eq, Typeable)
 data XmppConnection = XmppConnection
                { sConSrc          :: Source IO Event
                , sRawSrc          :: Source IO BS.ByteString

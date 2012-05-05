@@ -47,9 +47,13 @@ readWorker messageC presenceC handlers stateRef =
         res <- liftIO $ Ex.catch ( do
                        -- we don't know whether pull will
                        -- necessarily be interruptible
-                       s <- liftIO . atomically $ readTMVar stateRef
+                       s <- liftIO . atomically $ do
+                            sr <- readTMVar stateRef
+                            when (sConnectionState sr == XmppConnectionClosed)
+                                 retry
+                            return sr
                        allowInterrupt
-                       Just <$> runStateT pullStanza s
+                       Just . fst <$> runStateT pullStanza s
                                  )
                    (\(Interrupt t) -> do
                         void $ handleInterrupts [t]
@@ -58,7 +62,7 @@ readWorker messageC presenceC handlers stateRef =
         liftIO . atomically $ do
           case res of
               Nothing -> return ()
-              Just (sta, _s) -> do
+              Just sta -> do
                 case sta of
                     MessageS  m -> do writeTChan messageC $ Right m
                                       _ <- readTChan messageC -- Sic!
