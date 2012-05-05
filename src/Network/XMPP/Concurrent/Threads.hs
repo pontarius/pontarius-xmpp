@@ -116,7 +116,7 @@ handleIQResponse handlers iq = do
       iqID (Left err) = iqErrorID err
       iqID (Right iq') = iqResultID iq'
 
-writeWorker :: TChan Stanza -> TMVar (BS.ByteString -> IO ()) -> IO ()
+writeWorker :: TChan Stanza -> TMVar (BS.ByteString -> IO Bool) -> IO ()
 writeWorker stCh writeR = forever $ do
   (write, next) <- atomically $ (,) <$>
                      takeTMVar writeR <*>
@@ -134,14 +134,14 @@ startThreads
         , TVar IQHandlers
         , TChan Stanza
         , IO ()
-        , TMVar (BS.ByteString -> IO ())
+        , TMVar (BS.ByteString -> IO Bool)
         , TMVar XmppConnection
         , ThreadId
         , TVar EventHandlers
         )
 
 startThreads = do
-  writeLock <- newTMVarIO (\_ -> return ())
+  writeLock <- newTMVarIO (\_ -> return False)
   messageC <- newTChanIO
   presenceC <- newTChanIO
   outC <- newTChanIO
@@ -183,7 +183,7 @@ withSession :: Session -> XMPP a -> IO a
 withSession = flip runReaderT
 
 -- | Sends a blank space every 30 seconds to keep the connection alive
-connPersist ::  TMVar (BS.ByteString -> IO ()) -> IO ()
+connPersist ::  TMVar (BS.ByteString -> IO Bool) -> IO ()
 connPersist lock = forever $ do
   pushBS <- atomically $ takeTMVar lock
   pushBS " "

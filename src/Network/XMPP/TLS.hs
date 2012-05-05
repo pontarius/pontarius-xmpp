@@ -66,7 +66,7 @@ startTLS params = Ex.handle (return . Left . TLSError)
                     { sRawSrc = raw
 --                  , sConSrc =  -- Note: this momentarily leaves us in an
                                  -- inconsistent state
-                    , sConPushBS = psh
+                    , sConPushBS = catchPush . psh
                     , sCloseConnection = TLS.bye ctx >> sCloseConnection x
                     })
       either (lift . Ex.throwIO) return =<< lift xmppRestartStream

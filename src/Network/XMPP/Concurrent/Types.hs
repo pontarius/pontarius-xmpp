@@ -47,7 +47,7 @@ data Session = Session { messagesRef :: IORef (Maybe ( TChan (Either
                                            -- the original chan
                        , outCh :: TChan Stanza
                        , iqHandlers :: TVar IQHandlers
-                       , writeRef :: TMVar (BS.ByteString -> IO () )
+                       , writeRef :: TMVar (BS.ByteString -> IO Bool )
                        , readerThread :: ThreadId
                        , idGenerator :: IO StanzaId
                        , conStateRef :: TMVar XmppConnection
