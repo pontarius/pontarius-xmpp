@@ -20,7 +20,7 @@ bindBody = pickleElem $
                -- "<bind xmlns='urn:ietf:params:xml:ns:xmpp-bind'/>"
                -- element, with a possible "<resource>[JID]</resource>"
                -- child.
-               bindP . xpOption $ xpElemNodes "resource" (xpContent xpId)
+               xpBind . xpOption $ xpElemNodes "resource" (xpContent xpId)
 
 -- Sends a (synchronous) IQ set request for a (`Just') given or server-generated
 -- resource and extract the JID from the non-error response.
@@ -33,8 +33,8 @@ xmppBind rsrc = do
   where
     -- Extracts the character data in the `jid' element.
     jidP :: PU [Node] JID
-    jidP = bindP $ xpElemNodes "jid" (xpContent xpPrim)
+    jidP = xpBind $ xpElemNodes "jid" (xpContent xpPrim)
 
 -- A `bind' element pickler.
-bindP  :: PU [Node] b -> PU [Node] b
-bindP c = xpElemNodes "{urn:ietf:params:xml:ns:xmpp-bind}bind" c
+xpBind  :: PU [Node] b -> PU [Node] b
+xpBind c = xpElemNodes "{urn:ietf:params:xml:ns:xmpp-bind}bind" c
