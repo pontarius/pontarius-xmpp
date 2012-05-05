@@ -76,7 +76,6 @@ unpickleElem' p x = case unpickle (xpNodeElem p) x of
 unpickleElem :: PU [Node] a -> Element -> Either String a
 unpickleElem p x = unpickle (xpNodeElem p) x
 
+-- Given a pickler and an object, produces an Element.
 pickleElem :: PU [Node] a -> a -> Element
-pickleElem p = pickle  $ xpNodeElem p
-
-
+pickleElem p = pickle $ xpNodeElem p

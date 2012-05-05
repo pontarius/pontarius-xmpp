@@ -11,9 +11,6 @@ presence = Presence { presenceID       = Nothing
                     , presenceTo       = Nothing
                     , presenceLangTag  = Nothing
                     , presenceType     = Nothing
-                    , presenceShowType = Nothing
-                    , presenceStatus   = Nothing
-                    , presencePriority = Nothing
                     , presencePayload  = []
                     }
 
@@ -55,26 +52,26 @@ presenceOnline = presence
 presenceOffline :: Presence
 presenceOffline = presence {presenceType = Just Unavailable}
 
--- Change your status
-status
-  :: Maybe Text     -- ^ Status message
-  -> Maybe ShowType -- ^ Status Type
-  -> Maybe Int      -- ^ Priority
-  -> Presence
-status txt showType prio = presence { presenceShowType = showType
-                                    , presencePriority = prio
-                                    , presenceStatus   = txt
-                                    }
+---- Change your status
+--status
+--  :: Maybe Text     -- ^ Status message
+--  -> Maybe ShowType -- ^ Status Type
+--  -> Maybe Int      -- ^ Priority
+--  -> Presence
+--status txt showType prio = presence { presenceShowType = showType
+--                                    , presencePriority = prio
+--                                    , presenceStatus   = txt
+--                                    }
 
 -- | Set the current availability status. This implicitly sets the clients
 -- status online
-presenceAvail :: ShowType -> Presence
-presenceAvail showType = status Nothing (Just showType) Nothing
+--presenceAvail :: ShowType -> Presence
+--presenceAvail showType = status Nothing (Just showType) Nothing
 
 -- | Set the current status message. This implicitly sets the clients
 -- status online
-presenceMessage :: Text -> Presence
-presenceMessage txt = status (Just txt) Nothing Nothing
+--presenceMessage :: Text -> Presence
+--presenceMessage txt = status (Just txt) Nothing Nothing
 
 -- | Add a recipient to a presence notification
 presTo :: Presence -> JID -> Presence

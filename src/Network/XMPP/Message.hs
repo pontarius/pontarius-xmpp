@@ -5,7 +5,6 @@ module Network.XMPP.Message
        , MessageType(..)
        , MessageError(..)
        , message
-       , simpleMessage
        , answerMessage
        )
        where
@@ -22,27 +21,23 @@ message = Message { messageID      = Nothing
                   , messageTo      = Nothing
                   , messageLangTag = Nothing
                   , messageType    = Normal
-                  , messageSubject = Nothing
-                  , messageThread  = Nothing
-                  , messageBody    = Nothing
                   , messagePayload = []
                   }
 
 
--- | Create simple message, containing nothing but a body text
-simpleMessage :: JID   -- ^ Recipient
-              -> Text  -- ^ Myssage body
-              -> Message
-simpleMessage to txt = message { messageTo = Just to
-                               , messageBody = Just txt
-                               }
+---- | Create simple message, containing nothing but a body text
+--simpleMessage :: JID   -- ^ Recipient
+--              -> Text  -- ^ Myssage body
+--              -> Message
+--simpleMessage to txt = message { messageTo = Just to
+--                               , messageBody = Just txt
+--                               }
 
 answerMessage  :: Message -> Text -> [Element] -> Maybe Message
 answerMessage Message{messageFrom = Just frm, ..} txt payload =
    Just $ Message{ messageFrom    = messageTo
                  , messageID      = Nothing
                  , messageTo      = Just frm
-                 , messageBody    = Just txt
                  , messagePayload = payload
                  , ..
                  }

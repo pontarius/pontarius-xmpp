@@ -71,6 +71,23 @@ autoAccept = forever $ do
   st <- waitForPresence isPresenceSubscribe
   sendPresence $ presenceSubscribed (fromJust $ presenceFrom st)
 
+simpleMessage :: JID -> Text -> Message
+simpleMessage to txt = message
+    { messageTo = Just to
+    , messagePayload = [Element "body"
+                        []
+                        [NodeContent $ ContentText txt]
+                       ]
+    }
+  where
+    message = Message { messageID      = Nothing
+                      , messageFrom    = Nothing
+                      , messageTo      = Nothing
+                      , messageLangTag = Nothing
+                      , messageType    = Normal
+                      , messagePayload = []
+                      }
+
 sendUser  = sendMessage . simpleMessage supervisor . Text.pack
 
 expect debug x y | x == y = debug "Ok."
