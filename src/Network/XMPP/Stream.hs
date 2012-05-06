@@ -86,7 +86,7 @@ xmppStreamFeatures :: StreamSink ServerFeatures
 xmppStreamFeatures = do
     e <- lift $ elements =$ CL.head
     case e of
-        Nothing -> liftIO $ Ex.throwIO XmppNoConnection
+        Nothing -> liftIO $ Ex.throwIO StreamConnectionError
         Just r -> streamUnpickleElem pickleStreamFeatures r
 
 -- Pickling

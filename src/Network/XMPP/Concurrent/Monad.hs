@@ -198,17 +198,20 @@ modifyHandlers f = do
     liftIO . atomically $ writeTVar eh . f =<< readTVar eh
 
 setSessionEndHandler :: XMPP () -> XMPP ()
-setSessionEndHandler eh = modifyHandlers (\s -> s{sessionEndHandler = eh})
+setSessionEndHandler eh = do
+    r <- ask
+    modifyHandlers (\s -> s{sessionEndHandler = runReaderT eh r})
 
-setConnectionClosedHandler :: XMPP () -> XMPP ()
-setConnectionClosedHandler eh = modifyHandlers
-                                (\s -> s{connectionClosedHandler = eh})
+setConnectionClosedHandler :: (StreamError -> XMPP ()) -> XMPP ()
+setConnectionClosedHandler eh = do
+    r <- ask
+    modifyHandlers (\s -> s{connectionClosedHandler = \e -> runReaderT (eh e) r})
 
 -- | run an event handler
-runHandler :: (EventHandlers -> XMPP a) -> XMPP a
+runHandler :: (EventHandlers -> IO a) -> XMPP a
 runHandler h = do
   eh <- liftIO . atomically . readTVar  =<< asks eventHandlers
-  h eh
+  liftIO $ h eh
 
 -- | End the current xmpp session
 endSession :: XMPP ()

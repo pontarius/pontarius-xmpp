@@ -39,7 +39,6 @@ module Network.XMPP.Types
     , XMPPConMonad
     , XmppConnection(..)
     , XmppConnectionState(..)
-    , XmppNoConnection(..)
     , XMPPT(..)
     , XmppStreamError(..)
     , parseLangTag
@@ -734,7 +733,4 @@ type XMPPConMonad a = StateT XmppConnection IO a
 -- Make XMPPT derive the Monad and MonadIO instances.
 
 deriving instance (Monad m, MonadIO m) => MonadState (XmppConnection) (XMPPT m)
-
-data XmppNoConnection = XmppNoConnection deriving (Show, Typeable)
-instance Exception XmppNoConnection
 

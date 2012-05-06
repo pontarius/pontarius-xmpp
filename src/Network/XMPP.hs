@@ -43,6 +43,7 @@ module Network.XMPP
   , auth
   , endSession
   , setSessionEndHandler
+  , setConnectionClosedHandler
   -- * JID
   -- | A JID (historically: Jabber ID) is XMPPs native format
   -- for addressing entities in the network. It is somewhat similar to an

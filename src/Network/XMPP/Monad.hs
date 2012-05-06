@@ -8,8 +8,8 @@ import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Class
 --import Control.Monad.Trans.Resource
-import qualified Control.Exception as Ex
-import qualified GHC.IO.Exception as Ex
+import qualified Control.Exception.Lifted as Ex
+import qualified GHC.IO.Exception as GIE
 import           Control.Monad.State.Strict
 
 import           Data.ByteString as BS
@@ -30,6 +30,7 @@ import           System.IO
 
 import           Text.XML.Stream.Elements
 import           Text.XML.Stream.Parse as XP
+import           Text.XML.Unresolved(InvalidEventStream(..))
 
 pushN :: Element -> XMPPConMonad Bool
 pushN x = do
@@ -52,10 +53,14 @@ pullSink snk = do
 
 pullElement :: XMPPConMonad Element
 pullElement = do
-    e <- pullSink (elements =$ CL.head)
-    case e of
-        Nothing -> liftIO $ Ex.throwIO XmppNoConnection
-        Just r -> return r
+    Ex.catch (do
+        e <- pullSink (elements =$ CL.head)
+        case e of
+            Nothing -> liftIO $ Ex.throwIO StreamConnectionError
+            Just r -> return r
+        )
+        (\(InvalidEventStream s) -> liftIO . Ex.throwIO $ StreamXMLError s)
+
 
 pullPickle :: PU [Node] a -> XMPPConMonad a
 pullPickle p = do
@@ -72,34 +77,13 @@ pullStanza = do
         Right r -> return r
 
 catchPush p = Ex.catch (p >> return True)
-                       (\e -> case Ex.ioe_type e of
-                                   Ex.ResourceVanished -> return False
+                       (\e -> case GIE.ioe_type e of
+                                   GIE.ResourceVanished -> return False
                                    _ -> Ex.throwIO e
                        )
 
-xmppFromHandle :: Handle
-               -> Text
-               -> XMPPConMonad a
-               -> IO (a, XmppConnection)
-xmppFromHandle handle hostname f = do
-  liftIO $ hSetBuffering handle NoBuffering
-  let raw = sourceHandle handle
-  let src = raw $= XP.parseBytes def
-  let st = XmppConnection
-             src
-             (raw)
-             (catchPush . BS.hPut handle)
-             (Just handle)
-             (SF Nothing [] [])
-             XmppConnectionPlain
-             (Just hostname)
-             Nothing
-             Nothing
-             (hClose handle)
-  runStateT f st
-
 zeroSource :: Source IO output
-zeroSource = liftIO . Ex.throwIO $ XmppNoConnection
+zeroSource = liftIO . Ex.throwIO $ StreamConnectionError
 
 xmppNoConnection :: XmppConnection
 xmppNoConnection = XmppConnection

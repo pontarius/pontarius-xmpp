@@ -29,22 +29,15 @@ import Text.XML.Stream.Elements
 
 import GHC.IO (unsafeUnmask)
 
--- While waiting for the first semaphore(s) to flip we might receive
--- another interrupt. When that happens we add it's semaphore to the
--- list and retry waiting
-handleInterrupts :: [TMVar ()] -> IO [()]
-handleInterrupts ts =
-    Ex.catch (atomically $ forM ts takeTMVar)
-          ( \(Interrupt t) -> handleInterrupts (t:ts))
-
 readWorker :: TChan (Either MessageError Message)
            -> TChan (Either PresenceError Presence)
            -> TVar IQHandlers
+           -> TVar EventHandlers
            -> TMVar XmppConnection
            -> IO ()
-readWorker messageC presenceC handlers stateRef =
+readWorker messageC presenceC iqHands handlers stateRef =
     Ex.mask_ . forever $ do
-        res <- liftIO $ Ex.catch ( do
+        res <- liftIO $ Ex.catches ( do
                        -- we don't know whether pull will
                        -- necessarily be interruptible
                        s <- liftIO . atomically $ do
@@ -54,11 +47,12 @@ readWorker messageC presenceC handlers stateRef =
                             return sr
                        allowInterrupt
                        Just . fst <$> runStateT pullStanza s
-                                 )
-                   (\(Interrupt t) -> do
-                        void $ handleInterrupts [t]
-                        return Nothing
-                   )
+                       )
+                   [ Ex.Handler $ \(Interrupt t) -> do
+                         void $ handleInterrupts [t]
+                         return Nothing
+                   , Ex.Handler $ \e -> noCon handlers (e :: StreamError)
+                   ]
         liftIO . atomically $ do
           case res of
               Nothing -> return ()
@@ -84,14 +78,26 @@ readWorker messageC presenceC handlers stateRef =
                                            _ <- readTChan presenceC
                                            return ()
 
-                    IQRequestS     i -> handleIQRequest handlers i
-                    IQResultS      i -> handleIQResponse handlers (Right i)
-                    IQErrorS       i -> handleIQResponse handlers (Left i)
+                    IQRequestS     i -> handleIQRequest iqHands i
+                    IQResultS      i -> handleIQResponse iqHands (Right i)
+                    IQErrorS       i -> handleIQResponse iqHands (Left i)
   where
     -- Defining an Control.Exception.allowInterrupt equivalent for
     -- GHC 7 compatibility.
     allowInterrupt :: IO ()
     allowInterrupt = unsafeUnmask $ return ()
+    noCon :: TVar EventHandlers -> StreamError -> IO (Maybe a)
+    noCon h e = do
+        hands <- atomically $ readTVar h
+        _ <- forkIO $ connectionClosedHandler hands e
+        return Nothing
+    -- While waiting for the first semaphore(s) to flip we might receive
+    -- another interrupt. When that happens we add it's semaphore to the
+    -- list and retry waiting
+    handleInterrupts :: [TMVar ()] -> IO [()]
+    handleInterrupts ts =
+        Ex.catch (atomically $ forM ts takeTMVar)
+              ( \(Interrupt t) -> handleInterrupts (t:ts))
 
 handleIQRequest :: TVar IQHandlers -> IQRequest -> STM ()
 handleIQRequest handlers iq = do
@@ -121,7 +127,10 @@ writeWorker stCh writeR = forever $ do
   (write, next) <- atomically $ (,) <$>
                      takeTMVar writeR <*>
                      readTChan stCh
-  _ <- write $ renderElement (pickleElem xpStanza next)
+  r <- write $ renderElement (pickleElem xpStanza next)
+  unless r $ do
+      atomically $ unGetTChan stCh next -- connection is dead
+      threadDelay 250000 -- avoid free spinning
   atomically $ putTMVar writeR write
 
 -- Two streams: input and output. Threads read from input stream and write to output stream.
@@ -150,13 +159,14 @@ startThreads = do
   conS <- newTMVarIO xmppNoConnection
   lw <- forkIO $ writeWorker outC writeLock
   cp <- forkIO $ connPersist writeLock
-  rd <- forkIO $ readWorker messageC presenceC handlers conS
+  rd <- forkIO $ readWorker messageC presenceC handlers eh conS
   return (messageC, presenceC, handlers, outC
          , killConnection writeLock [lw, rd, cp]
          , writeLock, conS ,rd, eh)
   where
       killConnection writeLock threads = liftIO $ do
         _ <- atomically $ takeTMVar writeLock -- Should we put it back?
+        liftIO $ putStrLn "killing threads #"
         _ <- forM threads killThread
         return()
 
@@ -186,6 +196,6 @@ withSession = flip runReaderT
 connPersist ::  TMVar (BS.ByteString -> IO Bool) -> IO ()
 connPersist lock = forever $ do
   pushBS <- atomically $ takeTMVar lock
-  pushBS " "
+  _ <- pushBS " "
   atomically $ putTMVar lock pushBS
   threadDelay 30000000

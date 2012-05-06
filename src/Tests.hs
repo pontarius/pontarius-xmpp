@@ -111,6 +111,9 @@ runMain debug number = do
   wait <- newEmptyTMVarIO
   withNewSession $ do
       setSessionEndHandler (liftIO . atomically $ putTMVar wait ())
+      setConnectionClosedHandler (\e -> do
+                  liftIO (debug' $ "connection lost because " ++ show e)
+                  endSession )
       debug' "running"
       withConnection $ do
           connect "localhost" "species64739.dyndns.org"

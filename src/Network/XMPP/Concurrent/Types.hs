@@ -23,14 +23,14 @@ type IQHandlers = (Map.Map (IQRequestType, Text) (TChan (IQRequest, TVar Bool))
                   )
 
 data EventHandlers = EventHandlers
-                         { sessionEndHandler       :: XMPP ()
-                         , connectionClosedHandler :: XMPP ()
+                         { sessionEndHandler       :: IO ()
+                         , connectionClosedHandler :: StreamError -> IO ()
                          }
 
 zeroEventHandlers :: EventHandlers
 zeroEventHandlers = EventHandlers
                          { sessionEndHandler       = return ()
-                         , connectionClosedHandler = return ()
+                         , connectionClosedHandler = \_ -> return ()
                          }
 
 data Session = Session { messagesRef :: IORef (Maybe ( TChan (Either
