@@ -13,6 +13,7 @@ import           Data.XML.Pickle
 import           Data.XML.Types
 
 import           Network.XMPP
+import           Network.XMPP.IM.Presence
 import           Network.XMPP.Pickle
 
 import           System.Environment
@@ -64,7 +65,9 @@ iqResponder = do
     let answerPayload = invertPayload payload
     let answerBody = pickleElem payloadP answerPayload
     answerIQ next (Right $ Just answerBody)
-    when (payloadCounter payload == 10) endSession
+    when (payloadCounter payload == 10) $ do
+        liftIO $ threadDelay 1000000
+        endSession
 
 autoAccept :: XMPP ()
 autoAccept = forever $ do
@@ -88,6 +91,7 @@ simpleMessage to txt = message
                       , messagePayload = []
                       }
 
+
 sendUser  = sendMessage . simpleMessage supervisor . Text.pack
 
 expect debug x y | x == y = debug "Ok."
@@ -102,10 +106,9 @@ wait3 = liftIO $ threadDelay 1000000
 
 runMain :: (String -> STM ()) -> Int -> IO ()
 runMain debug number = do
-  let (we, them, active) = case number of
+  let (we, them, active) = case number `mod` 2 of
                              1 -> (testUser1, testUser2,True)
-                             2 -> (testUser2, testUser1,False)
-                             _ -> error "Need either 1 or 2"
+                             0 -> (testUser2, testUser1,False)
   let debug' = liftIO . atomically .
                debug . (("Thread " ++ show number ++ ":") ++)
   wait <- newEmptyTMVarIO
@@ -130,28 +133,31 @@ runMain debug number = do
       when active $ do
         liftIO $ threadDelay 1000000 -- Wait for the other thread to go online
         void . fork $ do
-          forM [1..10] $ \count -> do
-              let message = Text.pack . show $ localpart we
-              let payload = Payload count (even count) (Text.pack $ show count)
-              let body = pickleElem payloadP payload
-              debug' "sending"
-              Right answer <- sendIQ' (Just them) Get Nothing body
-              debug' "received"
-              let Right answerPayload = unpickleElem payloadP
-                                    (fromJust $ iqResultPayload answer)
-              expect debug' (invertPayload payload) answerPayload
-              liftIO $ threadDelay 100000
-          sendUser "All tests done"
-          endSession
+            forM [1..10] $ \count -> do
+                let message = Text.pack . show $ localpart we
+                let payload = Payload count (even count) (Text.pack $ show count)
+                let body = pickleElem payloadP payload
+                debug' "sending"
+                Right answer <- sendIQ' (Just them) Get Nothing body
+                debug' "received"
+                let Right answerPayload = unpickleElem payloadP
+                                      (fromJust $ iqResultPayload answer)
+                expect debug' (invertPayload payload) answerPayload
+                liftIO $ threadDelay 100000
+            sendUser "All tests done"
+            debug' "ending session"
+            liftIO . atomically $ putTMVar wait ()
+            endSession
       liftIO . atomically $ takeTMVar wait
       return ()
   return ()
 
-
-main = do
+run i = do
   out <- newTChanIO
   forkIO . forever $ atomically (readTChan out) >>= putStrLn
   let debugOut = writeTChan out
-  forkIO $ runMain debugOut 1
-  runMain debugOut 2
+  forkIO $ runMain debugOut (1 + i)
+  runMain debugOut (2 + i)
+
+main = run 0
 

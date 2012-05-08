@@ -1,6 +1,6 @@
 {-# LANGUAGE RecordWildCards #-}
 
-module Network.XMPP.Message
+module Network.XMPP.IM.Message
     ( Message(..)
     , MessageError(..)
     , MessageType(..)
