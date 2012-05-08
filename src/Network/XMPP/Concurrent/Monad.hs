@@ -153,7 +153,7 @@ waitForPresence f = do
 -- and resumed with the new session details once the action returns.
 -- The Action will run in the calling thread/
 -- Any uncaught exceptions will be interpreted as connection failure
-withConnection :: XMPPConMonad a -> XMPP a
+withConnection :: XMPPConMonad a -> XMPP (Either StreamError a)
 withConnection a = do
   readerId <- asks readerThread
   stateRef <- asks conStateRef
@@ -171,17 +171,18 @@ withConnection a = do
                       >>  Ex.throwIO (e :: Ex.SomeException)
                       -- No MVar taken
                )
-      Ex.catch ( do
+      Ex.catches ( do
                    (res, s') <- runStateT a s
                    atomically $ do
                        putTMVar write (sConPushBS s')
                        putTMVar stateRef s'
-                   return res
+                   return $ Right res
                )
              -- we treat all Exceptions as fatal
-             (\e -> runStateT xmppKillConnection s
-                     >> Ex.throwIO (e :: Ex.SomeException)
-             )
+             [ Ex.Handler $ \e -> return $ Left (e :: StreamError)
+             , Ex.Handler $ \e -> runStateT xmppKillConnection s
+                                  >> Ex.throwIO (e :: Ex.SomeException)
+             ]
 
 -- | Send a presence Stanza
 sendPresence :: Presence -> XMPP ()
@@ -216,11 +217,11 @@ runHandler h = do
 -- | End the current xmpp session
 endSession :: XMPP ()
 endSession = do -- TODO: This has to be idempotent (is it?)
-    withConnection xmppKillConnection
+    void $ withConnection xmppKillConnection
     liftIO =<< asks stopThreads
     runHandler sessionEndHandler
 
 -- | Close the connection to the server
 closeConnection :: XMPP ()
-closeConnection = withConnection xmppKillConnection
+closeConnection = void $ withConnection xmppKillConnection
 

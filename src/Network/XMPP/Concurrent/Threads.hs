@@ -166,7 +166,6 @@ startThreads = do
   where
       killConnection writeLock threads = liftIO $ do
         _ <- atomically $ takeTMVar writeLock -- Should we put it back?
-        liftIO $ putStrLn "killing threads #"
         _ <- forM threads killThread
         return()
 
