@@ -75,7 +75,7 @@ dropMessageChan = do
     r <- asks messagesRef
     liftIO $ writeIORef r Nothing
 
--- | Abakigiys to 'dropMessageChan'.
+-- | Analogous to 'dropMessageChan'.
 dropPresenceChan :: XMPP ()
 dropPresenceChan = do
     r <- asks presenceRef
