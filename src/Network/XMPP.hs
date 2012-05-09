@@ -1,36 +1,25 @@
--- Copyright © 2010-2012 Jon Kristensen.
--- Copyright 2012 Philipp Balzarek
--- See the LICENSE file in the
--- Pontarius distribution for more details.
-
 -- |
 -- Module:      $Header$
--- Description: Pontarius API
--- Copyright:   Copyright © 2010-2012 Jon Kristensen
+-- Description: A work in progress client implementation of RFC 6120 (XMPP:
+--              Core).
 -- License:     Apache License 2.0
 --
 -- Maintainer:  jon.kristensen@nejla.com
 -- Stability:   unstable
 -- Portability: portable
 --
--- The Extensible Messaging and Presence Protocol (XMPP) is an open technology for
--- real-time communication, which powers a wide range of applications including
--- instant messaging, presence, multi-party chat, voice and video calls,
--- collaboration, lightweight middleware, content syndication, and generalized
--- routing of XML data.
--- Pontarius an XMPP client library, implementing the core capabilities of XMPP
--- (RFC 6120).
+-- The Extensible Messaging and Presence Protocol (XMPP) is an open technology
+-- for real-time communication, which powers a wide range of applications
+-- including instant messaging, presence, multi-party chat, voice and video
+-- calls, collaboration, lightweight middleware, content syndication, and
+-- generalized routing of XML data. Pontarius an XMPP client library,
+-- implementing the core capabilities of XMPP (RFC 6120).
 --
--- Developers using this library are assumed to understand how XMPP
--- works.
---
--- This module will be documented soon.
---
--- Note that we are not recommending anyone to use Pontarius XMPP at
--- this time as it's still in an experimental stage and will have its
--- API and data types modified frequently.
+-- Note that we are not recommending anyone to use Pontarius XMPP at this time
+-- as it's still in an experimental stage and will have its API and data types
+-- modified frequently.
 
-{-# LANGUAGE NoMonomorphismRestriction, OverloadedStrings  #-}
+{-# LANGUAGE NoMonomorphismRestriction, OverloadedStrings #-}
 
 module Network.XMPP
   ( -- * Session management
@@ -46,37 +35,37 @@ module Network.XMPP
   , setConnectionClosedHandler
   -- * JID
   -- | A JID (historically: Jabber ID) is XMPPs native format
-  -- for addressing entities in the network. It is somewhat similar to an
-  -- email-address but contains three parts instead of two:
+  -- for addressing entities in the network. It is somewhat similar to an e-mail
+  -- address but contains three parts instead of two:
   , JID(..)
   -- * Stanzas
-  -- | @Stanzas@ are the the smallest unit of communication in @XMPP@. They
-  -- come in 3 flavors:
+  -- | @Stanzas@ are the the smallest unit of communication in @XMPP@. They come
+  -- in 3 flavors:
   --
-  --  * @'Message'@, for traditional IM-style message passing between peers
+  --  * @'Message'@, for traditional push-style message passing between peers
   --
   --  * @'Presence'@, for communicating status updates
   --
-  --  * IQ (info/query), with a request-response semantics
+  --  * IQ (info/query), for request-response semantics communication
   --
   -- All stanza types have the following attributes in common:
   --
-  --  * The /id/ attribute is used by the originating entity to track
-  --    any response or error stanza that it might receive in relation to
-  --    the generated stanza from another entity (such as an intermediate
-  --    server or the intended recipient).  It is up to the originating
-  --    entity whether the value of the 'id' attribute is unique only
-  --    within its current stream or unique globally.
+  --  * The /id/ attribute is used by the originating entity to track any
+  --    response or error stanza that it might receive in relation to the
+  --    generated stanza from another entity (such as an intermediate server or
+  --    the intended recipient).  It is up to the originating entity whether the
+  --    value of the 'id' attribute is unique only within its current stream or
+  --    unique globally.
   --
   --  * The /from/ attribute specifies the JID of the sender.
   --
-  --  * The /to/ attribute specifies the JID of the intended recipient
-  --  for the stanza.
+  --  * The /to/ attribute specifies the JID of the intended recipient for the
+  --    stanza.
   --
-  --  * The /type/ attribute specifies the purpose or context of the
-  --    message, presence, or IQ stanza. The particular allowable values
-  --    for the 'type' attribute vary depending on whether the stanza is
-  --    a message, presence, or IQ stanza.
+  --  * The /type/ attribute specifies the purpose or context of the message,
+  --    presence, or IQ stanza. The particular allowable values for the 'type'
+  --    attribute vary depending on whether the stanza is a message, presence,
+  --    or IQ stanza.
 
   -- ** Messages
   -- | The /message/ stanza is a /push/ mechanism whereby one entity pushes
@@ -97,10 +86,9 @@ module Network.XMPP
   , waitForMessageError
   , filterMessages
   -- ** Presence
-  -- | The /presence/ stanza is a specialized /broadcast/
-  -- or /publish-subscribe/ mechanism, whereby multiple entities
-  -- receive information about an entity to which they have
-  -- subscribed.
+  -- | The /presence/ stanza is a specialized /broadcast/ or /publish-subscribe/
+  -- mechanism, whereby multiple entities receive information about an entity to
+  -- which they have subscribed.
   --
   -- <http://xmpp.org/rfcs/rfc6120.html#stanzas-semantics-presence>
   , Presence(..)
@@ -118,11 +106,10 @@ module Network.XMPP
   -- an entity to make a request of, and receive a response from, another
   -- entity. The data content and precise semantics  of the request and response
   -- is defined by the schema or other structural definition associated with the
-  -- XML namespace that
-  -- qualifies the direct child element of the IQ element. IQ interactions
-  -- follow a common pattern of structured data
-  -- exchange such as get/result or set/result (although an error can be returned
-  -- in reply to a request if appropriate)
+  -- XML namespace that qualifies the direct child element of the IQ element. IQ
+  -- interactions follow a common pattern of structured data exchange such as
+  -- get/result or set/result (although an error can be returned in reply to a
+  -- request if appropriate)
   --
   -- <http://xmpp.org/rfcs/rfc6120.html#stanzas-semantics-iq>
   , IQRequest(..)
