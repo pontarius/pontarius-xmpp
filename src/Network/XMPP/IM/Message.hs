@@ -15,18 +15,21 @@ data MessageThread = MessageThread
                         (Maybe Text)  -- ^ Parent Thread
 data MessageSubject = MessageSubject (Maybe LangTag) Text
 
-xpMessageSubject :: PU [Node] MessageSubject
-xpMessageSubject = xpWrap (\(l, s) ->  MessageSubject l s)
+xpMessageSubject :: PU [Element] MessageSubject
+xpMessageSubject = xpElems .
+                   xpWrap (\(l, s) ->  MessageSubject l s)
                           (\(MessageSubject l s) -> (l,s))
                    $ xpElem "{jabber:client}subject" xpLangTag $ xpContent xpId
 
-xpMessageBody :: PU [Node] MessageBody
-xpMessageBody = xpWrap (\(l, s) ->  MessageBody l s)
+xpMessageBody :: PU [Element] MessageBody
+xpMessageBody = xpElems .
+                xpWrap (\(l, s) ->  MessageBody l s)
                           (\(MessageBody l s) -> (l,s))
                    $ xpElem "{jabber:client}body" xpLangTag $ xpContent xpId
 
-xpMessageThread :: PU [Node] MessageThread
-xpMessageThread = xpWrap (\(t, p) ->  MessageThread p t)
+xpMessageThread :: PU [Element] MessageThread
+xpMessageThread = xpElems
+                  . xpWrap (\(t, p) ->  MessageThread p t)
                           (\(MessageThread p t) -> (t,p))
                    $ xpElem "{jabber:client}thread"
                       (xpAttrImplied "parent" xpId)
@@ -75,3 +78,4 @@ newIM t i lang tp sbj thrd bdy = Message
                         ++ pickle xpMessageThread thrd
                         ++ pickle xpMessageBody bdy
     }
+
