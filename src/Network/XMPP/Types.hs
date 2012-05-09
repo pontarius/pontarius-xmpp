@@ -168,7 +168,7 @@ data Message = Message { messageID      :: Maybe StanzaId
                        , messageTo      :: Maybe JID
                        , messageLangTag :: Maybe LangTag
                        , messageType    :: MessageType
-                       , messagePayload :: [Node]
+                       , messagePayload :: [Element]
                        }
                deriving (Show)
 
@@ -178,7 +178,7 @@ data MessageError = MessageError { messageErrorID :: Maybe StanzaId
                                  , messageErrorTo :: Maybe JID
                                  , messageErrorLangTag  :: Maybe LangTag
                                  , messageErrorStanzaError :: StanzaError
-                                 , messageErrorPayload :: [Node]
+                                 , messageErrorPayload :: [Element]
                                  }
                     deriving (Show)
 
@@ -249,7 +249,7 @@ data Presence = Presence { presenceID       :: Maybe StanzaId
                          , presenceTo       :: Maybe JID
                          , presenceLangTag  :: Maybe LangTag
                          , presenceType     :: Maybe PresenceType
-                         , presencePayload  :: [Node]
+                         , presencePayload  :: [Element]
                          }
                 deriving (Show)
 
@@ -263,7 +263,7 @@ data PresenceError = PresenceError { presenceErrorID :: Maybe StanzaId
                                    , presenceErrorTo :: Maybe JID
                                    , presenceErrorLangTag :: Maybe LangTag
                                    , presenceErrorStanzaError :: StanzaError
-                                   , presenceErrorPayload :: [Node]
+                                   , presenceErrorPayload :: [Element]
                                    }
                      deriving (Show)
 

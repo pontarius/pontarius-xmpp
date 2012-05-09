@@ -150,8 +150,7 @@ import qualified Network.TLS as TLS
 import Network.XMPP.Bind
 import Network.XMPP.Concurrent
 import Network.XMPP.IM.Presence hiding (presence)
-import Network.XMPP.IM.Message
-import Network.XMPP.Message
+import Network.XMPP.IM.Message hiding (message)
 import Network.XMPP.Monad
 import Network.XMPP.Presence
 import Network.XMPP.SASL
