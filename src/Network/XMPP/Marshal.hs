@@ -48,10 +48,10 @@ xpMessage = xpWrap
              (xpAttrImplied "id"   xpPrim)
              (xpAttrImplied "from" xpPrim)
              (xpAttrImplied "to"   xpPrim)
-             (xpAttrImplied xmlLang xpPrim)
+             xpLangTag
              -- TODO: NS?
          )
-         (xpAll xpElemVerbatim)
+         (xpId)
     )
 
 xpPresence :: PU [Node] Presence
@@ -66,7 +66,7 @@ xpPresence = xpWrap
               xpLangTag
               (xpAttrImplied "type" xpPrim)
          )
-         (xpAll xpElemVerbatim)
+         (xpId)
     )
 
 xpIQRequest :: PU [Node] IQRequest
@@ -145,7 +145,7 @@ xpMessageError = xpWrap
               (xpAttrImplied xmlLang xpPrim)
               -- TODO: NS?
          )
-         (xp2Tuple xpStanzaError (xpAll xpElemVerbatim))
+         (xp2Tuple xpStanzaError xpId)
     )
 
 xpPresenceError :: PU [Node] PresenceError
@@ -162,7 +162,7 @@ xpPresenceError = xpWrap
               xpLangTag
               (xpAttrFixed "type" "error")
          )
-         (xp2Tuple xpStanzaError (xpAll xpElemVerbatim))
+         (xp2Tuple xpStanzaError xpId)
     )
 
 xpIQError :: PU [Node] IQError

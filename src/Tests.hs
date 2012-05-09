@@ -77,7 +77,7 @@ autoAccept = forever $ do
 simpleMessage :: JID -> Text -> Message
 simpleMessage to txt = message
     { messageTo = Just to
-    , messagePayload = [Element "body"
+    , messagePayload = [NodeElement $ Element "body"
                         []
                         [NodeContent $ ContentText txt]
                        ]
