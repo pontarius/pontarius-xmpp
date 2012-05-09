@@ -2,6 +2,9 @@
 module Network.XMPP.IM.Message
      where
 
+import Control.Applicative ((<$>))
+
+import Data.Maybe (maybeToList)
 import Data.Text (Text)
 import Data.XML.Pickle
 import Data.XML.Types
@@ -64,18 +67,46 @@ newIM
      -> Maybe StanzaId
      -> Maybe LangTag
      -> MessageType
-     -> MessageSubject
-     -> MessageThread
-     -> MessageBody
+     -> Maybe MessageSubject
+     -> Maybe MessageThread
+     -> Maybe MessageBody
+     -> [Element]
      -> Message
-newIM t i lang tp sbj thrd bdy = Message
+newIM t i lang tp sbj thrd bdy payload = Message
     { messageID      = i
     , messageFrom    = Nothing
     , messageTo      = Just t
     , messageLangTag = lang
     , messageType    = tp
-    , messagePayload =  pickle xpMessageSubject sbj
-                        ++ pickle xpMessageThread thrd
-                        ++ pickle xpMessageBody bdy
+    , messagePayload =  concat $
+                        maybeToList (pickle xpMessageSubject <$> sbj)
+                        ++ maybeToList (pickle xpMessageThread <$> thrd)
+                        ++ maybeToList (pickle xpMessageBody <$> bdy)
+                        ++ [payload]
     }
 
+
+simpleIM :: JID -> Text -> Message
+simpleIM t bd = newIM
+                  t
+                  Nothing
+                  Nothing
+                  Normal
+                  Nothing
+                  Nothing
+                  (Just $ MessageBody Nothing bd)
+                  []
+
+answerIM :: Maybe MessageBody -> [Element] -> Message -> Message
+answerIM bd payload msg = Message
+    { messageID      = messageID msg
+    , messageFrom    = Nothing
+    , messageTo      = messageFrom msg
+    , messageLangTag = messageLangTag msg
+    , messageType    = messageType msg
+    , messagePayload =  concat $
+                        (pickle xpMessageSubject <$> subject msg)
+                        ++ maybeToList (pickle xpMessageThread <$> thread msg)
+                        ++ maybeToList (pickle xpMessageBody <$> bd)
+                        ++ [payload]
+    }
