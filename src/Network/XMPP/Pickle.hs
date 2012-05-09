@@ -73,6 +73,7 @@ unpickleElem' p x = case unpickle (xpNodeElem p) x of
   Left l -> error $ l ++ "\n  saw: " ++ ppElement x
   Right r -> r
 
+-- Given a pickler and an element, produces an object.
 unpickleElem :: PU [Node] a -> Element -> Either String a
 unpickleElem p x = unpickle (xpNodeElem p) x
 

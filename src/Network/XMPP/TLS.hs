@@ -53,7 +53,7 @@ startTLS params = Ex.handle (return . Left . TLSError) . runErrorT $ do
     handle' <- lift $ gets sConHandle
     handle <- maybe (throwError TLSNoConnection) return handle'
     when (stls features == Nothing) $ throwError TLSNoServerSupport
-    lift $ pushN starttlsE
+    lift $ pushElement starttlsE
     answer <- lift $ pullElement
     case answer of
         Element "{urn:ietf:params:xml:ns:xmpp-tls}proceed" [] [] -> return ()

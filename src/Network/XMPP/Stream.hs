@@ -61,9 +61,9 @@ xmppStartStream = runErrorT $ do
     hostname' <- gets sHostname
     case hostname' of
         Nothing -> throwError StreamConnectionError
-        Just hostname -> lift . pushOpen $
+        Just hostname -> lift . pushOpenElement $
             pickleElem pickleStream ("1.0", Nothing, Just hostname)
-    features <- ErrorT . pullSink $ runErrorT xmppStream
+    features <- ErrorT . pullToSink $ runErrorT xmppStream
     modify (\s -> s {sFeatures = features})
     return ()
 
