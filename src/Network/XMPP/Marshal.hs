@@ -14,8 +14,8 @@ import Data.XML.Types
 import Network.XMPP.Pickle
 import Network.XMPP.Types
 
-xpStreamEntity :: PU [Node] (Either XmppStreamError Stanza)
-xpStreamEntity = xpEither xpStreamError xpStanza
+xpStreamStanza :: PU [Node] (Either XmppStreamError Stanza)
+xpStreamStanza = xpEither xpStreamError xpStanza
 
 xpStanza :: PU [Node] Stanza
 xpStanza = xpAlt stanzaSel

@@ -66,7 +66,7 @@ xmppSASL uname passwd = runErrorT $ do
         unless ("DIGEST-MD5" `elem` mechanisms) .
             throwError $ AuthMechanismError mechanisms
         -- Push element and receive the challenge (in XMPPConMonad).
-        _ <- lift . pushN $ saslInitE "DIGEST-MD5" -- TODO: Check boolean?
+        _ <- lift . pushElement $ saslInitE "DIGEST-MD5" -- TODO: Check boolean?
         challenge' <- lift $ B64.decode . Text.encodeUtf8 <$>
             pullPickle challengePickle
         challenge <- case challenge' of
@@ -76,13 +76,13 @@ xmppSASL uname passwd = runErrorT $ do
             Left _ -> throwError AuthChallengeError
             Right p -> return p
         g <- liftIO Random.newStdGen
-        _ <- lift . pushN . -- TODO: Check boolean?
+        _ <- lift . pushElement . -- TODO: Check boolean?
             saslResponseE $ createResponse g realm pairs
         challenge2 <- lift $ pullPickle (xpEither failurePickle challengePickle)
         case challenge2 of
             Left _x -> throwError AuthXmlError
             Right _ -> return ()
-        lift $ pushN saslResponse2E
+        lift $ pushElement saslResponse2E
         e <- lift pullElement
         case e of
             Element "{urn:ietf:params:xml:ns:xmpp-sasl}success" [] [] ->
