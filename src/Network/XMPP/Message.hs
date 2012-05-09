@@ -23,7 +23,7 @@ message = Message { messageID      = Nothing
 
 -- Produce an answer message with the given payload, switching the "from" and
 -- "to" attributes in the original message.
-answerMessage :: Message -> [Node] -> Maybe Message
+answerMessage :: Message -> [Element] -> Maybe Message
 answerMessage Message{messageFrom = Just frm, ..} payload =
     Just Message{ messageFrom    = messageTo
                 , messageID      = Nothing
