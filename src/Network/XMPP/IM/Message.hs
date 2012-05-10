@@ -47,7 +47,10 @@ subject m = ms
     -- xpFindMatches will _always_ return Right
     Right ms = unpickle (xpFindMatches xpMessageSubject) $ messagePayload m
 
--- | Get the thread elements of a message (if any). The threads is not considered human readable and no semantic mea
+-- | Get the thread elements of a message (if any). The thread of a
+-- message is considered opaque, that is, no meaning, other than it's
+-- literal identity, may be derived from it and it is not human
+-- readable
 thread :: Message -> Maybe MessageThread
 thread m = ms
   where
@@ -62,6 +65,7 @@ body m = ms
     -- xpFindMatches will _always_ return Right
     Right ms = unpickle (xpFindMatches xpMessageBody) $ messagePayload m
 
+-- | Generate a new instant message
 newIM
   :: JID
      -> Maybe StanzaId
@@ -85,7 +89,7 @@ newIM t i lang tp sbj thrd bdy payload = Message
                         ++ [payload]
     }
 
-
+-- | Generate a simple instance message
 simpleIM :: JID -> Text -> Message
 simpleIM t bd = newIM
                   t
@@ -97,6 +101,11 @@ simpleIM t bd = newIM
                   (Just $ MessageBody Nothing bd)
                   []
 
+-- | Generate an answer from a received message. The recepient is
+-- taken from the original sender, the sender is set to Nothing,
+-- message ID, language tag, message type as well as subject and
+-- thread are inherited, the remaining payload is replaced by the
+-- given one
 answerIM :: Maybe MessageBody -> [Element] -> Message -> Message
 answerIM bd payload msg = Message
     { messageID      = messageID msg
