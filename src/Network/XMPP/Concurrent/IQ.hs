@@ -12,13 +12,14 @@ import Network.XMPP.Concurrent.Monad
 import Network.XMPP.Types
 
 -- | Sends an IQ, returns a 'TMVar' that will be filled with the first inbound
--- IQ with a matching ID that has type @result@ or @error@
+-- IQ with a matching ID that has type @result@ or @error@.
 sendIQ :: Maybe JID -- ^ Recipient (to)
-          -> IQRequestType  -- ^ IQ type (Get or Set)
-          -> Maybe LangTag  -- ^ Language tag of the payload (Nothing for default)
-          -> Element -- ^ The iq body (there has to be exactly one)
-          -> XMPP (TMVar IQResponse)
-sendIQ to tp lang body = do -- TODO: add timeout
+       -> IQRequestType  -- ^ IQ type (@Get@ or @Set@)
+       -> Maybe LangTag  -- ^ Language tag of the payload (@Nothing@ for
+                         -- default)
+       -> Element -- ^ The IQ body (there has to be exactly one)
+       -> XMPP (TMVar IQResponse)
+sendIQ to tp lang body = do -- TODO: Add timeout
   newId <- liftIO =<< asks idGenerator
   handlers <- asks iqHandlers
   ref <- liftIO . atomically $ do
@@ -30,15 +31,15 @@ sendIQ to tp lang body = do -- TODO: add timeout
   sendStanza . IQRequestS $ IQRequest newId Nothing to lang tp body
   return ref
 
--- | like 'sendIQ', but waits for the answer IQ
+-- | Like 'sendIQ', but waits for the answer IQ.
 sendIQ' :: Maybe JID
         -> IQRequestType
         -> Maybe LangTag
         -> Element
         -> XMPP IQResponse
 sendIQ' to tp lang body = do
-  ref <- sendIQ to tp lang body
-  liftIO . atomically $ takeTMVar ref
+    ref <- sendIQ to tp lang body
+    liftIO . atomically $ takeTMVar ref
 
 answerIQ :: IQRequestTicket
          -> Either StanzaError (Maybe Element)
