@@ -181,6 +181,11 @@ startThreads = do
         _ <- atomically $ takeTMVar writeLock -- Should we put it back?
         _ <- forM threads killThread
         return ()
+    zeroEventHandlers :: EventHandlers
+    zeroEventHandlers = EventHandlers
+        { sessionEndHandler       = return ()
+        , connectionClosedHandler = \_ -> return ()
+        }
 
 -- | Creates and initializes a new XMPP session.
 newSession :: IO Session
@@ -194,10 +199,10 @@ newSession = do
             writeTVar idRef (curId + 1 :: Integer)
             return . read. show $ curId
     return $ Session
-        workermCh
-        workerpCh
         mC
         pC
+        workermCh
+        workerpCh
         outC
         hand
         writeR

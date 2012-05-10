@@ -170,7 +170,7 @@ withConnection a = do
     write <- asks writeRef
     wait <- liftIO $ newEmptyTMVarIO
     liftIO . Ex.mask_ $ do
-        -- Kills the reader until the lock (wait) is released (set to `()').
+        -- Suspends the reader until the lock (wait) is released (set to `()').
         throwTo readerId $ Interrupt wait
         -- We acquire the write and stateRef locks, to make sure that this is
         -- the only thread that can write to the stream and to perform a
