@@ -40,10 +40,13 @@ sendIQ' to tp lang body = do
   ref <- sendIQ to tp lang body
   liftIO . atomically $ takeTMVar ref
 
-answerIQ :: (IQRequest, TVar Bool)
+answerIQ :: IQRequestTicket
          -> Either StanzaError (Maybe Element)
          -> XMPP Bool
-answerIQ ((IQRequest iqid from _to lang _tp bd), sentRef) answer = do
+answerIQ (IQRequestTicket
+              sentRef
+              (IQRequest iqid from _to lang _tp bd))
+           answer = do
   out <- asks outCh
   let response = case answer of
         Left err  -> IQErrorS $ IQError iqid Nothing from lang err (Just bd)

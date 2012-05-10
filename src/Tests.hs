@@ -60,8 +60,9 @@ iqResponder = do
                      >> error "hanging up"
       Just c -> return c
   forever $ do
-    next@(iq,_) <- liftIO . atomically $ readTChan chan
-    let Right payload = unpickleElem payloadP $ iqRequestPayload iq
+    next <- liftIO . atomically $ readTChan chan
+    let Right payload = unpickleElem payloadP . iqRequestPayload $
+                          iqRequestBody next
     let answerPayload = invertPayload payload
     let answerBody = pickleElem payloadP answerPayload
     answerIQ next (Right $ Just answerBody)

@@ -24,7 +24,7 @@ import           Network.XMPP.Monad
 -- combination was alread handled
 listenIQChan :: IQRequestType  -- ^ type of IQs to receive (Get / Set)
                 -> Text -- ^ namespace of the child element
-                -> XMPP (Maybe ( TChan (IQRequest, TVar Bool)))
+                -> XMPP (Maybe ( TChan IQRequestTicket))
 listenIQChan tp ns = do
   handlers <- asks iqHandlers
   liftIO . atomically $ do

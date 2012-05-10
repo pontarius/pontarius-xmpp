@@ -18,7 +18,7 @@ import           Data.Typeable
 import           Network.XMPP.Types
 
 
-type IQHandlers = (Map.Map (IQRequestType, Text) (TChan (IQRequest, TVar Bool))
+type IQHandlers = (Map.Map (IQRequestType, Text) (TChan IQRequestTicket)
                   , Map.Map StanzaId (TMVar IQResponse)
                   )
 
@@ -60,3 +60,8 @@ type XMPP a = ReaderT Session IO a
 data Interrupt = Interrupt (TMVar ()) deriving Typeable
 instance Show Interrupt where show _ = "<Interrupt>"
 instance Ex.Exception Interrupt
+
+data IQRequestTicket = IQRequestTicket
+                           { sentRef     :: (TVar Bool)
+                           , iqRequestBody :: IQRequest
+                           }

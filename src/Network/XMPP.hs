@@ -113,6 +113,8 @@ module Network.XMPP
   --
   -- <http://xmpp.org/rfcs/rfc6120.html#stanzas-semantics-iq>
   , IQRequest(..)
+  , IQRequestTicket
+  , iqRequestBody
   , IQRequestType(..)
   , IQResult(..)
   , IQError(..)
@@ -136,8 +138,7 @@ import Network
 import qualified Network.TLS as TLS
 import Network.XMPP.Bind
 import Network.XMPP.Concurrent
-import Network.XMPP.IM.Presence hiding (presence)
-import Network.XMPP.IM.Message
+import Network.XMPP.Concurrent.Types
 import Network.XMPP.Message
 import Network.XMPP.Monad
 import Network.XMPP.Presence

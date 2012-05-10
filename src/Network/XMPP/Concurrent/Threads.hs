@@ -107,8 +107,7 @@ handleIQRequest handlers iq = do
       Nothing -> return () -- TODO: send error stanza
       Just ch -> do
         sent <- newTVar False
-        writeTChan ch (iq, sent)
-
+        writeTChan ch $ IQRequestTicket sent iq
 handleIQResponse :: TVar IQHandlers -> Either IQError IQResult -> STM ()
 handleIQResponse handlers iq = do
   (byNS, byID) <- readTVar handlers
