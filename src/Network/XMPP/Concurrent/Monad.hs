@@ -37,7 +37,7 @@ listenIQChan tp ns = do
                Nothing -> Just iqCh
                Just _iqCh' -> Nothing
 
--- | get the inbound stanza channel, duplicates from master if necessary
+-- | get the inbound message channel, duplicates from master if necessary
 -- please note that once duplicated it will keep filling up, call
 -- 'dropMessageChan' to allow it to be garbage collected
 getMessageChan :: XMPP (TChan (Either MessageError Message))
@@ -51,6 +51,12 @@ getMessageChan = do
       liftIO $ writeIORef mChR (Just mCh')
       return mCh'
     Just mCh' -> return mCh'
+
+-- | Get a duplicate of the stanza channel
+getStanzaChan :: XMPP (TChan Stanza)
+getStanzaChan = do
+  shadow <- asks sShadow
+  liftIO $ atomically $ dupTChan shadow
 
 -- | see 'getMessageChan'
 getPresenceChan :: XMPP (TChan (Either PresenceError Presence))

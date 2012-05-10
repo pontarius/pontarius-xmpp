@@ -31,11 +31,12 @@ import GHC.IO (unsafeUnmask)
 
 readWorker :: TChan (Either MessageError Message)
            -> TChan (Either PresenceError Presence)
+           -> TChan Stanza
            -> TVar IQHandlers
            -> TVar EventHandlers
            -> TMVar XmppConnection
            -> IO ()
-readWorker messageC presenceC iqHands handlers stateRef =
+readWorker messageC presenceC stanzaC iqHands handlers stateRef =
     Ex.mask_ . forever $ do
         res <- liftIO $ Ex.catches ( do
                        -- we don't know whether pull will
@@ -57,6 +58,8 @@ readWorker messageC presenceC iqHands handlers stateRef =
           case res of
               Nothing -> return ()
               Just sta -> do
+                writeTChan stanzaC sta
+                void $ readTChan stanzaC -- sic
                 case sta of
                     MessageS  m -> do writeTChan messageC $ Right m
                                       _ <- readTChan messageC -- Sic!
@@ -139,6 +142,7 @@ writeWorker stCh writeR = forever $ do
 startThreads
   :: IO ( TChan (Either MessageError Message)
         , TChan (Either PresenceError Presence)
+        , TChan Stanza
         , TVar IQHandlers
         , TChan Stanza
         , IO ()
@@ -153,13 +157,14 @@ startThreads = do
   messageC <- newTChanIO
   presenceC <- newTChanIO
   outC <- newTChanIO
+  stanzaC <- newTChanIO
   handlers <- newTVarIO ( Map.empty, Map.empty)
   eh <- newTVarIO  zeroEventHandlers
   conS <- newTMVarIO xmppNoConnection
   lw <- forkIO $ writeWorker outC writeLock
   cp <- forkIO $ connPersist writeLock
-  rd <- forkIO $ readWorker messageC presenceC handlers eh conS
-  return (messageC, presenceC, handlers, outC
+  rd <- forkIO $ readWorker messageC presenceC stanzaC handlers eh conS
+  return (messageC, presenceC, stanzaC, handlers, outC
          , killConnection writeLock [lw, rd, cp]
          , writeLock, conS ,rd, eh)
   where
@@ -171,7 +176,7 @@ startThreads = do
 -- | Creates and initializes a new XMPP session.
 newSession :: IO Session
 newSession = do
-    (mC, pC, hand, outC, stopThreads', writeR, conS, rdr, eh) <- startThreads
+    (mC, pC, sC, hand, outC, stopThreads', writeR, conS, rdr, eh) <- startThreads
     workermCh <- newIORef $ Nothing
     workerpCh <- newIORef $ Nothing
     idRef <- newTVarIO 1
@@ -179,7 +184,8 @@ newSession = do
             curId <- readTVar idRef
             writeTVar idRef (curId + 1 :: Integer)
             return . read. show $ curId
-    return (Session workermCh workerpCh mC pC outC hand writeR rdr getId conS eh stopThreads')
+    return (Session workermCh workerpCh mC pC sC outC hand writeR rdr getId
+            conS eh stopThreads')
 
 withNewSession :: XMPP b -> IO (Session, b)
 withNewSession a = do

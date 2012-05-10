@@ -45,6 +45,7 @@ data Session = Session { messagesRef :: IORef (Maybe ( TChan (Either
                        , pShadow :: TChan (Either PresenceError
                                                   Presence)
                                            -- the original chan
+                       , sShadow :: TChan Stanza -- All stanzas
                        , outCh :: TChan Stanza
                        , iqHandlers :: TVar IQHandlers
                        , writeRef :: TMVar (BS.ByteString -> IO Bool )
