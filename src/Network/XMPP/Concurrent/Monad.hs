@@ -170,7 +170,12 @@ withConnection a = do
     write <- asks writeRef
     wait <- liftIO $ newEmptyTMVarIO
     liftIO . Ex.mask_ $ do
+        -- Kills the reader until the lock (wait) is released (set to `()').
         throwTo readerId $ Interrupt wait
+        -- We acquire the write and stateRef locks, to make sure that this is
+        -- the only thread that can write to the stream and to perform a
+        -- withConnection calculation. Afterwards, we release the lock and
+        -- fetches an updated state.
         s <- Ex.catch
             (atomically $ do
                  _ <- takeTMVar write
@@ -178,9 +183,12 @@ withConnection a = do
                  putTMVar wait ()
                  return s
             )
+            -- If we catch an exception, we have failed to take the MVars above.
             (\e -> atomically (putTMVar wait ()) >>
-                 Ex.throwIO (e :: Ex.SomeException) -- No MVar taken
+                 Ex.throwIO (e :: Ex.SomeException)
             )
+        -- Run the XMPPMonad action, save the (possibly updated) states, release
+        -- the locks, and return the result.
         Ex.catches
             (do
                  (res, s') <- runStateT a s
@@ -189,7 +197,8 @@ withConnection a = do
                      putTMVar stateRef s'
                      return $ Right res
             )
-            -- Ee treat all Exceptions as fatal.
+            -- We treat all Exceptions as fatal. If we catch a StreamError, we
+            -- return it. Otherwise, we throw an exception.
             [ Ex.Handler $ \e -> return $ Left (e :: StreamError)
             , Ex.Handler $ \e -> runStateT xmppKillConnection s
                   >> Ex.throwIO (e :: Ex.SomeException)

@@ -47,7 +47,7 @@ readWorker messageC presenceC iqHands handlers stateRef =
                      sr <- readTMVar stateRef
                      when (sConnectionState sr == XmppConnectionClosed) retry
                      return sr
-                 allowInterrupt
+                 allowInterrupt -- Allow exceptions while pulling the stanzas.
                  Just . fst <$> runStateT pullStanza s
             )
             [ Ex.Handler $ \(Interrupt t) -> do
@@ -97,7 +97,9 @@ readWorker messageC presenceC iqHands handlers stateRef =
     -- While waiting for the first semaphore(s) to flip we might receive another
     -- interrupt. When that happens we add it's semaphore to the list and retry
     -- waiting. We do this because we might receive another interrupt while
-    -- recovering from the last one.
+    -- recovering from the last one. We do this because we might receive another
+    -- interrupt while we're waiting for a mutex to unlock; if that happens, the
+    -- new interrupt is added to the list and is waited for as well.
     handleInterrupts :: [TMVar ()] -> IO [()]
     handleInterrupts ts =
         Ex.catch (atomically $ forM ts takeTMVar)
@@ -159,15 +161,21 @@ startThreads = do
     messageC <- newTChanIO
     presenceC <- newTChanIO
     outC <- newTChanIO
-    handlers <- newTVarIO ( Map.empty, Map.empty)
-    eh <- newTVarIO  zeroEventHandlers
+    handlers <- newTVarIO (Map.empty, Map.empty)
+    eh <- newTVarIO zeroEventHandlers
     conS <- newTMVarIO xmppNoConnection
     lw <- forkIO $ writeWorker outC writeLock
     cp <- forkIO $ connPersist writeLock
     rd <- forkIO $ readWorker messageC presenceC handlers eh conS
-    return (messageC, presenceC, handlers, outC
+    return ( messageC
+           , presenceC
+           , handlers
+           , outC
            , killConnection writeLock [lw, rd, cp]
-           , writeLock, conS ,rd, eh)
+           , writeLock
+           , conS
+           , rd
+           , eh)
   where
     killConnection writeLock threads = liftIO $ do
         _ <- atomically $ takeTMVar writeLock -- Should we put it back?
@@ -210,6 +218,7 @@ withNewSession a = do
 withSession :: Session -> XMPP a -> IO a
 withSession = flip runReaderT
 
+-- Acquires the write lock, pushes a space, and releases the lock.
 -- | Sends a blank space every 30 seconds to keep the connection alive.
 connPersist :: TMVar (BS.ByteString -> IO Bool) -> IO ()
 connPersist lock = forever $ do
