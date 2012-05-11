@@ -50,6 +50,29 @@ Library
                , xml-types-pickle  -any
                , data-default      -any
                , stringprep        >= 0.1.5
+  Exposed-modules: Network.XMPP
+                 , Network.XMPP.Bind
+                 , Network.XMPP.Concurrent
+                 , Network.XMPP.IM
+                 , Network.XMPP.Marshal
+                 , Network.XMPP.Monad
+                 , Network.XMPP.Message
+                 , Network.XMPP.Pickle
+                 , Network.XMPP.Presence
+                 , Network.XMPP.SASL
+                 , Network.XMPP.Session
+                 , Network.XMPP.Stream
+                 , Network.XMPP.TLS
+                 , Network.XMPP.Types
+  Other-modules:
+                 Network.XMPP.JID
+                 , Network.XMPP.Concurrent.Types
+                 , Network.XMPP.Concurrent.IQ
+                 , Network.XMPP.Concurrent.Threads
+                 , Network.XMPP.Concurrent.Monad
+                 , Text.XML.Stream.Elements
+                 , Data.Conduit.BufferedSource
+                 , Data.Conduit.TLS
   GHC-Options: -Wall
 
 
