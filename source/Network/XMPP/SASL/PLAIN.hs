@@ -51,7 +51,7 @@ xmppPLAIN :: Maybe T.Text
           -> XMPPConMonad (Either AuthError ())
 xmppPLAIN authzid authcid passwd = runErrorT $ do
     _ <- lift . pushElement $ saslInitE "PLAIN" $ -- TODO: Check boolean?
-        Just $ plainMessage authzid authcid passwd
+        Just $ Text.decodeUtf8 $ B64.encode $ Text.encodeUtf8 $ plainMessage authzid authcid passwd
     lift $ pushElement saslResponse2E
     e <- lift pullElement
     case e of

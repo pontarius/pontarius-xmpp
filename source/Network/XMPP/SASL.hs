@@ -63,4 +63,5 @@ xmppSASL creds = runErrorT $ do
     -- the XMPP mechanism attribute.
     credsToName :: SASLCredentials -> Text
     credsToName (DIGEST_MD5Credentials _ _ _) = "DIGEST-MD5"
+    credsToName (PLAINCredentials _ _ _) = "PLAIN"
     credsToName c = error $ "credsToName failed for " ++ (show c)

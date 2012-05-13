@@ -54,7 +54,7 @@ data JID = JID { -- | The @localpart@ of a JID is an optional identifier placed
                  -- the entity associated with an XMPP localpart at a domain
                  -- (i.e., @localpart\@domainpart/resourcepart@).
                , resourcepart :: !(Maybe Text)
-               }
+               } deriving Eq
 
 instance Show JID where
   show (JID nd dmn res) =

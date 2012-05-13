@@ -75,6 +75,9 @@ Library
                  , Data.Conduit.TLS
   GHC-Options: -Wall
 
+Executable pontarius-echoclient
+  hs-source-dirs: source
+  Main-Is: ../examples/EchoClient.hs
 
 Source-Repository head
   Type: git

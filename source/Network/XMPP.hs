@@ -38,6 +38,8 @@ module Network.XMPP
   -- for addressing entities in the network. It is somewhat similar to an e-mail
   -- address but contains three parts instead of two:
   , JID(..)
+  , isBare
+  , isFull
   -- * Stanzas
   -- | @Stanzas@ are the the smallest unit of communication in @XMPP@. They come
   -- in 3 flavors:
