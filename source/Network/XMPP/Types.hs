@@ -22,6 +22,8 @@ module Network.XMPP.Types
     , PresenceType(..)
     , SaslError(..)
     , SaslFailure(..)
+    , SASLMechanism (..)
+    , SASLCredentials (..)
     , ServerFeatures(..)
     , Stanza(..)
     , StanzaError(..)
@@ -50,6 +52,7 @@ import           Control.Monad.Error
 import qualified Data.ByteString as BS
 import           Data.Conduit
 import           Data.String(IsString(..))
+import           Data.Maybe (fromMaybe)
 import           Data.Text (Text)
 import qualified Data.Text as Text
 import           Data.Typeable(Typeable)
@@ -398,6 +401,15 @@ instance Read StanzaErrorCondition where
 -- =============================================================================
 --  OTHER STUFF
 -- =============================================================================
+
+data SASLCredentials = DIGEST_MD5Credentials (Maybe Text) Text Text
+
+instance Show SASLCredentials where
+    show (DIGEST_MD5Credentials authzid authcid _) = "DIGEST_MD5Credentials " ++
+        (Text.unpack $ fromMaybe "" authzid) ++ " " ++ (Text.unpack authcid) ++
+        " (password hidden)" 
+
+data SASLMechanism = DIGEST_MD5 deriving Show
 
 data SaslFailure = SaslFailure { saslFailureCondition :: SaslError
                                , saslFailureText :: Maybe ( Maybe LangTag

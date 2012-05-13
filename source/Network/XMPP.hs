@@ -143,6 +143,7 @@ import Network.XMPP.Message
 import Network.XMPP.Monad
 import Network.XMPP.Presence
 import Network.XMPP.SASL
+import Network.XMPP.SASL.Types
 import Network.XMPP.Session
 import Network.XMPP.Stream
 import Network.XMPP.TLS
@@ -162,7 +163,7 @@ auth  :: Text.Text  -- ^ The username
                     -- assign one
       -> XMPPConMonad (Either AuthError Text.Text)
 auth username passwd resource = runErrorT $ do
-        ErrorT $ xmppSASL username passwd
+        ErrorT $ xmppSASL [DIGEST_MD5Credentials Nothing username passwd]
         res <- lift $ xmppBind resource
         lift $ xmppStartSession
         return res
