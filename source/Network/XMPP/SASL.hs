@@ -32,8 +32,8 @@ import qualified System.Random as Random
 
 import Network.XMPP.SASL.SASL
 import Network.XMPP.SASL.DIGEST_MD5
+import Network.XMPP.SASL.PLAIN
 import Network.XMPP.SASL.Types
-
 
 -- Uses the first supported mechanism to authenticate, if any. Updates the
 -- XMPPConMonad state with non-password credentials and restarts the stream upon
@@ -50,6 +50,10 @@ xmppSASL creds = runErrorT $ do
     unless (isJust cred) (throwError $ AuthMechanismError mechanisms)
     case fromJust cred of
         DIGEST_MD5Credentials authzid authcid passwd -> ErrorT $ xmppDIGEST_MD5
+            authzid
+            authcid
+            passwd
+        PLAINCredentials authzid authcid passwd -> ErrorT $ xmppPLAIN
             authzid
             authcid
             passwd

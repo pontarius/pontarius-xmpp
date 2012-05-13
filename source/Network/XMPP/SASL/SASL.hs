@@ -10,15 +10,18 @@ import qualified Data.Attoparsec.ByteString.Char8 as AP
 import           Data.XML.Pickle
 import           Data.XML.Types
 import qualified Data.ByteString as BS
+import Data.Maybe (fromMaybe)
 
 import           Network.XMPP.Pickle
 
--- The <auth xmlns='urn:ietf:params:xml:ns:xmpp-sasl'/> element.
-saslInitE :: Text -> Element
-saslInitE mechanism =
+-- The <auth xmlns='urn:ietf:params:xml:ns:xmpp-sasl'/> element, with an
+-- optional round-trip value.
+saslInitE :: Text -> Maybe Text -> Element
+saslInitE mechanism rt =
     Element "{urn:ietf:params:xml:ns:xmpp-sasl}auth"
         [("mechanism", [ContentText mechanism])]
-        []
+        [NodeContent $ ContentText $ fromMaybe "" rt]
+
 -- SASL response with text payload.
 saslResponseE :: Text -> Element
 saslResponseE resp =

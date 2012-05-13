@@ -403,9 +403,13 @@ instance Read StanzaErrorCondition where
 -- =============================================================================
 
 data SASLCredentials = DIGEST_MD5Credentials (Maybe Text) Text Text
+                     | PLAINCredentials (Maybe Text) Text Text
 
 instance Show SASLCredentials where
     show (DIGEST_MD5Credentials authzid authcid _) = "DIGEST_MD5Credentials " ++
+        (Text.unpack $ fromMaybe "" authzid) ++ " " ++ (Text.unpack authcid) ++
+        " (password hidden)" 
+    show (PLAINCredentials authzid authcid _) = "PLAINCredentials " ++
         (Text.unpack $ fromMaybe "" authzid) ++ " " ++ (Text.unpack authcid) ++
         " (password hidden)" 
 

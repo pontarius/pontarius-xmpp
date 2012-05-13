@@ -56,7 +56,7 @@ xmppDIGEST_MD5 authzid authcid passwd = runErrorT $ do
                     -> XMPPConMonad (Either AuthError ())
     xmppDIGEST_MD5' realm = runErrorT $ do
         -- Push element and receive the challenge (in XMPPConMonad).
-        _ <- lift . pushElement $ saslInitE "DIGEST-MD5" -- TODO: Check boolean?
+        _ <- lift . pushElement $ saslInitE "DIGEST-MD5" Nothing -- TODO: Check boolean?
         challenge' <- lift $ B64.decode . Text.encodeUtf8 <$>
             pullPickle challengePickle
         challenge <- case challenge' of
