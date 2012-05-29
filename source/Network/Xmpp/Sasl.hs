@@ -39,29 +39,29 @@ import Network.Xmpp.Sasl.Types
 -- XmppConMonad state with non-password credentials and restarts the stream upon
 -- success. This computation wraps an ErrorT computation, which means that
 -- catchError can be used to catch any errors.
-xmppSASL :: [SASLCredentials] -- ^ Acceptable authentication mechanisms and
+xmppSasl :: [SaslCredentials] -- ^ Acceptable authentication mechanisms and
                               --   their corresponding credentials
          -> XmppConMonad (Either AuthError ())
-xmppSASL creds = runErrorT $ do
+xmppSasl creds = runErrorT $ do
     -- Chooses the first mechanism that is acceptable by both the client and the
     -- server.
     mechanisms <- gets $ saslMechanisms . sFeatures
     let cred = L.find (\cred -> credsToName cred `elem` mechanisms) creds
     unless (isJust cred) (throwError $ AuthMechanismError mechanisms)
     case fromJust cred of
-        DIGEST_MD5Credentials authzid authcid passwd -> ErrorT $ xmppDigestMD5
+        DigestMD5Credentials authzid authcid passwd -> ErrorT $ xmppDigestMD5
             authzid
             authcid
             passwd
-        PLAINCredentials authzid authcid passwd -> ErrorT $ xmppPLAIN
+        PlainCredentials authzid authcid passwd -> ErrorT $ xmppPLAIN
             authzid
             authcid
             passwd
-        _ -> error "xmppSASL: Mechanism not caught"
+        _ -> error "xmppSasl: Mechanism not caught"
   where
     -- Converts the credentials to the appropriate mechanism name, corresponding to
     -- the XMPP mechanism attribute.
-    credsToName :: SASLCredentials -> Text
-    credsToName (DIGEST_MD5Credentials _ _ _) = "DIGEST-MD5"
-    credsToName (PLAINCredentials _ _ _) = "PLAIN"
+    credsToName :: SaslCredentials -> Text
+    credsToName (DigestMD5Credentials _ _ _) = "DIGEST-MD5"
+    credsToName (PlainCredentials _ _ _) = "PLAIN"
     credsToName c = error $ "credsToName failed for " ++ (show c)

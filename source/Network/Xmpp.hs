@@ -165,7 +165,7 @@ auth  :: Text.Text  -- ^ The username
                     -- assign one
       -> XmppConMonad (Either AuthError Text.Text)
 auth username passwd resource = runErrorT $ do
-        ErrorT $ xmppSASL [DIGEST_MD5Credentials Nothing username passwd]
+        ErrorT $ xmppSasl [DigestMD5Credentials Nothing username passwd]
         res <- lift $ xmppBind resource
         lift $ xmppStartSession
         return res

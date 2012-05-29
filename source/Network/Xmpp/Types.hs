@@ -22,8 +22,8 @@ module Network.Xmpp.Types
     , PresenceType(..)
     , SaslError(..)
     , SaslFailure(..)
-    , SASLMechanism (..)
-    , SASLCredentials (..)
+    , SaslMechanism (..)
+    , SaslCredentials (..)
     , ServerFeatures(..)
     , Stanza(..)
     , StanzaError(..)
@@ -402,18 +402,18 @@ instance Read StanzaErrorCondition where
 --  OTHER STUFF
 -- =============================================================================
 
-data SASLCredentials = DIGEST_MD5Credentials (Maybe Text) Text Text
-                     | PLAINCredentials (Maybe Text) Text Text
+data SaslCredentials = DigestMD5Credentials (Maybe Text) Text Text
+                     | PlainCredentials (Maybe Text) Text Text
 
-instance Show SASLCredentials where
-    show (DIGEST_MD5Credentials authzid authcid _) = "DIGEST_MD5Credentials " ++
+instance Show SaslCredentials where
+    show (DigestMD5Credentials authzid authcid _) = "DIGEST_MD5Credentials " ++
         (Text.unpack $ fromMaybe "" authzid) ++ " " ++ (Text.unpack authcid) ++
         " (password hidden)"
-    show (PLAINCredentials authzid authcid _) = "PLAINCredentials " ++
+    show (PlainCredentials authzid authcid _) = "PLAINCredentials " ++
         (Text.unpack $ fromMaybe "" authzid) ++ " " ++ (Text.unpack authcid) ++
         " (password hidden)"
 
-data SASLMechanism = DIGEST_MD5 deriving Show
+data SaslMechanism = DigestMD5 deriving Show
 
 data SaslFailure = SaslFailure { saslFailureCondition :: SaslError
                                , saslFailureText :: Maybe ( Maybe LangTag
