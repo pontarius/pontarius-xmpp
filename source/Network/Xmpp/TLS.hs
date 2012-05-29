@@ -1,7 +1,7 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Network.XMPP.TLS where
+module Network.Xmpp.TLS where
 
 import qualified Control.Exception.Lifted as Ex
 import           Control.Monad
@@ -12,10 +12,10 @@ import           Data.Conduit.TLS as TLS
 import           Data.Typeable
 import           Data.XML.Types
 
-import           Network.XMPP.Monad
-import           Network.XMPP.Pickle(ppElement)
-import           Network.XMPP.Stream
-import           Network.XMPP.Types
+import           Network.Xmpp.Monad
+import           Network.Xmpp.Pickle(ppElement)
+import           Network.Xmpp.Stream
+import           Network.Xmpp.Types
 
 starttlsE :: Element
 starttlsE = Element "{urn:ietf:params:xml:ns:xmpp-tls}starttls" [] []
@@ -35,19 +35,19 @@ exampleParams = TLS.defaultParams
     }
 
 -- | Error conditions that may arise during TLS negotiation.
-data XMPPTLSError = TLSError TLSError
+data XmppTLSError = TLSError TLSError
                   | TLSNoServerSupport
                   | TLSNoConnection
                   | TLSStreamError StreamError
-                  | XMPPTLSError -- General instance used for the Error instance
+                  | XmppTLSError -- General instance used for the Error instance
                     deriving (Show, Eq, Typeable)
 
-instance Error XMPPTLSError where
-  noMsg = XMPPTLSError
+instance Error XmppTLSError where
+  noMsg = XmppTLSError
 
 -- Pushes "<starttls/>, waits for "<proceed/>", performs the TLS handshake, and
 -- restarts the stream. May throw errors.
-startTLS :: TLS.TLSParams -> XMPPConMonad (Either XMPPTLSError ())
+startTLS :: TLS.TLSParams -> XmppConMonad (Either XmppTLSError ())
 startTLS params = Ex.handle (return . Left . TLSError) . runErrorT $ do
     features <- lift $ gets sFeatures
     handle' <- lift $ gets sConHandle

@@ -1,9 +1,9 @@
 {-# OPTIONS_HADDOCK hide #-}
 
-module Network.XMPP.Presence where
+module Network.Xmpp.Presence where
 
 import Data.Text(Text)
-import Network.XMPP.Types
+import Network.Xmpp.Types
 
 -- | Add a recipient to a presence notification.
 presTo :: Presence -> JID -> Presence

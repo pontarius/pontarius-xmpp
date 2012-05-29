@@ -19,8 +19,8 @@ import Control.Monad (forever)
 import Control.Monad.IO.Class (liftIO)
 import Data.Maybe (fromJust, isJust)
 
-import Network.XMPP
-import Network.XMPP.IM
+import Network.Xmpp
+import Network.Xmpp.IM
 
 
 -- Server and authentication details.
@@ -47,11 +47,11 @@ main = do
         return ()
     return ()
 
--- Pull message stanzas, verify that they originate from a `full' XMPP
+-- Pull message stanzas, verify that they originate from a `full' Xmpp
 -- address, and, if so, `echo' the message back.
-echo :: XMPP ()
+echo :: Xmpp ()
 echo = forever $ do
-    result <- pullMessage	
+    result <- pullMessage
     case result of
         Right message ->
             if (isJust $ messageFrom message) &&

@@ -3,7 +3,7 @@ module Example where
 
 import Data.Text as T
 
-import Network.XMPP
+import Network.Xmpp
 import Control.Concurrent
 import Control.Concurrent.STM
 import Control.Monad
@@ -12,10 +12,10 @@ import Control.Monad.IO.Class
 philonous :: JID
 philonous = read "uart14@species64739.dyndns.org"
 
-attXmpp :: STM a -> XMPPThread a
+attXmpp :: STM a -> XmppThread a
 attXmpp = liftIO . atomically
 
-autoAccept :: XMPPThread ()
+autoAccept :: XmppThread ()
 autoAccept = forever $ do
   st <- pullPresence
   case st of
@@ -24,7 +24,7 @@ autoAccept = forever $ do
            Presence Nothing from idq (Just Subscribed) Nothing Nothing Nothing []
     _ -> return ()
 
-mirror :: XMPPThread ()
+mirror :: XmppThread ()
 mirror = forever $ do
   st <- pullMessage
   case st of
@@ -43,8 +43,8 @@ main = do
       xmppThreadedBind (Just "botsi")
 --      singleThreaded $ xmppBind (Just "botsi")
       singleThreaded $ xmppSession
-      forkXMPP autoAccept
-      forkXMPP mirror
+      forkXmpp autoAccept
+      forkXmpp mirror
       sendS . SPresence $ Presence Nothing Nothing Nothing Nothing
                 (Just Available) Nothing Nothing []
       sendS . SMessage $ Message Nothing philonous Nothing Nothing Nothing

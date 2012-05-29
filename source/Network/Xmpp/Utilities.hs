@@ -7,9 +7,9 @@
 
 {-# LANGUAGE OverloadedStrings #-}
 
-module Network.XMPP.Utilities (idGenerator) where
+module Network.Xmpp.Utilities (idGenerator) where
 
-import Network.XMPP.Types
+import Network.Xmpp.Types
 
 import Control.Monad.STM
 import Control.Concurrent.STM.TVar
@@ -35,7 +35,7 @@ idGenerator prefix = atomically $ do
   where
 
     -- Transactionally extract the next ID from the infinite list of IDs.
-    
+
     next :: TVar [Text.Text] -> IO Text.Text
     next tvar = atomically $ do
         list <- readTVar tvar
@@ -47,13 +47,13 @@ idGenerator prefix = atomically $ do
 
     -- Generates an infinite and predictable list of IDs, all beginning with the
     -- provided prefix.
-    
+
     ids :: Text.Text -> [Text.Text]
 
     -- Adds the prefix to all combinations of IDs (ids').
     ids p = map (\ id -> Text.append p id) ids'
       where
-        
+
         -- Generate all combinations of IDs, with increasing length.
         ids' :: [Text.Text]
         ids' = map Text.pack $ concatMap ids'' [1..]

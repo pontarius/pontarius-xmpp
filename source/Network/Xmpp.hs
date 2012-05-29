@@ -21,7 +21,7 @@
 
 {-# LANGUAGE NoMonomorphismRestriction, OverloadedStrings #-}
 
-module Network.XMPP
+module Network.Xmpp
   ( -- * Session management
     withNewSession
   , withSession
@@ -96,7 +96,7 @@ module Network.XMPP
   , Presence(..)
   , PresenceError(..)
   -- *** creating
-  , module Network.XMPP.Presence
+  , module Network.Xmpp.Presence
   -- *** sending
   , sendPresence
   -- *** receiving
@@ -127,7 +127,7 @@ module Network.XMPP
   , iqRequestPayload
   , iqResultPayload
   -- * Threads
-  , XMPP
+  , Xmpp
   , fork
   , forkSession
   -- * Misc
@@ -138,23 +138,23 @@ import Data.Text as Text
 
 import Network
 import qualified Network.TLS as TLS
-import Network.XMPP.Bind
-import Network.XMPP.Concurrent
-import Network.XMPP.Concurrent.Types
-import Network.XMPP.Message
-import Network.XMPP.Monad
-import Network.XMPP.Presence
-import Network.XMPP.SASL
-import Network.XMPP.SASL.Types
-import Network.XMPP.Session
-import Network.XMPP.Stream
-import Network.XMPP.TLS
-import Network.XMPP.Types
+import Network.Xmpp.Bind
+import Network.Xmpp.Concurrent
+import Network.Xmpp.Concurrent.Types
+import Network.Xmpp.Message
+import Network.Xmpp.Monad
+import Network.Xmpp.Presence
+import Network.Xmpp.Sasl
+import Network.Xmpp.Sasl.Types
+import Network.Xmpp.Session
+import Network.Xmpp.Stream
+import Network.Xmpp.TLS
+import Network.Xmpp.Types
 
 import Control.Monad.Error
 
 -- | Connect to host with given address.
-connect :: HostName -> Text -> XMPPConMonad (Either StreamError ())
+connect :: HostName -> Text -> XmppConMonad (Either StreamError ())
 connect  address hostname = xmppRawConnect address hostname >> xmppStartStream
 
 -- | Authenticate to the server with the given username and password
@@ -163,7 +163,7 @@ auth  :: Text.Text  -- ^ The username
       -> Text.Text  -- ^ The password
       -> Maybe Text -- ^ The desired resource or 'Nothing' to let the server
                     -- assign one
-      -> XMPPConMonad (Either AuthError Text.Text)
+      -> XmppConMonad (Either AuthError Text.Text)
 auth username passwd resource = runErrorT $ do
         ErrorT $ xmppSASL [DIGEST_MD5Credentials Nothing username passwd]
         res <- lift $ xmppBind resource

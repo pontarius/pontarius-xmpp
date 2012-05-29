@@ -1,7 +1,7 @@
 {-# OPTIONS_HADDOCK hide #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 
-module Network.XMPP.Concurrent.Types where
+module Network.Xmpp.Concurrent.Types where
 
 import qualified Control.Exception.Lifted as Ex
 import           Control.Concurrent
@@ -14,7 +14,7 @@ import qualified Data.Map as Map
 import           Data.Text(Text)
 import           Data.Typeable
 
-import           Network.XMPP.Types
+import           Network.Xmpp.Types
 
 -- Map between the IQ request type and the "query" namespace pair, and the TChan
 -- for the IQ request and "sent" boolean pair.
@@ -22,14 +22,14 @@ type IQHandlers = (Map.Map (IQRequestType, Text) (TChan IQRequestTicket)
                   , Map.Map StanzaId (TMVar IQResponse)
                   )
 
--- Handlers to be run when the XMPP session ends and when the XMPP connection is
+-- Handlers to be run when the Xmpp session ends and when the Xmpp connection is
 -- closed.
 data EventHandlers = EventHandlers
     { sessionEndHandler       :: IO ()
     , connectionClosedHandler :: StreamError -> IO ()
     }
 
--- The Session object is the XMPP (ReaderT) state.
+-- The Session object is the Xmpp (ReaderT) state.
 data Session = Session
     { -- The original master channels that the reader puts stanzas
       -- into. These are cloned by @get{STanza,Message,Presence}Chan
@@ -51,14 +51,14 @@ data Session = Session
     , readerThread :: ThreadId
     , idGenerator :: IO StanzaId
       -- Lock (used by withConnection) to make sure that a maximum of one
-      -- XMPPConMonad calculation is executed at any given time.
+      -- XmppConMonad calculation is executed at any given time.
     , conStateRef :: TMVar XmppConnection
     , eventHandlers :: TVar EventHandlers
     , stopThreads :: IO ()
     }
 
--- XMPP is a monad for concurrent XMPP usage.
-type XMPP a = ReaderT Session IO a
+-- Xmpp is a monad for concurrent Xmpp usage.
+type Xmpp a = ReaderT Session IO a
 
 -- Interrupt is used to signal to the reader thread that it should stop.
 data Interrupt = Interrupt (TMVar ()) deriving Typeable

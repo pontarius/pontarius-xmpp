@@ -5,7 +5,7 @@
 -- Marshalling between XML and Native Types
 
 
-module Network.XMPP.Pickle
+module Network.Xmpp.Pickle
     ( mbToBool
     , xpElemEmpty
     , xmlLang
@@ -24,7 +24,7 @@ module Network.XMPP.Pickle
 import Data.XML.Types
 import Data.XML.Pickle
 
-import Network.XMPP.Types
+import Network.Xmpp.Types
 
 import Text.XML.Stream.Elements
 

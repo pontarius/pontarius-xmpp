@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Network.XMPP.IM.Message
+module Network.Xmpp.IM.Message
      where
 
 import Control.Applicative ((<$>))
@@ -9,8 +9,8 @@ import Data.Text (Text)
 import Data.XML.Pickle
 import Data.XML.Types
 
-import Network.XMPP.Types
-import Network.XMPP.Pickle
+import Network.Xmpp.Types
+import Network.Xmpp.Pickle
 
 data MessageBody = MessageBody (Maybe LangTag) Text
 data MessageThread = MessageThread

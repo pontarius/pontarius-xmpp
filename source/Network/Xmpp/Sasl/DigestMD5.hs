@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Network.XMPP.SASL.DIGEST_MD5 where
+module Network.Xmpp.Sasl.DigestMD5 where
 
 import           Control.Applicative
 import           Control.Arrow (left)
@@ -29,21 +29,21 @@ import qualified Data.ByteString as BS
 
 import Data.XML.Types
 
-import           Network.XMPP.Monad
-import           Network.XMPP.Stream
-import           Network.XMPP.Types
-import           Network.XMPP.Pickle
+import           Network.Xmpp.Monad
+import           Network.Xmpp.Stream
+import           Network.Xmpp.Types
+import           Network.Xmpp.Pickle
 
 import qualified System.Random as Random
 
-import Network.XMPP.SASL.SASL
-import Network.XMPP.SASL.Types
+import Network.Xmpp.Sasl.Sasl
+import Network.Xmpp.Sasl.Types
 
-xmppDIGEST_MD5 :: Maybe Text -- Authorization identity (authzid)
+xmppDigestMD5 :: Maybe Text -- Authorization identity (authzid)
                -> Text -- Authentication identity (authzid)
                -> Text -- Password (authzid)
-               -> XMPPConMonad (Either AuthError ())
-xmppDIGEST_MD5 authzid authcid passwd = runErrorT $ do
+               -> XmppConMonad (Either AuthError ())
+xmppDigestMD5 authzid authcid passwd = runErrorT $ do
     realm <- gets sHostname
     case realm of
         Just realm' -> do
@@ -53,9 +53,9 @@ xmppDIGEST_MD5 authzid authcid passwd = runErrorT $ do
         Nothing -> throwError AuthConnectionError
   where
     xmppDIGEST_MD5' :: Text -- ^ SASL realm
-                    -> XMPPConMonad (Either AuthError ())
+                    -> XmppConMonad (Either AuthError ())
     xmppDIGEST_MD5' realm = runErrorT $ do
-        -- Push element and receive the challenge (in XMPPConMonad).
+        -- Push element and receive the challenge (in XmppConMonad).
         _ <- lift . pushElement $ saslInitE "DIGEST-MD5" Nothing -- TODO: Check boolean?
         challenge' <- lift $ B64.decode . Text.encodeUtf8 <$>
             pullPickle challengePickle

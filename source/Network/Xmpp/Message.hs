@@ -1,5 +1,5 @@
 {-# LANGUAGE RecordWildCards #-}
-module Network.XMPP.Message
+module Network.Xmpp.Message
     ( Message(..)
     , MessageError(..)
     , MessageType(..)
@@ -9,7 +9,7 @@ module Network.XMPP.Message
 
 import Data.XML.Types
 
-import Network.XMPP.Types
+import Network.Xmpp.Types
 
 -- | An empty message.
 message :: Message

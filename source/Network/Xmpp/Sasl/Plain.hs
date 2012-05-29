@@ -3,7 +3,7 @@
 
 {-# LANGUAGE OverloadedStrings #-}
 
-module Network.XMPP.SASL.PLAIN where
+module Network.Xmpp.Sasl.Plain where
 
 import           Control.Applicative
 import           Control.Arrow (left)
@@ -32,23 +32,23 @@ import qualified Data.ByteString as BS
 
 import Data.XML.Types
 
-import           Network.XMPP.Monad
-import           Network.XMPP.Stream
-import           Network.XMPP.Types
-import           Network.XMPP.Pickle
+import           Network.Xmpp.Monad
+import           Network.Xmpp.Stream
+import           Network.Xmpp.Types
+import           Network.Xmpp.Pickle
 
 import qualified System.Random as Random
 
 import Data.Maybe (fromMaybe)
 import qualified Data.Text as T
 
-import Network.XMPP.SASL.SASL
-import Network.XMPP.SASL.Types
+import Network.Xmpp.Sasl.Sasl
+import Network.Xmpp.Sasl.Types
 
 xmppPLAIN :: Maybe T.Text
           -> T.Text
           -> T.Text
-          -> XMPPConMonad (Either AuthError ())
+          -> XmppConMonad (Either AuthError ())
 xmppPLAIN authzid authcid passwd = runErrorT $ do
     _ <- lift . pushElement $ saslInitE "PLAIN" $ -- TODO: Check boolean?
         Just $ Text.decodeUtf8 $ B64.encode $ Text.encodeUtf8 $ plainMessage authzid authcid passwd

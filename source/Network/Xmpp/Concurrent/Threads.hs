@@ -1,8 +1,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE OverloadedStrings #-}
-module Network.XMPP.Concurrent.Threads where
+module Network.Xmpp.Concurrent.Threads where
 
-import Network.XMPP.Types
+import Network.Xmpp.Types
 
 import Control.Applicative((<$>),(<*>))
 import Control.Concurrent
@@ -20,10 +20,10 @@ import Data.Maybe
 
 import Data.XML.Types
 
-import Network.XMPP.Monad
-import Network.XMPP.Marshal
-import Network.XMPP.Pickle
-import Network.XMPP.Concurrent.Types
+import Network.Xmpp.Monad
+import Network.Xmpp.Marshal
+import Network.Xmpp.Pickle
+import Network.Xmpp.Concurrent.Types
 
 import Text.XML.Stream.Elements
 
@@ -193,7 +193,7 @@ startThreads = do
         , connectionClosedHandler = \_ -> return ()
         }
 
--- | Creates and initializes a new XMPP session.
+-- | Creates and initializes a new Xmpp session.
 newSession :: IO Session
 newSession = do
     (mC, pC, sC, hand, outC, stopThreads', writeR, conS, rdr, eh) <- startThreads
@@ -219,15 +219,15 @@ newSession = do
         eh
         stopThreads'
 
--- | Creates a new session and runs the given XMPP computation.
-withNewSession :: XMPP b -> IO (Session, b)
+-- | Creates a new session and runs the given Xmpp computation.
+withNewSession :: Xmpp b -> IO (Session, b)
 withNewSession a = do
     sess <- newSession
     ret <- runReaderT a sess
     return (sess, ret)
 
--- | Runs the given XMPP computation in the given session.
-withSession :: Session -> XMPP a -> IO a
+-- | Runs the given Xmpp computation in the given session.
+withSession :: Session -> Xmpp a -> IO a
 withSession = flip runReaderT
 
 -- Acquires the write lock, pushes a space, and releases the lock.

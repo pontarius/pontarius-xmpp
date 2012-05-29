@@ -6,7 +6,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_HADDOCK hide #-}
 
-module Network.XMPP.Types
+module Network.Xmpp.Types
     ( IQError(..)
     , IQRequest(..)
     , IQRequestType(..)
@@ -32,13 +32,13 @@ module Network.XMPP.Types
     , StanzaId(..)
     , StreamError(..)
     , Version(..)
-    , XMPPConMonad
+    , XmppConMonad
     , XmppConnection(..)
     , XmppConnectionState(..)
-    , XMPPT(..)
+    , XmppT(..)
     , XmppStreamError(..)
     , parseLangTag
-    , module Network.XMPP.JID
+    , module Network.Xmpp.JID
     )
        where
 
@@ -60,13 +60,13 @@ import           Data.XML.Types
 
 import qualified Network as N
 
-import           Network.XMPP.JID
+import           Network.Xmpp.JID
 
 import           System.IO
 
 -- |
 -- Wraps a string of random characters that, when using an appropriate
--- @IDGenerator@, is guaranteed to be unique for the XMPP session.
+-- @IDGenerator@, is guaranteed to be unique for the Xmpp session.
 
 data StanzaId = SI !Text deriving (Eq, Ord)
 
@@ -79,7 +79,7 @@ instance Read StanzaId where
 instance IsString StanzaId where
   fromString = SI . Text.pack
 
--- | The XMPP communication primities (Message, Presence and Info/Query) are
+-- | The Xmpp communication primities (Message, Presence and Info/Query) are
 -- called stanzas.
 data Stanza = IQRequestS     IQRequest
             | IQResultS      IQResult
@@ -221,7 +221,7 @@ data PresenceError = PresenceError { presenceErrorID          :: Maybe StanzaId
                                    , presenceErrorPayload     :: [Element]
                                    } deriving Show
 
--- | @PresenceType@ holds XMPP presence types. The "error" message type is left
+-- | @PresenceType@ holds Xmpp presence types. The "error" message type is left
 -- out as errors are using @PresenceError@.
 data PresenceType = Subscribe    | -- ^ Sender wants to subscribe to presence
                     Subscribed   | -- ^ Sender has approved the subscription
@@ -278,7 +278,7 @@ instance Read PresenceType where
 --  readsPrec _  _              = []
 
 
--- | All stanzas (IQ, message, presence) can cause errors, which in the XMPP
+-- | All stanzas (IQ, message, presence) can cause errors, which in the Xmpp
 -- stream looks like <stanza-kind to='sender' type='error'>. These errors are
 -- wrapped in the @StanzaError@ type.
 -- TODO: Sender XML is (optional and is) not yet included.
@@ -317,33 +317,33 @@ instance Read StanzaErrorType where
 data StanzaErrorCondition = BadRequest            -- ^ Malformed XML.
                           | Conflict              -- ^ Resource or session with
                                                   --   name already exists.
-                          | FeatureNotImplemented 
+                          | FeatureNotImplemented
                           | Forbidden             -- ^ Insufficient permissions.
                           | Gone                  -- ^ Entity can no longer be
                                                   --   contacted at this
                                                   --   address.
                           | InternalServerError
-                          | ItemNotFound         
-                          | JIDMalformed         
+                          | ItemNotFound
+                          | JIDMalformed
                           | NotAcceptable         -- ^ Does not meet policy
                                                   --   criteria.
                           | NotAllowed            -- ^ No entity may perform
                                                   --   this action.
                           | NotAuthorized         -- ^ Must provide proper
                                                   --   credentials.
-                          | PaymentRequired      
+                          | PaymentRequired
                           | RecipientUnavailable  -- ^ Temporarily unavailable.
                           | Redirect              -- ^ Redirecting to other
                                                   --   entity, usually
                                                   --   temporarily.
-                          | RegistrationRequired 
-                          | RemoteServerNotFound 
-                          | RemoteServerTimeout  
+                          | RegistrationRequired
+                          | RemoteServerNotFound
+                          | RemoteServerTimeout
                           | ResourceConstraint    -- ^ Entity lacks the
                                                   --   necessary system
                                                   --   resources.
-                          | ServiceUnavailable   
-                          | SubscriptionRequired 
+                          | ServiceUnavailable
+                          | SubscriptionRequired
                           | UndefinedCondition    -- ^ Application-specific
                                                   --   condition.
                           | UnexpectedRequest     -- ^ Badly timed request.
@@ -408,10 +408,10 @@ data SASLCredentials = DIGEST_MD5Credentials (Maybe Text) Text Text
 instance Show SASLCredentials where
     show (DIGEST_MD5Credentials authzid authcid _) = "DIGEST_MD5Credentials " ++
         (Text.unpack $ fromMaybe "" authzid) ++ " " ++ (Text.unpack authcid) ++
-        " (password hidden)" 
+        " (password hidden)"
     show (PLAINCredentials authzid authcid _) = "PLAINCredentials " ++
         (Text.unpack $ fromMaybe "" authzid) ++ " " ++ (Text.unpack authcid) ++
-        " (password hidden)" 
+        " (password hidden)"
 
 data SASLMechanism = DIGEST_MD5 deriving Show
 
@@ -661,14 +661,14 @@ data XmppConnection = XmppConnection
                }
 
 -- |
--- The XMPP monad transformer. Contains internal state in order to
+-- The Xmpp monad transformer. Contains internal state in order to
 -- work with Pontarius. Pontarius clients needs to operate in this
 -- context.
-newtype XMPPT m a = XMPPT { runXMPPT :: StateT XmppConnection m a } deriving (Monad, MonadIO)
+newtype XmppT m a = XmppT { runXmppT :: StateT XmppConnection m a } deriving (Monad, MonadIO)
 
--- | Low-level and single-threaded XMPP monad. See @XMPP@ for a concurrent
+-- | Low-level and single-threaded Xmpp monad. See @Xmpp@ for a concurrent
 -- implementation.
-type XMPPConMonad a = StateT XmppConnection IO a
+type XmppConMonad a = StateT XmppConnection IO a
 
--- Make XMPPT derive the Monad and MonadIO instances.
-deriving instance (Monad m, MonadIO m) => MonadState (XmppConnection) (XMPPT m)
+-- Make XmppT derive the Monad and MonadIO instances.
+deriving instance (Monad m, MonadIO m) => MonadState (XmppConnection) (XmppT m)

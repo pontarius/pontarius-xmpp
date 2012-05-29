@@ -6,13 +6,13 @@
 
 {-# OPTIONS_HADDOCK hide #-}
 
-module Network.XMPP.Marshal where
+module Network.Xmpp.Marshal where
 
 import Data.XML.Pickle
 import Data.XML.Types
 
-import Network.XMPP.Pickle
-import Network.XMPP.Types
+import Network.Xmpp.Pickle
+import Network.Xmpp.Types
 
 xpStreamStanza :: PU [Node] (Either XmppStreamError Stanza)
 xpStreamStanza = xpEither xpStreamError xpStanza

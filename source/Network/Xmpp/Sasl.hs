@@ -1,6 +1,6 @@
 {-# LANGUAGE NoMonomorphismRestriction, OverloadedStrings #-}
 
-module Network.XMPP.SASL where
+module Network.Xmpp.Sasl where
 
 import           Control.Applicative
 import           Control.Arrow (left)
@@ -23,25 +23,25 @@ import qualified Data.Text as Text
 import           Data.Text (Text)
 import qualified Data.Text.Encoding as Text
 
-import           Network.XMPP.Monad
-import           Network.XMPP.Stream
-import           Network.XMPP.Types
-import           Network.XMPP.Pickle
+import           Network.Xmpp.Monad
+import           Network.Xmpp.Stream
+import           Network.Xmpp.Types
+import           Network.Xmpp.Pickle
 
 import qualified System.Random as Random
 
-import Network.XMPP.SASL.SASL
-import Network.XMPP.SASL.DIGEST_MD5
-import Network.XMPP.SASL.PLAIN
-import Network.XMPP.SASL.Types
+import Network.Xmpp.Sasl.Sasl
+import Network.Xmpp.Sasl.DigestMD5
+import Network.Xmpp.Sasl.Plain
+import Network.Xmpp.Sasl.Types
 
 -- Uses the first supported mechanism to authenticate, if any. Updates the
--- XMPPConMonad state with non-password credentials and restarts the stream upon
+-- XmppConMonad state with non-password credentials and restarts the stream upon
 -- success. This computation wraps an ErrorT computation, which means that
 -- catchError can be used to catch any errors.
 xmppSASL :: [SASLCredentials] -- ^ Acceptable authentication mechanisms and
                               --   their corresponding credentials
-         -> XMPPConMonad (Either AuthError ())
+         -> XmppConMonad (Either AuthError ())
 xmppSASL creds = runErrorT $ do
     -- Chooses the first mechanism that is acceptable by both the client and the
     -- server.
@@ -49,7 +49,7 @@ xmppSASL creds = runErrorT $ do
     let cred = L.find (\cred -> credsToName cred `elem` mechanisms) creds
     unless (isJust cred) (throwError $ AuthMechanismError mechanisms)
     case fromJust cred of
-        DIGEST_MD5Credentials authzid authcid passwd -> ErrorT $ xmppDIGEST_MD5
+        DIGEST_MD5Credentials authzid authcid passwd -> ErrorT $ xmppDigestMD5
             authzid
             authcid
             passwd

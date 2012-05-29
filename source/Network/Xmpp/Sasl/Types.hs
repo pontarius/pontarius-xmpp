@@ -1,8 +1,8 @@
-module Network.XMPP.SASL.Types where
+module Network.Xmpp.Sasl.Types where
 
 import           Control.Monad.Error
 import           Data.Text
-import           Network.XMPP.Types
+import           Network.Xmpp.Types
 
 data AuthError = AuthXmlError
                | AuthMechanismError [Text] -- ^ Wraps mechanisms offered

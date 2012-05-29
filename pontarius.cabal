@@ -50,26 +50,29 @@ Library
                , xml-types-pickle  -any
                , data-default      -any
                , stringprep        >= 0.1.5
-  Exposed-modules: Network.XMPP
-                 , Network.XMPP.Bind
-                 , Network.XMPP.Concurrent
-                 , Network.XMPP.IM
-                 , Network.XMPP.Marshal
-                 , Network.XMPP.Monad
-                 , Network.XMPP.Message
-                 , Network.XMPP.Pickle
-                 , Network.XMPP.Presence
-                 , Network.XMPP.SASL
-                 , Network.XMPP.Session
-                 , Network.XMPP.Stream
-                 , Network.XMPP.TLS
-                 , Network.XMPP.Types
+  Exposed-modules: Network.Xmpp
+                 , Network.Xmpp.Bind
+                 , Network.Xmpp.Concurrent
+                 , Network.Xmpp.IM
+                 , Network.Xmpp.Marshal
+                 , Network.Xmpp.Monad
+                 , Network.Xmpp.Message
+                 , Network.Xmpp.Pickle
+                 , Network.Xmpp.Presence
+                 , Network.Xmpp.Sasl
+                 , Network.Xmpp.Sasl.Plain
+                 , Network.Xmpp.Sasl.DigestMD5
+                 , Network.Xmpp.Sasl.Types
+                 , Network.Xmpp.Session
+                 , Network.Xmpp.Stream
+                 , Network.Xmpp.TLS
+                 , Network.Xmpp.Types
   Other-modules:
-                 Network.XMPP.JID
-                 , Network.XMPP.Concurrent.Types
-                 , Network.XMPP.Concurrent.IQ
-                 , Network.XMPP.Concurrent.Threads
-                 , Network.XMPP.Concurrent.Monad
+                 Network.Xmpp.JID
+                 , Network.Xmpp.Concurrent.Types
+                 , Network.Xmpp.Concurrent.IQ
+                 , Network.Xmpp.Concurrent.Threads
+                 , Network.Xmpp.Concurrent.Monad
                  , Text.XML.Stream.Elements
                  , Data.Conduit.BufferedSource
                  , Data.Conduit.TLS

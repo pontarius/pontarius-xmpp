@@ -2,16 +2,16 @@
 
 {-# OPTIONS_HADDOCK hide #-}
 
-module Network.XMPP.Bind where
+module Network.Xmpp.Bind where
 
 import Data.Text as Text
 
 import Data.XML.Pickle
 import Data.XML.Types
 
-import Network.XMPP.Types
-import Network.XMPP.Pickle
-import Network.XMPP.Monad
+import Network.Xmpp.Types
+import Network.Xmpp.Pickle
+import Network.Xmpp.Monad
 
 -- Produces a `bind' element, optionally wrapping a resource.
 bindBody :: Maybe Text -> Element
@@ -24,7 +24,7 @@ bindBody = pickleElem $
 
 -- Sends a (synchronous) IQ set request for a (`Just') given or server-generated
 -- resource and extract the JID from the non-error response.
-xmppBind  :: Maybe Text -> XMPPConMonad Text
+xmppBind  :: Maybe Text -> XmppConMonad Text
 xmppBind rsrc = do
     answer <- xmppSendIQ' "bind" Nothing Set Nothing (bindBody rsrc)
     let Right IQResult{iqResultPayload = Just b} = answer -- TODO: Error handling

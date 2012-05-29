@@ -1,8 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Network.XMPP.SASL.SASL where
+module Network.Xmpp.Sasl.Sasl where
 
-import Network.XMPP.Types
+import Network.Xmpp.Types
 
 import           Control.Monad.Error
 import           Data.Text
@@ -12,7 +12,7 @@ import           Data.XML.Types
 import qualified Data.ByteString as BS
 import Data.Maybe (fromMaybe)
 
-import           Network.XMPP.Pickle
+import           Network.Xmpp.Pickle
 
 -- The <auth xmlns='urn:ietf:params:xml:ns:xmpp-sasl'/> element, with an
 -- optional round-trip value.

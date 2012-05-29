@@ -11,7 +11,7 @@ this file may be used freely, as if it is in the public domain.
 
 module Examples.IBR () where
 
-import Network.XMPP
+import Network.Xmpp
 
 
 -- Server and authentication details.

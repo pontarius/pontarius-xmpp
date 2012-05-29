@@ -1,7 +1,7 @@
-module Network.XMPP.IM.Presence where
+module Network.Xmpp.IM.Presence where
 
 import Data.Text(Text)
-import Network.XMPP.Types
+import Network.Xmpp.Types
 
 -- | An empty presence.
 presence :: Presence

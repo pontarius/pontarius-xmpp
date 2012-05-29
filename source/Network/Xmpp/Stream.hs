@@ -1,7 +1,7 @@
 {-# LANGUAGE NoMonomorphismRestriction, OverloadedStrings #-}
 {-# LANGUAGE TupleSections #-}
 
-module Network.XMPP.Stream where
+module Network.Xmpp.Stream where
 
 import qualified Control.Exception as Ex
 import           Control.Monad.Error
@@ -15,9 +15,9 @@ import           Data.XML.Pickle
 import           Data.XML.Types
 import           Data.Void(Void)
 
-import           Network.XMPP.Monad
-import           Network.XMPP.Pickle
-import           Network.XMPP.Types
+import           Network.Xmpp.Monad
+import           Network.Xmpp.Pickle
+import           Network.Xmpp.Types
 
 import           Text.XML.Stream.Elements
 import           Text.XML.Stream.Parse as XP
@@ -56,7 +56,7 @@ openElementFromEvents = do
         _ -> throwError $ StreamConnectionError
 
 -- Sends the initial stream:stream element and pulls the server features.
-xmppStartStream :: XMPPConMonad (Either StreamError ())
+xmppStartStream :: XmppConMonad (Either StreamError ())
 xmppStartStream = runErrorT $ do
     hostname' <- gets sHostname
     case hostname' of
@@ -69,7 +69,7 @@ xmppStartStream = runErrorT $ do
 
 -- Creates a new connection source (of Events) using the raw source (of bytes)
 -- and calls xmppStartStream.
-xmppRestartStream :: XMPPConMonad (Either StreamError ())
+xmppRestartStream :: XmppConMonad (Either StreamError ())
 xmppRestartStream = do
     raw <- gets sRawSrc
     newsrc <- liftIO . bufferSource $ raw $= XP.parseBytes def

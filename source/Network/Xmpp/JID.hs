@@ -3,7 +3,7 @@
 -- This module deals with JIDs, also known as XMPP addresses. For more
 -- information on JIDs, see RFC 6122: XMPP: Address Format.
 
-module Network.XMPP.JID
+module Network.Xmpp.JID
     ( JID(..)
     , fromText
     , fromStrings
@@ -34,7 +34,7 @@ data JID = JID { -- | The @localpart@ of a JID is an optional identifier placed
                  -- context of a specific domain (i.e.,
                  -- @localpart\@domainpart@).
                  localpart :: !(Maybe Text)
-                 
+
                  -- | The domainpart typically identifies the /home/ server to
                  -- which clients connect for XML routing and data management
                  -- functionality. However, it is not necessary for an XMPP
@@ -43,7 +43,7 @@ data JID = JID { -- | The @localpart@ of a JID is an optional identifier placed
                  -- entity such as a multi-user chat service, a
                  -- publish-subscribe service, or a user directory).
                , domainpart :: !Text
-                 
+
                  -- | The resourcepart of a JID is an optional identifier placed
                  -- after the domainpart and separated from the latter by the
                  -- \'\/\' character. A resourcepart can modify either a
@@ -116,7 +116,7 @@ isFull = not . isBare
 
 -- Parses an JID string and returns its three parts. It performs no validation
 -- or transformations.
-jidParts :: AP.Parser (Maybe Text, Text, Maybe Text) 
+jidParts :: AP.Parser (Maybe Text, Text, Maybe Text)
 jidParts = do
     -- Read until we reach an '@', a '/', or EOF.
     a <- AP.takeWhile1 (AP.notInClass ['@', '/'])

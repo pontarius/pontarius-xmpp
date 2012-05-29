@@ -1,14 +1,14 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Network.XMPP.Session where
+module Network.Xmpp.Session where
 
 import Data.XML.Pickle
 import Data.XML.Types(Element)
 
-import Network.XMPP.Monad
-import Network.XMPP.Pickle
-import Network.XMPP.Types
-import Network.XMPP.Concurrent
+import Network.Xmpp.Monad
+import Network.Xmpp.Pickle
+import Network.Xmpp.Types
+import Network.Xmpp.Concurrent
 
 sessionXML :: Element
 sessionXML = pickleElem
@@ -26,7 +26,7 @@ sessionIQ = IQRequestS $ IQRequest { iqRequestID      = "sess"
 
 -- Sends the session IQ set element and waits for an answer. Throws an error if
 -- if an IQ error stanza is returned from the server.
-xmppStartSession :: XMPPConMonad ()
+xmppStartSession :: XmppConMonad ()
 xmppStartSession = do
     answer <- xmppSendIQ' "session" Nothing Set Nothing sessionXML
     case answer of
@@ -35,7 +35,7 @@ xmppStartSession = do
 
 -- Sends the session IQ set element and waits for an answer. Throws an error if
 -- if an IQ error stanza is returned from the server.
-startSession :: XMPP ()
+startSession :: Xmpp ()
 startSession = do
     answer <- sendIQ' Nothing Set Nothing sessionXML
     case answer of
