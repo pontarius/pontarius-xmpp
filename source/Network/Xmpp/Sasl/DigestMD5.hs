@@ -36,8 +36,10 @@ import           Network.Xmpp.Pickle
 
 import qualified System.Random as Random
 
-import Network.Xmpp.Sasl.Sasl
+import Network.Xmpp.Sasl.Common
 import Network.Xmpp.Sasl.Types
+
+
 
 xmppDigestMD5 :: Maybe Text -- Authorization identity (authzid)
                -> Text -- Authentication identity (authzid)
@@ -47,38 +49,26 @@ xmppDigestMD5 authzid authcid passwd = runErrorT $ do
     realm <- gets sHostname
     case realm of
         Just realm' -> do
-            ErrorT $ xmppDigestMD5' realm'
+            xmppDigestMD5' realm'
             -- TODO: Save authzid
             modify (\s -> s{sUsername = Just authcid})
         Nothing -> throwError AuthConnectionError
   where
     xmppDigestMD5' :: Text -- ^ SASL realm
-                    -> XmppConMonad (Either AuthError ())
-    xmppDigestMD5' realm = runErrorT $ do
-        -- Push element and receive the challenge (in XmppConMonad).
-        _ <- lift . pushElement $ saslInitE "DIGEST-MD5" Nothing -- TODO: Check boolean?
-        challenge' <- lift $ B64.decode . Text.encodeUtf8 <$>
-            pullPickle challengePickle
-        challenge <- case challenge' of
-            Left _e -> throwError AuthChallengeError
-            Right r -> return r
-        pairs <- case toPairs challenge of
-            Left _ -> throwError AuthChallengeError
-            Right p -> return p
+                    -> SaslM ()
+    xmppDigestMD5' realm = do
+        -- Push element and receive the challenge (in SaslM).
+        _ <- saslInit "DIGEST-MD5" Nothing -- TODO: Check boolean?
+        pairs <- toPairs =<< saslFromJust =<< pullChallenge
         g <- liftIO Random.newStdGen
-        _ <- lift . pushElement . -- TODO: Check boolean?
-            saslResponseE $ createResponse g realm pairs
-        challenge2 <- lift $ pullPickle (xpEither failurePickle challengePickle)
+        _b <- respond . Just $ createResponse g realm pairs
+        challenge2 <- pullSaslElement
         case challenge2 of
-            Left _x -> throwError AuthXmlError
-            Right _ -> return ()
-        lift $ pushElement saslResponse2E
-        e <- lift pullElement
-        case e of
-            Element "{urn:ietf:params:xml:ns:xmpp-sasl}success" [] [] ->
-                return ()
-            _ -> throwError AuthXmlError -- TODO: investigate
-        -- The SASL authentication has succeeded; the stream is restarted.
+            SaslSuccess -> return ()
+            SaslChallenge Nothing -> do
+                _b <- respond Nothing
+                pullSuccess
+            _ -> throwError AuthChallengeError
         _ <- ErrorT $ left AuthStreamError <$> xmppRestartStream
         return ()
     -- Produce the response to the challenge.
@@ -121,8 +111,6 @@ xmppDigestMD5 authzid authcid passwd = runErrorT $ do
                         , ["charset"   ,       "utf-8"  ]
                         ]
         in Text.decodeUtf8 $ B64.encode response
-    quote :: BS8.ByteString -> BS8.ByteString
-    quote x = BS.concat ["\"",x,"\""]
     toWord8 :: Int -> Word8
     toWord8 x = fromIntegral x :: Word8
     hash :: [BS8.ByteString] -> BS8.ByteString
