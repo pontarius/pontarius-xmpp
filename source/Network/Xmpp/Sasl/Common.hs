@@ -1,16 +1,19 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Network.Xmpp.Sasl.Sasl where
+module Network.Xmpp.Sasl.Common where
 
-import Network.Xmpp.Types
+import           Network.Xmpp.Types
 
+import           Control.Applicative ((<$>))
 import           Control.Monad.Error
-import           Data.Text
+
 import qualified Data.Attoparsec.ByteString.Char8 as AP
+import qualified Data.ByteString as BS
+import           Data.Maybe (fromMaybe)
+import           Data.Maybe (maybeToList)
+import           Data.Text
 import           Data.XML.Pickle
 import           Data.XML.Types
-import qualified Data.ByteString as BS
-import Data.Maybe (fromMaybe)
 
 import           Network.Xmpp.Pickle
 
@@ -20,7 +23,7 @@ saslInitE :: Text -> Maybe Text -> Element
 saslInitE mechanism rt =
     Element "{urn:ietf:params:xml:ns:xmpp-sasl}auth"
         [("mechanism", [ContentText mechanism])]
-        [NodeContent $ ContentText $ fromMaybe "" rt]
+        (maybeToList $ NodeContent . ContentText <$> rt)
 
 -- SASL response with text payload.
 saslResponseE :: Text -> Element
@@ -28,12 +31,14 @@ saslResponseE resp =
     Element "{urn:ietf:params:xml:ns:xmpp-sasl}response"
     []
     [NodeContent $ ContentText resp]
+
 -- SASL response without payload.
 saslResponse2E :: Element
 saslResponse2E =
     Element "{urn:ietf:params:xml:ns:xmpp-sasl}response"
     []
     []
+
 -- Parses the incoming SASL data to a mapped list of pairs.
 toPairs :: BS.ByteString -> Either String [(BS.ByteString, BS.ByteString)]
 toPairs = AP.parseOnly . flip AP.sepBy1 (void $ AP.char ',') $ do

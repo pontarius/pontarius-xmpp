@@ -45,11 +45,11 @@ import qualified Data.Text as T
 import Network.Xmpp.Sasl.Sasl
 import Network.Xmpp.Sasl.Types
 
-xmppPLAIN :: Maybe T.Text
+xmppPlain :: Maybe T.Text
           -> T.Text
           -> T.Text
           -> XmppConMonad (Either AuthError ())
-xmppPLAIN authzid authcid passwd = runErrorT $ do
+xmppPlain authzid authcid passwd = runErrorT $ do
     _ <- lift . pushElement $ saslInitE "PLAIN" $ -- TODO: Check boolean?
         Just $ Text.decodeUtf8 $ B64.encode $ Text.encodeUtf8 $ plainMessage authzid authcid passwd
     lift $ pushElement saslResponse2E

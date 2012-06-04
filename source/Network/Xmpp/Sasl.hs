@@ -53,7 +53,7 @@ xmppSasl creds = runErrorT $ do
             authzid
             authcid
             passwd
-        PlainCredentials authzid authcid passwd -> ErrorT $ xmppPLAIN
+        PlainCredentials authzid authcid passwd -> ErrorT $ xmppPlain
             authzid
             authcid
             passwd

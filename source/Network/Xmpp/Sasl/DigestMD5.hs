@@ -47,14 +47,14 @@ xmppDigestMD5 authzid authcid passwd = runErrorT $ do
     realm <- gets sHostname
     case realm of
         Just realm' -> do
-            ErrorT $ xmppDIGEST_MD5' realm'
+            ErrorT $ xmppDigestMD5' realm'
             -- TODO: Save authzid
             modify (\s -> s{sUsername = Just authcid})
         Nothing -> throwError AuthConnectionError
   where
-    xmppDIGEST_MD5' :: Text -- ^ SASL realm
+    xmppDigestMD5' :: Text -- ^ SASL realm
                     -> XmppConMonad (Either AuthError ())
-    xmppDIGEST_MD5' realm = runErrorT $ do
+    xmppDigestMD5' realm = runErrorT $ do
         -- Push element and receive the challenge (in XmppConMonad).
         _ <- lift . pushElement $ saslInitE "DIGEST-MD5" Nothing -- TODO: Check boolean?
         challenge' <- lift $ B64.decode . Text.encodeUtf8 <$>
