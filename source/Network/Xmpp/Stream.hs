@@ -110,12 +110,14 @@ pickleStreamFeatures :: PU [Node] ServerFeatures
 pickleStreamFeatures = xpWrap
     (\(tls, sasl, rest) -> SF tls (mbl sasl) rest)
     (\(SF tls sasl rest) -> (tls, lmb sasl, rest))
-    (xpElemNodes (Name
-         "features" (Just "http://etherx.jabber.org/streams") (Just "stream"))
-         (xpTriple
-              (xpOption pickleTLSFeature)
-              (xpOption pickleSaslFeature)
-              (xpAll xpElemVerbatim)
+    (xpDefault (Nothing, Nothing, []) -- In case there is no features element.
+         (xpElemNodes (Name
+             "features" (Just "http://etherx.jabber.org/streams") (Just "stream"))
+             (xpTriple
+                  (xpOption pickleTLSFeature)
+                  (xpOption pickleSaslFeature)
+                  (xpAll xpElemVerbatim)
+             )
          )
     )
   where
