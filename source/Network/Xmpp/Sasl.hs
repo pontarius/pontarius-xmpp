@@ -30,38 +30,42 @@ import           Network.Xmpp.Pickle
 
 import qualified System.Random as Random
 
-import Network.Xmpp.Sasl.Sasl
 import Network.Xmpp.Sasl.DigestMD5
 import Network.Xmpp.Sasl.Plain
 import Network.Xmpp.Sasl.Types
+
+
+runSasl :: (Text.Text -> Text.Text -> Maybe Text.Text -> SaslM a)
+        -> Text.Text
+        -> Maybe Text.Text
+        -> XmppConMonad (Either AuthError a)
+runSasl authAction authcid authzid = runErrorT $ do
+    hn <- gets sHostname
+    case hn of
+        Just hn' -> do
+            r <- authAction hn' authcid authzid
+            modify (\s -> s{ sUsername = Just authcid
+                           , sAuthzid = authzid
+                           })
+            _ <- ErrorT $ left AuthStreamError <$> xmppRestartStream
+            return r
+        Nothing -> throwError AuthConnectionError
 
 -- Uses the first supported mechanism to authenticate, if any. Updates the
 -- XmppConMonad state with non-password credentials and restarts the stream upon
 -- success. This computation wraps an ErrorT computation, which means that
 -- catchError can be used to catch any errors.
-xmppSasl :: [SaslCredentials] -- ^ Acceptable authentication mechanisms and
-                              --   their corresponding credentials
+xmppSasl :: Text.Text
+         -> Maybe Text.Text
+         -> [SaslHandler] -- ^ Acceptable authentication
+                                        -- mechanisms and their corresponding
+                                        -- handlers
          -> XmppConMonad (Either AuthError ())
-xmppSasl creds = runErrorT $ do
+xmppSasl authcid authzid handlers = do
     -- Chooses the first mechanism that is acceptable by both the client and the
     -- server.
     mechanisms <- gets $ saslMechanisms . sFeatures
-    let cred = L.find (\cred -> credsToName cred `elem` mechanisms) creds
-    unless (isJust cred) (throwError $ AuthMechanismError mechanisms)
-    case fromJust cred of
-        DigestMD5Credentials authzid authcid passwd -> ErrorT $ xmppDigestMD5
-            authzid
-            authcid
-            passwd
-        PlainCredentials authzid authcid passwd -> ErrorT $ xmppPlain
-            authzid
-            authcid
-            passwd
-        _ -> error "xmppSasl: Mechanism not caught"
-  where
-    -- Converts the credentials to the appropriate mechanism name, corresponding to
-    -- the XMPP mechanism attribute.
-    credsToName :: SaslCredentials -> Text
-    credsToName (DigestMD5Credentials _ _ _) = "DIGEST-MD5"
-    credsToName (PlainCredentials _ _ _) = "PLAIN"
-    credsToName c = error $ "credsToName failed for " ++ (show c)
+    case (filter (\(name,_) -> name `elem` mechanisms)) handlers of
+        [] -> return . Left $ AuthNoAcceptableMechanism mechanisms
+        (_name, handler):_ -> runSasl handler authcid authzid
+

@@ -1,3 +1,4 @@
+{-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Network.Xmpp.Sasl.Common where
@@ -6,41 +7,55 @@ import           Network.Xmpp.Types
 
 import           Control.Applicative ((<$>))
 import           Control.Monad.Error
+import           Control.Monad.State.Class
 
 import qualified Data.Attoparsec.ByteString.Char8 as AP
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base64 as B64
 import           Data.Maybe (fromMaybe)
 import           Data.Maybe (maybeToList)
-import           Data.Text
+import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text
 import           Data.XML.Pickle
 import           Data.XML.Types
+import           Data.Word (Word8)
 
 import           Network.Xmpp.Monad
 import           Network.Xmpp.Pickle
 import           Network.Xmpp.Sasl.Types
 
-data SaslElement = SaslSuccess
-                 | SaslChallenge (Maybe Text)
+import qualified System.Random as Random
+
+data SaslElement = SaslSuccess   (Maybe Text.Text)
+                 | SaslChallenge (Maybe Text.Text)
+
+--makeNonce :: SaslM BS.ByteString
+makeNonce :: IO BS.ByteString
+makeNonce = do
+    g <- liftIO Random.newStdGen
+    return $ B64.encode . BS.pack . map toWord8 . take 15 $ Random.randoms g
+  where
+    toWord8 :: Int -> Word8
+    toWord8 x = fromIntegral x :: Word8
 
 -- The <auth xmlns='urn:ietf:params:xml:ns:xmpp-sasl'/> element, with an
 -- optional round-trip value.
-saslInitE :: Text -> Maybe Text -> Element
+saslInitE :: Text.Text -> Maybe Text.Text -> Element
 saslInitE mechanism rt =
     Element "{urn:ietf:params:xml:ns:xmpp-sasl}auth"
         [("mechanism", [ContentText mechanism])]
         (maybeToList $ NodeContent . ContentText <$> rt)
 
 -- SASL response with text payload.
-saslResponseE :: Maybe Text -> Element
+saslResponseE :: Maybe Text.Text -> Element
 saslResponseE resp =
     Element "{urn:ietf:params:xml:ns:xmpp-sasl}response"
     []
     (maybeToList $ NodeContent . ContentText <$> resp)
 
-xpSuccess :: PU [Node] ()
-xpSuccess = xpElemBlank "{urn:ietf:params:xml:ns:xmpp-sasl}success"
+xpSuccess :: PU [Node] (Maybe Text.Text)
+xpSuccess = xpElemNodes "{urn:ietf:params:xml:ns:xmpp-sasl}success"
+              (xpOption $ xpContent xpId)
 
 -- Parses the incoming SASL data to a mapped list of pairs.
 pairs :: BS.ByteString -> Either String Pairs
@@ -71,23 +86,24 @@ xpFailure = xpWrap
              (xpUnit)
              (xpUnit))))
 -- Challenge element pickler.
-xpChallenge :: PU [Node] (Maybe Text)
+xpChallenge :: PU [Node] (Maybe Text.Text)
 xpChallenge = xpElemNodes "{urn:ietf:params:xml:ns:xmpp-sasl}challenge"
                       (xpOption $ xpContent xpId)
 
 xpSaslElement = xpAlt saslSel
-                [ xpWrap (const SaslSuccess) (const ())          xpSuccess
+                [ xpWrap SaslSuccess   (\(SaslSuccess x)   -> x) xpSuccess
                 , xpWrap SaslChallenge (\(SaslChallenge c) -> c) xpChallenge
                 ]
   where
-    saslSel SaslSuccess       = 0
+    saslSel (SaslSuccess   _) = 0
     saslSel (SaslChallenge _) = 1
 
 quote :: BS.ByteString -> BS.ByteString
 quote x = BS.concat ["\"",x,"\""]
 
-saslInit :: Text -> Maybe Text -> SaslM Bool
-saslInit mechanism payload = lift . pushElement $ saslInitE mechanism payload
+saslInit :: Text.Text -> Maybe BS.ByteString -> SaslM Bool
+saslInit mechanism payload = lift . pushElement . saslInitE mechanism $
+                               Text.decodeUtf8 . B64.encode <$> payload
 
 pullSaslElement :: SaslM SaslElement
 pullSaslElement = do
@@ -96,29 +112,43 @@ pullSaslElement = do
         Left e ->throwError $ AuthSaslFailure e
         Right r -> return r
 
-pullChallenge :: SaslM (Maybe Text)
+pullChallenge :: SaslM (Maybe BS.ByteString)
 pullChallenge = do
   e <- pullSaslElement
   case e of
-      SaslChallenge sc -> return sc
+      SaslChallenge Nothing -> return Nothing
+      SaslChallenge (Just scb64)
+          | Right sc <- B64.decode . Text.encodeUtf8 $ scb64
+             -> return $ Just sc
       _ -> throwError AuthChallengeError
 
 saslFromJust :: Maybe a -> SaslM a
 saslFromJust Nothing = throwError $ AuthChallengeError
 saslFromJust (Just d) = return d
 
-pullSuccess :: SaslM ()
+pullSuccess :: SaslM (Maybe Text.Text)
 pullSuccess = do
     e <- pullSaslElement
     case e of
-        SaslSuccess -> return ()
+        SaslSuccess x -> return x
         _ -> throwError $ AuthXmlError
 
-toPairs :: Text -> SaslM Pairs
-toPairs ctext = case pairs <=< B64.decode . Text.encodeUtf8 $ ctext of
+pullFinalMessage :: SaslM (Maybe Text.Text)
+pullFinalMessage = do
+    challenge2 <- pullSaslElement
+    case challenge2 of
+        SaslSuccess   x -> return x
+        SaslChallenge x -> do
+            _b <- respond Nothing
+            pullSuccess
+            return x
+
+toPairs :: BS.ByteString -> SaslM Pairs
+toPairs ctext = case pairs ctext of
     Left _e -> throwError AuthChallengeError
     Right r -> return r
 
-respond :: Maybe Text -> SaslM Bool
-respond = lift . pushElement . saslResponseE
+respond :: Maybe BS.ByteString -> SaslM Bool
+respond = lift . pushElement . saslResponseE .
+              fmap (Text.decodeUtf8 . B64.encode)
 

@@ -145,6 +145,8 @@ import Network.Xmpp.Message
 import Network.Xmpp.Monad
 import Network.Xmpp.Presence
 import Network.Xmpp.Sasl
+import Network.Xmpp.Sasl.Scram
+import Network.Xmpp.Sasl.Plain
 import Network.Xmpp.Sasl.Types
 import Network.Xmpp.Session
 import Network.Xmpp.Stream
@@ -165,7 +167,7 @@ auth  :: Text.Text  -- ^ The username
                     -- assign one
       -> XmppConMonad (Either AuthError Text.Text)
 auth username passwd resource = runErrorT $ do
-        ErrorT $ xmppSasl [DigestMD5Credentials Nothing username passwd]
+        ErrorT $ xmppSasl username Nothing [scramSha1 $ return passwd]
         res <- lift $ xmppBind resource
         lift $ xmppStartSession
         return res

@@ -40,34 +40,38 @@ import           Network.Xmpp.Pickle
 import qualified System.Random as Random
 
 import Data.Maybe (fromMaybe)
-import qualified Data.Text as T
+import qualified Data.Text as Text
 
-import Network.Xmpp.Sasl.Sasl
+import Network.Xmpp.Sasl.Common
 import Network.Xmpp.Sasl.Types
 
-xmppPlain :: Maybe T.Text
-          -> T.Text
-          -> T.Text
-          -> XmppConMonad (Either AuthError ())
-xmppPlain authzid authcid passwd = runErrorT $ do
-    _ <- lift . pushElement $ saslInitE "PLAIN" $ -- TODO: Check boolean?
-        Just $ Text.decodeUtf8 $ B64.encode $ Text.encodeUtf8 $ plainMessage authzid authcid passwd
-    lift $ pushElement saslResponse2E
-    e <- lift pullElement
-    case e of
-        Element "{urn:ietf:params:xml:ns:xmpp-sasl}success" [] [] ->
-            return ()
-        _ -> throwError AuthXmlError -- TODO: investigate
-    -- The SASL authentication has succeeded; the stream is restarted.
-    _ <- ErrorT $ left AuthStreamError <$> xmppRestartStream
+-- TODO: stringprep
+xmppPlain :: SaslM Text.Text
+          -> a
+          -> Text.Text
+          -> Maybe Text.Text
+          -> SaslM ()
+xmppPlain pw _hostname authcid authzid  = do
+    passwd <- pw
+    _ <- saslInit "PLAIN" ( Just $ plainMessage authzid authcid passwd)
+    _ <- pullSuccess
     return ()
   where
     -- Converts an optional authorization identity, an authentication identity,
     -- and a password to a \NUL-separated PLAIN message.
-    plainMessage :: Maybe T.Text -- Authorization identity (authzid)
-                 -> T.Text -- Authentication identity (authcid)
-                 -> T.Text -- Password
-                 -> T.Text -- The PLAIN message
-    plainMessage authzid authcid passwd =
-        let authzid' = fromMaybe "" authzid in
-            T.concat [authzid', "\NUL", authcid, "\NUL", passwd]
+    plainMessage :: Maybe Text.Text -- Authorization identity (authzid)
+                 -> Text.Text -- Authentication identity (authcid)
+                 -> Text.Text -- Password
+                 -> BS.ByteString -- The PLAIN message
+    plainMessage authzid authcid passwd = BS.concat $
+                                            [ authzid'
+                                            , "\NUL"
+                                            , Text.encodeUtf8 $ authcid
+                                            , "\NUL"
+                                            , Text.encodeUtf8 $ passwd
+                                            ]
+      where
+        authzid' = maybe "" Text.encodeUtf8 authzid
+
+plain :: SaslM Text.Text -> SaslHandler
+plain passwd = ("PLAIN", xmppPlain passwd)

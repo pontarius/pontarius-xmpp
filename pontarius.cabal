@@ -37,6 +37,7 @@ Library
                , binary            -any
                , attoparsec        -any
                , crypto-api        -any
+               , cryptohash        -any
                , text              -any
                , bytestring        -any
                , transformers      -any
@@ -62,6 +63,7 @@ Library
                  , Network.Xmpp.Sasl
                  , Network.Xmpp.Sasl.Plain
                  , Network.Xmpp.Sasl.DigestMD5
+                 , Network.Xmpp.Sasl.Scram
                  , Network.Xmpp.Sasl.Types
                  , Network.Xmpp.Session
                  , Network.Xmpp.Stream

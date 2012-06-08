@@ -17,7 +17,6 @@ import qualified Data.ByteString.Char8 as BS8
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.Digest.Pure.MD5 as MD5
 import qualified Data.List as L
-import           Data.Word (Word8)
 
 import qualified Data.Text as Text
 import           Data.Text (Text)
@@ -34,7 +33,6 @@ import           Network.Xmpp.Stream
 import           Network.Xmpp.Types
 import           Network.Xmpp.Pickle
 
-import qualified System.Random as Random
 
 import Network.Xmpp.Sasl.Common
 import Network.Xmpp.Sasl.Types
@@ -46,46 +44,36 @@ xmppDigestMD5 :: Maybe Text -- Authorization identity (authzid)
                -> Text -- Password (authzid)
                -> XmppConMonad (Either AuthError ())
 xmppDigestMD5 authzid authcid passwd = runErrorT $ do
-    realm <- gets sHostname
-    case realm of
-        Just realm' -> do
-            xmppDigestMD5' realm'
+    hn <- gets sHostname
+    case hn of
+        Just hn' -> do
+            xmppDigestMD5' hn'
             -- TODO: Save authzid
             modify (\s -> s{sUsername = Just authcid})
         Nothing -> throwError AuthConnectionError
   where
-    xmppDigestMD5' :: Text -- ^ SASL realm
-                    -> SaslM ()
-    xmppDigestMD5' realm = do
+    xmppDigestMD5' :: Text -> SaslM ()
+    xmppDigestMD5' hostname = do
         -- Push element and receive the challenge (in SaslM).
         _ <- saslInit "DIGEST-MD5" Nothing -- TODO: Check boolean?
         pairs <- toPairs =<< saslFromJust =<< pullChallenge
-        g <- liftIO Random.newStdGen
-        _b <- respond . Just $ createResponse g realm pairs
-        challenge2 <- pullSaslElement
-        case challenge2 of
-            SaslSuccess -> return ()
-            SaslChallenge Nothing -> do
-                _b <- respond Nothing
-                pullSuccess
-            _ -> throwError AuthChallengeError
+        cnonce <- liftIO $ makeNonce
+        _b <- respond . Just $ createResponse hostname pairs cnonce
+        challenge2 <- pullFinalMessage
         _ <- ErrorT $ left AuthStreamError <$> xmppRestartStream
         return ()
     -- Produce the response to the challenge.
-    createResponse :: Random.RandomGen g
-                   => g
-                   -> Text
-                   -> [(BS8.ByteString, BS8.ByteString)] -- Pairs
-                   -> Text
-    createResponse g hostname pairs = let
+    createResponse :: Text
+                   -> Pairs
+                   -> BS.ByteString -- nonce
+                   -> BS.ByteString
+    createResponse hostname pairs cnonce = let
         Just qop   = L.lookup "qop" pairs
         Just nonce = L.lookup "nonce" pairs
         uname_     = Text.encodeUtf8 authcid
         passwd_    = Text.encodeUtf8 passwd
         -- Using Int instead of Word8 for random 1.0.0.0 (GHC 7) compatibility.
-        cnonce     = BS.tail . BS.init .
-                         B64.encode . BS.pack . map toWord8 .
-                         take 8 $ Random.randoms g
+
         nc         = "00000001"
         digestURI  = "xmpp/" `BS.append` Text.encodeUtf8 hostname
         digest     = md5Digest
@@ -110,9 +98,7 @@ xmppDigestMD5 authzid authcid passwd = runErrorT $ do
                         , ["response"  ,       digest   ]
                         , ["charset"   ,       "utf-8"  ]
                         ]
-        in Text.decodeUtf8 $ B64.encode response
-    toWord8 :: Int -> Word8
-    toWord8 x = fromIntegral x :: Word8
+        in B64.encode response
     hash :: [BS8.ByteString] -> BS8.ByteString
     hash = BS8.pack . show
            . (CC.hash' :: BS.ByteString -> MD5.MD5Digest) . BS.intercalate (":")

@@ -655,6 +655,7 @@ data XmppConnection = XmppConnection
                , sConnectionState :: XmppConnectionState
                , sHostname        :: Maybe Text
                , sUsername        :: Maybe Text
+               , sAuthzid         :: Maybe Text
                , sResource        :: Maybe Text
                , sCloseConnection :: IO ()
                  -- TODO: add default Language

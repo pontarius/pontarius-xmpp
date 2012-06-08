@@ -99,6 +99,7 @@ xmppNoConnection = XmppConnection
                , sFeatures  = SF Nothing [] []
                , sConnectionState = XmppConnectionClosed
                , sHostname  = Nothing
+               , sAuthzid   = Nothing
                , sUsername  = Nothing
                , sResource  = Nothing
                , sCloseConnection = return ()
@@ -111,7 +112,6 @@ xmppNoConnection = XmppConnection
 -- updates the XmppConMonad XmppConnection state.
 xmppRawConnect :: HostName -> Text -> XmppConMonad ()
 xmppRawConnect host hostname = do
-    uname <- gets sUsername
     con <- liftIO $ do
         con <- connectTo host (PortNumber 5222)
         hSetBuffering con NoBuffering
@@ -126,7 +126,8 @@ xmppRawConnect host hostname = do
             (SF Nothing [] [])
             XmppConnectionPlain
             (Just hostname)
-            uname
+            Nothing
+            Nothing
             Nothing
             (hClose con)
     put st

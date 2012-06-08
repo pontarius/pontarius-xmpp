@@ -12,9 +12,9 @@ import qualified Data.Text as Text
 import           Data.XML.Pickle
 import           Data.XML.Types
 
-import           Network.XMPP
-import           Network.XMPP.IM.Presence
-import           Network.XMPP.Pickle
+import           Network.Xmpp
+import           Network.Xmpp.IM.Presence
+import           Network.Xmpp.Pickle
 
 import           System.Environment
 import Text.XML.Stream.Elements
@@ -29,7 +29,7 @@ supervisor :: JID
 supervisor = read "uart14@species64739.dyndns.org"
 
 
-attXmpp :: STM a -> XMPP a
+attXmpp :: STM a -> Xmpp a
 attXmpp = liftIO . atomically
 
 testNS :: Text
@@ -70,7 +70,7 @@ iqResponder = do
         liftIO $ threadDelay 1000000
         endSession
 
-autoAccept :: XMPP ()
+autoAccept :: Xmpp ()
 autoAccept = forever $ do
   st <- waitForPresence isPresenceSubscribe
   sendPresence $ presenceSubscribed (fromJust $ presenceFrom st)
