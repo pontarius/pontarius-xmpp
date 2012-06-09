@@ -29,28 +29,33 @@ import           Data.Word(Word8)
 import           Network.Xmpp.Sasl.Common
 import           Network.Xmpp.Sasl.Types
 
+-- | Bit-wise xor of byte strings
+xorBS :: BS.ByteString -> BS.ByteString -> BS.ByteString
 xorBS x y = BS.pack $ BS.zipWith xor x y
+
+-- | Join byte strings with ","
+merge :: [BS.ByteString] -> BS.ByteString
 merge = BS.intercalate ","
 
-type Hash = BS.ByteString -> BS.ByteString
-type Hmac = BS.ByteString -> BS.ByteString -> BS.ByteString
-
-
--- -- mKey :: Crypto.Hash ctx d => d -> BS.ByteString -> MacKey ctx d
--- -- mKey x k = Crypto.MacKey k
-
+-- | Infix concatenation of byte strings
 (+++) :: BS.ByteString -> BS.ByteString -> BS.ByteString
 (+++) = BS.append
 
+-- | A nicer name for undefined, for use as a dummy token to determin
+-- the hash function to use
 hashToken :: (Crypto.Hash ctx hash) => hash
 hashToken = undefined
 
+-- | Salted Challenge Response Authentication Mechanism (SCRAM) SASL
+-- mechanism according to RFC 5802.
+--
+-- This implementation is independent and polymorphic in the used hash function.
 scram :: (Crypto.Hash ctx hash)
-      => hash -- ^ Dummy argument to determine the hash to use. You
-              -- can safely pass undefined or a 'hashToken' to it
-      -> Text.Text
-      -> Maybe Text.Text
-      -> Text.Text
+      => hash            -- ^ Dummy argument to determine the hash to use. You
+                         --   can safely pass undefined or a 'hashToken' to it
+      -> Text.Text       -- ^ authentication ID (username)
+      -> Maybe Text.Text -- ^ authorization ID
+      -> Text.Text       -- ^ password
       -> SaslM ()
 scram hashToken authcid authzid' password = do
     cnonce <- liftIO $ makeNonce
@@ -118,35 +123,13 @@ scram hashToken authcid authzid' password = do
             u1 = hmac str (salt +++ (BS.pack [0,0,0,1]))
             us = iterate (hmac str) u1
 
---        toOectets l = encode $ x
-
-
-     -- SaltedPassword  := Hi(Normalize(password), salt, i)
-     -- ClientKey       := HMAC(SaltedPassword, "Client Key")
-     -- StoredKey       := H(ClientKey)
-     -- AuthMessage     := client-first-message-bare + "," +
-     --                    server-first-message + "," +
-     --                    client-final-message-without-proof
-     -- ClientSignature := HMAC(StoredKey, AuthMessage)
-     -- ClientProof     := ClientKey XOR ClientSignature
-     -- ServerKey       := HMAC(SaltedPassword, "Server Key")
-     -- ServerSignature := HMAC(ServerKey, AuthMessage)
-
-
     normalize = Text.encodeUtf8 . id -- TODO: stringprep
     base64 = B64.encode
 
+-- | 'scram' spezialised to the SHA-1 hash function, packaged as a SaslHandler
 scramSha1 :: SaslM Text.Text -> SaslHandler
 scramSha1 passwd = ("SCRAM-SHA-1"
                    , \_hostname authcid authzid -> do
                        pw <- passwd
                        scram (hashToken :: Crypto.SHA1) authcid authzid pw
                    )
-
-showBits x = [if testBit x i then '1' else '0' | i <- [0.. bitSize x -1]]
-
-toOctets :: (Binary a) => a -> [Word8]
-toOctets x = LBS.unpack . encode $ x
-
-intToFourWord8s i = let w8s =  toOctets $ i
-                    in drop (length w8s -4) w8s
