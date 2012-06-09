@@ -65,9 +65,10 @@ scram hashToken authcid authzid' password = do
     liftIO $ putStrLn "pulled challenge"
     pairs <- toPairs sFirstMessage
     (nonce, salt, ic) <- fromPairs pairs cnonce
-    respond . Just $ cFinalMessage nonce salt ic sFirstMessage cnonce
-    liftIO $ print ic
-    sFinalMessage <- pullFinalMessage
+    let (cfm, v) = cFinalMessageAndVerifier nonce salt ic sFirstMessage cnonce
+    respond $ Just cfm
+    finalPairs <- toPairs =<< saslFromJust =<< pullFinalMessage
+    unless (lookup "v" finalPairs == Just v) $ throwError AuthServerAuthError
     return ()
   where
     -- We need to jump through some hoops to get a polymorphic solution
@@ -99,23 +100,26 @@ scram hashToken authcid authzid' password = do
                            = return (nonce, salt, i :: Int)
     fromPairs _ _ = throwError $ AuthChallengeError
 
-    cFinalMessage nonce salt ic sfm cnonce
-        = merge [ cFinalMessageWOProof
-                 , "p=" +++ B64.encode clientProof]
+    cFinalMessageAndVerifier nonce salt ic sfm cnonce
+        =  (merge [ cFinalMessageWOProof
+                  , "p=" +++ B64.encode clientProof
+                  ]
+          , B64.encode serverSignature
+          )
       where
-        cFinalMessageWOProof = merge ["c=" +++ B64.encode gs2Header
-                                      ,"r=" +++ nonce]
+        cFinalMessageWOProof = merge [ "c=" +++ B64.encode gs2Header
+                                     , "r=" +++ nonce]
         saltedPassword       = hi (normalize password) salt ic
         clientKey            = hmac saltedPassword "Client Key"
         storedKey            = hash clientKey
         authMessage          = merge [ cFirstMessageBare cnonce
-                                      , sfm
-                                      , cFinalMessageWOProof
-                                      ]
+                                     , sfm
+                                     , cFinalMessageWOProof
+                                     ]
         clientSignature      = hmac storedKey authMessage
         clientProof          = clientKey `xorBS` clientSignature
-        -- serverKey            = hmac saltedPassword "Server Key"
-        -- serverSignature      = hmac serverKey authMessage
+        serverKey            = hmac saltedPassword "Server Key"
+        serverSignature      = hmac serverKey authMessage
 
         -- helper
         hi str salt ic = foldl1' xorBS (take ic us)

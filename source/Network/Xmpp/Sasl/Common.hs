@@ -143,15 +143,20 @@ pullSuccess = do
 
 -- | Pull the next element. When it's success, return it's payload.
 -- If it's a challenge, send an empty response and pull success
-pullFinalMessage :: SaslM (Maybe Text.Text)
+pullFinalMessage :: SaslM (Maybe BS.ByteString)
 pullFinalMessage = do
     challenge2 <- pullSaslElement
     case challenge2 of
-        SaslSuccess   x -> return x
+        SaslSuccess   x -> decode x
         SaslChallenge x -> do
             _b <- respond Nothing
-            pullSuccess
-            return x
+            _s <- pullSuccess
+            decode x
+  where
+    decode Nothing  = return Nothing
+    decode (Just d) = case B64.decode $ Text.encodeUtf8 d of
+        Left _e -> throwError $ AuthChallengeError
+        Right x -> return $ Just x
 
 -- | Extract p=q pairs from a challenge
 toPairs :: BS.ByteString -> SaslM Pairs

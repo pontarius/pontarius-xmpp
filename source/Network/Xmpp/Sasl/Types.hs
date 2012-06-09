@@ -10,6 +10,8 @@ data AuthError = AuthXmlError
                | AuthNoAcceptableMechanism [Text.Text] -- ^ Wraps mechanisms
                                                        -- offered
                | AuthChallengeError
+               | AuthServerAuthError -- ^ The server failed to authenticate
+                                     -- himself
                | AuthStreamError StreamError -- ^ Stream error on stream restart
                | AuthConnectionError -- ^ No host name set in state
                | AuthError -- General instance used for the Error instance
