@@ -17,7 +17,6 @@ import qualified Data.ByteString.Char8 as BS8
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.Digest.Pure.MD5 as MD5
 import qualified Data.List as L
-import           Data.Word (Word8)
 
 import qualified Data.Text as Text
 import           Data.Text (Text)
@@ -34,68 +33,47 @@ import           Network.Xmpp.Stream
 import           Network.Xmpp.Types
 import           Network.Xmpp.Pickle
 
-import qualified System.Random as Random
 
-import Network.Xmpp.Sasl.Sasl
+import Network.Xmpp.Sasl.Common
 import Network.Xmpp.Sasl.Types
+
+
 
 xmppDigestMD5 :: Maybe Text -- Authorization identity (authzid)
                -> Text -- Authentication identity (authzid)
                -> Text -- Password (authzid)
                -> XmppConMonad (Either AuthError ())
 xmppDigestMD5 authzid authcid passwd = runErrorT $ do
-    realm <- gets sHostname
-    case realm of
-        Just realm' -> do
-            ErrorT $ xmppDIGEST_MD5' realm'
+    hn <- gets sHostname
+    case hn of
+        Just hn' -> do
+            xmppDigestMD5' hn'
             -- TODO: Save authzid
             modify (\s -> s{sUsername = Just authcid})
         Nothing -> throwError AuthConnectionError
   where
-    xmppDIGEST_MD5' :: Text -- ^ SASL realm
-                    -> XmppConMonad (Either AuthError ())
-    xmppDIGEST_MD5' realm = runErrorT $ do
-        -- Push element and receive the challenge (in XmppConMonad).
-        _ <- lift . pushElement $ saslInitE "DIGEST-MD5" Nothing -- TODO: Check boolean?
-        challenge' <- lift $ B64.decode . Text.encodeUtf8 <$>
-            pullPickle challengePickle
-        challenge <- case challenge' of
-            Left _e -> throwError AuthChallengeError
-            Right r -> return r
-        pairs <- case toPairs challenge of
-            Left _ -> throwError AuthChallengeError
-            Right p -> return p
-        g <- liftIO Random.newStdGen
-        _ <- lift . pushElement . -- TODO: Check boolean?
-            saslResponseE $ createResponse g realm pairs
-        challenge2 <- lift $ pullPickle (xpEither failurePickle challengePickle)
-        case challenge2 of
-            Left _x -> throwError AuthXmlError
-            Right _ -> return ()
-        lift $ pushElement saslResponse2E
-        e <- lift pullElement
-        case e of
-            Element "{urn:ietf:params:xml:ns:xmpp-sasl}success" [] [] ->
-                return ()
-            _ -> throwError AuthXmlError -- TODO: investigate
-        -- The SASL authentication has succeeded; the stream is restarted.
+    xmppDigestMD5' :: Text -> SaslM ()
+    xmppDigestMD5' hostname = do
+        -- Push element and receive the challenge (in SaslM).
+        _ <- saslInit "DIGEST-MD5" Nothing -- TODO: Check boolean?
+        pairs <- toPairs =<< saslFromJust =<< pullChallenge
+        cnonce <- liftIO $ makeNonce
+        _b <- respond . Just $ createResponse hostname pairs cnonce
+        challenge2 <- pullFinalMessage
         _ <- ErrorT $ left AuthStreamError <$> xmppRestartStream
         return ()
     -- Produce the response to the challenge.
-    createResponse :: Random.RandomGen g
-                   => g
-                   -> Text
-                   -> [(BS8.ByteString, BS8.ByteString)] -- Pairs
-                   -> Text
-    createResponse g hostname pairs = let
+    createResponse :: Text
+                   -> Pairs
+                   -> BS.ByteString -- nonce
+                   -> BS.ByteString
+    createResponse hostname pairs cnonce = let
         Just qop   = L.lookup "qop" pairs
         Just nonce = L.lookup "nonce" pairs
         uname_     = Text.encodeUtf8 authcid
         passwd_    = Text.encodeUtf8 passwd
         -- Using Int instead of Word8 for random 1.0.0.0 (GHC 7) compatibility.
-        cnonce     = BS.tail . BS.init .
-                         B64.encode . BS.pack . map toWord8 .
-                         take 8 $ Random.randoms g
+
         nc         = "00000001"
         digestURI  = "xmpp/" `BS.append` Text.encodeUtf8 hostname
         digest     = md5Digest
@@ -120,11 +98,7 @@ xmppDigestMD5 authzid authcid passwd = runErrorT $ do
                         , ["response"  ,       digest   ]
                         , ["charset"   ,       "utf-8"  ]
                         ]
-        in Text.decodeUtf8 $ B64.encode response
-    quote :: BS8.ByteString -> BS8.ByteString
-    quote x = BS.concat ["\"",x,"\""]
-    toWord8 :: Int -> Word8
-    toWord8 x = fromIntegral x :: Word8
+        in B64.encode response
     hash :: [BS8.ByteString] -> BS8.ByteString
     hash = BS8.pack . show
            . (CC.hash' :: BS.ByteString -> MD5.MD5Digest) . BS.intercalate (":")
