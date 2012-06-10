@@ -9,11 +9,17 @@
 -- Portability: portable
 --
 -- The Extensible Messaging and Presence Protocol (XMPP) is an open technology
--- for real-time communication, which powers a wide range of applications
+-- for near-real-time communication, which powers a wide range of applications
 -- including instant messaging, presence, multi-party chat, voice and video
 -- calls, collaboration, lightweight middleware, content syndication, and
--- generalized routing of XML data. Pontarius an XMPP client library,
--- implementing the core capabilities of XMPP (RFC 6120).
+-- generalized routing of XML data. XMPP provides a technology for the
+-- asynchronous, end-to-end exchange of structured data by means of direct,
+-- persistent XML streams among a distributed network of globally addressable,
+-- presence-aware clients and servers.
+--
+-- Pontarius is an XMPP client library, implementing the core capabilities of
+-- XMPP (RFC 6120): setup and teardown of XML streams, channel encryption,
+-- authentication, error handling, and communication primitives for messaging.
 --
 -- Note that we are not recommending anyone to use Pontarius XMPP at this time
 -- as it's still in an experimental stage and will have its API and data types
@@ -41,8 +47,9 @@ module Network.Xmpp
   , isBare
   , isFull
   -- * Stanzas
-  -- | @Stanzas@ are the the smallest unit of communication in @XMPP@. They come
-  -- in 3 flavors:
+  -- | The basic protocol data unit in XMPP is the XML stanza. The stanza is
+  -- essentially a fragment of XML that is sent over a stream. @Stanzas@ come in
+  -- 3 flavors:
   --
   --  * @'Message'@, for traditional push-style message passing between peers
   --
@@ -88,16 +95,21 @@ module Network.Xmpp
   , waitForMessageError
   , filterMessages
   -- ** Presence
-  -- | The /presence/ stanza is a specialized /broadcast/ or /publish-subscribe/
-  -- mechanism, whereby multiple entities receive information about an entity to
-  -- which they have subscribed.
-  --
-  -- <http://xmpp.org/rfcs/rfc6120.html#stanzas-semantics-presence>
+  -- | XMPP includes the ability for an entity to advertise its network
+  -- availability, or "presence", to other entities. In XMPP, this availability
+  -- for communication is signaled end-to-end by means of a dedicated
+  -- communication primitive: the presence stanza.
   , Presence(..)
   , PresenceError(..)
   -- *** creating
   , module Network.Xmpp.Presence
   -- *** sending
+  -- | Sends a presence stanza. In general, the presence stanza should have no
+  -- 'to' attribute, in which case the server to which the client is connected
+  -- will broadcast that stanza to all subscribed entities. However, a
+  -- publishing client may also send a presence stanza with a 'to' attribute, in
+  -- which case the server will route or deliver that stanza to the intended
+  -- recipient.
   , sendPresence
   -- *** receiving
   , pullPresence
