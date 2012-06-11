@@ -179,7 +179,7 @@ auth  :: Text.Text  -- ^ The username
                     -- assign one
       -> XmppConMonad (Either AuthError Text.Text)
 auth username passwd resource = runErrorT $ do
-        ErrorT $ xmppSasl username Nothing [scramSha1 $ return passwd]
+        ErrorT $ xmppSasl username Nothing passwd [scramSha1]
         res <- lift $ xmppBind resource
-        lift $ xmppStartSession
+        lift xmppStartSession
         return res

@@ -170,9 +170,5 @@ hashToken :: (Crypto.Hash ctx hash) => hash
 hashToken = undefined
 
 -- | 'scram' spezialised to the SHA-1 hash function, packaged as a SaslHandler.
-scramSha1 :: SaslM Text.Text -> SaslHandler
-scramSha1 passwd = ("SCRAM-SHA-1"
-                   , \_hostname authcid authzid -> do
-                         pw <- passwd
-                         scram (hashToken :: Crypto.SHA1) authcid authzid pw
-                   )
+scramSha1 :: SaslHandler
+scramSha1 = ("SCRAM-SHA-1", scram (hashToken :: Crypto.SHA1))

@@ -46,32 +46,27 @@ import Network.Xmpp.Sasl.Common
 import Network.Xmpp.Sasl.Types
 
 -- TODO: stringprep
-xmppPlain :: SaslM Text.Text
-          -> a
-          -> Text.Text
-          -> Maybe Text.Text
+xmppPlain :: Text.Text -- ^ Password
+          -> Maybe Text.Text -- ^ Authorization identity (authzid)
+          -> Text.Text -- ^ Authentication identity (authcid)
           -> SaslM ()
-xmppPlain pw _hostname authcid authzid  = do
-    passwd <- pw
-    _ <- saslInit "PLAIN" ( Just $ plainMessage authzid authcid passwd)
+xmppPlain passwd authzid authcid = do
+    _ <- saslInit "PLAIN" (Just $ plainMessage passwd)
     _ <- pullSuccess
     return ()
   where
     -- Converts an optional authorization identity, an authentication identity,
     -- and a password to a \NUL-separated PLAIN message.
-    plainMessage :: Maybe Text.Text -- Authorization identity (authzid)
-                 -> Text.Text -- Authentication identity (authcid)
-                 -> Text.Text -- Password
-                 -> BS.ByteString -- The PLAIN message
-    plainMessage authzid authcid passwd = BS.concat $
-                                            [ authzid'
-                                            , "\NUL"
-                                            , Text.encodeUtf8 $ authcid
-                                            , "\NUL"
-                                            , Text.encodeUtf8 $ passwd
-                                            ]
+    plainMessage :: Text.Text -> BS.ByteString
+    plainMessage passwd = BS.concat
+        [ authzid'
+        , "\NUL"
+        , Text.encodeUtf8 authcid
+        , "\NUL"
+        , Text.encodeUtf8 passwd
+        ]
       where
         authzid' = maybe "" Text.encodeUtf8 authzid
 
-plain :: SaslM Text.Text -> SaslHandler
-plain passwd = ("PLAIN", xmppPlain passwd)
+plain :: SaslHandler
+plain = ("PLAIN", xmppPlain)
