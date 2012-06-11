@@ -13,6 +13,8 @@ import Network.Xmpp.Types
 import Network.Xmpp.Pickle
 import Network.Xmpp.Monad
 
+import Control.Monad.State(modify)
+
 -- Produces a `bind' element, optionally wrapping a resource.
 bindBody :: Maybe Text -> Element
 bindBody = pickleElem $
@@ -29,6 +31,7 @@ xmppBind rsrc = do
     answer <- xmppSendIQ' "bind" Nothing Set Nothing (bindBody rsrc)
     let Right IQResult{iqResultPayload = Just b} = answer -- TODO: Error handling
     let Right jid = unpickleElem jidP b
+    modify (\s -> s{sJid = Just jid})
     return jid
   where
     -- Extracts the character data in the `jid' element.
