@@ -46,13 +46,11 @@ import Network.Xmpp.Sasl.Common
 import Network.Xmpp.Sasl.Types
 
 -- TODO: stringprep
-xmppPlain :: SaslM Text.Text
-          -> a
-          -> Text.Text
+xmppPlain :: Text.Text
           -> Maybe Text.Text
+          -> Text.Text
           -> SaslM ()
-xmppPlain pw _hostname authcid authzid  = do
-    passwd <- pw
+xmppPlain authcid authzid passwd  = do
     _ <- saslInit "PLAIN" ( Just $ plainMessage authzid authcid passwd)
     _ <- pullSuccess
     return ()
@@ -73,5 +71,5 @@ xmppPlain pw _hostname authcid authzid  = do
       where
         authzid' = maybe "" Text.encodeUtf8 authzid
 
-plain :: SaslM Text.Text -> SaslHandler
-plain passwd = ("PLAIN", xmppPlain passwd)
+plain :: Text.Text -> Maybe Text.Text -> Text.Text -> SaslHandler
+plain authcid authzid passwd = ("PLAIN", xmppPlain authcid authzid passwd)

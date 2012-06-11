@@ -16,6 +16,7 @@ data AuthError = AuthXmlError
                | AuthConnectionError -- ^ No host name set in state
                | AuthError -- General instance used for the Error instance
                | AuthSaslFailure SaslFailure -- ^ defined SASL error condition
+               | AuthStringPrepError -- ^ StringPrep failed
                  deriving Show
 
 instance Error AuthError where
@@ -25,7 +26,4 @@ type SaslM a = ErrorT AuthError (StateT XmppConnection IO) a
 
 type Pairs = [(ByteString, ByteString)]
 
-type SaslHandler = (Text.Text, Text.Text
-                               -> Text.Text
-                               -> Maybe Text.Text
-                               -> SaslM ())
+type SaslHandler = (Text.Text, SaslM ())

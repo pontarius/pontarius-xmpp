@@ -27,6 +27,7 @@ import qualified Data.Text.Encoding as Text
 import           Data.Word(Word8)
 
 import           Network.Xmpp.Sasl.Common
+import           Network.Xmpp.Sasl.StringPrep
 import           Network.Xmpp.Sasl.Types
 
 -- | Bit-wise xor of byte strings
@@ -57,83 +58,91 @@ scram :: (Crypto.Hash ctx hash)
       -> Maybe Text.Text -- ^ authorization ID
       -> Text.Text       -- ^ password
       -> SaslM ()
-scram hashToken authcid authzid' password = do
-    cnonce <- liftIO $ makeNonce
-    saslInit "SCRAM-SHA-1" (Just $ cFirstMessage cnonce)
-    liftIO $ putStrLn "pulling challenge"
-    sFirstMessage <- saslFromJust =<< pullChallenge
-    liftIO $ putStrLn "pulled challenge"
-    pairs <- toPairs sFirstMessage
-    (nonce, salt, ic) <- fromPairs pairs cnonce
-    let (cfm, v) = cFinalMessageAndVerifier nonce salt ic sFirstMessage cnonce
-    respond $ Just cfm
-    finalPairs <- toPairs =<< saslFromJust =<< pullFinalMessage
-    unless (lookup "v" finalPairs == Just v) $ throwError AuthServerAuthError
-    return ()
+scram hashToken authcid authzid password = case credentials of
+    Nothing -> throwError $ AuthStringPrepError
+    Just (ac, az, pw) -> scramhelper hashToken ac az pw
   where
-    -- We need to jump through some hoops to get a polymorphic solution
-    encode :: Crypto.Hash ctx hash => hash -> hash -> BS.ByteString
-    encode _hashtoken = Crypto.encode
-    hash str = encode hashToken $ Crypto.hash' str
-    hmac key str = encode hashToken $ Crypto.hmac' (Crypto.MacKey key) str
-
-    authzid              = (\z -> "a=" +++ normalize z) <$> authzid'
-    gs2CbindFlag         = "n" -- we don't support channel binding yet
-    gs2Header            = merge $ [ gs2CbindFlag
-                                    , maybe "" id authzid
-                                    , ""
-                                    ]
-    cbindData            = "" -- we don't support channel binding yet
-    cFirstMessageBare cnonce = merge [ "n=" +++ normalize authcid
-                                     , "r=" +++ cnonce]
-    cFirstMessage cnonce = gs2Header +++ cFirstMessageBare cnonce
-
-    fromPairs :: Pairs
-              -> BS.ByteString
-              -> SaslM (BS.ByteString, BS.ByteString, Int)
-    fromPairs pairs cnonce | Just nonce <- lookup "r" pairs
-                           , cnonce `BS.isPrefixOf` nonce
-                           , Just salt' <- lookup "s" pairs
-                           , Right salt <- B64.decode salt'
-                           , Just ic <- lookup "i" pairs
-                           , [(i,"")] <- reads $ BS8.unpack ic
-                           = return (nonce, salt, i :: Int)
-    fromPairs _ _ = throwError $ AuthChallengeError
-
-    cFinalMessageAndVerifier nonce salt ic sfm cnonce
-        =  (merge [ cFinalMessageWOProof
-                  , "p=" +++ B64.encode clientProof
-                  ]
-          , B64.encode serverSignature
-          )
+    credentials = do
+      ac <- normalizeUsername authcid
+      az <- case authzid of
+        Nothing -> Just Nothing
+        Just az' -> Just <$> normalizeUsername az'
+      pw <- normalizePassword password
+      return (ac, az, pw)
+    scramhelper hashToken authcid authzid' password = do
+        cnonce <- liftIO $ makeNonce
+        saslInit "SCRAM-SHA-1" (Just $ cFirstMessage cnonce)
+        sFirstMessage <- saslFromJust =<< pullChallenge
+        pairs <- toPairs sFirstMessage
+        (nonce, salt, ic) <- fromPairs pairs cnonce
+        let (cfm, v) = cFinalMessageAndVerifier nonce salt ic sFirstMessage cnonce
+        respond $ Just cfm
+        finalPairs <- toPairs =<< saslFromJust =<< pullFinalMessage
+        unless (lookup "v" finalPairs == Just v) $ throwError AuthServerAuthError
+        return ()
       where
-        cFinalMessageWOProof = merge [ "c=" +++ B64.encode gs2Header
-                                     , "r=" +++ nonce]
-        saltedPassword       = hi (normalize password) salt ic
-        clientKey            = hmac saltedPassword "Client Key"
-        storedKey            = hash clientKey
-        authMessage          = merge [ cFirstMessageBare cnonce
-                                     , sfm
-                                     , cFinalMessageWOProof
-                                     ]
-        clientSignature      = hmac storedKey authMessage
-        clientProof          = clientKey `xorBS` clientSignature
-        serverKey            = hmac saltedPassword "Server Key"
-        serverSignature      = hmac serverKey authMessage
+        -- We need to jump through some hoops to get a polymorphic solution
+        encode :: Crypto.Hash ctx hash => hash -> hash -> BS.ByteString
+        encode _hashtoken = Crypto.encode
+        hash str = encode hashToken $ Crypto.hash' str
+        hmac key str = encode hashToken $ Crypto.hmac' (Crypto.MacKey key) str
 
-        -- helper
-        hi str salt ic = foldl1' xorBS (take ic us)
+        authzid              = (\z -> "a=" +++ Text.encodeUtf8 z) <$> authzid'
+        gs2CbindFlag         = "n" -- we don't support channel binding yet
+        gs2Header            = merge $ [ gs2CbindFlag
+                                        , maybe "" id authzid
+                                        , ""
+                                        ]
+        cbindData            = "" -- we don't support channel binding yet
+        cFirstMessageBare cnonce = merge [ "n=" +++ Text.encodeUtf8 authcid
+                                         , "r=" +++ cnonce]
+        cFirstMessage cnonce = gs2Header +++ cFirstMessageBare cnonce
+
+        fromPairs :: Pairs
+                  -> BS.ByteString
+                  -> SaslM (BS.ByteString, BS.ByteString, Int)
+        fromPairs pairs cnonce | Just nonce <- lookup "r" pairs
+                               , cnonce `BS.isPrefixOf` nonce
+                               , Just salt' <- lookup "s" pairs
+                               , Right salt <- B64.decode salt'
+                               , Just ic <- lookup "i" pairs
+                               , [(i,"")] <- reads $ BS8.unpack ic
+                               = return (nonce, salt, i :: Int)
+        fromPairs _ _ = throwError $ AuthChallengeError
+
+        cFinalMessageAndVerifier nonce salt ic sfm cnonce
+            =  (merge [ cFinalMessageWOProof
+                      , "p=" +++ B64.encode clientProof
+                      ]
+              , B64.encode serverSignature
+              )
           where
-            u1 = hmac str (salt +++ (BS.pack [0,0,0,1]))
-            us = iterate (hmac str) u1
+            cFinalMessageWOProof = merge [ "c=" +++ B64.encode gs2Header
+                                         , "r=" +++ nonce]
+            saltedPassword       = hi (Text.encodeUtf8 password) salt ic
+            clientKey            = hmac saltedPassword "Client Key"
+            storedKey            = hash clientKey
+            authMessage          = merge [ cFirstMessageBare cnonce
+                                         , sfm
+                                         , cFinalMessageWOProof
+                                         ]
+            clientSignature      = hmac storedKey authMessage
+            clientProof          = clientKey `xorBS` clientSignature
+            serverKey            = hmac saltedPassword "Server Key"
+            serverSignature      = hmac serverKey authMessage
 
-    normalize = Text.encodeUtf8 . id -- TODO: stringprep
-    base64 = B64.encode
+            -- helper
+            hi str salt ic = foldl1' xorBS (take ic us)
+              where
+                u1 = hmac str (salt +++ (BS.pack [0,0,0,1]))
+                us = iterate (hmac str) u1
 
 -- | 'scram' spezialised to the SHA-1 hash function, packaged as a SaslHandler
-scramSha1 :: SaslM Text.Text -> SaslHandler
-scramSha1 passwd = ("SCRAM-SHA-1"
-                   , \_hostname authcid authzid -> do
-                       pw <- passwd
-                       scram (hashToken :: Crypto.SHA1) authcid authzid pw
-                   )
+scramSha1 :: Text.Text  -- ^ username
+          -> Maybe Text.Text -- ^ authorization ID
+          -> Text.Text   -- ^ password
+          -> SaslHandler
+scramSha1 authcid authzid passwd =
+    ("SCRAM-SHA-1"
+    , scram (hashToken :: Crypto.SHA1) authcid authzid passwd
+    )

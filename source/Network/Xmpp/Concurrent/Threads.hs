@@ -54,7 +54,7 @@ readWorker messageC presenceC stanzaC iqHands handlers stateRef =
                    [ Ex.Handler $ \(Interrupt t) -> do
                          void $ handleInterrupts [t]
                          return Nothing
-                   , Ex.Handler $ \e -> noCon handlers (e :: StreamError)
+                   , Ex.Handler $ \(e :: StreamError) -> noCon handlers e
                    ]
         liftIO . atomically $ do
           case res of

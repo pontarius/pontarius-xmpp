@@ -177,9 +177,9 @@ auth  :: Text.Text  -- ^ The username
       -> Text.Text  -- ^ The password
       -> Maybe Text -- ^ The desired resource or 'Nothing' to let the server
                     -- assign one
-      -> XmppConMonad (Either AuthError Text.Text)
+      -> XmppConMonad (Either AuthError JID)
 auth username passwd resource = runErrorT $ do
-        ErrorT $ xmppSasl username Nothing [scramSha1 $ return passwd]
+        ErrorT $ xmppSasl [scramSha1 username Nothing passwd]
         res <- lift $ xmppBind resource
         lift $ xmppStartSession
         return res

@@ -30,42 +30,32 @@ import           Network.Xmpp.Pickle
 
 import qualified System.Random as Random
 
-import Network.Xmpp.Sasl.DigestMD5
-import Network.Xmpp.Sasl.Plain
 import Network.Xmpp.Sasl.Types
 
 
-runSasl :: (Text.Text -> Text.Text -> Maybe Text.Text -> SaslM a)
-        -> Text.Text
-        -> Maybe Text.Text
-        -> XmppConMonad (Either AuthError a)
-runSasl authAction authcid authzid = runErrorT $ do
-    hn <- gets sHostname
-    case hn of
-        Just hn' -> do
-            r <- authAction hn' authcid authzid
-            modify (\s -> s{ sUsername = Just authcid
-                           , sAuthzid = authzid
-                           })
+runSasl :: SaslM a -> XmppConMonad (Either AuthError a)
+runSasl authAction = runErrorT $ do
+    cs <- gets sConnectionState
+    case cs of
+        XmppConnectionClosed -> throwError AuthConnectionError
+        _ -> do
+            r <- authAction
             _ <- ErrorT $ left AuthStreamError <$> xmppRestartStream
             return r
-        Nothing -> throwError AuthConnectionError
+
 
 -- Uses the first supported mechanism to authenticate, if any. Updates the
 -- XmppConMonad state with non-password credentials and restarts the stream upon
 -- success. This computation wraps an ErrorT computation, which means that
 -- catchError can be used to catch any errors.
-xmppSasl :: Text.Text
-         -> Maybe Text.Text
-         -> [SaslHandler] -- ^ Acceptable authentication
+xmppSasl :: [SaslHandler] -- ^ Acceptable authentication
                                         -- mechanisms and their corresponding
                                         -- handlers
          -> XmppConMonad (Either AuthError ())
-xmppSasl authcid authzid handlers = do
+xmppSasl handlers = do
     -- Chooses the first mechanism that is acceptable by both the client and the
     -- server.
     mechanisms <- gets $ saslMechanisms . sFeatures
     case (filter (\(name,_) -> name `elem` mechanisms)) handlers of
         [] -> return . Left $ AuthNoAcceptableMechanism mechanisms
-        (_name, handler):_ -> runSasl handler authcid authzid
-
+        (_name, handler):_ -> runSasl handler

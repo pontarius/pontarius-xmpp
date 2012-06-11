@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Network.Xmpp.Sasl.DigestMD5 where
+module Network.Xmpp.Sasl.DigestMd5 where
 
 import           Control.Applicative
 import           Control.Arrow (left)
@@ -39,11 +39,11 @@ import Network.Xmpp.Sasl.Types
 
 
 
-xmppDigestMD5 :: Maybe Text -- Authorization identity (authzid)
+xmppDigestMd5 :: Maybe Text -- Authorization identity (authzid)
                -> Text -- Authentication identity (authzid)
                -> Text -- Password (authzid)
-               -> XmppConMonad (Either AuthError ())
-xmppDigestMD5 authzid authcid passwd = runErrorT $ do
+               -> SaslM ()
+xmppDigestMd5 authzid authcid passwd = do
     hn <- gets sHostname
     case hn of
         Just hn' -> do
@@ -68,7 +68,7 @@ xmppDigestMD5 authzid authcid passwd = runErrorT $ do
                    -> BS.ByteString -- nonce
                    -> BS.ByteString
     createResponse hostname pairs cnonce = let
-        Just qop   = L.lookup "qop" pairs
+        Just qop   = L.lookup "qop" pairs -- TODO: proper handling
         Just nonce = L.lookup "nonce" pairs
         uname_     = Text.encodeUtf8 authcid
         passwd_    = Text.encodeUtf8 passwd
@@ -124,3 +124,11 @@ xmppDigestMD5 authzid authcid passwd = runErrorT $ do
                      ]
           ha2 = hash ["AUTHENTICATE", digestURI]
       in hash [ha1, nonce, nc, cnonce, qop, ha2]
+
+digestMd5 :: Maybe Text -- Authorization identity (authzid)
+          -> Text -- Authentication identity (authzid)
+          -> Text -- Password (authzid)
+          -> SaslHandler
+digestMd5 authzid authcid password = ( "DIGEST-MD5"
+                                     , xmppDigestMd5 authzid authcid password
+                                     )
