@@ -14,7 +14,7 @@ presence = Presence { presenceID       = Nothing
                     }
 
 -- | Request subscription with an entity.
-presenceSubscribe :: JID -> Presence
+presenceSubscribe :: Jid -> Presence
 presenceSubscribe to = presence { presenceTo = Just to
                                 , presenceType = Just Subscribe
                                 }
@@ -24,7 +24,7 @@ isPresenceSubscribe :: Presence -> Bool
 isPresenceSubscribe pres = presenceType pres == (Just Subscribe)
 
 -- | Approve a subscripton of an entity.
-presenceSubscribed :: JID -> Presence
+presenceSubscribed :: Jid -> Presence
 presenceSubscribed to = presence { presenceTo = Just to
                                  , presenceType = Just Subscribed
                                  }
@@ -34,7 +34,7 @@ isPresenceSubscribed :: Presence -> Bool
 isPresenceSubscribed pres = presenceType pres == (Just Subscribed)
 
 -- | End a subscription with an entity.
-presenceUnsubscribe :: JID -> Presence
+presenceUnsubscribe :: Jid -> Presence
 presenceUnsubscribe to = presence { presenceTo = Just to
                                   , presenceType = Just Unsubscribed
                                   }

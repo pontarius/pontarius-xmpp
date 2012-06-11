@@ -24,7 +24,7 @@ bindBody = pickleElem $
 
 -- Sends a (synchronous) IQ set request for a (`Just') given or server-generated
 -- resource and extract the JID from the non-error response.
-xmppBind  :: Maybe Text -> XmppConMonad JID
+xmppBind  :: Maybe Text -> XmppConMonad Jid
 xmppBind rsrc = do
     answer <- xmppSendIQ' "bind" Nothing Set Nothing (bindBody rsrc)
     let Right IQResult{iqResultPayload = Just b} = answer -- TODO: Error handling
@@ -32,7 +32,7 @@ xmppBind rsrc = do
     return jid
   where
     -- Extracts the character data in the `jid' element.
-    jidP :: PU [Node] JID
+    jidP :: PU [Node] Jid
     jidP = xpBind $ xpElemNodes "jid" (xpContent xpPrim)
 
 -- A `bind' element pickler.

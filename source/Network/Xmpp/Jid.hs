@@ -3,8 +3,8 @@
 -- This module deals with JIDs, also known as XMPP addresses. For more
 -- information on JIDs, see RFC 6122: XMPP: Address Format.
 
-module Network.Xmpp.JID
-    ( JID(..)
+module Network.Xmpp.Jid
+    ( Jid(..)
     , fromText
     , fromStrings
     , isBare
@@ -23,7 +23,7 @@ import qualified Data.Text as Text
 import qualified Text.NamePrep as SP
 import qualified Text.StringPrep as SP
 
-data JID = JID { -- | The @localpart@ of a JID is an optional identifier placed
+data Jid = Jid { -- | The @localpart@ of a JID is an optional identifier placed
                  -- before the domainpart and separated from the latter by a
                  -- \'\@\' character. Typically a localpart uniquely identifies
                  -- the entity requesting and using network access provided by a
@@ -56,21 +56,21 @@ data JID = JID { -- | The @localpart@ of a JID is an optional identifier placed
                , resourcepart :: !(Maybe Text)
                } deriving Eq
 
-instance Show JID where
-  show (JID nd dmn res) =
+instance Show Jid where
+  show (Jid nd dmn res) =
       maybe "" ((++ "@") . Text.unpack) nd ++ Text.unpack dmn ++
           maybe "" (('/' :) . Text.unpack) res
 
-instance Read JID where
+instance Read Jid where
   readsPrec _ x = case fromText (Text.pack x) of
       Nothing -> []
       Just j -> [(j,"")]
 
-instance IsString JID where
+instance IsString Jid where
   fromString = fromJust . fromText . Text.pack
 
 -- | Converts a Text to a JID.
-fromText :: Text -> Maybe JID
+fromText :: Text -> Maybe Jid
 fromText t = do
     (l, d, r) <- eitherToMaybe $ AP.parseOnly jidParts t
     fromStrings l d r
@@ -79,7 +79,7 @@ fromText t = do
 
 -- | Converts localpart, domainpart, and resourcepart strings to a JID. Runs the
 -- appropriate stringprep profiles and validates the parts.
-fromStrings :: Maybe Text -> Text -> Maybe Text -> Maybe JID
+fromStrings :: Maybe Text -> Text -> Maybe Text -> Maybe Jid
 fromStrings l d r = do
     localPart <- case l of
         Nothing -> return Nothing
@@ -97,7 +97,7 @@ fromStrings l d r = do
             r'' <- SP.runStringPrep resourceprepProfile r'
             guard $ validPartLength r''
             return $ Just r''
-    return $ JID localPart domainPart resourcePart
+    return $ Jid localPart domainPart resourcePart
   where
     validDomainPart :: Text -> Bool
     validDomainPart _s = True -- TODO
@@ -106,12 +106,12 @@ fromStrings l d r = do
     validPartLength p = Text.length p > 0 && Text.length p < 1024
 
 -- | Returns True if the JID is /bare/, and False otherwise.
-isBare :: JID -> Bool
+isBare :: Jid -> Bool
 isBare j | resourcepart j == Nothing = True
          | otherwise                 = False
 
 -- | Returns True if the JID is 'full', and False otherwise.
-isFull :: JID -> Bool
+isFull :: Jid -> Bool
 isFull = not . isBare
 
 -- Parses an JID string and returns its three parts. It performs no validation

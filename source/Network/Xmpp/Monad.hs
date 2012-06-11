@@ -92,16 +92,14 @@ catchPush p = Ex.catch
 -- XmppConnection state used when there is no connection.
 xmppNoConnection :: XmppConnection
 xmppNoConnection = XmppConnection
-               { sConSrc    = zeroSource
-               , sRawSrc    = zeroSource
-               , sConPushBS = \_ -> return False -- Nothing has been sent.
-               , sConHandle = Nothing
-               , sFeatures  = SF Nothing [] []
+               { sConSrc          = zeroSource
+               , sRawSrc          = zeroSource
+               , sConPushBS       = \_ -> return False -- Nothing has been sent.
+               , sConHandle       = Nothing
+               , sFeatures        = SF Nothing [] []
                , sConnectionState = XmppConnectionClosed
-               , sHostname  = Nothing
-               , sAuthzid   = Nothing
-               , sUsername  = Nothing
-               , sResource  = Nothing
+               , sHostname        = Nothing
+               , sJid             = Nothing
                , sCloseConnection = return ()
                }
   where
@@ -119,17 +117,16 @@ xmppRawConnect host hostname = do
     let raw = sourceHandle con
     src <- liftIO . bufferSource $ raw $= XP.parseBytes def
     let st = XmppConnection
-            src
-            raw
-            (catchPush . BS.hPut con)
-            (Just con)
-            (SF Nothing [] [])
-            XmppConnectionPlain
-            (Just hostname)
-            Nothing
-            Nothing
-            Nothing
-            (hClose con)
+            { sConSrc          = src
+            , sRawSrc          = raw
+            , sConPushBS       = (catchPush . BS.hPut con)
+            , sConHandle       = (Just con)
+            , sFeatures        = (SF Nothing [] [])
+            , sConnectionState = XmppConnectionPlain
+            , sHostname        = (Just hostname)
+            , sJid             = Nothing
+            , sCloseConnection = (hClose con)
+            }
     put st
 
 -- Execute a XmppConMonad computation.
@@ -146,7 +143,7 @@ xmppKillConnection = do
 -- Sends an IQ request and waits for the response. If the response ID does not
 -- match the outgoing ID, an error is thrown.
 xmppSendIQ' :: StanzaId
-            -> Maybe JID
+            -> Maybe Jid
             -> IQRequestType
             -> Maybe LangTag
             -> Element

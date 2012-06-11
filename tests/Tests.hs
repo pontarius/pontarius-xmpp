@@ -19,13 +19,13 @@ import           Network.Xmpp.Pickle
 import           System.Environment
 import Text.XML.Stream.Elements
 
-testUser1 :: JID
+testUser1 :: Jid
 testUser1 = read "testuser1@species64739.dyndns.org/bot1"
 
-testUser2 :: JID
+testUser2 :: Jid
 testUser2 = read "testuser2@species64739.dyndns.org/bot2"
 
-supervisor :: JID
+supervisor :: Jid
 supervisor = read "uart14@species64739.dyndns.org"
 
 
@@ -75,7 +75,7 @@ autoAccept = forever $ do
   st <- waitForPresence isPresenceSubscribe
   sendPresence $ presenceSubscribed (fromJust $ presenceFrom st)
 
-simpleMessage :: JID -> Text -> Message
+simpleMessage :: Jid -> Text -> Message
 simpleMessage to txt = message
     { messageTo = Just to
     , messagePayload = [Element "body"
@@ -161,4 +161,3 @@ run i = do
   runMain debugOut (2 + i)
 
 main = run 0
-

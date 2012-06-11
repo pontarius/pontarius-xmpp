@@ -43,7 +43,7 @@ module Network.Xmpp
   -- | A JID (historically: Jabber ID) is XMPPs native format
   -- for addressing entities in the network. It is somewhat similar to an e-mail
   -- address but contains three parts instead of two:
-  , JID(..)
+  , Jid(..)
   , isBare
   , isFull
   -- * Stanzas
@@ -177,7 +177,7 @@ auth  :: Text.Text  -- ^ The username
       -> Text.Text  -- ^ The password
       -> Maybe Text -- ^ The desired resource or 'Nothing' to let the server
                     -- assign one
-      -> XmppConMonad (Either AuthError JID)
+      -> XmppConMonad (Either AuthError Jid)
 auth username passwd resource = runErrorT $ do
         ErrorT $ xmppSasl [scramSha1 username Nothing passwd]
         res <- lift $ xmppBind resource
