@@ -1,11 +1,13 @@
+{-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 {-# OPTIONS_HADDOCK hide #-}
 
 module Network.Xmpp.Bind where
 
-import Data.Text as Text
+import Control.Exception
 
+import Data.Text as Text
 import Data.XML.Pickle
 import Data.XML.Types
 
@@ -29,8 +31,11 @@ bindBody = pickleElem $
 xmppBind  :: Maybe Text -> XmppConMonad Jid
 xmppBind rsrc = do
     answer <- xmppSendIQ' "bind" Nothing Set Nothing (bindBody rsrc)
-    let Right IQResult{iqResultPayload = Just b} = answer -- TODO: Error handling
-    let Right jid = unpickleElem jidP b
+    jid <- case () of () | Right IQResult{iqResultPayload = Just b} <- answer
+                         , Right jid <- unpickleElem jidP b
+                           -> return jid
+                         | otherwise -> throw $ StreamXMLError
+                                                  "Bind could'nt unpickle JID"
     modify (\s -> s{sJid = Just jid})
     return jid
   where
