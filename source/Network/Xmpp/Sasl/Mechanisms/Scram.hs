@@ -2,7 +2,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Network.Xmpp.Sasl.Scram where
+module Network.Xmpp.Sasl.Mechanisms.Scram where
 
 import           Control.Applicative ((<$>))
 import           Control.Monad.Error
@@ -11,7 +11,6 @@ import qualified Crypto.Classes as Crypto
 import qualified Crypto.HMAC as Crypto
 import qualified Crypto.Hash.SHA1 as Crypto
 import           Data.Binary(Binary,encode)
-import           Data.Bits
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base64 as B64
 import           Data.ByteString.Char8  as BS8 (unpack)
@@ -29,18 +28,6 @@ import           Network.Xmpp.Sasl.Common
 import           Network.Xmpp.Sasl.StringPrep
 import           Network.Xmpp.Sasl.Types
 
--- | Bit-wise xor of byte strings
-xorBS :: BS.ByteString -> BS.ByteString -> BS.ByteString
-xorBS x y = BS.pack $ BS.zipWith xor x y
-
--- | Join byte strings with ","
-merge :: [BS.ByteString] -> BS.ByteString
-merge = BS.intercalate ","
-
--- | Infix concatenation of byte strings
-(+++) :: BS.ByteString -> BS.ByteString -> BS.ByteString
-(+++) = BS.append
-
 -- | A nicer name for undefined, for use as a dummy token to determin
 -- the hash function to use
 hashToken :: (Crypto.Hash ctx hash) => hash
@@ -57,17 +44,10 @@ scram :: (Crypto.Hash ctx hash)
       -> Maybe Text.Text -- ^ Authorization ID
       -> Text.Text       -- ^ Password
       -> SaslM ()
-scram hashToken authcid authzid password = case credentials of
-    Nothing -> throwError $ AuthStringPrepError
-    Just (ac, az, pw) -> scramhelper hashToken ac az pw
+scram hashToken authcid authzid password = do
+    (ac, az, pw) <- prepCredentials authcid authzid password
+    scramhelper hashToken ac az pw
   where
-    credentials = do
-      ac <- normalizeUsername authcid
-      az <- case authzid of
-        Nothing -> Just Nothing
-        Just az' -> Just <$> normalizeUsername az'
-      pw <- normalizePassword password
-      return (ac, az, pw)
     scramhelper hashToken authcid authzid' password = do
         cnonce <- liftIO $ makeNonce
         saslInit "SCRAM-SHA-1" (Just $ cFirstMessage cnonce)

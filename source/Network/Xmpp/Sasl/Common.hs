@@ -10,19 +10,21 @@ import           Control.Monad.Error
 import           Control.Monad.State.Class
 
 import qualified Data.Attoparsec.ByteString.Char8 as AP
+import           Data.Bits
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base64 as B64
 import           Data.Maybe (fromMaybe)
 import           Data.Maybe (maybeToList)
 import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text
+import           Data.Word (Word8)
 import           Data.XML.Pickle
 import           Data.XML.Types
-import           Data.Word (Word8)
 
 import           Network.Xmpp.Monad
 import           Network.Xmpp.Pickle
 import           Network.Xmpp.Sasl.Types
+import           Network.Xmpp.Sasl.StringPrep
 
 import qualified System.Random as Random
 
@@ -166,3 +168,32 @@ toPairs ctext = case pairs ctext of
 respond :: Maybe BS.ByteString -> SaslM Bool
 respond = lift . pushElement . saslResponseE .
     fmap (Text.decodeUtf8 . B64.encode)
+
+
+-- | Run the appropriate stringprep profiles on the credentials.
+-- May fail Fails with 'AuthStringPrepError'
+prepCredentials :: Text.Text -> Maybe Text.Text -> Text.Text
+                -> SaslM (Text.Text, Maybe Text.Text, Text.Text)
+prepCredentials authcid authzid password = case credentials of
+    Nothing -> throwError $ AuthStringPrepError
+    Just (ac, az, pw) -> return (ac, az, pw)
+  where
+    credentials = do
+    ac <- normalizeUsername authcid
+    az <- case authzid of
+      Nothing -> Just Nothing
+      Just az' -> Just <$> normalizeUsername az'
+    pw <- normalizePassword password
+    return (ac, az, pw)
+
+-- | Bit-wise xor of byte strings
+xorBS :: BS.ByteString -> BS.ByteString -> BS.ByteString
+xorBS x y = BS.pack $ BS.zipWith xor x y
+
+-- | Join byte strings with ","
+merge :: [BS.ByteString] -> BS.ByteString
+merge = BS.intercalate ","
+
+-- | Infix concatenation of byte strings
+(+++) :: BS.ByteString -> BS.ByteString -> BS.ByteString
+(+++) = BS.append

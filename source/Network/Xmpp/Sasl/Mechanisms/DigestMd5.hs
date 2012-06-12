@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Network.Xmpp.Sasl.DigestMd5 where
+module Network.Xmpp.Sasl.Mechanisms.DigestMd5 where
 
 import           Control.Applicative
 import           Control.Arrow (left)
@@ -40,27 +40,18 @@ import           Network.Xmpp.Sasl.Types
 
 
 
-xmppDigestMd5 :: Maybe Text -- Authorization identity (authzid)
-               -> Text -- Authentication identity (authzid)
+xmppDigestMd5 ::  Text -- Authorization identity (authzid)
+               -> Maybe Text -- Authentication identity (authzid)
                -> Text -- Password (authzid)
                -> SaslM ()
-xmppDigestMd5 authzid authcid password = do
-    case credentials of
-        Nothing -> throwError $ AuthStringPrepError
-        Just (ac, az, pw) -> do
-        hn <- gets sHostname
-        case hn of
-            Just hn' -> do
-                xmppDigestMd5' hn' ac az pw
-            Nothing -> throwError AuthConnectionError
+xmppDigestMd5 authcid authzid password = do
+    (ac, az, pw) <- prepCredentials authcid authzid password
+    hn <- gets sHostname
+    case hn of
+        Just hn' -> do
+            xmppDigestMd5' hn' ac az pw
+        Nothing -> throwError AuthConnectionError
   where
-    credentials = do
-      ac <- normalizeUsername authcid
-      az <- case authzid of
-        Nothing -> Just Nothing
-        Just az' -> Just <$> normalizeUsername az'
-      pw <- normalizePassword password
-      return (ac, az, pw)
     xmppDigestMd5' :: Text -> Text -> Maybe Text -> Text -> SaslM ()
     xmppDigestMd5' hostname authcid authzid password = do
         -- Push element and receive the challenge (in SaslM).
@@ -142,5 +133,5 @@ digestMd5 :: Maybe Text -- Authorization identity (authzid)
           -> Text -- Password (authzid)
           -> SaslHandler
 digestMd5 authzid authcid password = ( "DIGEST-MD5"
-                                     , xmppDigestMd5 authzid authcid password
+                                     , xmppDigestMd5 authcid authzid password
                                      )

@@ -146,26 +146,25 @@ module Network.Xmpp
   , exampleParams
   ) where
 
-import Data.Text as Text
+import           Data.Text as Text
 
-import Network
+import           Network
 import qualified Network.TLS as TLS
-import Network.Xmpp.Bind
-import Network.Xmpp.Concurrent
-import Network.Xmpp.Concurrent.Types
-import Network.Xmpp.Message
-import Network.Xmpp.Monad
-import Network.Xmpp.Presence
-import Network.Xmpp.Sasl
-import Network.Xmpp.Sasl.Scram
-import Network.Xmpp.Sasl.Plain
-import Network.Xmpp.Sasl.Types
-import Network.Xmpp.Session
-import Network.Xmpp.Stream
-import Network.Xmpp.TLS
-import Network.Xmpp.Types
+import           Network.Xmpp.Bind
+import           Network.Xmpp.Concurrent
+import           Network.Xmpp.Concurrent.Types
+import           Network.Xmpp.Message
+import           Network.Xmpp.Monad
+import           Network.Xmpp.Presence
+import           Network.Xmpp.Sasl
+import           Network.Xmpp.Sasl.Mechanisms
+import           Network.Xmpp.Sasl.Types
+import           Network.Xmpp.Session
+import           Network.Xmpp.Stream
+import           Network.Xmpp.TLS
+import           Network.Xmpp.Types
 
-import Control.Monad.Error
+import           Control.Monad.Error
 
 -- | Connect to host with given address.
 connect :: HostName -> Text -> XmppConMonad (Either StreamError ())

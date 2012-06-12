@@ -61,9 +61,9 @@ Library
                  , Network.Xmpp.Pickle
                  , Network.Xmpp.Presence
                  , Network.Xmpp.Sasl
-                 , Network.Xmpp.Sasl.Plain
-                 , Network.Xmpp.Sasl.DigestMd5
-                 , Network.Xmpp.Sasl.Scram
+                 , Network.Xmpp.Sasl.Mechanisms.Plain
+                 , Network.Xmpp.Sasl.Mechanisms.DigestMd5
+                 , Network.Xmpp.Sasl.Mechanisms.Scram
                  , Network.Xmpp.Sasl.Types
                  , Network.Xmpp.Session
                  , Network.Xmpp.Stream
