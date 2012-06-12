@@ -170,15 +170,29 @@ import           Control.Monad.Error
 connect :: HostName -> Text -> XmppConMonad (Either StreamError ())
 connect  address hostname = xmppRawConnect address hostname >> xmppStartStream
 
+
+-- | Authenticate to the server using the first matching method and bind a
+-- resource.
+auth :: [SaslHandler]
+     -> Maybe Text
+     -> XmppConMonad (Either AuthError Jid)
+auth mechanisms resource = runErrorT $ do
+    ErrorT $ xmppSasl mechanisms
+    jid <- lift $ xmppBind resource
+    lift $ xmppStartSession
+    return jid
+
 -- | Authenticate to the server with the given username and password
--- and bind a resource
-auth  :: Text.Text  -- ^ The username
-      -> Text.Text  -- ^ The password
-      -> Maybe Text -- ^ The desired resource or 'Nothing' to let the server
-                    -- assign one
-      -> XmppConMonad (Either AuthError Jid)
-auth username passwd resource = runErrorT $ do
-        ErrorT $ xmppSasl [scramSha1 username Nothing passwd]
-        jid <- lift $ xmppBind resource
-        lift $ xmppStartSession
-        return jid
+-- and bind a resource.
+--
+-- Prefers SCRAM-SHA1 over DIGEST-MD5.
+simpleAuth  :: Text.Text  -- ^ The username
+            -> Text.Text  -- ^ The password
+            -> Maybe Text -- ^ The desired resource or 'Nothing' to let the
+                          -- server assign one
+            -> XmppConMonad (Either AuthError Jid)
+simpleAuth username passwd resource = flip auth resource $
+        [ -- TODO: scramSha1Plus
+          scramSha1 username Nothing passwd
+        , digestMd5 username Nothing passwd
+        ]
