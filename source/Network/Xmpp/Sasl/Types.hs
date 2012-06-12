@@ -14,9 +14,10 @@ data AuthError = AuthXmlError
                                      -- itself
                | AuthStreamError StreamError -- ^ Stream error on stream restart
                -- TODO: Rename AuthConnectionError?
-               | AuthConnectionError -- ^ No host name set in state
+               | AuthConnectionError -- ^ Connection is closed
                | AuthError -- General instance used for the Error instance
                | AuthSaslFailure SaslFailure -- ^ Defined SASL error condition
+               | AuthStringPrepError -- ^ StringPrep failed
                  deriving Show
 
 instance Error AuthError where
@@ -32,8 +33,4 @@ type SaslM a = ErrorT AuthError (StateT XmppConnection IO) a
 type Pairs = [(ByteString, ByteString)]
 
 -- | Tuple defining the SASL Handler's name, and a SASL mechanism computation
--- taking an authentication identity, an optional authorization identity, and a
--- password.
-type SaslHandler = ( Text.Text,
-                     Text.Text -> Maybe Text.Text -> Text.Text -> SaslM ()
-                   )
+type SaslHandler = (Text.Text, SaslM ())

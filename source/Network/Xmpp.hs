@@ -43,7 +43,7 @@ module Network.Xmpp
   -- | A JID (historically: Jabber ID) is XMPPs native format
   -- for addressing entities in the network. It is somewhat similar to an e-mail
   -- address but contains three parts instead of two:
-  , JID(..)
+  , Jid(..)
   , isBare
   , isFull
   -- * Stanzas
@@ -146,40 +146,53 @@ module Network.Xmpp
   , exampleParams
   ) where
 
-import Data.Text as Text
+import           Data.Text as Text
 
-import Network
+import           Network
 import qualified Network.TLS as TLS
-import Network.Xmpp.Bind
-import Network.Xmpp.Concurrent
-import Network.Xmpp.Concurrent.Types
-import Network.Xmpp.Message
-import Network.Xmpp.Monad
-import Network.Xmpp.Presence
-import Network.Xmpp.Sasl
-import Network.Xmpp.Sasl.Scram
-import Network.Xmpp.Sasl.Plain
-import Network.Xmpp.Sasl.Types
-import Network.Xmpp.Session
-import Network.Xmpp.Stream
-import Network.Xmpp.TLS
-import Network.Xmpp.Types
+import           Network.Xmpp.Bind
+import           Network.Xmpp.Concurrent
+import           Network.Xmpp.Concurrent.Types
+import           Network.Xmpp.Message
+import           Network.Xmpp.Monad
+import           Network.Xmpp.Presence
+import           Network.Xmpp.Sasl
+import           Network.Xmpp.Sasl.Mechanisms
+import           Network.Xmpp.Sasl.Types
+import           Network.Xmpp.Session
+import           Network.Xmpp.Stream
+import           Network.Xmpp.TLS
+import           Network.Xmpp.Types
 
-import Control.Monad.Error
+import           Control.Monad.Error
 
 -- | Connect to host with given address.
 connect :: HostName -> Text -> XmppConMonad (Either StreamError ())
 connect  address hostname = xmppRawConnect address hostname >> xmppStartStream
 
+
+-- | Authenticate to the server using the first matching method and bind a
+-- resource.
+auth :: [SaslHandler]
+     -> Maybe Text
+     -> XmppConMonad (Either AuthError Jid)
+auth mechanisms resource = runErrorT $ do
+    ErrorT $ xmppSasl mechanisms
+    jid <- lift $ xmppBind resource
+    lift $ xmppStartSession
+    return jid
+
 -- | Authenticate to the server with the given username and password
--- and bind a resource
-auth  :: Text.Text  -- ^ The username
-      -> Text.Text  -- ^ The password
-      -> Maybe Text -- ^ The desired resource or 'Nothing' to let the server
-                    -- assign one
-      -> XmppConMonad (Either AuthError Text.Text)
-auth username passwd resource = runErrorT $ do
-        ErrorT $ xmppSasl username Nothing passwd [scramSha1]
-        res <- lift $ xmppBind resource
-        lift xmppStartSession
-        return res
+-- and bind a resource.
+--
+-- Prefers SCRAM-SHA1 over DIGEST-MD5.
+simpleAuth  :: Text.Text  -- ^ The username
+            -> Text.Text  -- ^ The password
+            -> Maybe Text -- ^ The desired resource or 'Nothing' to let the
+                          -- server assign one
+            -> XmppConMonad (Either AuthError Jid)
+simpleAuth username passwd resource = flip auth resource $
+        [ -- TODO: scramSha1Plus
+          scramSha1 username Nothing passwd
+        , digestMd5 username Nothing passwd
+        ]

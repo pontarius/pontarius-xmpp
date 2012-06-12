@@ -6,5 +6,5 @@ import Data.Text(Text)
 import Network.Xmpp.Types
 
 -- | Add a recipient to a presence notification.
-presTo :: Presence -> JID -> Presence
+presTo :: Presence -> Jid -> Presence
 presTo pres to = pres{presenceTo = Just to}

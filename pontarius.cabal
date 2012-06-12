@@ -61,16 +61,16 @@ Library
                  , Network.Xmpp.Pickle
                  , Network.Xmpp.Presence
                  , Network.Xmpp.Sasl
-                 , Network.Xmpp.Sasl.Plain
-                 , Network.Xmpp.Sasl.DigestMD5
-                 , Network.Xmpp.Sasl.Scram
+                 , Network.Xmpp.Sasl.Mechanisms.Plain
+                 , Network.Xmpp.Sasl.Mechanisms.DigestMd5
+                 , Network.Xmpp.Sasl.Mechanisms.Scram
                  , Network.Xmpp.Sasl.Types
                  , Network.Xmpp.Session
                  , Network.Xmpp.Stream
                  , Network.Xmpp.TLS
                  , Network.Xmpp.Types
   Other-modules:
-                 Network.Xmpp.JID
+                 Network.Xmpp.Jid
                  , Network.Xmpp.Concurrent.Types
                  , Network.Xmpp.Concurrent.IQ
                  , Network.Xmpp.Concurrent.Threads

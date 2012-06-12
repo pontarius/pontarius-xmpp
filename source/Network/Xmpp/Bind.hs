@@ -1,17 +1,21 @@
+{-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 {-# OPTIONS_HADDOCK hide #-}
 
 module Network.Xmpp.Bind where
 
-import Data.Text as Text
+import Control.Exception
 
+import Data.Text as Text
 import Data.XML.Pickle
 import Data.XML.Types
 
 import Network.Xmpp.Types
 import Network.Xmpp.Pickle
 import Network.Xmpp.Monad
+
+import Control.Monad.State(modify)
 
 -- Produces a `bind' element, optionally wrapping a resource.
 bindBody :: Maybe Text -> Element
@@ -24,15 +28,19 @@ bindBody = pickleElem $
 
 -- Sends a (synchronous) IQ set request for a (`Just') given or server-generated
 -- resource and extract the JID from the non-error response.
-xmppBind  :: Maybe Text -> XmppConMonad Text
+xmppBind  :: Maybe Text -> XmppConMonad Jid
 xmppBind rsrc = do
     answer <- xmppSendIQ' "bind" Nothing Set Nothing (bindBody rsrc)
-    let Right IQResult{iqResultPayload = Just b} = answer -- TODO: Error handling
-    let Right (JID _n _d (Just r)) = unpickleElem jidP b
-    return r
+    jid <- case () of () | Right IQResult{iqResultPayload = Just b} <- answer
+                         , Right jid <- unpickleElem jidP b
+                           -> return jid
+                         | otherwise -> throw $ StreamXMLError
+                                                  "Bind could'nt unpickle JID"
+    modify (\s -> s{sJid = Just jid})
+    return jid
   where
     -- Extracts the character data in the `jid' element.
-    jidP :: PU [Node] JID
+    jidP :: PU [Node] Jid
     jidP = xpBind $ xpElemNodes "jid" (xpContent xpPrim)
 
 -- A `bind' element pickler.

@@ -13,7 +13,7 @@ import Network.Xmpp.Types
 
 -- | Sends an IQ, returns a 'TMVar' that will be filled with the first inbound
 -- IQ with a matching ID that has type @result@ or @error@.
-sendIQ :: Maybe JID -- ^ Recipient (to)
+sendIQ :: Maybe Jid -- ^ Recipient (to)
        -> IQRequestType  -- ^ IQ type (@Get@ or @Set@)
        -> Maybe LangTag  -- ^ Language tag of the payload (@Nothing@ for
                          -- default)
@@ -32,7 +32,7 @@ sendIQ to tp lang body = do -- TODO: Add timeout
   return ref
 
 -- | Like 'sendIQ', but waits for the answer IQ.
-sendIQ' :: Maybe JID
+sendIQ' :: Maybe Jid
         -> IQRequestType
         -> Maybe LangTag
         -> Element

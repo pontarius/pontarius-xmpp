@@ -38,7 +38,7 @@ module Network.Xmpp.Types
     , XmppT(..)
     , XmppStreamError(..)
     , parseLangTag
-    , module Network.Xmpp.JID
+    , module Network.Xmpp.Jid
     )
        where
 
@@ -60,7 +60,7 @@ import           Data.XML.Types
 
 import qualified Network as N
 
-import           Network.Xmpp.JID
+import           Network.Xmpp.Jid
 
 import           System.IO
 
@@ -93,8 +93,8 @@ data Stanza = IQRequestS     IQRequest
 -- | A "request" Info/Query (IQ) stanza is one with either "get" or "set" as
 -- type. They are guaranteed to always contain a payload.
 data IQRequest = IQRequest { iqRequestID      :: StanzaId
-                           , iqRequestFrom    :: Maybe JID
-                           , iqRequestTo      :: Maybe JID
+                           , iqRequestFrom    :: Maybe Jid
+                           , iqRequestTo      :: Maybe Jid
                            , iqRequestLangTag :: Maybe LangTag
                            , iqRequestType    :: IQRequestType
                            , iqRequestPayload :: Element
@@ -118,16 +118,16 @@ type IQResponse = Either IQError IQResult
 
 -- | The (non-error) answer to an IQ request.
 data IQResult = IQResult { iqResultID :: StanzaId
-                         , iqResultFrom :: Maybe JID
-                         , iqResultTo :: Maybe JID
+                         , iqResultFrom :: Maybe Jid
+                         , iqResultTo :: Maybe Jid
                          , iqResultLangTag :: Maybe LangTag
                          , iqResultPayload :: Maybe Element
                          } deriving Show
 
 -- | The answer to an IQ request that generated an error.
 data IQError = IQError { iqErrorID :: StanzaId
-                       , iqErrorFrom :: Maybe JID
-                       , iqErrorTo :: Maybe JID
+                       , iqErrorFrom :: Maybe Jid
+                       , iqErrorTo :: Maybe Jid
                        , iqErrorLangTag :: Maybe LangTag
                        , iqErrorStanzaError :: StanzaError
                        , iqErrorPayload :: Maybe Element -- should this be []?
@@ -135,8 +135,8 @@ data IQError = IQError { iqErrorID :: StanzaId
 
 -- | The message stanza. Used for /push/ type communication.
 data Message = Message { messageID      :: Maybe StanzaId
-                       , messageFrom    :: Maybe JID
-                       , messageTo      :: Maybe JID
+                       , messageFrom    :: Maybe Jid
+                       , messageTo      :: Maybe Jid
                        , messageLangTag :: Maybe LangTag
                        , messageType    :: MessageType
                        , messagePayload :: [Element]
@@ -144,8 +144,8 @@ data Message = Message { messageID      :: Maybe StanzaId
 
 -- | An error stanza generated in response to a 'Message'.
 data MessageError = MessageError { messageErrorID :: Maybe StanzaId
-                                 , messageErrorFrom :: Maybe JID
-                                 , messageErrorTo :: Maybe JID
+                                 , messageErrorFrom :: Maybe Jid
+                                 , messageErrorTo :: Maybe Jid
                                  , messageErrorLangTag  :: Maybe LangTag
                                  , messageErrorStanzaError :: StanzaError
                                  , messageErrorPayload :: [Element]
@@ -204,8 +204,8 @@ instance Read MessageType where
 
 -- | The presence stanza. Used for communicating status updates.
 data Presence = Presence { presenceID      :: Maybe StanzaId
-                         , presenceFrom    :: Maybe JID
-                         , presenceTo      :: Maybe JID
+                         , presenceFrom    :: Maybe Jid
+                         , presenceTo      :: Maybe Jid
                          , presenceLangTag :: Maybe LangTag
                          , presenceType    :: Maybe PresenceType
                          , presencePayload :: [Element]
@@ -214,8 +214,8 @@ data Presence = Presence { presenceID      :: Maybe StanzaId
 
 -- | An error stanza generated in response to a 'Presence'.
 data PresenceError = PresenceError { presenceErrorID          :: Maybe StanzaId
-                                   , presenceErrorFrom        :: Maybe JID
-                                   , presenceErrorTo          :: Maybe JID
+                                   , presenceErrorFrom        :: Maybe Jid
+                                   , presenceErrorTo          :: Maybe Jid
                                    , presenceErrorLangTag     :: Maybe LangTag
                                    , presenceErrorStanzaError :: StanzaError
                                    , presenceErrorPayload     :: [Element]
@@ -324,7 +324,7 @@ data StanzaErrorCondition = BadRequest            -- ^ Malformed XML.
                                                   --   address.
                           | InternalServerError
                           | ItemNotFound
-                          | JIDMalformed
+                          | JidMalformed
                           | NotAcceptable         -- ^ Does not meet policy
                                                   --   criteria.
                           | NotAllowed            -- ^ No entity may perform
@@ -357,7 +357,7 @@ instance Show StanzaErrorCondition where
     show Gone = "gone"
     show InternalServerError = "internal-server-error"
     show ItemNotFound = "item-not-found"
-    show JIDMalformed = "jid-malformed"
+    show JidMalformed = "jid-malformed"
     show NotAcceptable = "not-acceptable"
     show NotAllowed = "not-allowed"
     show NotAuthorized = "not-authorized"
@@ -381,7 +381,7 @@ instance Read StanzaErrorCondition where
     readsPrec _  "gone"                    = [(Gone                 , "")]
     readsPrec _  "internal-server-error"   = [(InternalServerError  , "")]
     readsPrec _  "item-not-found"          = [(ItemNotFound         , "")]
-    readsPrec _  "jid-malformed"           = [(JIDMalformed         , "")]
+    readsPrec _  "jid-malformed"           = [(JidMalformed         , "")]
     readsPrec _  "not-acceptable"          = [(NotAcceptable        , "")]
     readsPrec _  "not-allowed"             = [(NotAllowed           , "")]
     readsPrec _  "not-authorized"          = [(NotAuthorized        , "")]
@@ -654,9 +654,7 @@ data XmppConnection = XmppConnection
                , sFeatures        :: ServerFeatures
                , sConnectionState :: XmppConnectionState
                , sHostname        :: Maybe Text
-               , sUsername        :: Maybe Text
-               , sAuthzid         :: Maybe Text
-               , sResource        :: Maybe Text
+               , sJid             :: Maybe Jid
                , sCloseConnection :: IO ()
                  -- TODO: add default Language
                }
