@@ -67,7 +67,7 @@ body m = ms
 
 -- | Generate a new instant message
 newIM
-  :: JID
+  :: Jid
      -> Maybe StanzaId
      -> Maybe LangTag
      -> MessageType
@@ -90,7 +90,7 @@ newIM t i lang tp sbj thrd bdy payload = Message
     }
 
 -- | Generate a simple instance message
-simpleIM :: JID -> Text -> Message
+simpleIM :: Jid -> Text -> Message
 simpleIM t bd = newIM
                   t
                   Nothing

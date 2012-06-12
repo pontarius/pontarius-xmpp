@@ -62,7 +62,7 @@ Library
                  , Network.Xmpp.Presence
                  , Network.Xmpp.Sasl
                  , Network.Xmpp.Sasl.Plain
-                 , Network.Xmpp.Sasl.DigestMD5
+                 , Network.Xmpp.Sasl.DigestMd5
                  , Network.Xmpp.Sasl.Scram
                  , Network.Xmpp.Sasl.Types
                  , Network.Xmpp.Session
@@ -70,7 +70,7 @@ Library
                  , Network.Xmpp.TLS
                  , Network.Xmpp.Types
   Other-modules:
-                 Network.Xmpp.JID
+                 Network.Xmpp.Jid
                  , Network.Xmpp.Concurrent.Types
                  , Network.Xmpp.Concurrent.IQ
                  , Network.Xmpp.Concurrent.Threads

@@ -46,9 +46,9 @@ import Network.Xmpp.Sasl.Common
 import Network.Xmpp.Sasl.Types
 
 -- TODO: stringprep
-xmppPlain :: Text.Text
-          -> Maybe Text.Text
-          -> Text.Text
+xmppPlain :: Text.Text -- ^ Password
+          -> Maybe Text.Text -- ^ Authorization identity (authzid)
+          -> Text.Text -- ^ Authentication identity (authcid)
           -> SaslM ()
 xmppPlain authcid authzid passwd  = do
     _ <- saslInit "PLAIN" ( Just $ plainMessage authzid authcid passwd)

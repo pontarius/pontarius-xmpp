@@ -11,19 +11,26 @@ data AuthError = AuthXmlError
                                                        -- offered
                | AuthChallengeError
                | AuthServerAuthError -- ^ The server failed to authenticate
-                                     -- himself
+                                     -- itself
                | AuthStreamError StreamError -- ^ Stream error on stream restart
-               | AuthConnectionError -- ^ No host name set in state
+               -- TODO: Rename AuthConnectionError?
+               | AuthConnectionError -- ^ Connection is closed
                | AuthError -- General instance used for the Error instance
-               | AuthSaslFailure SaslFailure -- ^ defined SASL error condition
+               | AuthSaslFailure SaslFailure -- ^ Defined SASL error condition
                | AuthStringPrepError -- ^ StringPrep failed
                  deriving Show
 
 instance Error AuthError where
     noMsg = AuthError
 
+data SaslElement = SaslSuccess   (Maybe Text.Text)
+                 | SaslChallenge (Maybe Text.Text)
+
+-- | SASL mechanism XmppConnection computation, with the possibility of throwing
+-- an authentication error.
 type SaslM a = ErrorT AuthError (StateT XmppConnection IO) a
 
 type Pairs = [(ByteString, ByteString)]
 
+-- | Tuple defining the SASL Handler's name, and a SASL mechanism computation
 type SaslHandler = (Text.Text, SaslM ())
