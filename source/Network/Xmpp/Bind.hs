@@ -35,7 +35,7 @@ xmppBind rsrc = do
                          , Right jid <- unpickleElem jidP b
                            -> return jid
                          | otherwise -> throw $ StreamXMLError
-                                                  "Bind could'nt unpickle JID"
+                                                  "Bind couldn't unpickle JID"
     modify (\s -> s{sJid = Just jid})
     return jid
   where
