@@ -40,6 +40,15 @@ pushElement x = do
 pushStanza :: Stanza -> XmppConMonad Bool
 pushStanza = pushElement . pickleElem xpStanza
 
+-- XML documents and XMPP streams SHOULD be preceeded by an XML declaration.
+-- UTF-8 is the only supported XMPP encoding. The standalone document
+-- declaration (matching "SDDecl" in the XML standard) MUST NOT be included in
+-- XMPP streams. RFC 6120 defines XMPP only in terms of XML 1.0.
+pushXmlDecl :: XmppConMonad Bool
+pushXmlDecl = do
+    sink <- gets sConPushBS
+    liftIO $ sink "<?xml version='1.0' encoding='UTF-8' ?>"
+
 pushOpenElement :: Element -> XmppConMonad Bool
 pushOpenElement e = do
     sink <- gets sConPushBS
