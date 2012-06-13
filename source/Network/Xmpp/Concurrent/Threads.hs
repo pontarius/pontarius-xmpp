@@ -189,8 +189,7 @@ startThreads = do
         return ()
     zeroEventHandlers :: EventHandlers
     zeroEventHandlers = EventHandlers
-        { sessionEndHandler       = return ()
-        , connectionClosedHandler = \_ -> return ()
+        { connectionClosedHandler = \_ -> return ()
         }
 
 -- | Creates and initializes a new Xmpp session.
