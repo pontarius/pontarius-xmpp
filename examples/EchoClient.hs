@@ -25,10 +25,11 @@ import Network.Xmpp.IM
 
 -- Server and authentication details.
 
-hostName = "nejla.com"
-portNumber = 5222
-userName = "jon"
-password = "G2D9%b4S3" -- TODO
+hostname = "nejla.com"
+hostname_ = "xmpp.nejla.com" -- TODO
+-- portNumber = 5222 -- TODO
+userName = ""
+password = ""
 
 
 -- TODO: Incomplete code, needs documentation, etc.
@@ -36,9 +37,9 @@ main :: IO ()
 main = do
     withNewSession $ do
         withConnection $ do
-            connect "xmpp.nejla.com" "nejla.com"
+            connect hostname_ hostname
             -- startTLS exampleParams
-            saslResponse <- auth userName password (Just "echo-client")
+            saslResponse <- simpleAuth userName password (Just "echo-client")
             case saslResponse of
                 Right _ -> return ()
                 Left e -> error $ show e

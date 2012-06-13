@@ -35,6 +35,7 @@ module Network.Xmpp
   , withConnection
   , connect
   , startTLS
+  , simpleAuth
   , auth
   , endSession
   , setSessionEndHandler
