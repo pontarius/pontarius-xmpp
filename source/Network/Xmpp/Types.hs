@@ -50,7 +50,7 @@ import qualified Data.Attoparsec.Text as AP
 import qualified Data.ByteString as BS
 import           Data.Conduit
 import           Data.String(IsString(..))
-import           Data.Maybe (fromJust, fromMaybe)
+import           Data.Maybe (fromJust, fromMaybe, maybeToList)
 import           Data.Text (Text)
 import qualified Data.Text as Text
 import           Data.Typeable(Typeable)
@@ -596,7 +596,7 @@ instance Eq LangTag where
         map Text.toLower s == map Text.toLower t
 
 instance Read LangTag where
-    readsPrec _ txt = [(fromJust $ langTag $ Text.pack txt, "")]
+    readsPrec _ txt = (,"") <$> maybeToList (langTag $ Text.pack txt)
 
 instance Show LangTag where
     show (LangTag p []) = Text.unpack p
