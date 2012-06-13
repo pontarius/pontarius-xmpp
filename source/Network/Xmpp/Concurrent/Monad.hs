@@ -1,7 +1,9 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Network.Xmpp.Concurrent.Monad where
 
 import           Network.Xmpp.Types
 
+import           Control.Applicative((<$>))
 import           Control.Concurrent
 import           Control.Concurrent.STM
 import qualified Control.Exception.Lifted as Ex
@@ -244,4 +246,13 @@ endSession = do -- TODO: This has to be idempotent (is it?)
 
 -- | Close the connection to the server.
 closeConnection :: Xmpp ()
-closeConnection = void $ withConnection xmppKillConnection
+closeConnection = Ex.mask_ $ do
+  write <- asks writeRef
+  send <- liftIO . atomically $ takeTMVar write
+  cc <- sCloseConnection <$> (liftIO . atomically . readTMVar =<< asks conStateRef)
+  liftIO . send $ "</stream:stream>"
+  void . liftIO . forkIO $ do
+    threadDelay 3000000
+    (Ex.try cc) :: IO (Either Ex.SomeException ())
+    return ()
+  liftIO . atomically $ putTMVar write (\_ -> return False)

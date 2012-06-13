@@ -533,6 +533,7 @@ data XmppStreamError = XmppStreamError
 data StreamError = StreamError XmppStreamError
                  | StreamWrongVersion Text
                  | StreamXMLError String -- If stream pickling goes wrong.
+                 | StreamStreamEnd -- received closing stream tag
                  | StreamConnectionError
                  deriving (Show, Eq, Typeable)
 

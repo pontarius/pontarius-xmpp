@@ -37,6 +37,7 @@ module Network.Xmpp
   , startTLS
   , simpleAuth
   , auth
+  , closeConnection
   , endSession
   , setConnectionClosedHandler
   -- * JID

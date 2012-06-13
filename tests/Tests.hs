@@ -3,6 +3,7 @@ module Example where
 
 import           Control.Concurrent
 import           Control.Concurrent.STM
+import qualified Control.Exception.Lifted as Ex
 import           Control.Monad
 import           Control.Monad.IO.Class
 
@@ -17,7 +18,7 @@ import           Network.Xmpp.IM.Presence
 import           Network.Xmpp.Pickle
 
 import           System.Environment
-import Text.XML.Stream.Elements
+import           Text.XML.Stream.Elements
 
 testUser1 :: Jid
 testUser1 = read "testuser1@species64739.dyndns.org/bot1"
@@ -114,19 +115,20 @@ runMain debug number = do
                debug . (("Thread " ++ show number ++ ":") ++)
   wait <- newEmptyTMVarIO
   withNewSession $ do
-      setSessionEndHandler (liftIO . atomically $ putTMVar wait ())
       setConnectionClosedHandler (\e -> do
                   liftIO (debug' $ "connection lost because " ++ show e)
                   endSession )
       debug' "running"
-      withConnection $ do
+      withConnection $ Ex.catch (do
           connect "localhost" "species64739.dyndns.org"
           startTLS exampleParams
-          saslResponse <- auth (fromJust $ localpart we) "pwd" (resourcepart we)
+          saslResponse <- simpleAuth
+                            (fromJust $ localpart we) "pwd" (resourcepart we)
           case saslResponse of
               Right _ -> return ()
               Left e -> error $ show e
-          debug' "session standing"
+          debug' "session standing")
+          (\e -> liftIO (print (e ::Ex.SomeException) >> Ex.throwIO e) )
       sendPresence presenceOnline
       fork autoAccept
       sendPresence $ presenceSubscribe them
@@ -148,7 +150,7 @@ runMain debug number = do
             sendUser "All tests done"
             debug' "ending session"
             liftIO . atomically $ putTMVar wait ()
-            endSession
+            closeConnection
       liftIO . atomically $ takeTMVar wait
       return ()
   return ()

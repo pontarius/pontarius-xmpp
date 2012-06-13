@@ -1,21 +1,25 @@
 {-# OPTIONS_HADDOCK hide #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Text.XML.Stream.Elements where
 
 import           Control.Applicative ((<$>))
+import           Control.Exception
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Resource as R
 
 import qualified Data.ByteString as BS
-import qualified Data.Text as Text
-import qualified Data.Text.Encoding as Text
-import           Data.XML.Types
-import qualified Text.XML.Stream.Render as TXSR
-import           Text.XML.Unresolved as TXU
-
 import           Data.Conduit as C
 import           Data.Conduit.List as CL
+import qualified Data.Text as Text
+import qualified Data.Text.Encoding as Text
+import           Data.Typeable
+import           Data.XML.Types
 
 import           System.IO.Unsafe(unsafePerformIO)
+
+import qualified Text.XML.Stream.Render as TXSR
+import           Text.XML.Unresolved as TXU
 
 compressNodes :: [Node] -> [Node]
 compressNodes [] = []
@@ -24,6 +28,13 @@ compressNodes (NodeContent (ContentText x) : NodeContent (ContentText y) : z) =
     compressNodes $ NodeContent (ContentText $ x `Text.append` y) : z
 compressNodes (x:xs) = x : compressNodes xs
 
+streamName :: Name
+streamName =
+    (Name "stream" (Just "http://etherx.jabber.org/streams") (Just "stream"))
+
+data StreamEnd = StreamEnd deriving (Typeable, Show)
+instance Exception StreamEnd
+
 elements :: R.MonadThrow m => C.Conduit Event m Element
 elements = do
         x <- C.await
@@ -31,6 +42,7 @@ elements = do
             Just (EventBeginElement n as) -> do
                                                  goE n as >>= C.yield
                                                  elements
+            Just (EventEndElement streamName) -> lift $ R.monadThrow StreamEnd
             Nothing -> return ()
             _ -> lift $ R.monadThrow $ InvalidEventStream $ "not an element: " ++ show x
   where

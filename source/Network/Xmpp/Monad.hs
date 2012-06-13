@@ -64,13 +64,16 @@ pullToSink snk = do
 
 pullElement :: XmppConMonad Element
 pullElement = do
-    Ex.catch (do
+    Ex.catches (do
         e <- pullToSink (elements =$ CL.head)
         case e of
             Nothing -> liftIO $ Ex.throwIO StreamConnectionError
             Just r -> return r
         )
-        (\(InvalidEventStream s) -> liftIO . Ex.throwIO $ StreamXMLError s)
+        [ Ex.Handler (\StreamEnd -> Ex.throwIO StreamStreamEnd)
+        , Ex.Handler (\(InvalidEventStream s)
+                     -> liftIO . Ex.throwIO $ StreamXMLError s)
+        ]
 
 -- Pulls an element and unpickles it.
 pullPickle :: PU [Node] a -> XmppConMonad a
@@ -95,6 +98,7 @@ catchPush p = Ex.catch
     (p >> return True)
     (\e -> case GIE.ioe_type e of
          GIE.ResourceVanished -> return False
+         GIE.IllegalOperation -> return False
          _ -> Ex.throwIO e
     )
 
@@ -143,11 +147,12 @@ xmppNewSession :: XmppConMonad a -> IO (a, XmppConnection)
 xmppNewSession action = runStateT action xmppNoConnection
 
 -- Closes the connection and updates the XmppConMonad XmppConnection state.
-xmppKillConnection :: XmppConMonad ()
+xmppKillConnection :: XmppConMonad (Either Ex.SomeException ())
 xmppKillConnection = do
     cc <- gets sCloseConnection
-    void . liftIO $ (Ex.try cc :: IO (Either Ex.SomeException ()))
+    err <- liftIO $ (Ex.try cc :: IO (Either Ex.SomeException ()))
     put xmppNoConnection
+    return err
 
 -- Sends an IQ request and waits for the response. If the response ID does not
 -- match the outgoing ID, an error is thrown.
