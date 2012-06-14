@@ -565,7 +565,7 @@ instance Ord Version where
         | otherwise = compare aminor bminor
 
 instance Read Version where
-    readsPrec _ txt = [(fromJust $ versionFromText $ Text.pack txt, "")]
+    readsPrec _ txt = (,"") <$> maybeToList (versionFromText $ Text.pack txt)
 
 instance Show Version where
     show (Version major minor) = (show major) ++ "." ++ (show minor)
