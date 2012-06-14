@@ -37,22 +37,21 @@ module Network.Xmpp.Types
     , XmppConnectionState(..)
     , XmppT(..)
     , XmppStreamError(..)
-    , parseLangTag
     , module Network.Xmpp.Jid
     )
        where
 
-import           Control.Applicative((<$>))
+import           Control.Applicative ((<$>), many)
 import           Control.Exception
 import           Control.Monad.IO.Class
 import           Control.Monad.State.Strict
 import           Control.Monad.Error
 
-
+import qualified Data.Attoparsec.Text as AP
 import qualified Data.ByteString as BS
 import           Data.Conduit
 import           Data.String(IsString(..))
-import           Data.Maybe (fromMaybe)
+import           Data.Maybe (fromJust, fromMaybe)
 import           Data.Text (Text)
 import qualified Data.Text as Text
 import           Data.Typeable(Typeable)
@@ -590,13 +589,11 @@ instance Error StreamError where noMsg = StreamConnectionError
 newtype IdGenerator = IdGenerator (IO Text)
 
 
--- Version numbers are displayed as "<major>.<minor>".
+-- | XMPP version number. Displayed as "<major>.<minor>". 2.4 is lesser than
+-- 2.13, which in turn is lesser than 12.3.
 
 data Version = Version { majorVersion :: Integer
                        , minorVersion :: Integer } deriving (Eq)
-
-instance Show Version where
-    show (Version major minor) = (show major) ++ "." ++ (show minor)
 
 -- If the major version numbers are not equal, compare them. Otherwise, compare
 -- the minor version numbers.
@@ -605,34 +602,72 @@ instance Ord Version where
         | amajor /= bmajor = compare amajor bmajor
         | otherwise = compare aminor bminor
 
--- The language tag in the form of "en-US". It has a primary tag, followed by a
--- number of subtags.
+instance Read Version where
+    readsPrec _ txt = [(fromJust $ versionFromText $ Text.pack txt, "")]
+
+instance Show Version where
+    show (Version major minor) = (show major) ++ "." ++ (show minor)
+
+-- Converts a "<major>.<minor>" numeric version number to a @Version@ object.
+versionFromText :: Text.Text -> Maybe Version
+versionFromText s = case AP.parseOnly versionParser s of
+    Right version -> Just version
+    Left _ -> Nothing
+
+-- Read numbers, a dot, more numbers, and end-of-file.
+versionParser :: AP.Parser Version
+versionParser = do
+    major <- AP.many1 AP.digit
+    AP.skip (== '.')
+    minor <- AP.many1 AP.digit
+    AP.endOfInput
+    return $ Version (read major) (read minor)
+
+-- | The language tag in accordance with RFC 5646 (in the form of "en-US"). It
+-- has a primary tag and a number of subtags. Two language tags are considered
+-- equal if and only if they contain the same tags (case-insensitive).
 data LangTag = LangTag { primaryTag :: Text
                        , subtags :: [Text] }
-                        deriving (Eq) -- TODO: remove
+
+instance Eq LangTag where
+    LangTag p s == LangTag q t = Text.toLower p == Text.toLower q &&
+        map Text.toLower s == map Text.toLower t
+
+instance Read LangTag where
+    readsPrec _ txt = [(fromJust $ langTag $ Text.pack txt, "")]
 
 instance Show LangTag where
     show (LangTag p []) = Text.unpack p
-    show (LangTag p s) = Text.unpack . Text.concat
-                           $ [p, "-", Text.intercalate "-" s] -- TODO: clean up
+    show (LangTag p s) = Text.unpack . Text.concat $
+        [p, "-", Text.intercalate "-" s]
 
--- Parses a Text string to a list of LangTag objects. TODO: Why?
-parseLangTag :: Text -> [LangTag]
-parseLangTag txt = case Text.splitOn "-" txt of
-  [] -> []
-  prim: subs -> [LangTag prim subs]
+-- | Parses, validates, and possibly constructs a "LangTag" object.
+langTag :: Text.Text -> Maybe LangTag
+langTag s = case AP.parseOnly langTagParser s of
+              Right tag -> Just tag
+              Left _ -> Nothing
 
-instance Read LangTag where
-  readsPrec _ txt = (,"") <$> (parseLangTag $ Text.pack txt)
-
--- Two language tags are considered equal of they contain the same tags
--- (case-insensitive).
-
--- instance Eq LangTag where
---   (LangTag ap as) == (LangTag bp bs)
---         | length as == length bs && map toLower ap == map toLower bp =
---           all (\ (a, b) -> map toLower a == map toLower b) $ zip as bs
---         | otherwise = False
+-- Parses a language tag as defined by RFC 1766 and constructs a LangTag object.
+langTagParser :: AP.Parser LangTag
+langTagParser = do
+    -- Read until we reach a '-' character, or EOF. This is the `primary tag'.
+    primTag <- tag
+    -- Read zero or more subtags.
+    subTags <- many subtag
+    AP.endOfInput
+    return $ LangTag primTag subTags
+  where
+    tag :: AP.Parser Text.Text
+    tag = do
+        t <- AP.takeWhile1 $ AP.inClass tagChars
+        return t
+    subtag :: AP.Parser Text.Text
+    subtag = do
+        AP.skip (== '-')
+        subtag <- tag
+        return subtag
+    tagChars :: [Char]
+    tagChars = ['a'..'z'] ++ ['A'..'Z']
 
 data ServerFeatures = SF
     { stls  :: Maybe Bool
