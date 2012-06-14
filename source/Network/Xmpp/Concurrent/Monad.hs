@@ -235,8 +235,8 @@ setConnectionClosedHandler eh = do
 -- | Run an event handler.
 runHandler :: (EventHandlers -> IO a) -> Xmpp a
 runHandler h = do
-  eh <- liftIO . atomically . readTVar  =<< asks eventHandlers
-  liftIO $ h eh
+    eh <- liftIO . atomically . readTVar  =<< asks eventHandlers
+    liftIO $ h eh
 
 -- | End the current Xmpp session.
 endSession :: Xmpp ()
@@ -244,15 +244,21 @@ endSession = do -- TODO: This has to be idempotent (is it?)
     void $ withConnection xmppKillConnection
     liftIO =<< asks stopThreads
 
--- | Close the connection to the server.
+-- | Close the connection to the server. Closes the stream (by enforcing a
+-- write lock and sending a </stream:stream> element), waits (blocks) for three
+-- seconds, and then closes the connection.
 closeConnection :: Xmpp ()
 closeConnection = Ex.mask_ $ do
-  write <- asks writeRef
-  send <- liftIO . atomically $ takeTMVar write
-  cc <- sCloseConnection <$> (liftIO . atomically . readTMVar =<< asks conStateRef)
-  liftIO . send $ "</stream:stream>"
-  void . liftIO . forkIO $ do
-    threadDelay 3000000
-    (Ex.try cc) :: IO (Either Ex.SomeException ())
-    return ()
-  liftIO . atomically $ putTMVar write (\_ -> return False)
+    write <- asks writeRef
+    send <- liftIO . atomically $ takeTMVar write
+    cc <- sCloseConnection <$>
+        (liftIO . atomically . readTMVar =<< asks conStateRef)
+    liftIO . send $ "</stream:stream>"
+    void . liftIO . forkIO $ do
+      threadDelay 3000000
+      -- When we close the connection, we close the handle that was used in the
+      -- sCloseConnection above. So even if a new connection has been
+      -- established at this point, it will not be affected by this action.
+      (Ex.try cc) :: IO (Either Ex.SomeException ())
+      return ()
+    liftIO . atomically $ putTMVar write (\_ -> return False)

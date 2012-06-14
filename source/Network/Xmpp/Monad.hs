@@ -83,8 +83,9 @@ pullPickle p = do
         Left e -> liftIO . Ex.throwIO $ StreamXMLError e
         Right r -> return r
 
--- Pulls a stanza from the stream. Throws an error on failure.
-pullStanza  :: XmppConMonad Stanza
+-- Pulls a stanza (or stream error) from the stream. Throws an error on a stream
+-- error.
+pullStanza :: XmppConMonad Stanza
 pullStanza = do
     res <- pullPickle xpStreamStanza
     case res of
