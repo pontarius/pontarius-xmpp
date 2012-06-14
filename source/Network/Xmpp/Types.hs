@@ -23,7 +23,6 @@ module Network.Xmpp.Types
     , SaslError(..)
     , SaslFailure(..)
     , SaslMechanism (..)
-    , SaslCredentials (..)
     , ServerFeatures(..)
     , Stanza(..)
     , StanzaError(..)
@@ -252,31 +251,6 @@ instance Read PresenceType where
     readsPrec _  "probe"        = [(Probe, "")]
     readsPrec _  _              = []
 
---data ShowType = Available
---                | Away
---                | FreeChat
---                | DND
---                | XAway
---                deriving Eq
---
---instance Show ShowType where
---  show Available = ""
---  show Away = "away"
---  show FreeChat = "chat"
---  show DND = "dnd"
---  show XAway = "xa"
---
---instance Read ShowType where
---  readsPrec _  ""             = [( Available ,"")]
---  readsPrec _  "available"    = [( Available ,"")]
---  readsPrec _  "away"         = [( Away ,"")]
---  readsPrec _  "chat"         = [( FreeChat ,"")]
---  readsPrec _  "dnd"          = [( DND ,"")]
---  readsPrec _  "xa"           = [( XAway ,"")]
---  readsPrec _  "invisible"    = [( Available ,"")]
---  readsPrec _  _              = []
-
-
 -- | All stanzas (IQ, message, presence) can cause errors, which in the Xmpp
 -- stream looks like <stanza-kind to='sender' type='error'>. These errors are
 -- wrapped in the @StanzaError@ type.
@@ -401,17 +375,6 @@ instance Read StanzaErrorCondition where
 --  OTHER STUFF
 -- =============================================================================
 
-data SaslCredentials = DigestMD5Credentials (Maybe Text) Text Text
-                     | PlainCredentials (Maybe Text) Text Text
-
-instance Show SaslCredentials where
-    show (DigestMD5Credentials authzid authcid _) = "DIGEST_MD5Credentials " ++
-        (Text.unpack $ fromMaybe "" authzid) ++ " " ++ (Text.unpack authcid) ++
-        " (password hidden)"
-    show (PlainCredentials authzid authcid _) = "PLAINCredentials " ++
-        (Text.unpack $ fromMaybe "" authzid) ++ " " ++ (Text.unpack authcid) ++
-        " (password hidden)"
-
 data SaslMechanism = DigestMD5 deriving Show
 
 data SaslFailure = SaslFailure { saslFailureCondition :: SaslError
@@ -474,8 +437,6 @@ instance Read SaslError where
     readsPrec _ "not-authorized"         = [(SaslNotAuthorized        , "")]
     readsPrec _ "temporary-auth-failure" = [(SaslTemporaryAuthFailure , "")]
     readsPrec _ _                        = []
-
--- data ServerAddress = ServerAddress N.HostName N.PortNumber deriving (Eq)
 
 -- TODO: document the error cases
 data StreamErrorCondition
@@ -571,6 +532,7 @@ data XmppStreamError = XmppStreamError
 data StreamError = StreamError XmppStreamError
                  | StreamWrongVersion Text
                  | StreamXMLError String -- If stream pickling goes wrong.
+                 | StreamStreamEnd -- received closing stream tag
                  | StreamConnectionError
                  deriving (Show, Eq, Typeable)
 

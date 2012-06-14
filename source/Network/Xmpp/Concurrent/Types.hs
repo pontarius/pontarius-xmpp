@@ -25,8 +25,7 @@ type IQHandlers = (Map.Map (IQRequestType, Text) (TChan IQRequestTicket)
 -- Handlers to be run when the Xmpp session ends and when the Xmpp connection is
 -- closed.
 data EventHandlers = EventHandlers
-    { sessionEndHandler       :: IO ()
-    , connectionClosedHandler :: StreamError -> IO ()
+    { connectionClosedHandler :: StreamError -> IO ()
     }
 
 -- The Session object is the Xmpp (ReaderT) state.

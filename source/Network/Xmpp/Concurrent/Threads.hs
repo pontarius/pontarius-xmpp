@@ -54,7 +54,10 @@ readWorker messageC presenceC stanzaC iqHands handlers stateRef =
                    [ Ex.Handler $ \(Interrupt t) -> do
                          void $ handleInterrupts [t]
                          return Nothing
-                   , Ex.Handler $ \(e :: StreamError) -> noCon handlers e
+                   , Ex.Handler $ \(e :: StreamError) -> do
+                         hands <- atomically $ readTVar handlers
+                         _ <- forkIO $ connectionClosedHandler hands e
+                         return Nothing
                    ]
         liftIO . atomically $ do
           case res of
@@ -139,10 +142,14 @@ writeWorker stCh writeR = forever $ do
         takeTMVar writeR <*>
         readTChan stCh
     r <- write $ renderElement (pickleElem xpStanza next)
-    unless r $ do -- If the writing failed, the connection is dead.
-        atomically $ unGetTChan stCh next
+    atomically $ putTMVar writeR write
+    unless r $ do
+        atomically $ unGetTChan stCh next -- If the writing failed, the
+                                          -- connection is dead.
         threadDelay 250000 -- Avoid free spinning.
-    atomically $ putTMVar writeR write -- Put it back.
+
+
+
 
 -- Two streams: input and output. Threads read from input stream and write to
 -- output stream.
@@ -189,8 +196,7 @@ startThreads = do
         return ()
     zeroEventHandlers :: EventHandlers
     zeroEventHandlers = EventHandlers
-        { sessionEndHandler       = return ()
-        , connectionClosedHandler = \_ -> return ()
+        { connectionClosedHandler = \_ -> return ()
         }
 
 -- | Creates and initializes a new Xmpp session.
@@ -237,4 +243,4 @@ connPersist lock = forever $ do
     pushBS <- atomically $ takeTMVar lock
     _ <- pushBS " "
     atomically $ putTMVar lock pushBS
-    threadDelay 30000000
+    threadDelay 30000000 -- 30s

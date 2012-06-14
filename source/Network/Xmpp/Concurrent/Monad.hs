@@ -1,7 +1,9 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Network.Xmpp.Concurrent.Monad where
 
 import           Network.Xmpp.Types
 
+import           Control.Applicative((<$>))
 import           Control.Concurrent
 import           Control.Concurrent.STM
 import qualified Control.Exception.Lifted as Ex
@@ -224,12 +226,6 @@ modifyHandlers f = do
     eh <- asks eventHandlers
     liftIO . atomically $ writeTVar eh . f =<< readTVar eh
 
--- | Sets the handler to be executed when the session ends.
-setSessionEndHandler :: Xmpp () -> Xmpp ()
-setSessionEndHandler eh = do
-    r <- ask
-    modifyHandlers (\s -> s{sessionEndHandler = runReaderT eh r})
-
 -- | Sets the handler to be executed when the server connection is closed.
 setConnectionClosedHandler :: (StreamError -> Xmpp ()) -> Xmpp ()
 setConnectionClosedHandler eh = do
@@ -247,8 +243,16 @@ endSession :: Xmpp ()
 endSession = do -- TODO: This has to be idempotent (is it?)
     void $ withConnection xmppKillConnection
     liftIO =<< asks stopThreads
-    runHandler sessionEndHandler
 
 -- | Close the connection to the server.
 closeConnection :: Xmpp ()
-closeConnection = void $ withConnection xmppKillConnection
+closeConnection = Ex.mask_ $ do
+  write <- asks writeRef
+  send <- liftIO . atomically $ takeTMVar write
+  cc <- sCloseConnection <$> (liftIO . atomically . readTMVar =<< asks conStateRef)
+  liftIO . send $ "</stream:stream>"
+  void . liftIO . forkIO $ do
+    threadDelay 3000000
+    (Ex.try cc) :: IO (Either Ex.SomeException ())
+    return ()
+  liftIO . atomically $ putTMVar write (\_ -> return False)

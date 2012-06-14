@@ -32,16 +32,17 @@ xmppBind  :: Maybe Text -> XmppConMonad Jid
 xmppBind rsrc = do
     answer <- xmppSendIQ' "bind" Nothing Set Nothing (bindBody rsrc)
     jid <- case () of () | Right IQResult{iqResultPayload = Just b} <- answer
-                         , Right jid <- unpickleElem jidP b
+                         , Right jid <- unpickleElem xpJid b
                            -> return jid
                          | otherwise -> throw $ StreamXMLError
-                                                  "Bind could'nt unpickle JID"
+                                               ("Bind couldn't unpickle JID from " ++ show answer)
     modify (\s -> s{sJid = Just jid})
     return jid
   where
     -- Extracts the character data in the `jid' element.
-    jidP :: PU [Node] Jid
-    jidP = xpBind $ xpElemNodes "jid" (xpContent xpPrim)
+    xpJid :: PU [Node] Jid
+    xpJid = xpBind $ xpElemNodes jidName (xpContent xpPrim)
+    jidName = "{urn:ietf:params:xml:ns:xmpp-bind}jid"
 
 -- A `bind' element pickler.
 xpBind  :: PU [Node] b -> PU [Node] b
