@@ -4,18 +4,19 @@ Cabal-Version: >= 1.6
 Build-Type: Simple
 -- License:
 License-File: LICENSE
--- Copyright:
+Copyright: Dmitry Astapov, Pierre Kovalev, Mahdi Abdinejadi, Jon Kristensen,
+           IETF Trust, Philipp Balzarek
 Author: Jon Kristensen, Mahdi Abdinejadi, Philipp Balzarek
 Maintainer: info@jonkri.com
 Stability: alpha
--- Homepage:
+Homepage: http://www.pontarius.org/
 Bug-Reports: mailto:info@jonkri.com
--- Package-URL:
+Package-URL: http://hackage.haskell.org/packages/archive/pontarius-xmpp/0.1.0.0/pontarius-xmpp-0.1.0.0.tar.gz
 Synopsis: An incomplete implementation of RFC 6120 (XMPP: Core)
 Description: Pontarius is a work in progress implementation of
                RFC 6120 (XMPP: Core).
 Category: Network
-Tested-With: GHC == 7.4.1
+Tested-With: GHC ==7.0.4, GHC ==7.4.1
 -- Data-Files:
 -- Data-Dir:
 -- Extra-Source-Files:
@@ -80,7 +81,7 @@ Library
                  , Data.Conduit.TLS
   GHC-Options: -Wall
 
-Executable pontarius-echoclient
+Executable pontarius-xmpp-echoclient
   hs-source-dirs: source
   Main-Is: ../examples/EchoClient.hs
 
@@ -88,9 +89,9 @@ Source-Repository head
   Type: git
   Location: git://github.com/jonkri/pontarius-xmpp.git
 
--- Source-Repository this
---   Type: git
---   -- Module:
---   Location: git://github.com/jonkri/pontarius-xmpp.git
---   Tag: 0.1.0.0
---   -- Subdir:
+Source-Repository this
+  Type: git
+  -- Module:
+  Location: git://github.com/jonkri/pontarius-xmpp.git
+  Tag: 0.1.0.0
+  -- Subdir:
