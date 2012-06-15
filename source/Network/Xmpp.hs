@@ -123,7 +123,7 @@ module Network.Xmpp
   -- is defined by the schema or other structural definition associated with the
   -- XML namespace that qualifies the direct child element of the IQ element. IQ
   -- interactions follow a common pattern of structured data exchange such as
-  -- get/result or set/result (although an error can be returned in reply to a
+  -- get\/result or set\/result (although an error can be returned in reply to a
   -- request if appropriate)
   --
   -- <http://xmpp.org/rfcs/rfc6120.html#stanzas-semantics-iq>
