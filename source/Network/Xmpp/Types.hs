@@ -618,8 +618,9 @@ data XmppStreamError = XmppStreamError
 
 data StreamError = StreamError XmppStreamError
                  | StreamNotStreamElement Text
-                 | StreamInvalidStreamNamespace (Maybe Text, Maybe Text)
+                 | StreamInvalidStreamNamespace (Maybe Text)
                  | StreamInvalidStreamPrefix (Maybe Text)
+                 | StreamWrongTo (Maybe Text)
                  | StreamWrongVersion (Maybe Text)
                  | StreamWrongLangTag (Maybe Text) 
                  | StreamXMLError String -- If stream pickling goes wrong.
@@ -748,6 +749,15 @@ data XmppConnection = XmppConnection
                , sStreamLang      :: Maybe LangTag -- Will be a `Just' value
                                                    -- once connected to the
                                                    -- server.
+               , sToJid           :: Maybe Jid -- JID to include in the stream
+                                               -- element's `to' attribute when
+                                               -- the connection is secured. See
+                                               -- also below.
+               , sJidWhenPlain    :: Bool -- Whether or not to also include the
+                                          -- Jid when the connection is plain.
+               , sFrom            :: Maybe Text -- From as specified by the
+                                                -- server in the stream
+                                                -- element's `from' attribute.
                }
 
 -- |
