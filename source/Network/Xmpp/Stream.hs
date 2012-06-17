@@ -67,7 +67,7 @@ xmppStartStream = runErrorT $ do
         Just hostname -> lift $ do
             pushXmlDecl
             pushOpenElement $
-                pickleElem pickleOutStream (Nothing, Just hostname, (pack . show) <$> lang)
+                pickleElem pickleOutStream (Nothing, Just hostname, lang)
     (lt, features) <- ErrorT . pullToSink $ runErrorT xmppStream
     modify (\s -> s {sFeatures = features, sStreamLang = Just lt})
     return ()
@@ -102,7 +102,6 @@ xmppStream = do
         unless (prefix == Just "stream") $ throwError $ StreamInvalidStreamPrefix prefix
         unless (ver == Just "1.0") $ throwError $ StreamWrongVersion ver
         -- TODO: Verify id, to, from, and stream:xmlns.
-        liftIO $ print (from, id, to, ver, lang, xns)
         let lang_ = maybe Nothing langTag lang
         when (isNothing lang_) $ throwError $ StreamWrongLangTag lang
         return $ fromJust lang_
@@ -111,7 +110,7 @@ xmppStream = do
         e <- lift $ elements =$ CL.head
         case e of
             Nothing -> liftIO $ Ex.throwIO StreamConnectionError
-            Just r -> streamUnpickleElem pickleStreamFeatures r
+            Just r -> streamUnpickleElem xpStreamFeatures r
 
 -- Pickler for the stream element to be sent to the server. Version "1.0" is
 -- assumed, and so is the "jabber:client" xmlns and
@@ -119,7 +118,7 @@ xmppStream = do
 -- RFC 6120 calls the "content-namespace-as-default-namespace".)
 pickleOutStream :: PU [Node] ( Maybe Text -- from
                              , Maybe Text -- to
-                             , Maybe Text -- xml:lang
+                             , Maybe LangTag -- xml:lang
                              )
 pickleOutStream = xpWrap
     (\(from, to, _ver, lang) -> (from, to, lang))
@@ -136,7 +135,7 @@ pickleOutStream = xpWrap
               (xpAttrImplied "from" xpId)
               (xpAttrImplied "to" xpId)
               (xpAttr "version" xpId)
-              (xpAttrImplied (Name "lang" (Just "http://www.w3.org/XML/1998/namespace") (Just "xml")) xpId)
+              xpLangTag
          )
     )
 
@@ -166,8 +165,8 @@ pickleInStream = xpElemWithName
     xpUnit
  
 -- Pickler/Unpickler for the stream features - TLS, SASL, and the rest.
-pickleStreamFeatures :: PU [Node] ServerFeatures
-pickleStreamFeatures = xpWrap
+xpStreamFeatures :: PU [Node] ServerFeatures
+xpStreamFeatures = xpWrap
     (\(tls, sasl, rest) -> SF tls (mbl sasl) rest)
     (\(SF tls sasl rest) -> (tls, lmb sasl, rest))
     (xpElemNodes

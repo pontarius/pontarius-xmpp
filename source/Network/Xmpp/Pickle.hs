@@ -38,7 +38,7 @@ xpElemEmpty name = xpWrap (\((),()) -> ())
                               xpElem name xpUnit xpUnit
 
 xmlLang :: Name
-xmlLang = Name "lang" Nothing (Just "xml")
+xmlLang = Name "lang" (Just "http://www.w3.org/XML/1998/namespace") (Just "xml")
 
 xpLangTag :: PU [Attribute] (Maybe LangTag)
 xpLangTag = xpAttrImplied xmlLang xpPrim

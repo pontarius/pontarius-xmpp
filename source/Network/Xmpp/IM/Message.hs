@@ -14,8 +14,8 @@ import Network.Xmpp.Pickle
 
 data MessageBody = MessageBody (Maybe LangTag) Text
 data MessageThread = MessageThread
-                        Text          -- ^ Thread ID
-                        (Maybe Text)  -- ^ Parent Thread
+                        Text          -- Thread ID
+                        (Maybe Text)  -- Parent Thread
 data MessageSubject = MessageSubject (Maybe LangTag) Text
 
 xpMessageSubject :: PU [Element] MessageSubject

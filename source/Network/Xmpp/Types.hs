@@ -91,7 +91,7 @@ data Stanza = IQRequestS     IQRequest
               deriving Show
 
 -- | A "request" Info/Query (IQ) stanza is one with either "get" or "set" as
--- type. They are guaranteed to always contain a payload.
+-- type. It always contains an xml payload.
 data IQRequest = IQRequest { iqRequestID      :: StanzaId
                            , iqRequestFrom    :: Maybe Jid
                            , iqRequestTo      :: Maybe Jid
@@ -377,8 +377,6 @@ instance Read StanzaErrorCondition where
 --  OTHER STUFF
 -- =============================================================================
 
-data SaslMechanism = DigestMD5 deriving Show
-
 data SaslFailure = SaslFailure { saslFailureCondition :: SaslError
                                , saslFailureText :: Maybe ( Maybe LangTag
                                                           , Text
@@ -440,33 +438,121 @@ instance Read SaslError where
     readsPrec _ "temporary-auth-failure" = [(SaslTemporaryAuthFailure , "")]
     readsPrec _ _                        = []
 
--- TODO: document the error cases
+-- The documentation of StreamErrorConditions is copied from
+-- http://xmpp.org/rfcs/rfc6120.html#streams-error-conditions
 data StreamErrorCondition
-    = StreamBadFormat
-    | StreamBadNamespacePrefix
-    | StreamConflict
-    | StreamConnectionTimeout
-    | StreamHostGone
-    | StreamHostUnknown
-    | StreamImproperAddressing
-    | StreamInternalServerError
-    | StreamInvalidFrom
-    | StreamInvalidNamespace
-    | StreamInvalidXml
-    | StreamNotAuthorized
-    | StreamNotWellFormed
-    | StreamPolicyViolation
-    | StreamRemoteConnectionFailed
-    | StreamReset
-    | StreamResourceConstraint
-    | StreamRestrictedXml
-    | StreamSeeOtherHost
-    | StreamSystemShutdown
-    | StreamUndefinedCondition
-    | StreamUnsupportedEncoding
-    | StreamUnsupportedFeature
-    | StreamUnsupportedStanzaType
-    | StreamUnsupportedVersion
+    = StreamBadFormat -- ^ The entity has sent XML that cannot be processed.
+    | StreamBadNamespacePrefix -- ^ The entity has sent a namespace prefix that
+                               -- is unsupported, or has sent no namespace
+                               -- prefix on an element that needs such a prefix
+    | StreamConflict -- ^ The server either (1) is closing the existing stream
+                     -- for this entity because a new stream has been initiated
+                     -- that conflicts with the existing stream, or (2) is
+                     -- refusing a new stream for this entity because allowing
+                     -- the new stream would conflict with an existing stream
+                     -- (e.g., because the server allows only a certain number
+                     -- of connections from the same IP address or allows only
+                     -- one server-to-server stream for a given domain pair as a
+                     -- way of helping to ensure in-order processing
+    | StreamConnectionTimeout -- ^ One party is closing the stream because it
+                              -- has reason to believe that the other party has
+                              -- permanently lost the ability to communicate
+                              -- over the stream.
+    | StreamHostGone -- ^ The value of the 'to' attribute provided in the
+                     -- initial stream header corresponds to an FQDN that is no
+                     -- longer serviced by the receiving entity
+    | StreamHostUnknown -- ^ The value of the 'to' attribute provided in the
+                        -- initial stream header does not correspond to an FQDN
+                        -- that is serviced by the receiving entity.
+    | StreamImproperAddressing -- ^ A stanza sent between two servers lacks a
+                               -- 'to' or 'from' attribute, the 'from' or 'to'
+                               -- attribute has no value, or the value violates
+                               -- the rules for XMPP addresses
+    | StreamInternalServerError -- ^ The server has experienced a
+                                -- misconfiguration or other internal error that
+                                -- prevents it from servicing the stream.
+    | StreamInvalidFrom -- ^ The data provided in a 'from' attribute does not
+                        -- match an authorized JID or validated domain as
+                        -- negotiated (1) between two servers using SASL or
+                        -- Server Dialback, or (2) between a client and a server
+                        -- via SASL authentication and resource binding.
+    | StreamInvalidNamespace -- ^ The stream namespace name is something other
+                             -- than "http://etherx.jabber.org/streams" (see
+                             -- Section 11.2) or the content namespace declared
+                             -- as the default namespace is not supported (e.g.,
+                             -- something other than "jabber:client" or
+                             -- "jabber:server").
+    | StreamInvalidXml -- ^ The entity has sent invalid XML over the stream to a
+                       -- server that performs validation
+    | StreamNotAuthorized -- ^ The entity has attempted to send XML stanzas or
+                          -- other outbound data before the stream has been
+                          -- authenticated, or otherwise is not authorized to
+                          -- perform an action related to stream negotiation;
+                          -- the receiving entity MUST NOT process the offending
+                          -- data before sending the stream error.
+    | StreamNotWellFormed -- ^ The initiating entity has sent XML that violates
+                          -- the well-formedness rules of [XML] or [XML‑NAMES].
+    | StreamPolicyViolation -- ^ The entity has violated some local service
+                            -- policy (e.g., a stanza exceeds a configured size
+                            -- limit); the server MAY choose to specify the
+                            -- policy in the \<text/\> element or in an
+                            -- application-specific condition element.
+    | StreamRemoteConnectionFailed -- ^ The server is unable to properly connect
+                                   -- to a remote entity that is needed for
+                                   -- authentication or authorization (e.g., in
+                                   -- certain scenarios related to Server
+                                   -- Dialback [XEP‑0220]); this condition is
+                                   -- not to be used when the cause of the error
+                                   -- is within the administrative domain of the
+                                   -- XMPP service provider, in which case the
+                                   -- <internal-server-error/> condition is more
+                                   -- appropriate.
+    | StreamReset -- ^ The server is closing the stream because it has new
+                  -- (typically security-critical) features to offer, because
+                  -- the keys or certificates used to establish a secure context
+                  -- for the stream have expired or have been revoked during the
+                  -- life of the stream , because the TLS sequence number has
+                  -- wrapped, etc. The reset applies to the stream and to any
+                  -- security context established for that stream (e.g., via TLS
+                  -- and SASL), which means that encryption and authentication
+                  -- need to be negotiated again for the new stream (e.g., TLS
+                  -- session resumption cannot be used)
+    | StreamResourceConstraint -- ^ The server lacks the system resources
+                               -- necessary to service the stream.
+    | StreamRestrictedXml -- ^ he entity has attempted to send restricted XML
+                          -- features such as a comment, processing instruction,
+                          -- DTD subset, or XML entity reference
+    | StreamSeeOtherHost -- ^ The server will not provide service to the
+                         -- initiating entity but is redirecting traffic to
+                         -- another host under the administrative control of the
+                         -- same service provider.
+    | StreamSystemShutdown -- ^ The server is being shut down and all active
+                           -- streams are being closed.
+    | StreamUndefinedCondition -- ^ The error condition is not one of those
+                               -- defined by the other conditions in this list
+    | StreamUnsupportedEncoding -- ^ The initiating entity has encoded the
+                                -- stream in an encoding that is not supported
+                                -- by the server or has otherwise improperly
+                                -- encoded the stream (e.g., by violating the
+                                -- rules of the [UTF‑8] encoding).
+    | StreamUnsupportedFeature -- ^ The receiving entity has advertised a
+                               -- mandatory-to-negotiate stream feature that the
+                               -- initiating entity does not support, and has
+                               -- offered no other mandatory-to-negotiate
+                               -- feature alongside the unsupported feature.
+    | StreamUnsupportedStanzaType -- ^ The initiating entity has sent a
+                                  -- first-level child of the stream that is not
+                                  -- supported by the server, either because the
+                                  -- receiving entity does not understand the
+                                  -- namespace or because the receiving entity
+                                  -- does not understand the element name for
+                                  -- the applicable namespace (which might be
+                                  -- the content namespace declared as the
+                                  -- default namespace)
+    | StreamUnsupportedVersion -- ^ The 'version' attribute provided by the
+                               -- initiating entity in the stream header
+                               -- specifies a version of XMPP that is not
+                               -- supported by the server.
       deriving Eq
 
 instance Show StreamErrorCondition where
