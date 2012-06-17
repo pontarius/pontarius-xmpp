@@ -115,6 +115,7 @@ xmppNoConnection = XmppConnection
                , sHostname        = Nothing
                , sJid             = Nothing
                , sCloseConnection = return ()
+               , sStreamLang      = Nothing
                }
   where
     zeroSource :: Source IO output
@@ -140,6 +141,8 @@ xmppRawConnect host hostname = do
             , sHostname        = (Just hostname)
             , sJid             = Nothing
             , sCloseConnection = (hClose con)
+            , sPreferredLang   = Nothing -- TODO: Allow user to set
+            , sStreamLang      = Nothing
             }
     put st
 

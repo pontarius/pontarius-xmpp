@@ -3,6 +3,7 @@
 
 module Network.Xmpp.Stream where
 
+import           Control.Applicative ((<$>), (<*>))
 import qualified Control.Exception as Ex
 import           Control.Monad.Error
 import           Control.Monad.State.Strict
@@ -10,6 +11,7 @@ import           Control.Monad.State.Strict
 import           Data.Conduit
 import           Data.Conduit.BufferedSource
 import           Data.Conduit.List as CL
+import           Data.Maybe (fromJust, isJust, isNothing)
 import           Data.Text as T
 import           Data.XML.Pickle
 import           Data.XML.Types
@@ -59,14 +61,15 @@ openElementFromEvents = do
 xmppStartStream :: XmppConMonad (Either StreamError ())
 xmppStartStream = runErrorT $ do
     hostname' <- gets sHostname
+    lang <- gets sPreferredLang
     case hostname' of
         Nothing -> throwError StreamConnectionError
         Just hostname -> lift $ do
             pushXmlDecl
             pushOpenElement $
-                pickleElem pickleStream ("1.0", Nothing, Just hostname)
-    features <- ErrorT . pullToSink $ runErrorT xmppStream
-    modify (\s -> s {sFeatures = features})
+                pickleElem pickleOutStream (Nothing, Just hostname, (pack . show) <$> lang)
+    (lt, features) <- ErrorT . pullToSink $ runErrorT xmppStream
+    modify (\s -> s {sFeatures = features, sStreamLang = Just lt})
     return ()
 
 -- Creates a new connection source (of Events) using the raw source (of bytes)
@@ -79,17 +82,30 @@ xmppRestartStream = do
     xmppStartStream
 
 -- Reads the (partial) stream:stream and the server features from the stream.
-xmppStream :: StreamSink ServerFeatures
+-- Throws an error the version number is not 1.0, or if the language tag is not
+-- set, or is invalid.
+xmppStream :: StreamSink (LangTag, ServerFeatures)
 xmppStream = do
-    xmppStreamHeader
-    xmppStreamFeatures
+    langTag <- xmppStreamHeader
+    features <- xmppStreamFeatures
+    return (langTag, features)
   where
-    xmppStreamHeader :: StreamSink ()
+    xmppStreamHeader :: StreamSink LangTag
     xmppStreamHeader = do
-        lift $ throwOutJunk
-        (ver, _, _) <- streamUnpickleElem pickleStream =<< openElementFromEvents
-        unless (ver == "1.0") . throwError $ StreamWrongVersion ver
-        return ()
+        lift throwOutJunk
+        -- Get the stream:stream element (or whatever it is) from the server,
+        -- and validate what we get.
+        ((Name lname ns prefix), (from, id, to, ver, lang, xns), ())
+            <- streamUnpickleElem pickleInStream =<< openElementFromEvents
+        unless (lname == "stream") $ throwError $ StreamNotStreamElement lname
+        unless ((ns == Just "jabber:client" && xns == Just "http://etherx.jabber.org/streams") || (ns == Just "http://etherx.jabber.org/streams" && (xns == Just"" || xns == Nothing))) $ throwError $ StreamInvalidStreamNamespace (ns, xns)
+        unless (prefix == Just "stream") $ throwError $ StreamInvalidStreamPrefix prefix
+        unless (ver == Just "1.0") $ throwError $ StreamWrongVersion ver
+        -- TODO: Verify id, to, from, and stream:xmlns.
+        liftIO $ print (from, id, to, ver, lang, xns)
+        let lang_ = maybe Nothing langTag lang
+        when (isNothing lang_) $ throwError $ StreamWrongLangTag lang
+        return $ fromJust lang_
     xmppStreamFeatures :: StreamSink ServerFeatures
     xmppStreamFeatures = do
         e <- lift $ elements =$ CL.head
@@ -97,16 +113,58 @@ xmppStream = do
             Nothing -> liftIO $ Ex.throwIO StreamConnectionError
             Just r -> streamUnpickleElem pickleStreamFeatures r
 
--- Pickler/Unpickler for the stream, with the version, from and to attributes.
-pickleStream :: PU [Node] (Text, Maybe Text, Maybe Text)
-pickleStream = xpElemAttrs
-    (Name "stream" (Just "http://etherx.jabber.org/streams") (Just "stream"))
-    (xpTriple
-         (xpAttr "version" xpId)
-         (xpOption $ xpAttr "from" xpId)
-         (xpOption $ xpAttr "to" xpId)
+-- Pickler for the stream element to be sent to the server. Version "1.0" is
+-- assumed, and so is the "jabber:client" xmlns and
+-- "http://etherx.jabber.org/streams" xmlns:stream attributes. (We follow what
+-- RFC 6120 calls the "content-namespace-as-default-namespace".)
+pickleOutStream :: PU [Node] ( Maybe Text -- from
+                             , Maybe Text -- to
+                             , Maybe Text -- xml:lang
+                             )
+pickleOutStream = xpWrap
+    (\(from, to, _ver, lang) -> (from, to, lang))
+    (\(from, to, lang) ->
+         (from, to, "1.0", lang)
+    )
+    (xpElemAttrs
+         (Name
+              "stream"
+              (Just "http://etherx.jabber.org/streams")
+              (Just "stream")
+         )
+         (xp4Tuple
+              (xpAttrImplied "from" xpId)
+              (xpAttrImplied "to" xpId)
+              (xpAttr "version" xpId)
+              (xpAttrImplied (Name "lang" (Just "http://www.w3.org/XML/1998/namespace") (Just "xml")) xpId)
+         )
     )
 
+-- Unpickler for the stream element to be received from the server. As this
+-- function puts no restrictions on the element received, the data need to be
+-- validated externally.
+pickleInStream :: PU [Node] ( Name
+                            , ( Maybe Text -- from
+                              , Maybe Text -- id
+                              , Maybe Text -- to
+                              , Maybe Text -- version
+                              , Maybe Text -- xml:lang
+                              , Maybe Text -- xmlns:stream
+                              )
+                            , ()
+                            )
+pickleInStream = xpElemWithName
+    (xp6Tuple
+         (xpAttrImplied "from" xpId)
+         (xpAttrImplied "id" xpId)
+         (xpAttrImplied "to" xpId)
+         (xpAttrImplied "version" xpId)
+         (xpAttrImplied (Name "lang" (Just "http://www.w3.org/XML/1998/namespace") (Just "xml")) xpId)
+         -- TODO: Actually fetch the xmlns:stream attribute.
+         (xpAttrImplied (Name "stream" Nothing (Just "xmlns")) xpId)
+    )
+    xpUnit
+ 
 -- Pickler/Unpickler for the stream features - TLS, SASL, and the rest.
 pickleStreamFeatures :: PU [Node] ServerFeatures
 pickleStreamFeatures = xpWrap

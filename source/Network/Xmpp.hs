@@ -154,8 +154,10 @@ import qualified Network.TLS as TLS
 import           Network.Xmpp.Bind
 import           Network.Xmpp.Concurrent
 import           Network.Xmpp.Concurrent.Types
+import           Network.Xmpp.Marshal
 import           Network.Xmpp.Message
 import           Network.Xmpp.Monad
+import           Network.Xmpp.Pickle
 import           Network.Xmpp.Presence
 import           Network.Xmpp.Sasl
 import           Network.Xmpp.Sasl.Mechanisms
@@ -169,7 +171,35 @@ import           Control.Monad.Error
 
 -- | Connect to host with given address.
 connect :: HostName -> Text -> XmppConMonad (Either StreamError ())
-connect  address hostname = xmppRawConnect address hostname >> xmppStartStream
+connect address hostname = do
+    xmppRawConnect address hostname
+    result <- xmppStartStream
+    case result of
+        -- TODO: Descriptive texts in stream errors?
+        Left (StreamNotStreamElement _name) -> do
+            _ <- pushElement $ pickleElem xpStreamError $
+                XmppStreamError StreamInvalidXml Nothing Nothing
+            return ()
+        Left (StreamInvalidStreamNamespace _ns) -> do
+            _ <- pushElement $ pickleElem xpStreamError $
+                XmppStreamError StreamInvalidNamespace Nothing Nothing
+            return ()
+        Left (StreamInvalidStreamPrefix _prefix) -> do
+            _ <- pushElement $ pickleElem xpStreamError $
+                XmppStreamError StreamBadNamespacePrefix Nothing Nothing
+            return ()
+        -- TODO: Catch remaining xmppStartStream errors.
+        Left (StreamWrongVersion _ver) -> do
+            _ <- pushElement $ pickleElem xpStreamError $
+                XmppStreamError StreamUnsupportedVersion Nothing Nothing
+            return ()
+        Left (StreamWrongLangTag _lang) -> do
+            _ <- pushElement $ pickleElem xpStreamError $
+                XmppStreamError StreamInvalidXml Nothing Nothing
+            return ()
+        Right () ->
+            return ()
+    return result
 
 
 -- | Authenticate to the server using the first matching method and bind a

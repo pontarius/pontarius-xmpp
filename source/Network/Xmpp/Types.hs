@@ -30,12 +30,14 @@ module Network.Xmpp.Types
     , StanzaErrorType(..)
     , StanzaId(..)
     , StreamError(..)
+    , StreamErrorCondition(..)
     , Version(..)
     , XmppConMonad
     , XmppConnection(..)
     , XmppConnectionState(..)
     , XmppT(..)
     , XmppStreamError(..)
+    , langTag
     , module Network.Xmpp.Jid
     )
        where
@@ -530,7 +532,11 @@ data XmppStreamError = XmppStreamError
     } deriving (Show, Eq)
 
 data StreamError = StreamError XmppStreamError
-                 | StreamWrongVersion Text
+                 | StreamNotStreamElement Text
+                 | StreamInvalidStreamNamespace (Maybe Text, Maybe Text)
+                 | StreamInvalidStreamPrefix (Maybe Text)
+                 | StreamWrongVersion (Maybe Text)
+                 | StreamWrongLangTag (Maybe Text) 
                  | StreamXMLError String -- If stream pickling goes wrong.
                  | StreamStreamEnd -- received closing stream tag
                  | StreamConnectionError
@@ -653,7 +659,10 @@ data XmppConnection = XmppConnection
                , sHostname        :: Maybe Text
                , sJid             :: Maybe Jid
                , sCloseConnection :: IO ()
-                 -- TODO: add default Language
+               , sPreferredLang   :: Maybe LangTag
+               , sStreamLang      :: Maybe LangTag -- Will be a `Just' value
+                                                   -- once connected to the
+                                                   -- server.
                }
 
 -- |
