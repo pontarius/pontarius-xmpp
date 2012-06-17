@@ -64,7 +64,8 @@ xmppStartStream = runErrorT $ do
         Just hostname -> lift $ do
             pushXmlDecl
             pushOpenElement $
-                pickleElem pickleStream ("1.0", Nothing, Just hostname)
+                -- TODO: set lang tag
+                pickleElem xpStream ("1.0", Nothing, Just hostname, Nothing)
     features <- ErrorT . pullToSink $ runErrorT xmppStream
     modify (\s -> s {sFeatures = features})
     return ()
@@ -87,7 +88,9 @@ xmppStream = do
     xmppStreamHeader :: StreamSink ()
     xmppStreamHeader = do
         lift $ throwOutJunk
-        (ver, _, _) <- streamUnpickleElem pickleStream =<< openElementFromEvents
+        -- TODO: Do somehting with the lang tag
+        (ver, _, _, lang) <- streamUnpickleElem xpStream
+                                =<< openElementFromEvents
         unless (ver == "1.0") . throwError $ StreamWrongVersion ver
         return ()
     xmppStreamFeatures :: StreamSink ServerFeatures
@@ -95,21 +98,22 @@ xmppStream = do
         e <- lift $ elements =$ CL.head
         case e of
             Nothing -> liftIO $ Ex.throwIO StreamConnectionError
-            Just r -> streamUnpickleElem pickleStreamFeatures r
+            Just r -> streamUnpickleElem xpStreamFeatures r
 
 -- Pickler/Unpickler for the stream, with the version, from and to attributes.
-pickleStream :: PU [Node] (Text, Maybe Text, Maybe Text)
-pickleStream = xpElemAttrs
+xpStream :: PU [Node] (Text, Maybe Text, Maybe Text, Maybe LangTag)
+xpStream = xpElemAttrs
     (Name "stream" (Just "http://etherx.jabber.org/streams") (Just "stream"))
-    (xpTriple
+    (xp4Tuple
          (xpAttr "version" xpId)
          (xpOption $ xpAttr "from" xpId)
          (xpOption $ xpAttr "to" xpId)
+         xpLangTag
     )
 
 -- Pickler/Unpickler for the stream features - TLS, SASL, and the rest.
-pickleStreamFeatures :: PU [Node] ServerFeatures
-pickleStreamFeatures = xpWrap
+xpStreamFeatures :: PU [Node] ServerFeatures
+xpStreamFeatures = xpWrap
     (\(tls, sasl, rest) -> SF tls (mbl sasl) rest)
     (\(SF tls sasl rest) -> (tls, lmb sasl, rest))
     (xpElemNodes
