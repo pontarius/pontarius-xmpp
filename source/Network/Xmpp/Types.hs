@@ -22,7 +22,6 @@ module Network.Xmpp.Types
     , PresenceType(..)
     , SaslError(..)
     , SaslFailure(..)
-    , SaslMechanism (..)
     , ServerFeatures(..)
     , Stanza(..)
     , StanzaError(..)
