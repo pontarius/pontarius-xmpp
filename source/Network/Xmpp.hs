@@ -179,23 +179,28 @@ connect address hostname = do
         Left (StreamNotStreamElement _name) -> do
             _ <- pushElement $ pickleElem xpStreamError $
                 XmppStreamError StreamInvalidXml Nothing Nothing
+            xmppCloseStreams
             return ()
         Left (StreamInvalidStreamNamespace _ns) -> do
             _ <- pushElement $ pickleElem xpStreamError $
                 XmppStreamError StreamInvalidNamespace Nothing Nothing
+            xmppCloseStreams
             return ()
         Left (StreamInvalidStreamPrefix _prefix) -> do
             _ <- pushElement $ pickleElem xpStreamError $
                 XmppStreamError StreamBadNamespacePrefix Nothing Nothing
+            xmppCloseStreams
             return ()
         -- TODO: Catch remaining xmppStartStream errors.
         Left (StreamWrongVersion _ver) -> do
             _ <- pushElement $ pickleElem xpStreamError $
                 XmppStreamError StreamUnsupportedVersion Nothing Nothing
+            xmppCloseStreams
             return ()
         Left (StreamWrongLangTag _lang) -> do
             _ <- pushElement $ pickleElem xpStreamError $
                 XmppStreamError StreamInvalidXml Nothing Nothing
+            xmppCloseStreams
             return ()
         Right () ->
             return ()

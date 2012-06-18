@@ -4,6 +4,7 @@
 module Network.Xmpp.Monad where
 
 import           Control.Applicative((<$>))
+import           Control.Concurrent (forkIO, threadDelay)
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Class
@@ -185,3 +186,27 @@ xmppSendIQ' iqID to tp lang body = do
                 ("In xmppSendIQ' IDs don't match: " ++ show iqID ++ " /= " ++
                     show (iqResultID iq') ++ " .")
             return $ Right iq'
+
+-- | Send "</stream:stream>" and wait for the server to finish processing and to
+-- close the connection. Any remaining elements from the server and whether or
+-- not we received a </stream:stream> element from the server is returned.
+xmppCloseStreams :: XmppConMonad ([Element], Bool)
+xmppCloseStreams = do
+    send <- gets sConPushBS
+    cc <- gets sCloseConnection
+    liftIO $ send "</stream:stream>"
+    void $ liftIO $ forkIO $ do
+        threadDelay 3000000
+        (Ex.try cc) :: IO (Either Ex.SomeException ())
+        return ()
+    collectElems []
+  where
+    -- Pulls elements from the stream until the stream ends, or an error is
+    -- raised.
+    collectElems :: [Element] -> XmppConMonad ([Element], Bool)
+    collectElems elems = do
+        result <- Ex.try pullElement
+        case result of
+            Left StreamStreamEnd -> return (elems, True)
+            Left _ -> return (elems, False)
+            Right elem -> collectElems (elem:elems)
