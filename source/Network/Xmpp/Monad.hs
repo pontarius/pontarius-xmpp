@@ -107,20 +107,21 @@ catchPush p = Ex.catch
 -- XmppConnection state used when there is no connection.
 xmppNoConnection :: XmppConnection
 xmppNoConnection = XmppConnection
-               { sConSrc           = zeroSource
-               , sRawSrc           = zeroSource
-               , sConPushBS        = \_ -> return False -- Nothing has been sent.
-               , sConHandle        = Nothing
-               , sFeatures         = SF Nothing [] []
-               , sConnectionState  = XmppConnectionClosed
-               , sHostname         = Nothing
-               , sJid              = Nothing
-               , sCloseConnection  = return ()
-               , sStreamLang       = Nothing
-               , sPreferredLang    = Nothing
-               , sToJid            = Nothing
-               , sJidWhenPlain     = False
-               , sFrom             = Nothing
+               { sConSrc          = zeroSource
+               , sRawSrc          = zeroSource
+               , sConPushBS       = \_ -> return False -- Nothing has been sent.
+               , sConHandle       = Nothing
+               , sFeatures        = SF Nothing [] []
+               , sConnectionState = XmppConnectionClosed
+               , sHostname        = Nothing
+               , sJid             = Nothing
+               , sCloseConnection = return ()
+               , sStreamLang      = Nothing
+               , sStreamId        = Nothing
+               , sPreferredLang   = Nothing
+               , sToJid           = Nothing
+               , sJidWhenPlain    = False
+               , sFrom            = Nothing
                }
   where
     zeroSource :: Source IO output
@@ -148,6 +149,7 @@ xmppRawConnect host hostname = do
             , sCloseConnection = (hClose con)
             , sPreferredLang   = Nothing -- TODO: Allow user to set
             , sStreamLang      = Nothing
+            , sStreamId        = Nothing
             , sToJid           = Nothing -- TODO: Allow user to set
             , sJidWhenPlain    = False -- TODO: Allow user to set
             , sFrom            = Nothing

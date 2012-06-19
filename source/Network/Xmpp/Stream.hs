@@ -75,8 +75,13 @@ xmppStartStream = runErrorT $ do
                                            , Just hostname
                                            , sPreferredLang state
                                            )
-    (lt, from, features) <- ErrorT . pullToSink $ runErrorT $ xmppStream to
-    modify (\s -> s {sFeatures = features, sStreamLang = Just lt, sFrom = from})
+    (lt, from, id, features) <- ErrorT . pullToSink $ runErrorT $ xmppStream to
+    modify (\s -> s { sFeatures = features
+                    , sStreamLang = Just lt
+                    , sStreamId = id
+                    , sFrom = from
+                    }
+           )
     return ()
 
 -- Creates a new connection source (of Events) using the raw source (of bytes)
@@ -91,13 +96,17 @@ xmppRestartStream = do
 -- Reads the (partial) stream:stream and the server features from the stream.
 -- Also validates the stream element's attributes and throws an error if
 -- appropriate.
-xmppStream :: Maybe Jid -> StreamSink (LangTag, Maybe Text, ServerFeatures)
+-- TODO: from.
+xmppStream :: Maybe Jid -> StreamSink ( LangTag
+                                      , Maybe Text
+                                      , Maybe Text
+                                      , ServerFeatures)
 xmppStream expectedTo = do
-    (langTag, from) <- xmppStreamHeader
+    (langTag, from, id) <- xmppStreamHeader
     features <- xmppStreamFeatures
-    return (langTag, from, features)
+    return (langTag, from, id, features)
   where
-    xmppStreamHeader :: StreamSink (LangTag, Maybe Text)
+    xmppStreamHeader :: StreamSink (LangTag, Maybe Text, Maybe Text)
     xmppStreamHeader = do
         lift throwOutJunk
         -- Get the stream:stream element (or whatever it is) from the server,
@@ -109,10 +118,9 @@ xmppStream expectedTo = do
         unless (prefix == Just "stream") $ throwError $ StreamInvalidStreamPrefix prefix
         unless (isNothing to || (fromText $ fromJust to) == expectedTo) $ throwError $ StreamWrongTo to
         unless (ver == Just "1.0") $ throwError $ StreamWrongVersion ver
-        -- TODO: Verify id and from.
         let lang_ = maybe Nothing langTag lang
         when (isNothing lang_) $ throwError $ StreamWrongLangTag lang
-        return (fromJust lang_, from)
+        return (fromJust lang_, from, id)
     xmppStreamFeatures :: StreamSink ServerFeatures
     xmppStreamFeatures = do
         e <- lift $ elements =$ CL.head

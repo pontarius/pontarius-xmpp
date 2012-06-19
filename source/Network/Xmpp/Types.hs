@@ -749,6 +749,8 @@ data XmppConnection = XmppConnection
                , sStreamLang      :: Maybe LangTag -- Will be a `Just' value
                                                    -- once connected to the
                                                    -- server.
+               , sStreamId        :: Maybe Text -- Stream ID as specified by the
+                                                -- server.
                , sToJid           :: Maybe Jid -- JID to include in the stream
                                                -- element's `to' attribute when
                                                -- the connection is secured. See
