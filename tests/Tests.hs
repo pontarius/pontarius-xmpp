@@ -128,7 +128,7 @@ runMain debug number = do
               Right _ -> return ()
               Left e -> error $ show e
           debug' "session standing")
-          (\e -> liftIO (print (e ::Ex.SomeException) >> Ex.throwIO e) )
+          (\e -> debug' $ show  (e ::Ex.SomeException))
       sendPresence presenceOnline
       fork autoAccept
       sendPresence $ presenceSubscribe them
