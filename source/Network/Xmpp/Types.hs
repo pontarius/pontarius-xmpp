@@ -617,12 +617,14 @@ data XmppStreamError = XmppStreamError
     } deriving (Show, Eq)
 
 data StreamError = StreamError XmppStreamError
+                 | StreamUnknownError -- Something has gone wrong, but we don't
+                                      -- know what
                  | StreamNotStreamElement Text
                  | StreamInvalidStreamNamespace (Maybe Text)
                  | StreamInvalidStreamPrefix (Maybe Text)
                  | StreamWrongTo (Maybe Text)
                  | StreamWrongVersion (Maybe Text)
-                 | StreamWrongLangTag (Maybe Text) 
+                 | StreamWrongLangTag (Maybe Text)
                  | StreamXMLError String -- If stream pickling goes wrong.
                  | StreamStreamEnd -- received closing stream tag
                  | StreamConnectionError
@@ -757,7 +759,7 @@ data XmppConnection = XmppConnection
                                                -- also below.
                , sJidWhenPlain    :: Bool -- Whether or not to also include the
                                           -- Jid when the connection is plain.
-               , sFrom            :: Maybe Text -- From as specified by the
+               , sFrom            :: Maybe Jid  -- From as specified by the
                                                 -- server in the stream
                                                 -- element's `from' attribute.
                }

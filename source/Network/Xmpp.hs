@@ -175,36 +175,27 @@ connect address hostname = do
     xmppRawConnect address hostname
     result <- xmppStartStream
     case result of
-        -- TODO: Descriptive texts in stream errors?
-        Left (StreamNotStreamElement _name) -> do
-            _ <- pushElement $ pickleElem xpStreamError $
-                XmppStreamError StreamInvalidXml Nothing Nothing
+        Left e -> do
+            pushElement . pickleElem xpStreamError $ toError e
             xmppCloseStreams
             return ()
-        Left (StreamInvalidStreamNamespace _ns) -> do
-            _ <- pushElement $ pickleElem xpStreamError $
-                XmppStreamError StreamInvalidNamespace Nothing Nothing
-            xmppCloseStreams
-            return ()
-        Left (StreamInvalidStreamPrefix _prefix) -> do
-            _ <- pushElement $ pickleElem xpStreamError $
-                XmppStreamError StreamBadNamespacePrefix Nothing Nothing
-            xmppCloseStreams
-            return ()
-        -- TODO: Catch remaining xmppStartStream errors.
-        Left (StreamWrongVersion _ver) -> do
-            _ <- pushElement $ pickleElem xpStreamError $
-                XmppStreamError StreamUnsupportedVersion Nothing Nothing
-            xmppCloseStreams
-            return ()
-        Left (StreamWrongLangTag _lang) -> do
-            _ <- pushElement $ pickleElem xpStreamError $
-                XmppStreamError StreamInvalidXml Nothing Nothing
-            xmppCloseStreams
-            return ()
-        Right () ->
-            return ()
+        Right () -> return ()
     return result
+  where
+        -- TODO: Descriptive texts in stream errors?
+        toError  (StreamNotStreamElement _name) =
+                XmppStreamError StreamInvalidXml Nothing Nothing
+        toError  (StreamInvalidStreamNamespace _ns) =
+                XmppStreamError StreamInvalidNamespace Nothing Nothing
+        toError  (StreamInvalidStreamPrefix _prefix) =
+                XmppStreamError StreamBadNamespacePrefix Nothing Nothing
+        -- TO: Catch remaining xmppStartStream errors.
+        toError  (StreamWrongVersion _ver) =
+                XmppStreamError StreamUnsupportedVersion Nothing Nothing
+        toError  (StreamWrongLangTag _) =
+                XmppStreamError StreamInvalidXml Nothing Nothing
+        toError  StreamUnknownError =
+                XmppStreamError StreamBadFormat Nothing Nothing
 
 
 -- | Authenticate to the server using the first matching method and bind a

@@ -12,7 +12,7 @@ import           Data.Conduit
 import           Data.Conduit.BufferedSource
 import           Data.Conduit.List as CL
 import           Data.Maybe (fromJust, isJust, isNothing)
-import           Data.Text as T
+import           Data.Text as Text
 import           Data.XML.Pickle
 import           Data.XML.Types
 import           Data.Void(Void)
@@ -20,6 +20,7 @@ import           Data.Void(Void)
 import           Network.Xmpp.Monad
 import           Network.Xmpp.Pickle
 import           Network.Xmpp.Types
+import           Network.Xmpp.Errors
 
 import           Text.XML.Stream.Elements
 import           Text.XML.Stream.Parse as XP
@@ -62,7 +63,7 @@ xmppStartStream :: XmppConMonad (Either StreamError ())
 xmppStartStream = runErrorT $ do
     state <- get
     -- Set the `to' attribute depending on the state of the connection.
-    let to = case sConnectionState state of
+    let from = case sConnectionState state of
                  XmppConnectionPlain -> if sJidWhenPlain state
                                         then sJid state else Nothing
                  XmppConnectionSecured -> sJid state
@@ -71,11 +72,13 @@ xmppStartStream = runErrorT $ do
         Just hostname -> lift $ do
             pushXmlDecl
             pushOpenElement $
-                pickleElem pickleOutStream ( to
-                                           , Just hostname
-                                           , sPreferredLang state
-                                           )
-    (lt, from, id, features) <- ErrorT . pullToSink $ runErrorT $ xmppStream to
+                pickleElem xpStream ( "1.0"
+                                    , from
+                                    , Just (Jid Nothing hostname Nothing)
+                                    , Nothing
+                                    , sPreferredLang state
+                                    )
+    (lt, from, id, features) <- ErrorT . pullToSink $ runErrorT $ xmppStream from
     modify (\s -> s { sFeatures = features
                     , sStreamLang = Just lt
                     , sStreamId = id
@@ -84,7 +87,7 @@ xmppStartStream = runErrorT $ do
            )
     return ()
 
--- Creates a new connection source (of Events) using the raw source (of bytes)
+-- Sets a new Event source using the raw source (of bytes)
 -- and calls xmppStartStream.
 xmppRestartStream :: XmppConMonad (Either StreamError ())
 xmppRestartStream = do
@@ -98,29 +101,30 @@ xmppRestartStream = do
 -- appropriate.
 -- TODO: from.
 xmppStream :: Maybe Jid -> StreamSink ( LangTag
-                                      , Maybe Text
+                                      , Maybe Jid
                                       , Maybe Text
                                       , ServerFeatures)
 xmppStream expectedTo = do
-    (langTag, from, id) <- xmppStreamHeader
+    (from, to, id, langTag) <- xmppStreamHeader
     features <- xmppStreamFeatures
     return (langTag, from, id, features)
   where
-    xmppStreamHeader :: StreamSink (LangTag, Maybe Text, Maybe Text)
+    xmppStreamHeader :: StreamSink (Maybe Jid, Maybe Jid, Maybe Text.Text, LangTag)
     xmppStreamHeader = do
         lift throwOutJunk
         -- Get the stream:stream element (or whatever it is) from the server,
         -- and validate what we get.
-        ((Name lname ns prefix), (from, id, to, ver, lang), ())
-            <- streamUnpickleElem pickleInStream =<< openElementFromEvents
-        unless (lname == "stream") $ throwError $ StreamNotStreamElement lname
-        unless (ns == Just "http://etherx.jabber.org/streams") $ throwError $ StreamInvalidStreamNamespace ns
-        unless (prefix == Just "stream") $ throwError $ StreamInvalidStreamPrefix prefix
-        unless (isNothing to || (fromText $ fromJust to) == expectedTo) $ throwError $ StreamWrongTo to
-        unless (ver == Just "1.0") $ throwError $ StreamWrongVersion ver
-        let lang_ = maybe Nothing langTag lang
-        when (isNothing lang_) $ throwError $ StreamWrongLangTag lang
-        return (fromJust lang_, from, id)
+        el <- openElementFromEvents
+        case unpickleElem xpStream el of
+            Left _  -> throwError $ findStreamErrors el
+            Right r -> validateData r
+
+    validateData (_, _, _, _, Nothing) = throwError $ StreamWrongLangTag Nothing
+    validateData (ver, from, to, i, Just lang)
+      | ver /= "1.0" = throwError $ StreamWrongVersion (Just ver)
+      | to /= expectedTo = throwError $ StreamWrongTo (Text.pack . show <$> to)
+--      | lang /= expectedLang = throwError $ StreamWrongLangTag lang
+      | otherwise        = return (from, to, i, lang)
     xmppStreamFeatures :: StreamSink ServerFeatures
     xmppStreamFeatures = do
         e <- lift $ elements =$ CL.head
@@ -128,53 +132,19 @@ xmppStream expectedTo = do
             Nothing -> liftIO $ Ex.throwIO StreamConnectionError
             Just r -> streamUnpickleElem xpStreamFeatures r
 
--- Pickler for the stream element to be sent to the server. We follow what RFC
--- 6120 calls the "prefix-free canonicalization style".)
-pickleOutStream :: PU [Node] ( Maybe Jid -- from
-                             , Maybe Text -- to
-                             , Maybe LangTag -- xml:lang
-                             )
-pickleOutStream = xpWrap
-    (\(from, to, _ver, lang) -> (from, to, lang))
-    (\(from, to, lang) ->
-         (from, to, "1.0", lang)
-    )
-    (xpElemAttrs
-         (Name
-              "stream"
-              (Just "http://etherx.jabber.org/streams")
-              (Just "stream")
-         )
-         (xp4Tuple
-              (xpAttrImplied "from" xpPrim)
-              (xpAttrImplied "to" xpId)
-              (xpAttr "version" xpId)
-              xpLangTag
-         )
+
+
+xpStream :: PU [Node] (Text, Maybe Jid, Maybe Jid, Maybe Text, Maybe LangTag)
+xpStream = xpElemAttrs
+    (Name "stream" (Just "http://etherx.jabber.org/streams") (Just "stream"))
+    (xp5Tuple
+         (xpAttr "version" xpId)
+         (xpAttrImplied "from" xpPrim)
+         (xpAttrImplied "to" xpPrim)
+         (xpAttrImplied "id" xpId)
+         xpLangTag
     )
 
--- Unpickler for the stream element to be received from the server. As this
--- function puts no restrictions on the element received, the data need to be
--- validated externally.
-pickleInStream :: PU [Node] ( Name
-                            , ( Maybe Text -- from
-                              , Maybe Text -- id
-                              , Maybe Text -- to
-                              , Maybe Text -- version
-                              , Maybe Text -- xml:lang
-                              )
-                            , ()
-                            )
-pickleInStream = xpElemWithName
-    (xp5Tuple
-         (xpAttrImplied "from" xpId)
-         (xpAttrImplied "id" xpId)
-         (xpAttrImplied "to" xpId)
-         (xpAttrImplied "version" xpId)
-         (xpAttrImplied (Name "lang" (Just "http://www.w3.org/XML/1998/namespace") (Just "xml")) xpId)
-    )
-    xpUnit
- 
 -- Pickler/Unpickler for the stream features - TLS, SASL, and the rest.
 xpStreamFeatures :: PU [Node] ServerFeatures
 xpStreamFeatures = xpWrap
