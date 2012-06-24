@@ -33,6 +33,12 @@ import           Text.XML.Stream.Elements
 import           Text.XML.Stream.Parse as XP
 import           Text.XML.Unresolved(InvalidEventStream(..))
 
+-- Enable/disable debug output
+-- This will dump all incoming and outgoing network taffic to the console,
+-- prefixed with "in: " and "out: " respectively
+debug :: Bool
+debug = False
+
 pushElement :: Element -> XmppConMonad Bool
 pushElement x = do
     sink <- gets sConPushBS
@@ -94,7 +100,7 @@ pullStanza = do
         Right r -> return r
 
 -- Performs the given IO operation, catches any errors and re-throws everything
--- except the `ResourceVanished' error.
+-- except 'ResourceVanished' and IllegalOperation, in which case it will return False instead
 catchPush :: IO () -> IO Bool
 catchPush p = Ex.catch
     (p >> return True)
@@ -135,12 +141,18 @@ xmppRawConnect host hostname = do
         con <- connectTo host (PortNumber 5222)
         hSetBuffering con NoBuffering
         return con
-    let raw = sourceHandle con
+    let raw = if debug
+                then sourceHandle con $= debugConduit
+                else sourceHandle con
     src <- liftIO . bufferSource $ raw $= XP.parseBytes def
     let st = XmppConnection
             { sConSrc          = src
             , sRawSrc          = raw
-            , sConPushBS       = (catchPush . BS.hPut con)
+            , sConPushBS       = if debug
+                                   then \d -> do
+                                       BS.putStrLn (BS.append "out: " d)
+                                       catchPush $ BS.hPut con d
+                                   else catchPush . BS.hPut con
             , sConHandle       = (Just con)
             , sFeatures        = (SF Nothing [] [])
             , sConnectionState = XmppConnectionPlain
@@ -212,3 +224,12 @@ xmppCloseStreams = do
             Left StreamStreamEnd -> return (elems, True)
             Left _ -> return (elems, False)
             Right elem -> collectElems (elem:elems)
+
+debugConduit :: MonadIO m => Pipe BS.ByteString BS.ByteString m ()
+debugConduit = forever $ do
+    s <- await
+    case s of
+        Just s ->  do
+            liftIO $ BS.putStrLn (BS.append "in: " s)
+            yield s
+        Nothing -> return ()

@@ -62,7 +62,7 @@ startTLS params = Ex.handle (return . Left . TLSError) . runErrorT $ do
             -- TODO: find something more suitable
         e -> lift . Ex.throwIO . StreamXMLError $
             "Unexpected element: " ++ ppElement e
-    (raw, _snk, psh, ctx) <- lift $ TLS.tlsinit params handle
+    (raw, _snk, psh, ctx) <- lift $ TLS.tlsinit debug params handle
     lift $ modify ( \x -> x
                   { sRawSrc = raw
 --                , sConSrc =  -- Note: this momentarily leaves us in an
