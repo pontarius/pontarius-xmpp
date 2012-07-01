@@ -1,6 +1,6 @@
-[submodule "xml-types-pickle"]
-        path = xml-types-pickle
-        url = git@github.com:Philonous/xml-types-pickle.git
 [submodule "stringprep-hs"]
 	path = stringprep-hs
 	url = git@github.com:Philonous/stringprep-hs.git
+[submodule "xml-picklers"]
+	path = xml-picklers
+	url = git@github.com:Philonous/xml-picklers.git
