@@ -78,8 +78,11 @@ pullElement = do
             Just r -> return r
         )
         [ Ex.Handler (\StreamEnd -> Ex.throwIO StreamStreamEnd)
-        , Ex.Handler (\(InvalidEventStream s)
+        , Ex.Handler (\(InvalidXmppXml s)
                      -> liftIO . Ex.throwIO $ StreamXMLError s)
+        , Ex.Handler $ \(e :: InvalidEventStream)
+                     -> liftIO . Ex.throwIO $ StreamXMLError (show e)
+
         ]
 
 -- Pulls an element and unpickles it.
@@ -225,7 +228,7 @@ xmppCloseStreams = do
             Left _ -> return (elems, False)
             Right elem -> collectElems (elem:elems)
 
-debugConduit :: MonadIO m => Pipe BS.ByteString BS.ByteString m ()
+debugConduit :: Pipe l ByteString ByteString u IO b
 debugConduit = forever $ do
     s <- await
     case s of

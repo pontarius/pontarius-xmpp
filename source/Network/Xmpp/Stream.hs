@@ -30,7 +30,7 @@ import           Text.XML.Stream.Parse as XP
 -- Unpickles and returns a stream element. Throws a StreamXMLError on failure.
 streamUnpickleElem :: PU [Node] a
                    -> Element
-                   -> ErrorT StreamError (Pipe Event Void IO) a
+                   -> StreamSink a
 streamUnpickleElem p x = do
     case unpickleElem p x of
         Left l -> throwError $ StreamXMLError l
@@ -38,7 +38,7 @@ streamUnpickleElem p x = do
 
 -- This is the conduit sink that handles the stream XML events. We extend it
 -- with ErrorT capabilities.
-type StreamSink a = ErrorT StreamError (Pipe Event Void IO) a
+type StreamSink a = ErrorT StreamError (Pipe Event Event Void () IO) a
 
 -- Discards all events before the first EventBeginElement.
 throwOutJunk :: Monad m => Sink Event m ()

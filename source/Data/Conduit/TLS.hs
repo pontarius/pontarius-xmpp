@@ -16,6 +16,7 @@ import Crypto.Random
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BL
 import Data.Conduit
+import Control.Monad
 
 import Network.TLS as TLS
 import Network.TLS.Extra as TLSExtra
@@ -33,25 +34,24 @@ tlsinit :: (MonadIO m, MonadIO m1) =>
 tlsinit debug tlsParams handle = do
     when debug . liftIO $ putStrLn "Debug mode enabled"
     gen <- liftIO $ (newGenIO :: IO SystemRandom) -- TODO: Find better random source?
-    clientContext <- client tlsParams gen handle
-    handshake clientContext
-    let src = sourceState
-               clientContext
-               (\con -> do
-                     dt <- recvData con
-                     when debug (liftIO $ BS.putStrLn dt)
-                     return $ StateOpen con dt)
-    let snk = sinkState
-         clientContext
-         (\con bs -> do
-                       sendData con (BL.fromChunks [bs])
-                       when debug (liftIO $ BS.putStrLn bs)
-                       return (StateProcessing  con))
-         (\_ -> return ())
+    con <- client tlsParams gen handle
+    handshake con
+    let src = forever $ do
+            dt <- liftIO $ recvData con
+            when debug (liftIO $ BS.putStrLn dt)
+            yield dt
+    let snk = do
+            d <- await
+            case d of
+                Nothing -> return ()
+                Just x -> do
+                       sendData con (BL.fromChunks [x])
+                       when debug (liftIO $ BS.putStrLn x)
+                       snk
     return ( src
            , snk
            , \s -> do
                when debug (liftIO $ BS.putStrLn s)
-               sendData clientContext $ BL.fromChunks [s]
-           , clientContext
+               sendData con $ BL.fromChunks [s]
+           , con
            )

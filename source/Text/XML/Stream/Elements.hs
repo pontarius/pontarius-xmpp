@@ -35,6 +35,10 @@ streamName =
 data StreamEnd = StreamEnd deriving (Typeable, Show)
 instance Exception StreamEnd
 
+data InvalidXmppXml = InvalidXmppXml String deriving (Show, Typeable)
+
+instance Exception InvalidXmppXml
+
 elements :: R.MonadThrow m => C.Conduit Event m Element
 elements = do
         x <- C.await
@@ -44,7 +48,7 @@ elements = do
                                                  elements
             Just (EventEndElement streamName) -> lift $ R.monadThrow StreamEnd
             Nothing -> return ()
-            _ -> lift $ R.monadThrow $ InvalidEventStream $ "not an element: " ++ show x
+            _ -> lift $ R.monadThrow $ InvalidXmppXml $ "not an element: " ++ show x
   where
     many' f =
         go id
@@ -58,7 +62,8 @@ elements = do
         (y, ns) <- many' goN
         if y == Just (EventEndElement n)
             then return $ Element n as $ compressNodes ns
-            else lift $ R.monadThrow $ InvalidEventStream $ "Missing end element for " ++ show n ++ ", got: " ++ show y
+            else lift $ R.monadThrow $ InvalidXmppXml $
+                                         "Missing close tag: " ++ show n
     goN = do
         x <- await
         case x of
