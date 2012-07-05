@@ -70,6 +70,7 @@ Library
                  , Network.Xmpp.Stream
                  , Network.Xmpp.TLS
                  , Network.Xmpp.Types
+                 , Network.Xmpp.Xep.ServiceDiscovery
   Other-modules:
                  Network.Xmpp.Jid
                  , Network.Xmpp.Concurrent.Types
