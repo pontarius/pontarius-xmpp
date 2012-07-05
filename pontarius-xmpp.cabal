@@ -49,7 +49,7 @@ Library
                , stm               -any
                , xml-types         -any
                , xml-conduit       >= 1.0
-               , xml-picklers      >= 0.1
+               , xml-picklers      >= 0.2.2
                , data-default      -any
                , stringprep        >= 0.1.5
   Exposed-modules: Network.Xmpp
@@ -70,6 +70,7 @@ Library
                  , Network.Xmpp.Stream
                  , Network.Xmpp.TLS
                  , Network.Xmpp.Types
+                 , Network.Xmpp.Xep.ServiceDiscovery
   Other-modules:
                  Network.Xmpp.Jid
                  , Network.Xmpp.Concurrent.Types

@@ -70,11 +70,11 @@ right (Right r) = r
 
 unpickleElem' :: PU [Node] c -> Element -> c
 unpickleElem' p x = case unpickle (xpNodeElem p) x of
-  Left l -> error $ l ++ "\n  saw: " ++ ppElement x
+  Left l -> error $ (show l) ++ "\n  saw: " ++ ppElement x
   Right r -> r
 
 -- Given a pickler and an element, produces an object.
-unpickleElem :: PU [Node] a -> Element -> Either String a
+unpickleElem :: PU [Node] a -> Element -> Either UnpickleError a
 unpickleElem p x = unpickle (xpNodeElem p) x
 
 -- Given a pickler and an object, produces an Element.

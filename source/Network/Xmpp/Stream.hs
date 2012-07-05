@@ -33,7 +33,7 @@ streamUnpickleElem :: PU [Node] a
                    -> StreamSink a
 streamUnpickleElem p x = do
     case unpickleElem p x of
-        Left l -> throwError $ StreamXMLError l
+        Left l -> throwError $ StreamXMLError (show l)
         Right r -> return r
 
 -- This is the conduit sink that handles the stream XML events. We extend it
