@@ -189,7 +189,7 @@ connect address hostname = do
                 XmppStreamError StreamInvalidNamespace Nothing Nothing
         toError  (StreamInvalidStreamPrefix _prefix) =
                 XmppStreamError StreamBadNamespacePrefix Nothing Nothing
-        -- TO: Catch remaining xmppStartStream errors.
+        -- TODO: Catch remaining xmppStartStream errors.
         toError  (StreamWrongVersion _ver) =
                 XmppStreamError StreamUnsupportedVersion Nothing Nothing
         toError  (StreamWrongLangTag _) =

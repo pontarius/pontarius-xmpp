@@ -48,7 +48,7 @@ main = do
         return ()
     return ()
 
--- Pull message stanzas, verify that they originate from a `full' Xmpp
+-- Pull message stanzas, verify that they originate from a `full' XMPP
 -- address, and, if so, `echo' the message back.
 echo :: Xmpp ()
 echo = forever $ do

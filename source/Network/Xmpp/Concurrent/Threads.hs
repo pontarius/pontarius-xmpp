@@ -199,7 +199,7 @@ startThreads = do
         { connectionClosedHandler = \_ -> return ()
         }
 
--- | Creates and initializes a new Xmpp session.
+-- | Creates and initializes a new concurrent session.
 newSession :: IO Session
 newSession = do
     (mC, pC, sC, hand, outC, stopThreads', writeR, conS, rdr, eh) <- startThreads

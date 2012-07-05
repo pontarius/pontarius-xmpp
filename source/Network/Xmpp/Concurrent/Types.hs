@@ -18,7 +18,7 @@ import           Network.Xmpp.Types
 
 -- Map between the IQ request type and the "query" namespace pair, and the TChan
 -- for the IQ request and "sent" boolean pair.
-type IQHandlers = (Map.Map (IQRequestType, Text) (TChan IQRequestTicket)
+type IQHandlers = ( Map.Map (IQRequestType, Text) (TChan IQRequestTicket)
                   , Map.Map StanzaId (TMVar IQResponse)
                   )
 
@@ -65,7 +65,9 @@ instance Show Interrupt where show _ = "<Interrupt>"
 
 instance Ex.Exception Interrupt
 
+-- | Contains whether or not a reply has been sent, and the IQ request body to
+-- reply to.
 data IQRequestTicket = IQRequestTicket
-                           { sentRef     :: (TVar Bool)
-                           , iqRequestBody :: IQRequest
-                           }
+    { sentRef     :: (TVar Bool)
+    , iqRequestBody :: IQRequest
+    }
