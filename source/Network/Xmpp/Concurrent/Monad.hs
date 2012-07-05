@@ -19,14 +19,14 @@ import           Network.Xmpp.Concurrent.Types
 import           Network.Xmpp.Monad
 
 
--- | Register a new IQ listener. IQ requests matching the type and namespace
--- will be put in the channel.
---
--- Return the new channel or Nothing if this namespace/'IQRequestType'
--- combination was alread handled.
+-- | Retrieves an IQ listener channel. If the namespace/'IQRequestType' is not
+-- already handled, a new 'TChan' is created and returned as a 'Right' value.
+-- Otherwise, the already existing channel will be returned wrapped in a 'Left'
+-- value. Note that the 'Left' channel might need to be duplicated in order not
+-- to interfere with existing consumers.
 listenIQChan :: IQRequestType  -- ^ Type of IQs to receive (@Get@ or @Set@)
              -> Text -- ^ Namespace of the child element
-             -> Xmpp (Maybe (TChan IQRequestTicket))
+             -> Xmpp (Either (TChan IQRequestTicket) (TChan IQRequestTicket))
 listenIQChan tp ns = do
     handlers <- asks iqHandlers
     liftIO . atomically $ do
@@ -39,8 +39,8 @@ listenIQChan tp ns = do
                 byNS
         writeTVar handlers (byNS', byID)
         return $ case present of
-            Nothing -> Just iqCh
-            Just _iqCh' -> Nothing
+            Nothing -> Right iqCh
+            Just iqCh' -> Left iqCh'
 
 -- | Get a duplicate of the stanza channel
 getStanzaChan :: Xmpp (TChan Stanza)
