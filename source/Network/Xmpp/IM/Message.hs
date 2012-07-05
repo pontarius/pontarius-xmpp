@@ -19,19 +19,19 @@ data MessageThread = MessageThread
 data MessageSubject = MessageSubject (Maybe LangTag) Text
 
 xpMessageSubject :: PU [Element] MessageSubject
-xpMessageSubject = xpElems .
+xpMessageSubject = xpUnliftElems .
                    xpWrap (\(l, s) ->  MessageSubject l s)
                           (\(MessageSubject l s) -> (l,s))
                    $ xpElem "{jabber:client}subject" xpLangTag $ xpContent xpId
 
 xpMessageBody :: PU [Element] MessageBody
-xpMessageBody = xpElems .
+xpMessageBody = xpUnliftElems .
                 xpWrap (\(l, s) ->  MessageBody l s)
                           (\(MessageBody l s) -> (l,s))
                    $ xpElem "{jabber:client}body" xpLangTag $ xpContent xpId
 
 xpMessageThread :: PU [Element] MessageThread
-xpMessageThread = xpElems
+xpMessageThread = xpUnliftElems
                   . xpWrap (\(t, p) ->  MessageThread p t)
                           (\(MessageThread p t) -> (t,p))
                    $ xpElem "{jabber:client}thread"

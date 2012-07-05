@@ -90,7 +90,7 @@ pullPickle :: PU [Node] a -> XmppConMonad a
 pullPickle p = do
     res <- unpickleElem p <$> pullElement
     case res of
-        Left e -> liftIO . Ex.throwIO $ StreamXMLError e
+        Left e -> liftIO . Ex.throwIO $ StreamXMLError (show e)
         Right r -> return r
 
 -- Pulls a stanza (or stream error) from the stream. Throws an error on a stream

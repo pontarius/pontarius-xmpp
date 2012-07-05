@@ -144,6 +144,7 @@ module Network.Xmpp
   , fork
   , forkSession
   -- * Misc
+  , LangTag(..)
   , exampleParams
   ) where
 
