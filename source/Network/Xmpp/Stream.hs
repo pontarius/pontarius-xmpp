@@ -120,10 +120,10 @@ xmppStream expectedTo = do
             Right r -> validateData r
 
     validateData (_, _, _, _, Nothing) = throwError $ StreamWrongLangTag Nothing
-    validateData (ver, from, to, i, lang)
+    validateData (ver, from, to, i, Just lang)
       | ver /= "1.0" = throwError $ StreamWrongVersion (Just ver)
       | isJust to && to /= expectedTo = throwError $ StreamWrongTo (Text.pack . show <$> to)
-      | otherwise = return (from, to, i, fromJust lang)
+      | otherwise = return (from, to, i, lang)
     xmppStreamFeatures :: StreamSink ServerFeatures
     xmppStreamFeatures = do
         e <- lift $ elements =$ CL.head
