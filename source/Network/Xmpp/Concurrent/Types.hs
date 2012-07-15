@@ -19,7 +19,7 @@ import           Network.Xmpp.Types
 -- Map between the IQ request type and the "query" namespace pair, and the TChan
 -- for the IQ request and "sent" boolean pair.
 type IQHandlers = (Map.Map (IQRequestType, Text) (TChan IQRequestTicket)
-                  , Map.Map StanzaId (TMVar IQResponse)
+                  , Map.Map StanzaId (TMVar (IQResponse))
                   )
 
 -- Handlers to be run when the Xmpp session ends and when the Xmpp connection is

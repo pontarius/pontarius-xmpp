@@ -27,6 +27,7 @@ import           Network.Xmpp
 
 data DiscoError = DiscoNoQueryElement
                 | DiscoIQError IQError
+                | DiscoTimeout
                 | DiscoXMLError Element UnpickleError
 
                 deriving (Show)
@@ -83,8 +84,9 @@ queryInfo ::  Jid -- ^ Entity to query
 queryInfo to node = do
     res <- sendIQ' (Just to) Get Nothing queryBody
     return $ case res of
-        Left e -> Left $ DiscoIQError e
-        Right r -> case iqResultPayload r of
+        IQResponseError e -> Left $ DiscoIQError e
+        IQResponseTimeout -> Left $ DiscoTimeout
+        IQResponseResult r -> case iqResultPayload r of
             Nothing -> Left DiscoNoQueryElement
             Just p -> case unpickleElem xpQueryInfo p of
                 Left e -> Left $ DiscoXMLError p e
@@ -127,8 +129,9 @@ queryItems :: Jid -- ^ Entity to query
 queryItems to node = do
     res <- sendIQ' (Just to) Get Nothing queryBody
     return $ case res of
-        Left e -> Left $ DiscoIQError e
-        Right r -> case iqResultPayload r of
+        IQResponseError e -> Left $ DiscoIQError e
+        IQResponseTimeout -> Left $ DiscoTimeout
+        IQResponseResult r -> case iqResultPayload r of
             Nothing -> Left DiscoNoQueryElement
             Just p -> case unpickleElem xpQueryItems p of
                 Left e -> Left $ DiscoXMLError p e

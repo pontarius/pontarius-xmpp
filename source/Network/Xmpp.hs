@@ -133,6 +133,7 @@ module Network.Xmpp
   , IQRequestType(..)
   , IQResult(..)
   , IQError(..)
+  , IQResponse(..)
   , sendIQ
   , sendIQ'
   , answerIQ

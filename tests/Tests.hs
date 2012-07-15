@@ -16,6 +16,7 @@ import           Data.XML.Types
 import           Network.Xmpp
 import           Network.Xmpp.IM.Presence
 import           Network.Xmpp.Pickle
+import           Network.Xmpp.Xep.ServiceDiscovery
 
 import           System.Environment
 import           Text.XML.Stream.Elements
@@ -57,16 +58,17 @@ invertPayload (Payload count flag message) = Payload (count + 1) (not flag) (Tex
 iqResponder = do
   chan' <- listenIQChan Get testNS
   chan <- case chan' of
-      Nothing -> liftIO $ putStrLn "Channel was already taken"
+      Left _ -> liftIO $ putStrLn "Channel was already taken"
                      >> error "hanging up"
-      Just c -> return c
+      Right c -> return c
   forever $ do
     next <- liftIO . atomically $ readTChan chan
     let Right payload = unpickleElem payloadP . iqRequestPayload $
                           iqRequestBody next
     let answerPayload = invertPayload payload
     let answerBody = pickleElem payloadP answerPayload
-    answerIQ next (Right $ Just answerBody)
+    unless (payloadCounter payload == 3) . void $
+        answerIQ next (Right $ Just answerBody)
     when (payloadCounter payload == 10) $ do
         liftIO $ threadDelay 1000000
         endSession
@@ -134,6 +136,24 @@ runMain debug number = do
       sendPresence $ presenceSubscribe them
       fork iqResponder
       when active $ do
+        q <- queryInfo "species64739.dyndns.org" Nothing
+        case q of
+            Left (DiscoXMLError el e) -> do
+                debug' (ppElement el)
+                debug' (Text.unpack $ ppUnpickleError e)
+                debug' (show $ length $ elementNodes el)
+            x -> debug' $ show x
+
+        q <-  queryItems "species64739.dyndns.org"
+                         (Just "http://jabber.org/protocol/commands")
+        case q of
+            Left (DiscoXMLError el e) -> do
+                debug' (ppElement el)
+                debug' (Text.unpack $ ppUnpickleError e)
+                debug' (show $ length $ elementNodes el)
+            x -> debug' $ show x
+
+
         liftIO $ threadDelay 1000000 -- Wait for the other thread to go online
         void . fork $ do
             forM [1..10] $ \count -> do
@@ -141,11 +161,17 @@ runMain debug number = do
                 let payload = Payload count (even count) (Text.pack $ show count)
                 let body = pickleElem payloadP payload
                 debug' "sending"
-                Right answer <- sendIQ' (Just them) Get Nothing body
-                debug' "received"
-                let Right answerPayload = unpickleElem payloadP
-                                      (fromJust $ iqResultPayload answer)
-                expect debug' (invertPayload payload) answerPayload
+                answer <- sendIQ' (Just them) Get Nothing body
+                case answer of
+                    IQResponseResult r -> do
+                        debug' "received"
+                        let Right answerPayload = unpickleElem payloadP
+                                              (fromJust $ iqResultPayload r)
+                        expect debug' (invertPayload payload) answerPayload
+                    IQResponseTimeout -> do
+                        debug' $ "Timeout in packet: " ++ show count
+                    IQResponseError e -> do
+                        debug' $ "Error in packet: " ++ show count
                 liftIO $ threadDelay 100000
             sendUser "All tests done"
             debug' "ending session"

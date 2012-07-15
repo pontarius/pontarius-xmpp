@@ -10,7 +10,7 @@ module Network.Xmpp.Types
     ( IQError(..)
     , IQRequest(..)
     , IQRequestType(..)
-    , IQResponse
+    , IQResponse(..)
     , IQResult(..)
     , IdGenerator(..)
     , LangTag (..)
@@ -111,9 +111,12 @@ instance Read IQRequestType where
   readsPrec _ "set" = [(Set, "")]
   readsPrec _ _ = []
 
--- | A "response" Info/Query (IQ) stanza is either an 'IQError' or an IQ stanza
--- with the type "result" ('IQResult').
-type IQResponse = Either IQError IQResult
+-- | A "response" Info/Query (IQ) stanza is either an 'IQError', an IQ stanza
+-- of  type "result" ('IQResult') or a Timeout.
+data IQResponse = IQResponseError IQError
+                | IQResponseResult IQResult
+                | IQResponseTimeout
+                deriving Show
 
 -- | The (non-error) answer to an IQ request.
 data IQResult = IQResult { iqResultID :: StanzaId

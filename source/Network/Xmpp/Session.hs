@@ -39,5 +39,5 @@ startSession :: Xmpp ()
 startSession = do
     answer <- sendIQ' Nothing Set Nothing sessionXML
     case answer of
-        Left e -> error $ show e
-        Right _ -> return ()
+        IQResponseResult _ -> return ()
+        e -> error $ show e
