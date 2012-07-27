@@ -25,26 +25,21 @@ import Network.Xmpp.IM
 
 -- Server and authentication details.
 
-hostname = "nejla.com"
-hostname_ = "xmpp.nejla.com" -- TODO
+hostname = "localhost"
+
 -- portNumber = 5222 -- TODO
-userName = ""
+username = ""
 password = ""
+resource = Nothing
 
 
 -- TODO: Incomplete code, needs documentation, etc.
 main :: IO ()
 main = do
     withNewSession $ do
-        withConnection $ do
-            connect hostname_ hostname
-            -- startTLS exampleParams
-            saslResponse <- simpleAuth userName password (Just "echo-client")
-            case saslResponse of
-                Right _ -> return ()
-                Left e -> error $ show e
+        withConnection $ simpleConnect hostname username password resource
         sendPresence presenceOnline
-        fork echo
+        echo
         return ()
     return ()
 

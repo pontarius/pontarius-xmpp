@@ -34,6 +34,7 @@ module Network.Xmpp
   , newSession
   , withConnection
   , connect
+  , simpleConnect
   , startTLS
   , simpleAuth
   , auth
@@ -236,6 +237,7 @@ simpleAuth username passwd resource = flip auth resource $
 --   * authenticate to the server using either SCRAM-SHA1 (preferred) or
 --     Digest-MD5
 --   * bind a resource
+--   * return the full JID you have been assigned
 --
 -- Note that the server might assign a different resource even when we send
 -- a preference.
@@ -244,12 +246,11 @@ simpleConnect :: HostName   -- ^ Target host name
               -> Text       -- ^ Password
               -> Maybe Text -- ^ Desired resource (or Nothing to let the server
                             -- decide)
-              -> XmppConMonad ()
+              -> XmppConMonad Jid
 simpleConnect host username password resource = do
       connect host username
       startTLS exampleParams
       saslResponse <- simpleAuth username password resource
       case saslResponse of
-          Right _ -> return ()
+          Right jid -> return jid
           Left e -> error $ show e
-      return ()

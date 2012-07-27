@@ -3,7 +3,3 @@ cabal-dev/
 wiki/
 *.o
 *.hi
-*~
-*#
-*.#*
-*_flymake.hs

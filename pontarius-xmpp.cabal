@@ -80,6 +80,9 @@ Library
                  , Text.XML.Stream.Elements
                  , Data.Conduit.BufferedSource
                  , Data.Conduit.TLS
+                 , Network.Xmpp.Sasl.Common
+                 , Network.Xmpp.Sasl.StringPrep
+                 , Network.Xmpp.Errors
   GHC-Options: -Wall
 
 Executable pontarius-xmpp-echoclient

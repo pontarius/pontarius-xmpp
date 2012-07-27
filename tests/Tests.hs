@@ -16,7 +16,8 @@ import           Data.XML.Types
 import           Network.Xmpp
 import           Network.Xmpp.IM.Presence
 import           Network.Xmpp.Pickle
-import           Network.Xmpp.Xep.ServiceDiscovery
+import qualified Network.Xmpp.Xep.ServiceDiscovery as Disco
+import qualified Network.Xmpp.Xep.InbandRegistration as IBR
 
 import           System.Environment
 import           Text.XML.Stream.Elements
@@ -81,9 +82,10 @@ autoAccept = forever $ do
 simpleMessage :: Jid -> Text -> Message
 simpleMessage to txt = message
     { messageTo = Just to
-    , messagePayload = [Element "body"
-                        []
-                        [NodeContent $ ContentText txt]
+    , messagePayload = [ Element
+                             "body"
+                              []
+                              [NodeContent $ ContentText txt]
                        ]
     }
   where
@@ -95,7 +97,6 @@ simpleMessage to txt = message
                       , messagePayload = []
                       }
 
-
 sendUser  = sendMessage . simpleMessage supervisor . Text.pack
 
 expect debug x y | x == y = debug "Ok."
@@ -104,18 +105,58 @@ expect debug x y | x == y = debug "Ok."
                             debug failMSG
                             sendUser failMSG
 
-
 wait3 :: MonadIO m => m ()
 wait3 = liftIO $ threadDelay 1000000
 
-runMain :: (String -> STM ()) -> Int -> IO ()
-runMain debug number = do
+discoTest debug = do
+    q <- Disco.queryInfo "species64739.dyndns.org" Nothing
+    case q of
+        Left (Disco.DiscoXMLError el e) -> do
+            debug (ppElement el)
+            debug (Text.unpack $ ppUnpickleError e)
+            debug (show $ length $ elementNodes el)
+        x -> debug $ show x
+
+    q <-  Disco.queryItems "species64739.dyndns.org"
+                     (Just "http://jabber.org/protocol/commands")
+    case q of
+        Left (Disco.DiscoXMLError el e) -> do
+            debug (ppElement el)
+            debug (Text.unpack $ ppUnpickleError e)
+            debug (show $ length $ elementNodes el)
+        x -> debug $ show x
+
+iqTest debug we them = do
+    forM [1..10] $ \count -> do
+        let message = Text.pack . show $ localpart we
+        let payload = Payload count (even count) (Text.pack $ show count)
+        let body = pickleElem payloadP payload
+        debug "sending"
+        answer <- sendIQ' (Just them) Get Nothing body
+        case answer of
+            IQResponseResult r -> do
+                debug "received"
+                let Right answerPayload = unpickleElem payloadP
+                                      (fromJust $ iqResultPayload r)
+                expect debug (invertPayload payload) answerPayload
+            IQResponseTimeout -> do
+                debug $ "Timeout in packet: " ++ show count
+            IQResponseError e -> do
+                debug $ "Error in packet: " ++ show count
+        liftIO $ threadDelay 100000
+    sendUser "All tests done"
+    debug "ending session"
+
+ibrTest debug = IBR.requestFields >>= debug . show
+
+
+runMain :: (String -> STM ()) -> Int -> Bool -> IO ()
+runMain debug number multi = do
   let (we, them, active) = case number `mod` 2 of
                              1 -> (testUser1, testUser2,True)
                              0 -> (testUser2, testUser1,False)
   let debug' = liftIO . atomically .
                debug . (("Thread " ++ show number ++ ":") ++)
-  wait <- newEmptyTMVarIO
   withNewSession $ do
       setConnectionClosedHandler (\e -> do
                   liftIO (debug' $ "connection lost because " ++ show e)
@@ -124,6 +165,7 @@ runMain debug number = do
       withConnection $ Ex.catch (do
           connect "localhost" "species64739.dyndns.org"
           startTLS exampleParams
+          ibrTest debug'
           saslResponse <- simpleAuth
                             (fromJust $ localpart we) "pwd" (resourcepart we)
           case saslResponse of
@@ -132,60 +174,25 @@ runMain debug number = do
           debug' "session standing")
           (\e -> debug' $ show  (e ::Ex.SomeException))
       sendPresence presenceOnline
-      fork autoAccept
+      thread1 <- fork autoAccept
       sendPresence $ presenceSubscribe them
-      fork iqResponder
+      thread2 <- fork iqResponder
       when active $ do
-        q <- queryInfo "species64739.dyndns.org" Nothing
-        case q of
-            Left (DiscoXMLError el e) -> do
-                debug' (ppElement el)
-                debug' (Text.unpack $ ppUnpickleError e)
-                debug' (show $ length $ elementNodes el)
-            x -> debug' $ show x
-
-        q <-  queryItems "species64739.dyndns.org"
-                         (Just "http://jabber.org/protocol/commands")
-        case q of
-            Left (DiscoXMLError el e) -> do
-                debug' (ppElement el)
-                debug' (Text.unpack $ ppUnpickleError e)
-                debug' (show $ length $ elementNodes el)
-            x -> debug' $ show x
-
-
         liftIO $ threadDelay 1000000 -- Wait for the other thread to go online
-        void . fork $ do
-            forM [1..10] $ \count -> do
-                let message = Text.pack . show $ localpart we
-                let payload = Payload count (even count) (Text.pack $ show count)
-                let body = pickleElem payloadP payload
-                debug' "sending"
-                answer <- sendIQ' (Just them) Get Nothing body
-                case answer of
-                    IQResponseResult r -> do
-                        debug' "received"
-                        let Right answerPayload = unpickleElem payloadP
-                                              (fromJust $ iqResultPayload r)
-                        expect debug' (invertPayload payload) answerPayload
-                    IQResponseTimeout -> do
-                        debug' $ "Timeout in packet: " ++ show count
-                    IQResponseError e -> do
-                        debug' $ "Error in packet: " ++ show count
-                liftIO $ threadDelay 100000
-            sendUser "All tests done"
-            debug' "ending session"
-            liftIO . atomically $ putTMVar wait ()
-            closeConnection
-      liftIO . atomically $ takeTMVar wait
+        discoTest debug'
+        when multi $ iqTest debug' we them
+        closeConnection
+        liftIO $ killThread thread1
+        liftIO $ killThread thread2
       return ()
   return ()
 
-run i = do
+run i multi = do
   out <- newTChanIO
-  forkIO . forever $ atomically (readTChan out) >>= putStrLn
+  debugger <- forkIO . forever $ atomically (readTChan out) >>= putStrLn
   let debugOut = writeTChan out
-  forkIO $ runMain debugOut (1 + i)
-  runMain debugOut (2 + i)
+  when multi . void $ forkIO $ runMain debugOut (1 + i) multi
+  runMain debugOut (2 + i) multi
 
-main = run 0
+
+main = run 0 False

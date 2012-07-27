@@ -7,7 +7,6 @@
 
 module Network.Xmpp.Pickle
     ( mbToBool
-    , xpElemEmpty
     , xmlLang
     , xpLangTag
     , xpNodeElem
@@ -31,11 +30,6 @@ import Text.XML.Stream.Elements
 mbToBool :: Maybe t -> Bool
 mbToBool (Just _) = True
 mbToBool _ = False
-
-xpElemEmpty :: Name -> PU [Node] ()
-xpElemEmpty name = xpWrap (\((),()) -> ())
-                          (\() -> ((),())) $
-                              xpElem name xpUnit xpUnit
 
 xmlLang :: Name
 xmlLang = Name "lang" (Just "http://www.w3.org/XML/1998/namespace") (Just "xml")
