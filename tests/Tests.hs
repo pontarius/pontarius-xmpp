@@ -5,6 +5,7 @@ import           Control.Concurrent
 import           Control.Concurrent.STM
 import qualified Control.Exception.Lifted as Ex
 import           Control.Monad
+import           Control.Monad.State
 import           Control.Monad.IO.Class
 
 import           Data.Maybe
@@ -16,6 +17,7 @@ import           Data.XML.Types
 import           Network.Xmpp
 import           Network.Xmpp.IM.Presence
 import           Network.Xmpp.Pickle
+import           Network.Xmpp.Types
 import qualified Network.Xmpp.Xep.ServiceDiscovery as Disco
 import qualified Network.Xmpp.Xep.InbandRegistration as IBR
 
@@ -147,7 +149,9 @@ iqTest debug we them = do
     sendUser "All tests done"
     debug "ending session"
 
-ibrTest debug = IBR.requestFields >>= debug . show
+ibrTest debug = IBR.registerWith [ (IBR.Username, "testuser2")
+                                 , (IBR.Password, "pwd")
+                                 ] >>= debug . show
 
 
 runMain :: (String -> STM ()) -> Int -> Bool -> IO ()
@@ -165,13 +169,18 @@ runMain debug number multi = do
       withConnection $ Ex.catch (do
           connect "localhost" "species64739.dyndns.org"
           startTLS exampleParams
+          debug' "ibr start"
           ibrTest debug'
+          debug' "ibr end"
           saslResponse <- simpleAuth
                             (fromJust $ localpart we) "pwd" (resourcepart we)
           case saslResponse of
               Right _ -> return ()
               Left e -> error $ show e
-          debug' "session standing")
+          debug' "session standing"
+          features <- other `liftM` gets sFeatures
+          liftIO . void $ forM features $ \f -> debug' $ ppElement f
+          )
           (\e -> debug' $ show  (e ::Ex.SomeException))
       sendPresence presenceOnline
       thread1 <- fork autoAccept
@@ -185,6 +194,8 @@ runMain debug number multi = do
         liftIO $ killThread thread1
         liftIO $ killThread thread2
       return ()
+--      liftIO . threadDelay $ 10^6
+      unless multi . void .  withConnection $ IBR.unregister
   return ()
 
 run i multi = do

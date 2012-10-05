@@ -171,12 +171,12 @@ respond = lift . pushElement . saslResponseE .
 
 
 -- | Run the appropriate stringprep profiles on the credentials.
--- May fail Fails with 'AuthStringPrepError'
+-- May fail with 'AuthStringPrepError'
 prepCredentials :: Text.Text -> Maybe Text.Text -> Text.Text
                 -> SaslM (Text.Text, Maybe Text.Text, Text.Text)
 prepCredentials authcid authzid password = case credentials of
     Nothing -> throwError $ AuthStringPrepError
-    Just (ac, az, pw) -> return (ac, az, pw)
+    Just creds -> return creds
   where
     credentials = do
     ac <- normalizeUsername authcid

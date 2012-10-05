@@ -32,13 +32,13 @@ tlsinit :: (MonadIO m, MonadIO m1) =>
                     , TLSCtx Handle
                     )
 tlsinit debug tlsParams handle = do
-    when debug . liftIO $ putStrLn "Debug mode enabled"
+    when debug . liftIO $ putStrLn "TLS with debug mode enabled"
     gen <- liftIO $ (newGenIO :: IO SystemRandom) -- TODO: Find better random source?
     con <- client tlsParams gen handle
     handshake con
     let src = forever $ do
             dt <- liftIO $ recvData con
-            when debug (liftIO $ BS.putStrLn dt)
+            when debug (liftIO $ putStr "in: " >> BS.putStrLn dt)
             yield dt
     let snk = do
             d <- await
@@ -46,7 +46,7 @@ tlsinit debug tlsParams handle = do
                 Nothing -> return ()
                 Just x -> do
                        sendData con (BL.fromChunks [x])
-                       when debug (liftIO $ BS.putStrLn x)
+                       when debug (liftIO $ putStr "out: " >>  BS.putStrLn x)
                        snk
     return ( src
            , snk

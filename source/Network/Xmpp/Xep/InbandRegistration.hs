@@ -22,6 +22,7 @@ import qualified Data.XML.Types as XML
 import           Network.Xmpp.Monad
 import           Network.Xmpp.Pickle
 import           Network.Xmpp.Types
+import           Network.Xmpp.Xep.ServiceDiscovery
 
 
 -- In-Band Registration name space
@@ -30,27 +31,49 @@ ibrns = "jabber:iq:register"
 
 ibrName x = (XML.Name x (Just ibrns) Nothing)
 
-data Query = Query { instructions :: Maybe Text.Text
-                   , registered   :: Bool
-                   , fields       ::[(Field, Maybe Text.Text)]
-                   } deriving Show
-
-emptyQuery = Query Nothing False []
-
-supported = do
-    fs <- other <$> gets sFeatures
-    let fe = XML.Element "{http://jabber.org/features/iq-register}register" [] []
-    return $ fe `elem` fs
-
-
 data IbrError = IbrNotSupported
+              | IbrNoConnection
               | IbrIQError IQError
+
                 deriving (Show)
 instance Error IbrError
 
-query :: Query -> XmppConMonad (Either IbrError Query)
-query x = do
-    answer <- xmppSendIQ' "ibr" Nothing Get Nothing (pickleElem xpQuery x)
+
+data Query = Query { instructions :: Maybe Text.Text
+                   , registered   :: Bool
+                   , remove       :: Bool
+                   , fields       ::[(Field, Maybe Text.Text)]
+                   } deriving Show
+
+emptyQuery = Query Nothing False False []
+
+supported :: XmppConMonad (Either IbrError Bool)
+supported = runErrorT $ fromFeatures <+> fromDisco
+  where
+  fromFeatures = do
+      fs <- other <$> gets sFeatures
+      let fe = XML.Element
+                   "{http://jabber.org/features/iq-register}register"
+                   []
+                   []
+      return $ fe `elem` fs
+  fromDisco = do
+      hn' <- gets sHostname
+      hn <- case hn' of
+          Just h -> return (Jid Nothing h Nothing)
+          Nothing -> throwError IbrNoConnection
+      qi <- lift $ xmppQueryInfo Nothing Nothing
+      case qi of
+          Left e -> return False
+          Right qir -> return $ "jabber:iq:register" `elem` qiFeatures qir
+  f <+> g = do
+            r <- f
+            if r then return r else g
+
+
+query :: IQRequestType -> Query -> XmppConMonad (Either IbrError Query)
+query queryType x = do
+    answer <- xmppSendIQ' "ibr" Nothing queryType Nothing (pickleElem xpQuery x)
     case answer of
         Right IQResult{iqResultPayload = Just b} ->
             case unpickleElem xpQuery b of
@@ -59,6 +82,7 @@ query x = do
                             "RequestField: unpickle failed, got "
                             ++ Text.unpack (ppUnpickleError e)
                             ++ " saw " ++ ppElement b
+        Right _ -> return $ Right emptyQuery -- TODO: That doesn't seem right
         Left e -> return . Left $ IbrIQError e
 
 data RegisterError = IbrError IbrError
@@ -81,24 +105,28 @@ registerWith givenFields = runErrorT $ do
     fields <- case partitionEithers res of
         ([],fs) -> return fs
         (fs,_) -> throwError $ MissingFields fs
-    result <- mapError IbrError . ErrorT .  query $ emptyQuery {fields}
+    result <- mapError IbrError . ErrorT .  query Set $ emptyQuery {fields}
     return result
 
+unregister :: XmppConMonad (Either IbrError Query)
+unregister = query Set $ emptyQuery {remove = True}
+
 requestFields = runErrorT $ do
-    supp <- supported
-    unless supp $ throwError $ IbrNotSupported
-    qr <- ErrorT $ query emptyQuery
+--     supp <- ErrorT supported
+--    unless supp $ throwError $ IbrNotSupported
+    qr <- ErrorT $ query Get emptyQuery
     return $ qr
 
 xpQuery :: PU [XML.Node] Query
 xpQuery = xpWrap
-            (\(is, r, fs) -> Query is r fs)
-            (\(Query is r fs) -> (is, r, fs)) $
+            (\(is, r, u, fs) -> Query is r u fs)
+            (\(Query is r u fs) -> (is, r, u, fs)) $
             xpElemNodes (ibrName "query") $
-              xp3Tuple
+              xp4Tuple
                  (xpOption $
                     xpElemNodes (ibrName "instructions") (xpContent $ xpText))
                  (xpElemExists (ibrName "registered"))
+                 (xpElemExists (ibrName "remove"))
                  (xpAllByNamespace ibrns  ( xpWrap
                                               (\(name,_,c) -> (name, c))
                                               (\(name,c) -> (name,(),c)) $

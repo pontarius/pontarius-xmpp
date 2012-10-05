@@ -8,6 +8,7 @@ module Network.Xmpp.Xep.ServiceDiscovery
   ( QueryInfoResult(..)
   , Identity(..)
   , queryInfo
+  , xmppQueryInfo
   , Item
   , queryItems
   , DiscoError(..)
@@ -22,8 +23,10 @@ import qualified Data.Text as Text
 import           Data.XML.Pickle
 import           Data.XML.Types
 
-import           Network.Xmpp.Pickle
 import           Network.Xmpp
+import           Network.Xmpp.Monad
+import           Network.Xmpp.Pickle
+import           Network.Xmpp.Types
 
 data DiscoError = DiscoNoQueryElement
                 | DiscoIQError IQError
@@ -78,7 +81,7 @@ xpQueryInfo = xpWrap (\(nd, (feats, ids)) -> QIR nd ids feats)
                      )
 
 -- | Query an entity for it's identity and features
-queryInfo ::  Jid -- ^ Entity to query
+queryInfo :: Jid -- ^ Entity to query
           -> Maybe Text.Text -- ^ Node
           -> Xmpp (Either DiscoError QueryInfoResult)
 queryInfo to node = do
@@ -93,6 +96,23 @@ queryInfo to node = do
                 Right r -> Right r
   where
     queryBody = pickleElem xpQueryInfo (QIR node [] [])
+
+
+xmppQueryInfo :: Maybe Jid
+     -> Maybe Text.Text
+     -> XmppConMonad (Either DiscoError QueryInfoResult)
+xmppQueryInfo to node = do
+    res <- xmppSendIQ' "info" to Get Nothing queryBody
+    return $ case res of
+        Left e -> Left $ DiscoIQError e
+        Right r -> case iqResultPayload r of
+            Nothing -> Left DiscoNoQueryElement
+            Just p -> case unpickleElem xpQueryInfo p of
+                Left e -> Left $ DiscoXMLError p e
+                Right r -> Right r
+  where
+    queryBody = pickleElem xpQueryInfo (QIR node [] [])
+
 
 --
 -- Items
