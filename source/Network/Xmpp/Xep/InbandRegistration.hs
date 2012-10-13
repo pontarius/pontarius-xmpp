@@ -68,7 +68,7 @@ supported = runErrorT $ fromFeatures <+> fromDisco
           Right qir -> return $ "jabber:iq:register" `elem` qiFeatures qir
   f <+> g = do
             r <- f
-            if r then return r else g
+            if r then return True else g
 
 
 query :: IQRequestType -> Query -> XmppConMonad (Either IbrError Query)
@@ -94,6 +94,8 @@ instance Error RegisterError
 
 mapError f = mapErrorT (liftM $ left f)
 
+-- | Retrieve the necessary fields and fill them in to register an account with
+-- the server
 registerWith :: [(Field, Text.Text)] -> XmppConMonad (Either RegisterError Query)
 registerWith givenFields = runErrorT $ do
     fs <- mapError IbrError $ ErrorT requestFields
@@ -108,6 +110,8 @@ registerWith givenFields = runErrorT $ do
     result <- mapError IbrError . ErrorT .  query Set $ emptyQuery {fields}
     return result
 
+-- | Terminate your account on the server. You have to be logged in for this to
+-- work. You connection will most likely be terminated after unregistering.
 unregister :: XmppConMonad (Either IbrError Query)
 unregister = query Set $ emptyQuery {remove = True}
 

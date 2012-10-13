@@ -48,7 +48,7 @@ xpMessage = xpWrap
              (xpAttrImplied "id"   xpPrim)
              (xpAttrImplied "from" xpPrim)
              (xpAttrImplied "to"   xpPrim)
-             (xpAttrImplied xmlLang xpPrim)
+             xpLangTag
              -- TODO: NS?
          )
          (xpAll xpElemVerbatim)

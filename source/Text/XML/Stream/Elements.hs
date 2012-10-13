@@ -39,6 +39,8 @@ data InvalidXmppXml = InvalidXmppXml String deriving (Show, Typeable)
 
 instance Exception InvalidXmppXml
 
+parseElement txt = documentRoot $ TXU.parseText_ TXU.def txt
+
 elements :: R.MonadThrow m => C.Conduit Event m Element
 elements = do
         x <- C.await
