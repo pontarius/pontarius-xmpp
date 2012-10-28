@@ -80,23 +80,23 @@ instance IsString StanzaId where
 
 -- | The Xmpp communication primities (Message, Presence and Info/Query) are
 -- called stanzas.
-data Stanza = IQRequestS     IQRequest
-            | IQResultS      IQResult
-            | IQErrorS       IQError
-            | MessageS       Message
-            | MessageErrorS  MessageError
-            | PresenceS      Presence
-            | PresenceErrorS PresenceError
+data Stanza = IQRequestS     !IQRequest
+            | IQResultS      !IQResult
+            | IQErrorS       !IQError
+            | MessageS       !Message
+            | MessageErrorS  !MessageError
+            | PresenceS      !Presence
+            | PresenceErrorS !PresenceError
               deriving Show
 
 -- | A "request" Info/Query (IQ) stanza is one with either "get" or "set" as
 -- type. It always contains an xml payload.
-data IQRequest = IQRequest { iqRequestID      :: StanzaId
-                           , iqRequestFrom    :: Maybe Jid
-                           , iqRequestTo      :: Maybe Jid
-                           , iqRequestLangTag :: Maybe LangTag
-                           , iqRequestType    :: IQRequestType
-                           , iqRequestPayload :: Element
+data IQRequest = IQRequest { iqRequestID      :: !StanzaId
+                           , iqRequestFrom    :: !(Maybe Jid)
+                           , iqRequestTo      :: !(Maybe Jid)
+                           , iqRequestLangTag :: !(Maybe LangTag)
+                           , iqRequestType    :: !IQRequestType
+                           , iqRequestPayload :: !Element
                            } deriving Show
 
 -- | The type of IQ request that is made.
@@ -119,38 +119,38 @@ data IQResponse = IQResponseError IQError
                 deriving Show
 
 -- | The (non-error) answer to an IQ request.
-data IQResult = IQResult { iqResultID :: StanzaId
-                         , iqResultFrom :: Maybe Jid
-                         , iqResultTo :: Maybe Jid
-                         , iqResultLangTag :: Maybe LangTag
-                         , iqResultPayload :: Maybe Element
+data IQResult = IQResult { iqResultID      :: !StanzaId
+                         , iqResultFrom    :: !(Maybe Jid)
+                         , iqResultTo      :: !(Maybe Jid)
+                         , iqResultLangTag :: !(Maybe LangTag)
+                         , iqResultPayload :: !(Maybe Element)
                          } deriving Show
 
 -- | The answer to an IQ request that generated an error.
-data IQError = IQError { iqErrorID :: StanzaId
-                       , iqErrorFrom :: Maybe Jid
-                       , iqErrorTo :: Maybe Jid
-                       , iqErrorLangTag :: Maybe LangTag
-                       , iqErrorStanzaError :: StanzaError
-                       , iqErrorPayload :: Maybe Element -- should this be []?
+data IQError = IQError { iqErrorID          :: !StanzaId
+                       , iqErrorFrom        :: !(Maybe Jid)
+                       , iqErrorTo          :: !(Maybe Jid)
+                       , iqErrorLangTag     :: !(Maybe LangTag)
+                       , iqErrorStanzaError :: !StanzaError
+                       , iqErrorPayload     :: !(Maybe Element) -- should this be []?
                        } deriving Show
 
 -- | The message stanza. Used for /push/ type communication.
-data Message = Message { messageID      :: Maybe StanzaId
-                       , messageFrom    :: Maybe Jid
-                       , messageTo      :: Maybe Jid
-                       , messageLangTag :: Maybe LangTag
-                       , messageType    :: MessageType
-                       , messagePayload :: [Element]
+data Message = Message { messageID      :: !(Maybe StanzaId)
+                       , messageFrom    :: !(Maybe Jid)
+                       , messageTo      :: !(Maybe Jid)
+                       , messageLangTag :: !(Maybe LangTag)
+                       , messageType    :: !MessageType
+                       , messagePayload :: ![Element]
                        } deriving Show
 
 -- | An error stanza generated in response to a 'Message'.
-data MessageError = MessageError { messageErrorID :: Maybe StanzaId
-                                 , messageErrorFrom :: Maybe Jid
-                                 , messageErrorTo :: Maybe Jid
-                                 , messageErrorLangTag  :: Maybe LangTag
-                                 , messageErrorStanzaError :: StanzaError
-                                 , messageErrorPayload :: [Element]
+data MessageError = MessageError { messageErrorID          :: !(Maybe StanzaId)
+                                 , messageErrorFrom        :: !(Maybe Jid)
+                                 , messageErrorTo          :: !(Maybe Jid)
+                                 , messageErrorLangTag     :: !(Maybe LangTag)
+                                 , messageErrorStanzaError :: !StanzaError
+                                 , messageErrorPayload     :: ![Element]
                                  } deriving (Show)
 
 
@@ -192,10 +192,10 @@ data MessageType = -- | The message is sent in the context of a one-to-one chat
                  deriving (Eq)
 
 instance Show MessageType where
-    show Chat = "chat"
+    show Chat      = "chat"
     show GroupChat = "groupchat"
-    show Headline = "headline"
-    show Normal = "normal"
+    show Headline  = "headline"
+    show Normal    = "normal"
 
 instance Read MessageType where
     readsPrec _  "chat"      = [(Chat, "")]
@@ -205,22 +205,22 @@ instance Read MessageType where
     readsPrec _  _           = [(Normal, "")]
 
 -- | The presence stanza. Used for communicating status updates.
-data Presence = Presence { presenceID      :: Maybe StanzaId
-                         , presenceFrom    :: Maybe Jid
-                         , presenceTo      :: Maybe Jid
-                         , presenceLangTag :: Maybe LangTag
-                         , presenceType    :: Maybe PresenceType
-                         , presencePayload :: [Element]
+data Presence = Presence { presenceID      :: !(Maybe StanzaId)
+                         , presenceFrom    :: !(Maybe Jid)
+                         , presenceTo      :: !(Maybe Jid)
+                         , presenceLangTag :: !(Maybe LangTag)
+                         , presenceType    :: !(Maybe PresenceType)
+                         , presencePayload :: ![Element]
                          } deriving Show
 
 
 -- | An error stanza generated in response to a 'Presence'.
-data PresenceError = PresenceError { presenceErrorID          :: Maybe StanzaId
-                                   , presenceErrorFrom        :: Maybe Jid
-                                   , presenceErrorTo          :: Maybe Jid
-                                   , presenceErrorLangTag     :: Maybe LangTag
-                                   , presenceErrorStanzaError :: StanzaError
-                                   , presenceErrorPayload     :: [Element]
+data PresenceError = PresenceError { presenceErrorID          :: !(Maybe StanzaId)
+                                   , presenceErrorFrom        :: !(Maybe Jid)
+                                   , presenceErrorTo          :: !(Maybe Jid)
+                                   , presenceErrorLangTag     :: !(Maybe LangTag)
+                                   , presenceErrorStanzaError :: !StanzaError
+                                   , presenceErrorPayload     :: ![Element]
                                    } deriving Show
 
 -- | @PresenceType@ holds Xmpp presence types. The "error" message type is left
@@ -275,11 +275,11 @@ data StanzaErrorType = Cancel   | -- ^ Error is unrecoverable - do not retry
                        deriving (Eq)
 
 instance Show StanzaErrorType where
-    show Cancel = "cancel"
+    show Cancel   = "cancel"
     show Continue = "continue"
-    show Modify = "modify"
-    show Auth = "auth"
-    show Wait = "wait"
+    show Modify   = "modify"
+    show Auth     = "auth"
+    show Wait     = "wait"
 
 instance Read StanzaErrorType where
   readsPrec _ "auth"     = [( Auth    , "")]
@@ -614,9 +614,9 @@ instance Read StreamErrorCondition where
     readsPrec _ _                          = [(StreamUndefinedCondition   , "")]
 
 data XmppStreamError = XmppStreamError
-    { errorCondition :: StreamErrorCondition
-    , errorText :: Maybe (Maybe LangTag, Text)
-    , errorXML :: Maybe Element
+    { errorCondition :: !StreamErrorCondition
+    , errorText      :: !(Maybe (Maybe LangTag, Text))
+    , errorXML       :: !(Maybe Element)
     } deriving (Show, Eq)
 
 data StreamError = StreamError XmppStreamError
@@ -651,8 +651,8 @@ newtype IdGenerator = IdGenerator (IO Text)
 -- | XMPP version number. Displayed as "<major>.<minor>". 2.4 is lesser than
 -- 2.13, which in turn is lesser than 12.3.
 
-data Version = Version { majorVersion :: Integer
-                       , minorVersion :: Integer } deriving (Eq)
+data Version = Version { majorVersion :: !Integer
+                       , minorVersion :: !Integer } deriving (Eq)
 
 -- If the major version numbers are not equal, compare them. Otherwise, compare
 -- the minor version numbers.
@@ -685,8 +685,8 @@ versionParser = do
 -- | The language tag in accordance with RFC 5646 (in the form of "en-US"). It
 -- has a primary tag and a number of subtags. Two language tags are considered
 -- equal if and only if they contain the same tags (case-insensitive).
-data LangTag = LangTag { primaryTag :: Text
-                       , subtags :: [Text] }
+data LangTag = LangTag { primaryTag :: !Text
+                       , subtags    :: ![Text] }
 
 instance Eq LangTag where
     LangTag p s == LangTag q t = Text.toLower p == Text.toLower q &&
@@ -729,9 +729,9 @@ langTagParser = do
     tagChars = ['a'..'z'] ++ ['A'..'Z']
 
 data ServerFeatures = SF
-    { stls  :: Maybe Bool
-    , saslMechanisms :: [Text.Text]
-    , other :: [Element]
+    { stls           :: !(Maybe Bool)
+    , saslMechanisms :: ![Text.Text]
+    , other          :: ![Element]
     } deriving Show
 
 data XmppConnectionState
@@ -741,30 +741,32 @@ data XmppConnectionState
       deriving (Show, Eq, Typeable)
 
 data XmppConnection = XmppConnection
-               { sConSrc          :: Source IO Event
-               , sRawSrc          :: Source IO BS.ByteString
-               , sConPushBS       :: BS.ByteString -> IO Bool
-               , sConHandle       :: Maybe Handle
-               , sFeatures        :: ServerFeatures
-               , sConnectionState :: XmppConnectionState
-               , sHostname        :: Maybe Text
-               , sJid             :: Maybe Jid
-               , sCloseConnection :: IO ()
-               , sPreferredLang   :: Maybe LangTag
-               , sStreamLang      :: Maybe LangTag -- Will be a `Just' value
-                                                   -- once connected to the
-                                                   -- server.
-               , sStreamId        :: Maybe Text -- Stream ID as specified by the
-                                                -- server.
-               , sToJid           :: Maybe Jid -- JID to include in the stream
-                                               -- element's `to' attribute when
-                                               -- the connection is secured. See
-                                               -- also below.
-               , sJidWhenPlain    :: Bool -- Whether or not to also include the
-                                          -- Jid when the connection is plain.
-               , sFrom            :: Maybe Jid  -- From as specified by the
-                                                -- server in the stream
-                                                -- element's `from' attribute.
+               { sConSrc          :: !(Source IO Event)
+               , sRawSrc          :: !(Source IO BS.ByteString)
+               , sConPushBS       :: !(BS.ByteString -> IO Bool)
+               , sConHandle       :: !(Maybe Handle)
+               , sFeatures        :: !ServerFeatures
+               , sConnectionState :: !XmppConnectionState
+               , sHostname        :: !(Maybe Text)
+               , sJid             :: !(Maybe Jid)
+               , sCloseConnection :: !(IO ())
+               , sPreferredLang   :: !(Maybe LangTag)
+               , sStreamLang      :: !(Maybe LangTag) -- Will be a `Just' value
+                                                    -- once connected to the
+                                                    -- server.
+               , sStreamId        :: !(Maybe Text) -- Stream ID as specified by
+                                                   -- the server.
+               , sToJid           :: !(Maybe Jid) -- JID to include in the
+                                                  -- stream element's `to'
+                                                  -- attribute when the
+                                                  -- connection is secured. See
+                                                  -- also below.
+               , sJidWhenPlain    :: !Bool -- Whether or not to also include the
+                                           -- Jid when the connection is plain.
+               , sFrom            :: !(Maybe Jid)  -- From as specified by the
+                                                   -- server in the stream
+                                                   -- element's `from'
+                                                   -- attribute.
                }
 
 -- |
