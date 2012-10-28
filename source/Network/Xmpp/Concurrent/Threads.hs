@@ -103,8 +103,7 @@ readWorker messageC presenceC stanzaC iqHands handlers stateRef =
         return Nothing
     -- While waiting for the first semaphore(s) to flip we might receive another
     -- interrupt. When that happens we add it's semaphore to the list and retry
-    -- waiting. We do this because we might receive another interrupt while
-    -- recovering from the last one. We do this because we might receive another
+    -- waiting. We do this because we might receive another
     -- interrupt while we're waiting for a mutex to unlock; if that happens, the
     -- new interrupt is added to the list and is waited for as well.
     handleInterrupts :: [TMVar ()] -> IO [()]
