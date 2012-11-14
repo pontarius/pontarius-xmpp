@@ -21,59 +21,61 @@ sendIQ :: Maybe Int -- ^ Timeout
        -> Maybe LangTag  -- ^ Language tag of the payload (@Nothing@ for
                          -- default)
        -> Element -- ^ The IQ body (there has to be exactly one)
-       -> Xmpp (TMVar IQResponse)
-sendIQ timeOut to tp lang body = do -- TODO: Add timeout
-    newId <- liftIO =<< asks idGenerator
-    handlers <- asks iqHandlers
-    ref <- liftIO . atomically $ do
+       -> Session
+       -> IO (TMVar IQResponse)
+sendIQ timeOut to tp lang body session = do -- TODO: Add timeout
+    newId <- idGenerator session
+    ref <- atomically $ do
         resRef <- newEmptyTMVar
-        (byNS, byId) <- readTVar handlers
-        writeTVar handlers (byNS, Map.insert newId resRef byId)
+        (byNS, byId) <- readTVar (iqHandlers session)
+        writeTVar (iqHandlers session) (byNS, Map.insert newId resRef byId)
           -- TODO: Check for id collisions (shouldn't happen?)
         return resRef
-    sendStanza . IQRequestS $ IQRequest newId Nothing to lang tp body
+    sendStanza  (IQRequestS $ IQRequest newId Nothing to lang tp body) session
     case timeOut of
         Nothing -> return ()
-        Just t -> void . liftIO . forkIO $ do
+        Just t -> void . forkIO $ do
                   threadDelay t
-                  doTimeOut handlers newId ref
+                  doTimeOut (iqHandlers session) newId ref
     return ref
   where
     doTimeOut handlers iqid var = atomically $ do
       p <- tryPutTMVar var IQResponseTimeout
       when p $ do
-          (byNS, byId) <- readTVar handlers
+          (byNS, byId) <- readTVar (iqHandlers session)
           writeTVar handlers (byNS, Map.delete iqid byId)
       return ()
+
 
 -- | Like 'sendIQ', but waits for the answer IQ. Times out after 3 seconds
 sendIQ' :: Maybe Jid
         -> IQRequestType
         -> Maybe LangTag
         -> Element
-        -> Xmpp IQResponse
-sendIQ' to tp lang body = do
-    ref <- sendIQ (Just 3000000) to tp lang body
-    liftIO . atomically $ takeTMVar ref
+        -> Session
+        -> IO IQResponse
+sendIQ' to tp lang body session = do
+    ref <- sendIQ (Just 3000000) to tp lang body session
+    atomically $ takeTMVar ref
 
 
 answerIQ :: IQRequestTicket
          -> Either StanzaError (Maybe Element)
-         -> Xmpp Bool
+         -> Session
+         -> IO Bool
 answerIQ (IQRequestTicket
               sentRef
               (IQRequest iqid from _to lang _tp bd))
-           answer = do
-  out <- asks outCh
+           answer session = do
   let response = case answer of
         Left err  -> IQErrorS $ IQError iqid Nothing from lang err (Just bd)
         Right res -> IQResultS $ IQResult iqid Nothing from lang res
-  liftIO . atomically $ do
+  atomically $ do
        sent <- readTVar sentRef
        case sent of
          False -> do
              writeTVar sentRef True
 
-             writeTChan out response
+             writeTChan (outCh session) response
              return True
          True -> return False

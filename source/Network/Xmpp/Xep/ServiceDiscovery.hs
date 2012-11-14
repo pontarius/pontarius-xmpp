@@ -27,6 +27,7 @@ import           Network.Xmpp
 import           Network.Xmpp.Monad
 import           Network.Xmpp.Pickle
 import           Network.Xmpp.Types
+import           Network.Xmpp.Concurrent
 
 data DiscoError = DiscoNoQueryElement
                 | DiscoIQError IQError
@@ -83,9 +84,10 @@ xpQueryInfo = xpWrap (\(nd, (feats, ids)) -> QIR nd ids feats)
 -- | Query an entity for it's identity and features
 queryInfo :: Jid -- ^ Entity to query
           -> Maybe Text.Text -- ^ Node
-          -> Xmpp (Either DiscoError QueryInfoResult)
-queryInfo to node = do
-    res <- sendIQ' (Just to) Get Nothing queryBody
+          -> Session
+          -> IO (Either DiscoError QueryInfoResult)
+queryInfo to node session = do
+    res <- sendIQ' (Just to) Get Nothing queryBody session
     return $ case res of
         IQResponseError e -> Left $ DiscoIQError e
         IQResponseTimeout -> Left $ DiscoTimeout
@@ -145,9 +147,10 @@ xpQueryItems = xpElem (itemsN "query")
 -- | Query an entity for Items of a node
 queryItems :: Jid -- ^ Entity to query
            -> Maybe Text.Text -- ^ Node
-           -> Xmpp (Either DiscoError (Maybe Text.Text, [Item]))
-queryItems to node = do
-    res <- sendIQ' (Just to) Get Nothing queryBody
+           -> Session
+           -> IO (Either DiscoError (Maybe Text.Text, [Item]))
+queryItems to node session = do
+    res <- sendIQ' (Just to) Get Nothing queryBody session
     return $ case res of
         IQResponseError e -> Left $ DiscoIQError e
         IQResponseTimeout -> Left $ DiscoTimeout

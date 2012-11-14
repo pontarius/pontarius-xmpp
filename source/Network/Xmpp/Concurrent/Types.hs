@@ -56,8 +56,6 @@ data Session = Session
     , stopThreads :: IO ()
     }
 
--- Xmpp is a monad for concurrent Xmpp usage.
-type Xmpp a = ReaderT Session IO a
 
 -- Interrupt is used to signal to the reader thread that it should stop.
 data Interrupt = Interrupt (TMVar ()) deriving Typeable

@@ -225,17 +225,6 @@ newSession = do
         eh
         stopThreads'
 
--- | Creates a new session and runs the given Xmpp computation.
-withNewSession :: Xmpp b -> IO (Session, b)
-withNewSession a = do
-    sess <- newSession
-    ret <- runReaderT a sess
-    return (sess, ret)
-
--- | Runs the given Xmpp computation in the given session.
-withSession :: Session -> Xmpp a -> IO a
-withSession = flip runReaderT
-
 -- Acquires the write lock, pushes a space, and releases the lock.
 -- | Sends a blank space every 30 seconds to keep the connection alive.
 connPersist :: TMVar (BS.ByteString -> IO Bool) -> IO ()

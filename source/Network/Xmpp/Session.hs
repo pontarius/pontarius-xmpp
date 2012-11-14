@@ -35,9 +35,9 @@ xmppStartSession = do
 
 -- Sends the session IQ set element and waits for an answer. Throws an error if
 -- if an IQ error stanza is returned from the server.
-startSession :: Xmpp ()
-startSession = do
-    answer <- sendIQ' Nothing Set Nothing sessionXML
+startSession :: Session -> IO ()
+startSession session = do
+    answer <- sendIQ' Nothing Set Nothing sessionXML session
     case answer of
         IQResponseResult _ -> return ()
         e -> error $ show e
