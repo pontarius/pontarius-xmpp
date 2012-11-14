@@ -23,13 +23,18 @@ import Network.TLS.Extra as TLSExtra
 
 import System.IO(Handle)
 
+client params gen handle = do
+    contextNewOnHandle handle params gen
+
+defaultParams = defaultParamsClient
+
 tlsinit :: (MonadIO m, MonadIO m1) =>
         Bool
      -> TLSParams
      -> Handle -> m ( Source m1 BS.ByteString
                     , Sink BS.ByteString m1 ()
                     , BS.ByteString -> IO ()
-                    , TLSCtx Handle
+                    , Context
                     )
 tlsinit debug tlsParams handle = do
     when debug . liftIO $ putStrLn "TLS with debug mode enabled"

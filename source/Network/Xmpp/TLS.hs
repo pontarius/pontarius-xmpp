@@ -21,15 +21,12 @@ starttlsE :: Element
 starttlsE = Element "{urn:ietf:params:xml:ns:xmpp-tls}starttls" [] []
 
 exampleParams :: TLS.TLSParams
-exampleParams = TLS.defaultParams
+exampleParams = TLS.defaultParamsClient
     { pConnectVersion    = TLS.TLS10
     , pAllowedVersions   = [TLS.SSL3, TLS.TLS10, TLS.TLS11]
     , pCiphers           = [TLS.cipher_AES128_SHA1]
     , pCompressions      = [TLS.nullCompression]
-    , pWantClientCert    = False -- Used for servers
     , pUseSecureRenegotiation = False -- No renegotiation
-    , pCertificates      = [] -- TODO
-    , pLogging           = TLS.defaultLogging -- TODO
     , onCertificatesRecv = \_certificate ->
           return TLS.CertificateUsageAccept
     }
