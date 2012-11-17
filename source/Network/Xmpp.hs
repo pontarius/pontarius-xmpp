@@ -29,7 +29,8 @@
 
 module Network.Xmpp
   ( -- * Session management
-    newSession
+    Session
+  , newSession
   , withConnection
   , connect
   , simpleConnect
