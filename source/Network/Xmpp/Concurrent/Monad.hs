@@ -6,6 +6,7 @@ import           Network.Xmpp.Types
 import           Control.Applicative((<$>))
 import           Control.Concurrent
 import           Control.Concurrent.STM
+import           Control.Concurrent.STM.TVar (TVar, readTVar, writeTVar)
 import qualified Control.Exception.Lifted as Ex
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader
@@ -205,6 +206,14 @@ sendMessage m session = sendStanza (MessageS m) session
 -- | Executes a function to update the event handlers.
 modifyHandlers :: (EventHandlers -> EventHandlers) -> Session -> IO ()
 modifyHandlers f session = atomically $ modifyTVar (eventHandlers session) f
+  where
+    -- Borrowing modifyTVar from
+    -- http://hackage.haskell.org/packages/archive/stm/2.4/doc/html/src/Control-Concurrent-STM-TVar.html
+    -- as it's not available in GHC 7.0.
+    modifyTVar :: TVar a -> (a -> a) -> STM ()
+    modifyTVar var f = do
+      x <- readTVar var
+      writeTVar var (f x)
 
 -- | Sets the handler to be executed when the server connection is closed.
 setConnectionClosedHandler :: (StreamError -> Session -> IO ()) -> Session -> IO ()
