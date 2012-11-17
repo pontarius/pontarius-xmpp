@@ -238,13 +238,14 @@ simpleAuth username passwd resource = flip auth resource $
 -- Note that the server might assign a different resource even when we send
 -- a preference.
 simpleConnect :: HostName   -- ^ Target host name
+              -> PortID
               -> Text       -- ^ User name (authcid)
               -> Text       -- ^ Password
               -> Maybe Text -- ^ Desired resource (or Nothing to let the server
                             -- decide)
               -> XmppConMonad Jid
-simpleConnect host username password resource = do
-      connect host username
+simpleConnect host port username password resource = do
+      connect host port username
       startTLS exampleParams
       saslResponse <- simpleAuth username password resource
       case saslResponse of

@@ -138,10 +138,10 @@ xmppNoConnection = XmppConnection
 
 -- Connects to the given hostname on port 5222 (TODO: Make this dynamic) and
 -- updates the XmppConMonad XmppConnection state.
-xmppRawConnect :: HostName -> Text -> XmppConMonad ()
-xmppRawConnect host hostname = do
+xmppRawConnect :: HostName -> PortID -> Text -> XmppConMonad ()
+xmppRawConnect host port hostname = do
     con <- liftIO $ do
-        con <- connectTo host (PortNumber 5222)
+        con <- connectTo host port
         hSetBuffering con NoBuffering
         return con
     let raw = if debug
