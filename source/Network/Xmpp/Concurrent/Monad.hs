@@ -152,7 +152,7 @@ waitForPresence f session = do
 
 -- TODO: Wait for presence error?
 
--- | Run an XmppMonad action in isolation. Reader and writer workers will be
+-- | Run an XmppConMonad action in isolation. Reader and writer workers will be
 -- temporarily stopped and resumed with the new session details once the action
 -- returns. The action will run in the calling thread. Any uncaught exceptions
 -- will be interpreted as connection failure.

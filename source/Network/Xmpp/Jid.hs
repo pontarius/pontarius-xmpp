@@ -23,6 +23,9 @@ import qualified Data.Text as Text
 import qualified Text.NamePrep as SP
 import qualified Text.StringPrep as SP
 
+-- | A JID is XMPP\'s native format for addressing entities in the network. It
+-- is somewhat similar to an e-mail address but contains three parts instead of
+-- two.
 data Jid = Jid { -- | The @localpart@ of a JID is an optional identifier placed
                  -- before the domainpart and separated from the latter by a
                  -- \'\@\' character. Typically a localpart uniquely identifies
@@ -105,12 +108,12 @@ fromStrings l d r = do
     validPartLength :: Text -> Bool
     validPartLength p = Text.length p > 0 && Text.length p < 1024
 
--- | Returns True if the JID is /bare/, and False otherwise.
+-- | Returns 'True' if the JID is /bare/, and 'False' otherwise.
 isBare :: Jid -> Bool
 isBare j | resourcepart j == Nothing = True
          | otherwise                 = False
 
--- | Returns True if the JID is 'full', and False otherwise.
+-- | Returns 'True' if the JID is /full/, and 'False' otherwise.
 isFull :: Jid -> Bool
 isFull = not . isBare
 
