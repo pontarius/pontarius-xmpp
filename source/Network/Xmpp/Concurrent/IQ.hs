@@ -27,22 +27,22 @@ sendIQ timeOut to tp lang body session = do -- TODO: Add timeout
     newId <- idGenerator session
     ref <- atomically $ do
         resRef <- newEmptyTMVar
-        (byNS, byId) <- readTVar (iqHandlers session)
-        writeTVar (iqHandlers session) (byNS, Map.insert newId resRef byId)
+        (byNS, byId) <- readTVar (iqHandlers . chans $ session)
+        writeTVar (iqHandlers . chans $ session) (byNS, Map.insert newId resRef byId)
           -- TODO: Check for id collisions (shouldn't happen?)
         return resRef
-    sendStanza  (IQRequestS $ IQRequest newId Nothing to lang tp body) session
+    sendStanza  (IQRequestS $ IQRequest newId Nothing to lang tp body) (chans session)
     case timeOut of
         Nothing -> return ()
         Just t -> void . forkIO $ do
                   threadDelay t
-                  doTimeOut (iqHandlers session) newId ref
+                  doTimeOut (iqHandlers . chans $ session) newId ref
     return ref
   where
     doTimeOut handlers iqid var = atomically $ do
       p <- tryPutTMVar var IQResponseTimeout
       when p $ do
-          (byNS, byId) <- readTVar (iqHandlers session)
+          (byNS, byId) <- readTVar (iqHandlers . chans $ session)
           writeTVar handlers (byNS, Map.delete iqid byId)
       return ()
 
@@ -76,6 +76,6 @@ answerIQ (IQRequestTicket
          False -> do
              writeTVar sentRef True
 
-             writeTChan (outCh session) response
+             writeTChan (outCh . chans $ session) response
              return True
          True -> return False

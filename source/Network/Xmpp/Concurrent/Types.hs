@@ -6,7 +6,6 @@ module Network.Xmpp.Concurrent.Types where
 import qualified Control.Exception.Lifted as Ex
 import           Control.Concurrent
 import           Control.Concurrent.STM
-import           Control.Monad.Trans.Reader
 
 import qualified Data.ByteString as BS
 import           Data.IORef
@@ -30,7 +29,20 @@ data EventHandlers = EventHandlers
 
 -- The Session object is the Xmpp (ReaderT) state.
 data Session = Session
-    { -- The original master channels that the reader puts stanzas
+    { writeRef :: TMVar (BS.ByteString -> IO Bool)
+    , readerThread :: ThreadId
+    , idGenerator :: IO StanzaId
+      -- Lock (used by withConnection) to make sure that a maximum of one
+      -- XmppConMonad calculation is executed at any given time.
+    , conStateRef :: TMVar XmppConnection
+    , eventHandlers :: TVar EventHandlers
+    , stopThreads :: IO ()
+    , chans :: Chans
+    }
+
+data Chans = Chans
+    {
+      -- The original master channels that the reader puts stanzas
       -- into. These are cloned by @get{STanza,Message,Presence}Chan
       -- on demand when first used by the thread and are stored in the
       -- {message,presence}Ref fields below.
@@ -46,16 +58,7 @@ data Session = Session
     , iqHandlers :: TVar IQHandlers
       -- Writing lock, so that only one thread could write to the stream at any
       -- given time.
-    , writeRef :: TMVar (BS.ByteString -> IO Bool)
-    , readerThread :: ThreadId
-    , idGenerator :: IO StanzaId
-      -- Lock (used by withConnection) to make sure that a maximum of one
-      -- XmppConMonad calculation is executed at any given time.
-    , conStateRef :: TMVar XmppConnection
-    , eventHandlers :: TVar EventHandlers
-    , stopThreads :: IO ()
     }
-
 
 -- Interrupt is used to signal to the reader thread that it should stop.
 data Interrupt = Interrupt (TMVar ()) deriving Typeable

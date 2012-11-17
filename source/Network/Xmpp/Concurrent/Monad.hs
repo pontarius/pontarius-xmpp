@@ -26,10 +26,10 @@ import           Network.Xmpp.Monad
 -- to interfere with existing consumers.
 listenIQChan :: IQRequestType  -- ^ Type of IQs to receive (@Get@ or @Set@)
              -> Text -- ^ Namespace of the child element
-             -> Session
+             -> Chans
              -> IO (Either (TChan IQRequestTicket) (TChan IQRequestTicket))
-listenIQChan tp ns session = do
-    let handlers = iqHandlers session
+listenIQChan tp ns chans = do
+    let handlers = iqHandlers chans
     atomically $ do
         (byNS, byID) <- readTVar handlers
         iqCh <- newTChan
@@ -44,110 +44,110 @@ listenIQChan tp ns session = do
             Just iqCh' -> Left iqCh'
 
 -- | Get a duplicate of the stanza channel
-getStanzaChan :: Session -> IO (TChan Stanza)
-getStanzaChan session = atomically $ dupTChan (sShadow session)
+getStanzaChan :: Chans -> IO (TChan Stanza)
+getStanzaChan chans = atomically $ dupTChan (sShadow chans)
 
 -- | Get the inbound stanza channel, duplicates from master if necessary. Please
 -- note that once duplicated it will keep filling up, call 'dropMessageChan' to
 -- allow it to be garbage collected.
-getMessageChan :: Session -> IO (TChan (Either MessageError Message))
-getMessageChan session = do
-    mCh <- readIORef $ messagesRef session
+getMessageChan :: Chans -> IO (TChan (Either MessageError Message))
+getMessageChan chans = do
+    mCh <- readIORef $ messagesRef chans
     case mCh of
         Nothing -> do
-            mCh' <- atomically $ dupTChan (mShadow session)
-            writeIORef (messagesRef session) (Just mCh')
+            mCh' <- atomically $ dupTChan (mShadow chans)
+            writeIORef (messagesRef chans) (Just mCh')
             return mCh'
         Just mCh' -> return mCh'
 
 -- | Analogous to 'getMessageChan'.
-getPresenceChan :: Session -> IO (TChan (Either PresenceError Presence))
-getPresenceChan session = do
-    pCh <- readIORef $ presenceRef session
+getPresenceChan :: Chans -> IO (TChan (Either PresenceError Presence))
+getPresenceChan chans = do
+    pCh <- readIORef $ presenceRef chans
     case pCh of
         Nothing -> do
-            pCh' <- atomically $ dupTChan (pShadow session)
-            writeIORef (presenceRef session) (Just pCh')
+            pCh' <- atomically $ dupTChan (pShadow chans)
+            writeIORef (presenceRef chans) (Just pCh')
             return pCh'
         Just pCh' -> return pCh'
 
 -- | Drop the local end of the inbound stanza channel from our context so it can
 -- be GC-ed.
-dropMessageChan :: Session -> IO ()
-dropMessageChan session = writeIORef (messagesRef session) Nothing
+dropMessageChan :: Chans -> IO ()
+dropMessageChan chans = writeIORef (messagesRef chans) Nothing
 
 -- | Analogous to 'dropMessageChan'.
-dropPresenceChan :: Session -> IO ()
-dropPresenceChan session = writeIORef (presenceRef session) Nothing
+dropPresenceChan :: Chans -> IO ()
+dropPresenceChan chans = writeIORef (presenceRef chans) Nothing
 
 -- | Read an element from the inbound stanza channel, acquiring a copy of the
 -- channel as necessary.
-pullMessage :: Session -> IO (Either MessageError Message)
-pullMessage session = do
-    c <- getMessageChan session
+pullMessage :: Chans -> IO (Either MessageError Message)
+pullMessage chans = do
+    c <- getMessageChan chans
     atomically $ readTChan c
 
 -- | Read an element from the inbound stanza channel, acquiring a copy of the
 -- channel as necessary.
-pullPresence :: Session -> IO (Either PresenceError Presence)
-pullPresence session = do
-    c <- getPresenceChan session
+pullPresence :: Chans -> IO (Either PresenceError Presence)
+pullPresence chans = do
+    c <- getPresenceChan chans
     atomically $ readTChan c
 
 -- | Send a stanza to the server.
-sendStanza :: Stanza -> Session -> IO ()
-sendStanza a session = atomically $ writeTChan (outCh session) a
+sendStanza :: Stanza -> Chans -> IO ()
+sendStanza a chans = atomically $ writeTChan (outCh chans) a
 
 
--- | Create a forked session object
-forkSession :: Session -> IO Session
-forkSession session = do
+-- | Create a forked chans object
+forkChans :: Chans -> IO Chans
+forkChans chans = do
     mCH' <- newIORef Nothing
     pCH' <- newIORef Nothing
-    return $ session {messagesRef = mCH', presenceRef = pCH'}
+    return $ chans {messagesRef = mCH', presenceRef = pCH'}
 
 -- | Pulls a message and returns it if the given predicate returns @True@.
 filterMessages :: (MessageError -> Bool)
                -> (Message -> Bool)
-               -> Session -> IO (Either MessageError Message)
-filterMessages f g session = do
-    s <- pullMessage session
+               -> Chans -> IO (Either MessageError Message)
+filterMessages f g chans = do
+    s <- pullMessage chans
     case s of
         Left  e | f e -> return $ Left e
-                | otherwise -> filterMessages f g session
+                | otherwise -> filterMessages f g chans
         Right m | g m -> return $ Right m
-                | otherwise -> filterMessages f g session
+                | otherwise -> filterMessages f g chans
 
 -- | Pulls a (non-error) message and returns it if the given predicate returns
 -- @True@.
-waitForMessage :: (Message -> Bool) -> Session -> IO Message
-waitForMessage f session = do
-    s <- pullMessage session
+waitForMessage :: (Message -> Bool) -> Chans -> IO Message
+waitForMessage f chans = do
+    s <- pullMessage chans
     case s of
-        Left _ -> waitForMessage f session
+        Left _ -> waitForMessage f chans
         Right m | f m -> return m
-                | otherwise -> waitForMessage f session
+                | otherwise -> waitForMessage f chans
 
 
 -- | Pulls an error message and returns it if the given predicate returns @True@.
-waitForMessageError :: (MessageError -> Bool) -> Session -> IO MessageError
-waitForMessageError f session = do
-    s <- pullMessage session
+waitForMessageError :: (MessageError -> Bool) -> Chans -> IO MessageError
+waitForMessageError f chans = do
+    s <- pullMessage chans
     case s of
-        Right _ -> waitForMessageError f session
+        Right _ -> waitForMessageError f chans
         Left  m | f m -> return m
-                | otherwise -> waitForMessageError f session
+                | otherwise -> waitForMessageError f chans
 
 
 -- | Pulls a (non-error) presence and returns it if the given predicate returns
 -- @True@.
-waitForPresence :: (Presence -> Bool) -> Session -> IO Presence
-waitForPresence f session = do
-    s <- pullPresence session
+waitForPresence :: (Presence -> Bool) -> Chans -> IO Presence
+waitForPresence f chans = do
+    s <- pullPresence chans
     case s of
-        Left _ -> waitForPresence f session
+        Left _ -> waitForPresence f chans
         Right m | f m -> return m
-                | otherwise -> waitForPresence f session
+                | otherwise -> waitForPresence f chans
 
 -- TODO: Wait for presence error?
 
@@ -194,12 +194,12 @@ withConnection a session =  do
             ]
 
 -- | Send a presence stanza.
-sendPresence :: Presence -> Session -> IO ()
-sendPresence p session = sendStanza (PresenceS p) session
+sendPresence :: Presence -> Chans -> IO ()
+sendPresence p chans = sendStanza (PresenceS p) chans
 
 -- | Send a message stanza.
-sendMessage :: Message -> Session -> IO ()
-sendMessage m session = sendStanza (MessageS m) session
+sendMessage :: Message -> Chans -> IO ()
+sendMessage m chans = sendStanza (MessageS m) chans
 
 
 -- | Executes a function to update the event handlers.

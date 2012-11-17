@@ -28,6 +28,8 @@ import           Network.Xmpp.Monad
 import           Network.Xmpp.Pickle
 import           Network.Xmpp.Types
 import           Network.Xmpp.Concurrent
+import           Network.Xmpp.Concurrent.Types
+import           Network.Xmpp.Concurrent.Channels
 
 data DiscoError = DiscoNoQueryElement
                 | DiscoIQError IQError

@@ -29,7 +29,7 @@
 
 module Network.Xmpp
   ( -- * Session management
-    newSession
+    newSessionChans
   , withConnection
   , connect
   , simpleConnect
@@ -140,7 +140,7 @@ module Network.Xmpp
   , iqRequestPayload
   , iqResultPayload
   -- * Threads
-  , forkSession
+  , forkChans
   -- * Misc
   , LangTag(..)
   , exampleParams
@@ -152,6 +152,7 @@ import           Network
 import qualified Network.TLS as TLS
 import           Network.Xmpp.Bind
 import           Network.Xmpp.Concurrent
+import           Network.Xmpp.Concurrent.Channels
 import           Network.Xmpp.Concurrent.Types
 import           Network.Xmpp.Marshal
 import           Network.Xmpp.Message
@@ -169,9 +170,9 @@ import           Network.Xmpp.Types
 import           Control.Monad.Error
 
 -- | Connect to host with given address.
-connect :: HostName -> Text -> XmppConMonad (Either StreamError ())
-connect address hostname = do
-    xmppRawConnect address hostname
+connect :: HostName -> PortID -> Text -> XmppConMonad (Either StreamError ())
+connect address port hostname = do
+    xmppRawConnect address port hostname
     result <- xmppStartStream
     case result of
         Left e -> do
