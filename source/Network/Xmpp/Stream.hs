@@ -15,7 +15,7 @@ import           Data.Maybe (fromJust, isJust, isNothing)
 import           Data.Text as Text
 import           Data.XML.Pickle
 import           Data.XML.Types
-import           Data.Void(Void)
+import           Data.Void (Void)
 
 import           Network.Xmpp.Monad
 import           Network.Xmpp.Pickle

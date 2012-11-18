@@ -4,7 +4,7 @@
 --              Core).
 -- License:     Apache License 2.0
 --
--- Maintainer:  jon.kristensen@nejla.com
+-- Maintainer:  info@jonkri.com
 -- Stability:   unstable
 -- Portability: portable
 --
@@ -85,11 +85,11 @@ module Network.Xmpp
   , Message(..)
   , MessageError(..)
   , MessageType(..)
-  -- *** creating
+  -- *** Creating
   , answerMessage
-  -- *** sending
+  -- *** Sending
   , sendMessage
-  -- *** receiving
+  -- *** Receiving
   , pullMessage
   , waitForMessage
   , waitForMessageError
@@ -101,9 +101,9 @@ module Network.Xmpp
   -- communication primitive: the presence stanza.
   , Presence(..)
   , PresenceError(..)
-  -- *** creating
+  -- *** Creating
   , module Network.Xmpp.Presence
-  -- *** sending
+  -- *** Sending
   -- | Sends a presence stanza. In general, the presence stanza should have no
   -- 'to' attribute, in which case the server to which the client is connected
   -- will broadcast that stanza to all subscribed entities. However, a
@@ -111,7 +111,7 @@ module Network.Xmpp
   -- which case the server will route or deliver that stanza to the intended
   -- recipient.
   , sendPresence
-  -- *** receiving
+  -- *** Receiving
   , pullPresence
   , waitForPresence
   -- ** IQ
@@ -141,7 +141,7 @@ module Network.Xmpp
   , iqResultPayload
   -- * Threads
   , forkChans
-  -- * Misc
+  -- * Miscellaneous
   , LangTag(..)
   , exampleParams
   ) where

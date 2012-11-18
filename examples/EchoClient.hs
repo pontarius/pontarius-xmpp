@@ -36,24 +36,23 @@ resource = Nothing
 -- TODO: Incomplete code, needs documentation, etc.
 main :: IO ()
 main = do
-    withNewSession $ do
-        withConnection $ simpleConnect hostname username password resource
-        sendPresence presenceOnline
-        echo
-        return ()
+    session <- newSession
+    withConnection (simpleConnect hostname username password resource) session
+    sendPresence presenceOnline session
+    echo session
     return ()
 
 -- Pull message stanzas, verify that they originate from a `full' XMPP
 -- address, and, if so, `echo' the message back.
-echo :: Xmpp ()
-echo = forever $ do
-    result <- pullMessage
+echo :: Session -> IO ()
+echo session = forever $ do
+    result <- pullMessage session
     case result of
         Right message ->
             if (isJust $ messageFrom message) &&
                    (isFull $ fromJust $ messageFrom message) then do
                 -- TODO: May not set from.
-                sendMessage $ Message Nothing (messageTo message) (messageFrom message) Nothing (messageType message) (messagePayload message)
+                sendMessage (Message Nothing (messageTo message) (messageFrom message) Nothing (messageType message) (messagePayload message)) session
                 liftIO $ putStrLn "Message echoed!"
             else liftIO $ putStrLn "Message sender is not set or is bare!"
         Left exception -> liftIO $ putStrLn "Error: "
