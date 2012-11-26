@@ -1,5 +1,5 @@
 Name: pontarius-xmpp
-Version: 0.1.0.0
+Version: 0.1.0.2
 Cabal-Version: >= 1.6
 Build-Type: Simple
 License: OtherLicense
@@ -11,7 +11,7 @@ Maintainer: info@jonkri.com
 Stability: alpha
 Homepage: http://www.pontarius.org/
 Bug-Reports: mailto:info@jonkri.com
-Package-URL: http://hackage.haskell.org/packages/archive/pontarius-xmpp/0.1.0.0/pontarius-xmpp-0.1.0.0.tar.gz
+Package-URL: http://hackage.haskell.org/packages/archive/pontarius-xmpp/0.1.0.2/pontarius-xmpp-0.1.0.2.tar.gz
 Synopsis: An incomplete implementation of RFC 6120 (XMPP: Core)
 Description: Pontarius is a work in progress implementation of
              RFC 6120 (XMPP: Core).
@@ -56,12 +56,15 @@ Library
                  , Network.Xmpp.Bind
                  , Network.Xmpp.Concurrent
                  , Network.Xmpp.IM
+                 , Network.Xmpp.IM.Message
+                 , Network.Xmpp.IM.Presence
                  , Network.Xmpp.Marshal
                  , Network.Xmpp.Monad
                  , Network.Xmpp.Message
                  , Network.Xmpp.Pickle
                  , Network.Xmpp.Presence
                  , Network.Xmpp.Sasl
+                 , Network.Xmpp.Sasl.Mechanisms
                  , Network.Xmpp.Sasl.Mechanisms.Plain
                  , Network.Xmpp.Sasl.Mechanisms.DigestMd5
                  , Network.Xmpp.Sasl.Mechanisms.Scram
@@ -85,10 +88,6 @@ Library
                  , Network.Xmpp.Errors
   GHC-Options: -Wall
 
-Executable pontarius-xmpp-echoclient
-  hs-source-dirs: source
-  Main-Is: ../examples/EchoClient.hs
-
 Source-Repository head
   Type: git
   Location: git://github.com/jonkri/pontarius-xmpp.git
@@ -97,5 +96,5 @@ Source-Repository this
   Type: git
   -- Module:
   Location: git://github.com/jonkri/pontarius-xmpp.git
-  Tag: 0.1.0.0
+  Tag: 0.1.0.2
   -- Subdir:
