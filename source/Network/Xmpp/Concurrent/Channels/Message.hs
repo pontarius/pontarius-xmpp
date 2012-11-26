@@ -10,7 +10,7 @@ import Network.Xmpp.Concurrent.Channels.Basic
 -- | Get the inbound stanza channel, duplicates from master if necessary. Please
 -- note that once duplicated it will keep filling up, call 'dropMessageChan' to
 -- allow it to be garbage collected.
-getMessageChan :: CSession -> IO (TChan (Either MessageError Message))
+getMessageChan :: Context -> IO (TChan (Either MessageError Message))
 getMessageChan session = do
     mCh <- readIORef . messagesRef $ session
     case mCh of
@@ -22,19 +22,19 @@ getMessageChan session = do
 
 -- | Drop the local end of the inbound stanza channel from our context so it can
 -- be GC-ed.
-dropMessageChan :: CSession -> IO ()
+dropMessageChan :: Context -> IO ()
 dropMessageChan session = writeIORef (messagesRef session) Nothing
 
 -- | Read an element from the inbound stanza channel, acquiring a copy of the
 -- channel as necessary.
-pullMessage :: CSession -> IO (Either MessageError Message)
+pullMessage :: Context -> IO (Either MessageError Message)
 pullMessage session = do
     c <- getMessageChan session
     atomically $ readTChan c
 
 -- | Pulls a (non-error) message and returns it if the given predicate returns
 -- @True@.
-waitForMessage :: (Message -> Bool) -> CSession -> IO Message
+waitForMessage :: (Message -> Bool) -> Context -> IO Message
 waitForMessage f session = do
     s <- pullMessage session
     case s of
@@ -43,7 +43,7 @@ waitForMessage f session = do
                 | otherwise -> waitForMessage f session
 
 -- | Pulls an error message and returns it if the given predicate returns @True@.
-waitForMessageError :: (MessageError -> Bool) -> CSession -> IO MessageError
+waitForMessageError :: (MessageError -> Bool) -> Context -> IO MessageError
 waitForMessageError f session = do
     s <- pullMessage session
     case s of
@@ -55,7 +55,7 @@ waitForMessageError f session = do
 -- | Pulls a message and returns it if the given predicate returns @True@.
 filterMessages :: (MessageError -> Bool)
                -> (Message -> Bool)
-               -> CSession -> IO (Either MessageError Message)
+               -> Context -> IO (Either MessageError Message)
 filterMessages f g session = do
     s <- pullMessage session
     case s of
@@ -65,5 +65,5 @@ filterMessages f g session = do
                 | otherwise -> filterMessages f g session
 
 -- | Send a message stanza.
-sendMessage :: Message -> CSession -> IO ()
+sendMessage :: Message -> Context -> IO ()
 sendMessage m session = sendStanza (MessageS m) session

@@ -8,7 +8,7 @@ import           Network.Xmpp.Concurrent.Types
 import           Network.Xmpp.Types
 
 -- | Session with Channels
-data CSession = CSession
+data Context = Context
     { session :: Session
       -- The original master channels that the reader puts stanzas
       -- into. These are cloned by @get{STanza,Message,Presence}Chan

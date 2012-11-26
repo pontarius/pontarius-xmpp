@@ -23,28 +23,28 @@ sendIQ :: Maybe Int -- ^ Timeout
        -> Maybe LangTag  -- ^ Language tag of the payload (@Nothing@ for
                          -- default)
        -> Element -- ^ The IQ body (there has to be exactly one)
-       -> CSession
+       -> Context
        -> IO (TMVar IQResponse)
-sendIQ timeOut to tp lang body csession = do -- TODO: Add timeout
-    newId <- idGenerator (session csession)
+sendIQ timeOut to tp lang body context = do -- TODO: Add timeout
+    newId <- idGenerator (session context)
     ref <- atomically $ do
         resRef <- newEmptyTMVar
-        (byNS, byId) <- readTVar (iqHandlers csession)
-        writeTVar (iqHandlers csession) (byNS, Map.insert newId resRef byId)
+        (byNS, byId) <- readTVar (iqHandlers context)
+        writeTVar (iqHandlers context) (byNS, Map.insert newId resRef byId)
           -- TODO: Check for id collisions (shouldn't happen?)
         return resRef
-    sendStanza  (IQRequestS $ IQRequest newId Nothing to lang tp body) csession
+    sendStanza  (IQRequestS $ IQRequest newId Nothing to lang tp body) context
     case timeOut of
         Nothing -> return ()
         Just t -> void . forkIO $ do
                   threadDelay t
-                  doTimeOut (iqHandlers csession) newId ref
+                  doTimeOut (iqHandlers context) newId ref
     return ref
   where
     doTimeOut handlers iqid var = atomically $ do
       p <- tryPutTMVar var IQResponseTimeout
       when p $ do
-          (byNS, byId) <- readTVar (iqHandlers csession)
+          (byNS, byId) <- readTVar (iqHandlers context)
           writeTVar handlers (byNS, Map.delete iqid byId)
       return ()
 
@@ -54,10 +54,10 @@ sendIQ' :: Maybe Jid
         -> IQRequestType
         -> Maybe LangTag
         -> Element
-        -> CSession
+        -> Context
         -> IO IQResponse
-sendIQ' to tp lang body csession = do
-    ref <- sendIQ (Just 3000000) to tp lang body csession
+sendIQ' to tp lang body context = do
+    ref <- sendIQ (Just 3000000) to tp lang body context
     atomically $ takeTMVar ref
 
 
@@ -68,10 +68,10 @@ sendIQ' to tp lang body csession = do
 -- to interfere with existing consumers.
 listenIQChan :: IQRequestType  -- ^ Type of IQs to receive (@Get@ or @Set@)
              -> Text -- ^ Namespace of the child element
-             -> CSession
+             -> Context
              -> IO (Either (TChan IQRequestTicket) (TChan IQRequestTicket))
-listenIQChan tp ns csession = do
-    let handlers = (iqHandlers csession)
+listenIQChan tp ns context = do
+    let handlers = (iqHandlers context)
     atomically $ do
         (byNS, byID) <- readTVar handlers
         iqCh <- newTChan
@@ -87,12 +87,12 @@ listenIQChan tp ns csession = do
 
 answerIQ :: IQRequestTicket
          -> Either StanzaError (Maybe Element)
-         -> CSession
+         -> Context
          -> IO Bool
 answerIQ (IQRequestTicket
               sentRef
               (IQRequest iqid from _to lang _tp bd))
-           answer csession = do
+           answer context = do
   let response = case answer of
         Left err  -> IQErrorS $ IQError iqid Nothing from lang err (Just bd)
         Right res -> IQResultS $ IQResult iqid Nothing from lang res
@@ -102,6 +102,6 @@ answerIQ (IQRequestTicket
          False -> do
              writeTVar sentRef True
 
-             writeTChan (outCh  csession) response
+             writeTChan (outCh  context) response
              return True
          True -> return False

@@ -6,7 +6,7 @@ module Network.Xmpp.Concurrent.Channels
        , module Network.Xmpp.Concurrent.Channels.Presence
        , module Network.Xmpp.Concurrent.Channels.IQ
        , toChans
-       , newSessionChans
+       , newContext
        , writeWorker
        )
 
@@ -90,9 +90,9 @@ toChans messageC presenceC stanzaC iqHands sta = atomically $ do
         iqID (Right iq') = iqResultID iq'
 
 
--- | Creates and initializes a new concurrent session.
-newSessionChans :: IO CSession
-newSessionChans = do
+-- | Creates and initializes a new concurrent context.
+newContext :: IO Context
+newContext = do
     messageC <- newTChanIO
     presenceC <- newTChanIO
     outC <- newTChanIO
@@ -116,7 +116,7 @@ newSessionChans = do
                        , eventHandlers = eh
                        , stopThreads = kill >> killThread writer
                        }
-    return $ CSession { session = sess
+    return $ Context { session = sess
                       , mShadow = messageC
                       , pShadow = presenceC
                       , sShadow = stanzaC

@@ -29,8 +29,8 @@
 
 module Network.Xmpp
   ( -- * Session management
-    Session
-  , newSessionChans
+    Context
+  , newContext
   , withConnection
   , connect
   , simpleConnect
@@ -141,7 +141,7 @@ module Network.Xmpp
   , iqRequestPayload
   , iqResultPayload
   -- * Threads
-  , forkCSession
+  , forkContext
   -- * Miscellaneous
   , LangTag(..)
   , exampleParams
