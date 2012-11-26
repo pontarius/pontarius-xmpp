@@ -7,6 +7,7 @@ import qualified Control.Exception.Lifted as Ex
 import           Control.Monad
 import           Control.Monad.State
 import           Control.Monad.IO.Class
+import           Control.Monad.Reader
 
 import           Data.Maybe
 import           Data.Text (Text)
@@ -14,12 +15,14 @@ import qualified Data.Text as Text
 import           Data.XML.Pickle
 import           Data.XML.Types
 
+import           Network
 import           Network.Xmpp
+import           Network.Xmpp.Concurrent.Channels
 import           Network.Xmpp.IM.Presence
 import           Network.Xmpp.Pickle
 import           Network.Xmpp.Types
-import qualified Network.Xmpp.Xep.ServiceDiscovery as Disco
 import qualified Network.Xmpp.Xep.InbandRegistration as IBR
+import qualified Network.Xmpp.Xep.ServiceDiscovery as Disco
 
 import           System.Environment
 import           Text.XML.Stream.Elements
@@ -33,17 +36,15 @@ testUser2 = read "testuser2@species64739.dyndns.org/bot2"
 supervisor :: Jid
 supervisor = read "uart14@species64739.dyndns.org"
 
-
-attXmpp :: STM a -> Xmpp a
-attXmpp = liftIO . atomically
-
 testNS :: Text
 testNS = "xmpp:library:test"
 
+type Xmpp a = CSession -> IO a
+
 data Payload = Payload
-               { payloadCounter ::Int
-               , payloadFlag :: Bool
-               , payloadText :: Text
+               { payloadCounter :: Int
+               , payloadFlag    :: Bool
+               , payloadText    :: Text
                } deriving (Eq, Show)
 
 payloadP = xpWrap (\((counter,flag) , message) -> Payload counter flag message)
@@ -58,8 +59,8 @@ payloadP = xpWrap (\((counter,flag) , message) -> Payload counter flag message)
 
 invertPayload (Payload count flag message) = Payload (count + 1) (not flag) (Text.reverse message)
 
-iqResponder = do
-  chan' <- listenIQChan Get testNS
+iqResponder csession = do
+  chan' <- listenIQChan Get testNS csession
   chan <- case chan' of
       Left _ -> liftIO $ putStrLn "Channel was already taken"
                      >> error "hanging up"
@@ -71,15 +72,15 @@ iqResponder = do
     let answerPayload = invertPayload payload
     let answerBody = pickleElem payloadP answerPayload
     unless (payloadCounter payload == 3) . void $
-        answerIQ next (Right $ Just answerBody)
+        answerIQ next (Right $ Just answerBody) csession
     when (payloadCounter payload == 10) $ do
-        liftIO $ threadDelay 1000000
-        endSession
+        threadDelay 1000000
+        endSession (session csession)
 
 autoAccept :: Xmpp ()
-autoAccept = forever $ do
-  st <- waitForPresence isPresenceSubscribe
-  sendPresence $ presenceSubscribed (fromJust $ presenceFrom st)
+autoAccept csession = forever $ do
+  st <- waitForPresence isPresenceSubscribe csession
+  sendPresence (presenceSubscribed (fromJust $ presenceFrom st)) csession
 
 simpleMessage :: Jid -> Text -> Message
 simpleMessage to txt = message
@@ -99,19 +100,19 @@ simpleMessage to txt = message
                       , messagePayload = []
                       }
 
-sendUser  = sendMessage . simpleMessage supervisor . Text.pack
+sendUser m csession = sendMessage (simpleMessage supervisor $ Text.pack m) csession
 
-expect debug x y | x == y = debug "Ok."
-                 | otherwise = do
-                            let failMSG = "failed" ++ show x ++ " /= " ++ show y
-                            debug failMSG
-                            sendUser failMSG
+expect debug x y csession | x == y = debug "Ok."
+                          | otherwise = do
+                              let failMSG = "failed" ++ show x ++ " /= " ++ show y
+                              debug failMSG
+                              sendUser failMSG csession
 
 wait3 :: MonadIO m => m ()
 wait3 = liftIO $ threadDelay 1000000
 
-discoTest debug = do
-    q <- Disco.queryInfo "species64739.dyndns.org" Nothing
+discoTest debug csession = do
+    q <- Disco.queryInfo "species64739.dyndns.org" Nothing csession
     case q of
         Left (Disco.DiscoXMLError el e) -> do
             debug (ppElement el)
@@ -120,7 +121,7 @@ discoTest debug = do
         x -> debug $ show x
 
     q <-  Disco.queryItems "species64739.dyndns.org"
-                     (Just "http://jabber.org/protocol/commands")
+                     (Just "http://jabber.org/protocol/commands") csession
     case q of
         Left (Disco.DiscoXMLError el e) -> do
             debug (ppElement el)
@@ -128,28 +129,32 @@ discoTest debug = do
             debug (show $ length $ elementNodes el)
         x -> debug $ show x
 
-iqTest debug we them = do
+iqTest debug we them csession = do
     forM [1..10] $ \count -> do
         let message = Text.pack . show $ localpart we
         let payload = Payload count (even count) (Text.pack $ show count)
         let body = pickleElem payloadP payload
         debug "sending"
-        answer <- sendIQ' (Just them) Get Nothing body
+        answer <- sendIQ' (Just them) Get Nothing body csession
         case answer of
             IQResponseResult r -> do
                 debug "received"
                 let Right answerPayload = unpickleElem payloadP
                                       (fromJust $ iqResultPayload r)
-                expect debug (invertPayload payload) answerPayload
+                expect debug (invertPayload payload) answerPayload csession
             IQResponseTimeout -> do
                 debug $ "Timeout in packet: " ++ show count
             IQResponseError e -> do
                 debug $ "Error in packet: " ++ show count
         liftIO $ threadDelay 100000
-    sendUser "All tests done"
+    sendUser "All tests done" csession
     debug "ending session"
 
-ibrTest debug = IBR.registerWith [ (IBR.Username, "testuser2")
+fork action csession = do
+    csession' <- forkCSession csession
+    forkIO $ action csession'
+
+ibrTest debug uname pw = IBR.registerWith [ (IBR.Username, "testuser2")
                                  , (IBR.Password, "pwd")
                                  ] >>= debug . show
 
@@ -161,41 +166,49 @@ runMain debug number multi = do
                              0 -> (testUser2, testUser1,False)
   let debug' = liftIO . atomically .
                debug . (("Thread " ++ show number ++ ":") ++)
-  withNewSession $ do
-      setConnectionClosedHandler (\e -> do
-                  liftIO (debug' $ "connection lost because " ++ show e)
-                  endSession )
-      debug' "running"
-      withConnection $ Ex.catch (do
-          connect "localhost" "species64739.dyndns.org"
-          startTLS exampleParams
-          debug' "ibr start"
-          ibrTest debug'
-          debug' "ibr end"
-          saslResponse <- simpleAuth
-                            (fromJust $ localpart we) "pwd" (resourcepart we)
-          case saslResponse of
-              Right _ -> return ()
-              Left e -> error $ show e
-          debug' "session standing"
-          features <- other `liftM` gets sFeatures
-          liftIO . void $ forM features $ \f -> debug' $ ppElement f
-          )
-          (\e -> debug' $ show  (e ::Ex.SomeException))
-      sendPresence presenceOnline
-      thread1 <- fork autoAccept
-      sendPresence $ presenceSubscribe them
-      thread2 <- fork iqResponder
-      when active $ do
-        liftIO $ threadDelay 1000000 -- Wait for the other thread to go online
-        discoTest debug'
-        when multi $ iqTest debug' we them
-        closeConnection
-        liftIO $ killThread thread1
-        liftIO $ killThread thread2
-      return ()
---      liftIO . threadDelay $ 10^6
-      unless multi . void .  withConnection $ IBR.unregister
+  csession <- newSessionChans
+
+  setConnectionClosedHandler (\e s -> do
+              debug' $ "connection lost because " ++ show e
+              endSession s) (session csession)
+  debug' "running"
+  flip withConnection (session csession) $ Ex.catch (do
+      connect "localhost" (PortNumber 5222) "species64739.dyndns.org"
+      startTLS exampleParams
+      -- debug' "ibr start"
+      -- ibrTest debug' (localpart we) "pwd"
+      -- debug' "ibr end"
+      saslResponse <- simpleAuth
+                        (fromJust $ localpart we) "pwd" (resourcepart we)
+      case saslResponse of
+          Right _ -> return ()
+          Left e -> error $ show e
+      debug' "session standing"
+      features <- other `liftM` gets sFeatures
+      liftIO . void $ forM features $ \f -> debug' $ ppElement f
+      )
+      (\e -> debug' $ show  (e ::Ex.SomeException))
+  sendPresence presenceOnline csession
+  thread1 <- fork autoAccept csession
+  sendPresence (presenceSubscribe them) csession
+  thread2 <- fork iqResponder csession
+  when active $ do
+    liftIO $ threadDelay 1000000 -- Wait for the other thread to go online
+--    discoTest debug'
+    when multi $ iqTest debug' we them csession
+    closeConnection (session csession)
+    killThread thread1
+    killThread thread2
+  return ()
+  liftIO . threadDelay $ 10^6
+--  unless multi . void .  withConnection $ IBR.unregister
+  unless multi . void $ fork (\s -> forever $ do
+                                                 pullMessage s >>= debug' . show
+                                                 putStrLn ""
+                                                 putStrLn ""
+                             )
+                             csession
+  liftIO . forever $ threadDelay 1000000
   return ()
 
 run i multi = do
@@ -206,4 +219,4 @@ run i multi = do
   runMain debugOut (2 + i) multi
 
 
-main = run 0 False
+main = run 0 True

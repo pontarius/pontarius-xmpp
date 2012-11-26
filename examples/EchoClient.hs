@@ -15,44 +15,56 @@ in the public domain.
 
 module Main (main) where
 
+import Control.Concurrent
 import Control.Monad (forever)
 import Control.Monad.IO.Class (liftIO)
 import Data.Maybe (fromJust, isJust)
 
+import Network
 import Network.Xmpp
+import Network.Xmpp.Concurrent
 import Network.Xmpp.IM
 
 
 -- Server and authentication details.
 
-hostname = "localhost"
+host = "localhost"
+hostname = "species64739.dyndns.org"
 
--- portNumber = 5222 -- TODO
-username = ""
-password = ""
+port = PortNumber 5222
+username = "echouser"
+password = "pwd"
 resource = Nothing
 
 
 -- TODO: Incomplete code, needs documentation, etc.
 main :: IO ()
 main = do
-    session <- newSession
-    withConnection (simpleConnect hostname username password resource) session
-    sendPresence presenceOnline session
-    echo session
+    csession <- newSessionChans
+    withConnection (simpleConnect host port hostname username password resource)
+        (session csession)
+    forkIO $ autoAccept csession
+    sendPresence presenceOnline csession
+    echo csession
     return ()
 
 -- Pull message stanzas, verify that they originate from a `full' XMPP
 -- address, and, if so, `echo' the message back.
-echo :: Session -> IO ()
-echo session = forever $ do
-    result <- pullMessage session
+echo :: CSession -> IO ()
+echo csession = forever $ do
+    result <- pullMessage csession
     case result of
         Right message ->
             if (isJust $ messageFrom message) &&
                    (isFull $ fromJust $ messageFrom message) then do
                 -- TODO: May not set from.
-                sendMessage (Message Nothing (messageTo message) (messageFrom message) Nothing (messageType message) (messagePayload message)) session
+                sendMessage (Message Nothing (messageTo message) (messageFrom message) Nothing (messageType message) (messagePayload message)) csession
                 liftIO $ putStrLn "Message echoed!"
             else liftIO $ putStrLn "Message sender is not set or is bare!"
         Left exception -> liftIO $ putStrLn "Error: "
+
+-- | Autoaccept any subscription offers (So people can see us online)
+autoAccept :: CSession -> IO ()
+autoAccept csession = forever $ do
+  st <- waitForPresence isPresenceSubscribe csession
+  sendPresence (presenceSubscribed (fromJust $ presenceFrom st)) csession

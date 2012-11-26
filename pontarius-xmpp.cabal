@@ -74,7 +74,7 @@ Library
   Other-modules:
                  Network.Xmpp.Jid
                  , Network.Xmpp.Concurrent.Types
-                 , Network.Xmpp.Concurrent.IQ
+                 , Network.Xmpp.Concurrent.Channels.IQ
                  , Network.Xmpp.Concurrent.Threads
                  , Network.Xmpp.Concurrent.Monad
                  , Text.XML.Stream.Elements

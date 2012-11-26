@@ -29,7 +29,8 @@
 
 module Network.Xmpp
   ( -- * Session management
-    newSessionChans
+    Session
+  , newSessionChans
   , withConnection
   , connect
   , simpleConnect
@@ -140,7 +141,7 @@ module Network.Xmpp
   , iqRequestPayload
   , iqResultPayload
   -- * Threads
-  , forkChans
+  , forkCSession
   -- * Miscellaneous
   , LangTag(..)
   , exampleParams
@@ -238,15 +239,17 @@ simpleAuth username passwd resource = flip auth resource $
 --
 -- Note that the server might assign a different resource even when we send
 -- a preference.
-simpleConnect :: HostName   -- ^ Target host name
-              -> PortID
+simpleConnect :: HostName   -- ^ Host to connect to
+              -> PortID     -- ^ Port to connec to
+              -> Text       -- ^ Hostname of the server (to distinguish the XMPP
+                            -- service)
               -> Text       -- ^ User name (authcid)
               -> Text       -- ^ Password
               -> Maybe Text -- ^ Desired resource (or Nothing to let the server
                             -- decide)
               -> XmppConMonad Jid
-simpleConnect host port username password resource = do
-      connect host port username
+simpleConnect host port hostname username password resource = do
+      connect host port hostname
       startTLS exampleParams
       saslResponse <- simpleAuth username password resource
       case saslResponse of

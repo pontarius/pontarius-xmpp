@@ -86,7 +86,7 @@ xpQueryInfo = xpWrap (\(nd, (feats, ids)) -> QIR nd ids feats)
 -- | Query an entity for it's identity and features
 queryInfo :: Jid -- ^ Entity to query
           -> Maybe Text.Text -- ^ Node
-          -> Session
+          -> CSession
           -> IO (Either DiscoError QueryInfoResult)
 queryInfo to node session = do
     res <- sendIQ' (Just to) Get Nothing queryBody session
@@ -149,7 +149,7 @@ xpQueryItems = xpElem (itemsN "query")
 -- | Query an entity for Items of a node
 queryItems :: Jid -- ^ Entity to query
            -> Maybe Text.Text -- ^ Node
-           -> Session
+           -> CSession
            -> IO (Either DiscoError (Maybe Text.Text, [Item]))
 queryItems to node session = do
     res <- sendIQ' (Just to) Get Nothing queryBody session
