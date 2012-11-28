@@ -39,7 +39,7 @@ supervisor = read "uart14@species64739.dyndns.org"
 testNS :: Text
 testNS = "xmpp:library:test"
 
-type Xmpp a = CSession -> IO a
+type Xmpp a = Context -> IO a
 
 data Payload = Payload
                { payloadCounter :: Int
@@ -59,8 +59,8 @@ payloadP = xpWrap (\((counter,flag) , message) -> Payload counter flag message)
 
 invertPayload (Payload count flag message) = Payload (count + 1) (not flag) (Text.reverse message)
 
-iqResponder csession = do
-  chan' <- listenIQChan Get testNS csession
+iqResponder context = do
+  chan' <- listenIQChan Get testNS context
   chan <- case chan' of
       Left _ -> liftIO $ putStrLn "Channel was already taken"
                      >> error "hanging up"
@@ -72,15 +72,15 @@ iqResponder csession = do
     let answerPayload = invertPayload payload
     let answerBody = pickleElem payloadP answerPayload
     unless (payloadCounter payload == 3) . void $
-        answerIQ next (Right $ Just answerBody) csession
+        answerIQ next (Right $ Just answerBody) context
     when (payloadCounter payload == 10) $ do
         threadDelay 1000000
-        endSession (session csession)
+        endSession (session context)
 
 autoAccept :: Xmpp ()
-autoAccept csession = forever $ do
-  st <- waitForPresence isPresenceSubscribe csession
-  sendPresence (presenceSubscribed (fromJust $ presenceFrom st)) csession
+autoAccept context = forever $ do
+  st <- waitForPresence isPresenceSubscribe context
+  sendPresence (presenceSubscribed (fromJust $ presenceFrom st)) context
 
 simpleMessage :: Jid -> Text -> Message
 simpleMessage to txt = message
@@ -100,19 +100,19 @@ simpleMessage to txt = message
                       , messagePayload = []
                       }
 
-sendUser m csession = sendMessage (simpleMessage supervisor $ Text.pack m) csession
+sendUser m context = sendMessage (simpleMessage supervisor $ Text.pack m) context
 
-expect debug x y csession | x == y = debug "Ok."
+expect debug x y context | x == y = debug "Ok."
                           | otherwise = do
                               let failMSG = "failed" ++ show x ++ " /= " ++ show y
                               debug failMSG
-                              sendUser failMSG csession
+                              sendUser failMSG context
 
 wait3 :: MonadIO m => m ()
 wait3 = liftIO $ threadDelay 1000000
 
-discoTest debug csession = do
-    q <- Disco.queryInfo "species64739.dyndns.org" Nothing csession
+discoTest debug context = do
+    q <- Disco.queryInfo "species64739.dyndns.org" Nothing context
     case q of
         Left (Disco.DiscoXMLError el e) -> do
             debug (ppElement el)
@@ -121,7 +121,7 @@ discoTest debug csession = do
         x -> debug $ show x
 
     q <-  Disco.queryItems "species64739.dyndns.org"
-                     (Just "http://jabber.org/protocol/commands") csession
+                     (Just "http://jabber.org/protocol/commands") context
     case q of
         Left (Disco.DiscoXMLError el e) -> do
             debug (ppElement el)
@@ -129,30 +129,30 @@ discoTest debug csession = do
             debug (show $ length $ elementNodes el)
         x -> debug $ show x
 
-iqTest debug we them csession = do
+iqTest debug we them context = do
     forM [1..10] $ \count -> do
         let message = Text.pack . show $ localpart we
         let payload = Payload count (even count) (Text.pack $ show count)
         let body = pickleElem payloadP payload
         debug "sending"
-        answer <- sendIQ' (Just them) Get Nothing body csession
+        answer <- sendIQ' (Just them) Get Nothing body context
         case answer of
             IQResponseResult r -> do
                 debug "received"
                 let Right answerPayload = unpickleElem payloadP
                                       (fromJust $ iqResultPayload r)
-                expect debug (invertPayload payload) answerPayload csession
+                expect debug (invertPayload payload) answerPayload context
             IQResponseTimeout -> do
                 debug $ "Timeout in packet: " ++ show count
             IQResponseError e -> do
                 debug $ "Error in packet: " ++ show count
         liftIO $ threadDelay 100000
-    sendUser "All tests done" csession
+    sendUser "All tests done" context
     debug "ending session"
 
-fork action csession = do
-    csession' <- forkCSession csession
-    forkIO $ action csession'
+fork action context = do
+    context' <- forkContext context
+    forkIO $ action context'
 
 ibrTest debug uname pw = IBR.registerWith [ (IBR.Username, "testuser2")
                                  , (IBR.Password, "pwd")
@@ -166,13 +166,13 @@ runMain debug number multi = do
                              0 -> (testUser2, testUser1,False)
   let debug' = liftIO . atomically .
                debug . (("Thread " ++ show number ++ ":") ++)
-  csession <- newSessionChans
+  context <- newContext
 
   setConnectionClosedHandler (\e s -> do
               debug' $ "connection lost because " ++ show e
-              endSession s) (session csession)
+              endSession s) (session context)
   debug' "running"
-  flip withConnection (session csession) $ Ex.catch (do
+  flip withConnection (session context) $ Ex.catch (do
       connect "localhost" (PortNumber 5222) "species64739.dyndns.org"
       startTLS exampleParams
       -- debug' "ibr start"
@@ -188,15 +188,15 @@ runMain debug number multi = do
       liftIO . void $ forM features $ \f -> debug' $ ppElement f
       )
       (\e -> debug' $ show  (e ::Ex.SomeException))
-  sendPresence presenceOnline csession
-  thread1 <- fork autoAccept csession
-  sendPresence (presenceSubscribe them) csession
-  thread2 <- fork iqResponder csession
+  sendPresence presenceOnline context
+  thread1 <- fork autoAccept context
+  sendPresence (presenceSubscribe them) context
+  thread2 <- fork iqResponder context
   when active $ do
     liftIO $ threadDelay 1000000 -- Wait for the other thread to go online
 --    discoTest debug'
-    when multi $ iqTest debug' we them csession
-    closeConnection (session csession)
+    when multi $ iqTest debug' we them context
+    closeConnection (session context)
     killThread thread1
     killThread thread2
   return ()
@@ -207,7 +207,7 @@ runMain debug number multi = do
                                                  putStrLn ""
                                                  putStrLn ""
                              )
-                             csession
+                             context
   liftIO . forever $ threadDelay 1000000
   return ()
 
