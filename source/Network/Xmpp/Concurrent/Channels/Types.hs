@@ -1,3 +1,4 @@
+{-# OPTIONS_HADDOCK hide #-}
 module Network.Xmpp.Concurrent.Channels.Types where
 
 import           Control.Concurrent.STM
@@ -7,7 +8,7 @@ import           Data.Text (Text)
 import           Network.Xmpp.Concurrent.Types
 import           Network.Xmpp.Types
 
--- | Session with Channels
+-- | An XMPP session context
 data Context = Context
     { session :: Session
       -- The original master channels that the reader puts stanzas

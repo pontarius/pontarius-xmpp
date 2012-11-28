@@ -1,5 +1,12 @@
 module Network.Xmpp.IM
-  ( module Network.Xmpp.IM.Message
+  ( -- * Instant Messages
+    subject
+  , thread
+  , body
+  , newIM
+  , simpleIM
+  , answerIM
+  -- * Presence
   , module Network.Xmpp.IM.Presence
   ) where
 

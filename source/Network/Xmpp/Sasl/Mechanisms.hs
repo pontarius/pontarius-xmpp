@@ -1,6 +1,7 @@
+{-# OPTIONS_HADDOCK hide #-}
 module Network.Xmpp.Sasl.Mechanisms
        ( module Network.Xmpp.Sasl.Mechanisms.DigestMd5
-       , module Network.Xmpp.Sasl.Mechanisms.Scram
+       , scramSha1
        , module Network.Xmpp.Sasl.Mechanisms.Plain
        ) where
 

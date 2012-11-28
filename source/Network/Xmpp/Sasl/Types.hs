@@ -1,3 +1,4 @@
+{-# OPTIONS_HADDOCK hide #-}
 module Network.Xmpp.Sasl.Types where
 
 import           Control.Monad.Error

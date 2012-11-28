@@ -741,29 +741,36 @@ data XmppConnectionState
       deriving (Show, Eq, Typeable)
 
 data XmppConnection = XmppConnection
-               { sConSrc          :: !(Source IO Event)
-               , sRawSrc          :: !(Source IO BS.ByteString)
-               , sConPushBS       :: !(BS.ByteString -> IO Bool)
-               , sConHandle       :: !(Maybe Handle)
-               , sFeatures        :: !ServerFeatures
-               , sConnectionState :: !XmppConnectionState
-               , sHostname        :: !(Maybe Text)
-               , sJid             :: !(Maybe Jid)
-               , sCloseConnection :: !(IO ())
-               , sPreferredLang   :: !(Maybe LangTag)
-               , sStreamLang      :: !(Maybe LangTag) -- Will be a `Just' value
+               { sConSrc          :: !(Source IO Event) -- ^ inbound connection
+               , sRawSrc          :: !(Source IO BS.ByteString) -- ^ inbound
+                                                                -- connection
+               , sConPushBS       :: !(BS.ByteString -> IO Bool) -- ^ outbound
+                                                                 -- connection
+               , sConHandle       :: !(Maybe Handle) -- ^ Handle for TLS
+               , sFeatures        :: !ServerFeatures -- ^ Features the server
+                                                     -- advertised
+               , sConnectionState :: !XmppConnectionState -- ^ State of connection
+               , sHostname        :: !(Maybe Text) -- ^ Hostname of the server
+               , sJid             :: !(Maybe Jid) -- ^ Our JID
+               , sCloseConnection :: !(IO ()) -- ^ necessary steps to cleanly
+                                              -- close the connection (send TLS
+                                              -- bye etc.)
+               , sPreferredLang   :: !(Maybe LangTag) -- ^ Default language when
+                                                      -- no explicit language
+                                                      -- tag is set
+               , sStreamLang      :: !(Maybe LangTag) -- ^ Will be a `Just' value
                                                     -- once connected to the
                                                     -- server.
-               , sStreamId        :: !(Maybe Text) -- Stream ID as specified by
+               , sStreamId        :: !(Maybe Text) -- ^ Stream ID as specified by
                                                    -- the server.
-               , sToJid           :: !(Maybe Jid) -- JID to include in the
+               , sToJid           :: !(Maybe Jid) -- ^ JID to include in the
                                                   -- stream element's `to'
                                                   -- attribute when the
                                                   -- connection is secured. See
                                                   -- also below.
-               , sJidWhenPlain    :: !Bool -- Whether or not to also include the
+               , sJidWhenPlain    :: !Bool -- ^ Whether or not to also include the
                                            -- Jid when the connection is plain.
-               , sFrom            :: !(Maybe Jid)  -- From as specified by the
+               , sFrom            :: !(Maybe Jid)  -- ^ From as specified by the
                                                    -- server in the stream
                                                    -- element's `from'
                                                    -- attribute.

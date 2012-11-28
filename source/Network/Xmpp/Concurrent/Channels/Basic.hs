@@ -1,3 +1,4 @@
+{-# OPTIONS_HADDOCK hide #-}
 module Network.Xmpp.Concurrent.Channels.Basic where
 
 import Control.Concurrent.STM

@@ -1,4 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# OPTIONS_HADDOCK hide #-}
+
 module Network.Xmpp.IM.Message
      where
 
@@ -89,8 +91,10 @@ newIM t i lang tp sbj thrd bdy payload = Message
                         ++ [payload]
     }
 
--- | Generate a simple instance message
-simpleIM :: Jid -> Text -> Message
+-- | Generate a simple message
+simpleIM :: Jid -- ^ recipient
+         -> Text -- ^ body
+         -> Message
 simpleIM t bd = newIM
                   t
                   Nothing

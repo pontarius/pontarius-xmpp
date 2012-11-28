@@ -1,4 +1,6 @@
 {-# LANGUAGE RecordWildCards #-}
+{-# OPTIONS_HADDOCK hide #-}
+
 module Network.Xmpp.Message
     ( Message(..)
     , MessageError(..)

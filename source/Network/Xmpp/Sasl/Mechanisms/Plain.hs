@@ -1,9 +1,12 @@
+{-# OPTIONS_HADDOCK hide #-}
 -- Implementation of the PLAIN Simple Authentication and Security Layer (SASL)
 -- Mechanism, http://tools.ietf.org/html/rfc4616.
 
 {-# LANGUAGE OverloadedStrings #-}
 
-module Network.Xmpp.Sasl.Mechanisms.Plain where
+module Network.Xmpp.Sasl.Mechanisms.Plain
+    ( plain
+    ) where
 
 import           Control.Applicative
 import           Control.Arrow (left)
@@ -72,5 +75,8 @@ xmppPlain authcid authzid password  = do
       where
         authzid' = maybe "" Text.encodeUtf8 authzid
 
-plain :: Text.Text -> Maybe Text.Text -> Text.Text -> SaslHandler
+plain :: Text.Text -- ^ authentication ID (username)
+      -> Maybe Text.Text -- ^ authorization ID
+      -> Text.Text -- ^ password
+      -> SaslHandler
 plain authcid authzid passwd = ("PLAIN", xmppPlain authcid authzid passwd)

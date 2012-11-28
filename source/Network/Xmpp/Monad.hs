@@ -1,3 +1,4 @@
+{-# OPTIONS_HADDOCK hide #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE OverloadedStrings #-}
 
@@ -44,6 +45,7 @@ pushElement x = do
     sink <- gets sConPushBS
     liftIO . sink $ renderElement x
 
+-- | Encode and send stanza
 pushStanza :: Stanza -> XmppConMonad Bool
 pushStanza = pushElement . pickleElem xpStanza
 
@@ -93,7 +95,7 @@ pullPickle p = do
         Left e -> liftIO . Ex.throwIO $ StreamXMLError (show e)
         Right r -> return r
 
--- Pulls a stanza (or stream error) from the stream. Throws an error on a stream
+-- | Pulls a stanza (or stream error) from the stream. Throws an error on a stream
 -- error.
 pullStanza :: XmppConMonad Stanza
 pullStanza = do

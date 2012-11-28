@@ -1,6 +1,12 @@
+{-# OPTIONS_HADDOCK hide #-}
 {-# LANGUAGE NoMonomorphismRestriction, OverloadedStrings #-}
 
-module Network.Xmpp.Sasl where
+module Network.Xmpp.Sasl
+    ( xmppSasl
+    , digestMd5
+    , scramSha1
+    , plain
+    ) where
 
 import           Control.Applicative
 import           Control.Arrow (left)
@@ -31,11 +37,11 @@ import           Network.Xmpp.Pickle
 import qualified System.Random as Random
 
 import Network.Xmpp.Sasl.Types
+import Network.Xmpp.Sasl.Mechanisms
 
--- Uses the first supported mechanism to authenticate, if any. Updates the
--- XmppConMonad state with non-password credentials and restarts the stream upon
--- success. This computation wraps an ErrorT computation, which means that
--- catchError can be used to catch any errors.
+-- | Uses the first supported mechanism to authenticate, if any. Updates the
+-- state with non-password credentials and restarts the stream upon
+-- success.
 xmppSasl :: [SaslHandler] -- ^ Acceptable authentication mechanisms and their
                        -- corresponding handlers
          -> XmppConMonad (Either AuthError ())

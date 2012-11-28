@@ -1,3 +1,4 @@
+{-# OPTIONS_HADDOCK hide #-}
 module Network.Xmpp.Concurrent
   ( Session
   , module Network.Xmpp.Concurrent.Monad

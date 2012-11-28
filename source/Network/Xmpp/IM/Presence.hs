@@ -1,3 +1,5 @@
+{-# OPTIONS_HADDOCK hide #-}
+
 module Network.Xmpp.IM.Presence where
 
 import Data.Text(Text)

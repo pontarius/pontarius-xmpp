@@ -1,3 +1,4 @@
+{-# OPTIONS_HADDOCK hide #-}
 module Network.Xmpp.Concurrent.Channels.Message where
 
 import Network.Xmpp.Concurrent.Channels.Types

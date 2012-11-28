@@ -1,8 +1,10 @@
+{-# OPTIONS_HADDOCK hide #-}
 {-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Network.Xmpp.Sasl.Mechanisms.Scram where
+module Network.Xmpp.Sasl.Mechanisms.Scram
+  where
 
 import           Control.Applicative ((<$>))
 import           Control.Monad.Error
@@ -153,7 +155,6 @@ scram hashToken authcid authzid password = do
                 u1 = hmac str (salt +++ (BS.pack [0,0,0,1]))
                 us = iterate (hmac str) u1
 
--- | 'scram' spezialised to the SHA-1 hash function, packaged as a SaslHandler
 scramSha1 :: Text.Text  -- ^ username
           -> Maybe Text.Text -- ^ authorization ID
           -> Text.Text   -- ^ password

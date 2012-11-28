@@ -1,3 +1,4 @@
+{-# OPTIONS_HADDOCK hide #-}
 module Network.Xmpp.Concurrent.Channels.IQ where
 
 import           Control.Concurrent (forkIO, threadDelay)

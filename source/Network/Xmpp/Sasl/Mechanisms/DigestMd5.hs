@@ -1,6 +1,9 @@
+{-# OPTIONS_HADDOCK hide #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Network.Xmpp.Sasl.Mechanisms.DigestMd5 where
+module Network.Xmpp.Sasl.Mechanisms.DigestMd5
+    ( digestMd5
+    ) where
 
 import           Control.Applicative
 import           Control.Arrow (left)
@@ -40,9 +43,9 @@ import           Network.Xmpp.Sasl.Types
 
 
 
-xmppDigestMd5 ::  Text -- Authorization identity (authzid)
-               -> Maybe Text -- Authentication identity (authzid)
-               -> Text -- Password (authzid)
+xmppDigestMd5 ::  Text -- ^ Authentication identity (authzid or username)
+               -> Maybe Text -- ^ Authorization identity (authcid)
+               -> Text -- ^ Password (authzid)
                -> SaslM ()
 xmppDigestMd5 authcid authzid password = do
     (ac, az, pw) <- prepCredentials authcid authzid password
@@ -128,9 +131,9 @@ xmppDigestMd5 authcid authzid password = do
               ha2 = hash ["AUTHENTICATE", digestURI]
           in hash [ha1, nonce, nc, cnonce, qop, ha2]
 
-digestMd5 :: Text -- Authorization identity (authzid)
-          -> Maybe Text -- Authentication identity (authzid)
-          -> Text -- Password (authzid)
+digestMd5 :: Text -- ^ Authentication identity (authcid or username)
+          -> Maybe Text -- ^ Authorization identity (authzid)
+          -> Text -- ^ Password
           -> SaslHandler
 digestMd5 authcid authzid password = ( "DIGEST-MD5"
                                      , xmppDigestMd5 authcid authzid password

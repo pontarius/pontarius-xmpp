@@ -1,3 +1,4 @@
+{-# OPTIONS_HADDOCK hide #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Network.Xmpp.Concurrent.Channels
        ( module Network.Xmpp.Concurrent.Channels.Basic
@@ -90,7 +91,7 @@ toChans messageC presenceC stanzaC iqHands sta = atomically $ do
         iqID (Right iq') = iqResultID iq'
 
 
--- | Creates and initializes a new concurrent context.
+-- | Creates and initializes a new Xmpp context.
 newContext :: IO Context
 newContext = do
     messageC <- newTChanIO
