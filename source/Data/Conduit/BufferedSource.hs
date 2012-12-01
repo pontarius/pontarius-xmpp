@@ -14,21 +14,19 @@ data SourceClosed = SourceClosed deriving (Show, Typeable)
 
 instance Exception SourceClosed
 
+newtype BufferedSource m o = BufferedSource
+                               { bs :: IORef (ResumableSource m o)
+                               }
+
+
 -- | Buffered source from conduit 0.3
-bufferSource :: MonadIO m => Source m o -> IO (Source m o)
+bufferSource :: Monad m => Source m o -> IO (BufferedSource m o)
 bufferSource s = do
-    srcRef <- newIORef . Just $ DCI.ResumableSource s (return ())
-    return $ do
-        src' <- liftIO $ readIORef srcRef
-        src <- case src' of
-            Just s -> return s
-            Nothing -> liftIO $ throwIO SourceClosed
-        let go src = do
-            (src', res) <- lift $ src $$++ CL.head
-            case res of
-                Nothing -> liftIO $ writeIORef srcRef Nothing
-                Just x -> do
-                    liftIO (writeIORef srcRef $ Just src')
-                    yield x
-                    go src'
-          in go src
+    srcRef <- newIORef $ DCI.ResumableSource s (return ())
+    return $ BufferedSource srcRef
+
+(.$$+) (BufferedSource bs) snk = do
+    src <- liftIO $ readIORef bs
+    (src', r) <- src $$++ snk
+    liftIO $ writeIORef bs src'
+    return r

@@ -58,7 +58,7 @@ simpleConnect host port hostname username password resource = do
 -- | Connect to host with given address.
 connect :: HostName -> PortID -> Text -> XmppConMonad (Either StreamError ())
 connect address port hostname = do
-    xmppRawConnect address port hostname
+    xmppConnectTCP address port hostname
     result <- xmppStartStream
     case result of
         Left e -> do

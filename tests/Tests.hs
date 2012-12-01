@@ -173,9 +173,11 @@ runMain debug number multi = do
               endSession s) (session context)
   debug' "running"
   flip withConnection (session context) $ Ex.catch (do
+      debug' "connect"
       connect "localhost" (PortNumber 5222) "species64739.dyndns.org"
+--      debug' "tls start"
       startTLS exampleParams
-      -- debug' "ibr start"
+      debug' "ibr start"
       -- ibrTest debug' (localpart we) "pwd"
       -- debug' "ibr end"
       saslResponse <- simpleAuth

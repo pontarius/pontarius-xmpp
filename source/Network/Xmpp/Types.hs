@@ -32,6 +32,7 @@ module Network.Xmpp.Types
     , StreamErrorCondition(..)
     , Version(..)
     , XmppConMonad
+    , Connection(..)
     , XmppConnection(..)
     , XmppConnectionState(..)
     , XmppT(..)
@@ -50,8 +51,10 @@ import           Control.Monad.Error
 import qualified Data.Attoparsec.Text as AP
 import qualified Data.ByteString as BS
 import           Data.Conduit
-import           Data.String(IsString(..))
+import           Data.Conduit.BufferedSource
+import           Data.IORef
 import           Data.Maybe (fromJust, fromMaybe, maybeToList)
+import           Data.String(IsString(..))
 import           Data.Text (Text)
 import qualified Data.Text as Text
 import           Data.Typeable(Typeable)
@@ -740,21 +743,24 @@ data XmppConnectionState
     | XmppConnectionSecured -- ^ Connection established and secured via TLS.
       deriving (Show, Eq, Typeable)
 
+data Connection = Connection { cSend :: BS.ByteString -> IO Bool
+                             , cRecv :: Int -> IO BS.ByteString
+                              -- This is to hold the state of the XML parser
+                              -- (otherwise we will receive lot's of EvenBegin
+                              -- Document and forger about name prefixes)
+                             , cEventSource :: BufferedSource IO Event
+
+                             , cFlush :: IO ()
+                             , cClose :: IO ()
+                             }
+
 data XmppConnection = XmppConnection
-               { sConSrc          :: !(Source IO Event) -- ^ inbound connection
-               , sRawSrc          :: !(Source IO BS.ByteString) -- ^ inbound
-                                                                -- connection
-               , sConPushBS       :: !(BS.ByteString -> IO Bool) -- ^ outbound
-                                                                 -- connection
-               , sConHandle       :: !(Maybe Handle) -- ^ Handle for TLS
+               { sCon             :: Connection
                , sFeatures        :: !ServerFeatures -- ^ Features the server
                                                      -- advertised
                , sConnectionState :: !XmppConnectionState -- ^ State of connection
                , sHostname        :: !(Maybe Text) -- ^ Hostname of the server
                , sJid             :: !(Maybe Jid) -- ^ Our JID
-               , sCloseConnection :: !(IO ()) -- ^ necessary steps to cleanly
-                                              -- close the connection (send TLS
-                                              -- bye etc.)
                , sPreferredLang   :: !(Maybe LangTag) -- ^ Default language when
                                                       -- no explicit language
                                                       -- tag is set

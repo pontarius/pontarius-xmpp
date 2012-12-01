@@ -9,14 +9,15 @@ import qualified Control.Exception as Ex
 import           Control.Monad.Error
 import           Control.Monad.State.Strict
 
+import qualified Data.ByteString as BS
 import           Data.Conduit
 import           Data.Conduit.BufferedSource
 import           Data.Conduit.List as CL
 import           Data.Maybe (fromJust, isJust, isNothing)
 import           Data.Text as Text
+import           Data.Void (Void)
 import           Data.XML.Pickle
 import           Data.XML.Types
-import           Data.Void (Void)
 
 import           Network.Xmpp.Monad
 import           Network.Xmpp.Pickle
@@ -79,7 +80,8 @@ xmppStartStream = runErrorT $ do
                                     , Nothing
                                     , sPreferredLang state
                                     )
-    (lt, from, id, features) <- ErrorT . pullToSink $ runErrorT $ xmppStream from
+    (lt, from, id, features) <- ErrorT . pullToSinkEvents $ runErrorT $
+                                xmppStream from
     modify (\s -> s { sFeatures = features
                     , sStreamLang = Just lt
                     , sStreamId = id
@@ -92,10 +94,16 @@ xmppStartStream = runErrorT $ do
 -- and calls xmppStartStream.
 xmppRestartStream :: XmppConMonad (Either StreamError ())
 xmppRestartStream = do
-    raw <- gets sRawSrc
-    newsrc <- liftIO . bufferSource $ raw $= XP.parseBytes def
-    modify (\s -> s{sConSrc = newsrc})
+    raw <- gets (cRecv . sCon)
+    newSrc <- liftIO . bufferSource $ loopRead raw $= XP.parseBytes def
+    modify (\s -> s{sCon = (sCon s){cEventSource = newSrc}})
     xmppStartStream
+  where
+    loopRead read = do
+        bs <- liftIO (read 4096)
+        if BS.null bs
+            then return ()
+            else yield bs >> loopRead read
 
 -- Reads the (partial) stream:stream and the server features from the stream.
 -- Also validates the stream element's attributes and throws an error if

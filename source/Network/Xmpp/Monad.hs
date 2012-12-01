@@ -16,9 +16,10 @@ import           Control.Monad.State.Strict
 
 import           Data.ByteString as BS
 import           Data.Conduit
-import qualified Data.Conduit.List as CL
-import           Data.Conduit.BufferedSource
 import           Data.Conduit.Binary as CB
+import           Data.Conduit.BufferedSource
+import qualified Data.Conduit.List as CL
+import           Data.IORef
 import           Data.Text(Text)
 import           Data.XML.Pickle
 import           Data.XML.Types
@@ -42,8 +43,8 @@ debug = False
 
 pushElement :: Element -> XmppConMonad Bool
 pushElement x = do
-    sink <- gets sConPushBS
-    liftIO . sink $ renderElement x
+    send <- gets (cSend . sCon)
+    liftIO . send $ renderElement x
 
 -- | Encode and send stanza
 pushStanza :: Stanza -> XmppConMonad Bool
@@ -55,26 +56,26 @@ pushStanza = pushElement . pickleElem xpStanza
 -- XMPP streams. RFC 6120 defines XMPP only in terms of XML 1.0.
 pushXmlDecl :: XmppConMonad Bool
 pushXmlDecl = do
-    sink <- gets sConPushBS
-    liftIO $ sink "<?xml version='1.0' encoding='UTF-8' ?>"
+    con <- gets sCon
+    liftIO $ (cSend con) "<?xml version='1.0' encoding='UTF-8' ?>"
 
 pushOpenElement :: Element -> XmppConMonad Bool
 pushOpenElement e = do
-    sink <- gets sConPushBS
+    sink <- gets (cSend . sCon )
     liftIO . sink $ renderOpenElement e
 
 -- `Connect-and-resumes' the given sink to the connection source, and pulls a
 -- `b' value.
-pullToSink :: Sink Event IO b -> XmppConMonad b
-pullToSink snk = do
-    source <- gets sConSrc
-    (_, r) <- lift $ source $$+ snk
+pullToSinkEvents :: Sink Event IO b -> XmppConMonad b
+pullToSinkEvents snk = do
+    source <- gets (cEventSource . sCon)
+    r <- lift $ source .$$+ snk
     return r
 
 pullElement :: XmppConMonad Element
 pullElement = do
     Ex.catches (do
-        e <- pullToSink (elements =$ CL.head)
+        e <- pullToSinkEvents (elements =$ await)
         case e of
             Nothing -> liftIO $ Ex.throwIO StreamConnectionError
             Just r -> return r
@@ -106,8 +107,8 @@ pullStanza = do
 
 -- Performs the given IO operation, catches any errors and re-throws everything
 -- except 'ResourceVanished' and IllegalOperation, in which case it will return False instead
-catchPush :: IO () -> IO Bool
-catchPush p = Ex.catch
+catchSend :: IO () -> IO Bool
+catchSend p = Ex.catch
     (p >> return True)
     (\e -> case GIE.ioe_type e of
          GIE.ResourceVanished -> return False
@@ -115,18 +116,20 @@ catchPush p = Ex.catch
          _ -> Ex.throwIO e
     )
 
--- XmppConnection state used when there is no connection.
+-- -- XmppConnection state used when there is no connection.
 xmppNoConnection :: XmppConnection
 xmppNoConnection = XmppConnection
-               { sConSrc          = zeroSource
-               , sRawSrc          = zeroSource
-               , sConPushBS       = \_ -> return False -- Nothing has been sent.
-               , sConHandle       = Nothing
+               { sCon             = Connection { cSend = \_ -> return False
+                                               , cRecv = \_ -> Ex.throwIO
+                                                           $ StreamConnectionError
+                                               , cEventSource = undefined
+                                               , cFlush = return ()
+                                               , cClose = return ()
+                                               }
                , sFeatures        = SF Nothing [] []
                , sConnectionState = XmppConnectionClosed
                , sHostname        = Nothing
                , sJid             = Nothing
-               , sCloseConnection = return ()
                , sStreamLang      = Nothing
                , sStreamId        = Nothing
                , sPreferredLang   = Nothing
@@ -140,30 +143,34 @@ xmppNoConnection = XmppConnection
 
 -- Connects to the given hostname on port 5222 (TODO: Make this dynamic) and
 -- updates the XmppConMonad XmppConnection state.
-xmppRawConnect :: HostName -> PortID -> Text -> XmppConMonad ()
-xmppRawConnect host port hostname = do
-    con <- liftIO $ do
-        con <- connectTo host port
-        hSetBuffering con NoBuffering
-        return con
-    let raw = if debug
-                then sourceHandle con $= debugConduit
-                else sourceHandle con
-    src <- liftIO . bufferSource $ raw $= XP.parseBytes def
+xmppConnectTCP :: HostName -> PortID -> Text -> XmppConMonad ()
+xmppConnectTCP host port hostname = do
+    hand <- liftIO $ do
+        h <- connectTo host port
+        hSetBuffering h NoBuffering
+        return h
+    eSource <- liftIO . bufferSource $ (sourceHandle hand) $= XP.parseBytes def
+    let con = Connection { cSend = if debug
+                                    then \d -> do
+                                        BS.putStrLn (BS.append "out: " d)
+                                        catchSend $ BS.hPut hand d
+                                    else catchSend . BS.hPut hand
+                          , cRecv = if debug then
+                                      \n -> do
+                                          bs <- BS.hGetSome hand n
+                                          BS.putStrLn bs
+                                          return bs
+                                    else BS.hGetSome hand
+                          , cEventSource = eSource
+                          , cFlush = hFlush hand
+                          , cClose = hClose hand
+                          }
     let st = XmppConnection
-            { sConSrc          = src
-            , sRawSrc          = raw
-            , sConPushBS       = if debug
-                                   then \d -> do
-                                       BS.putStrLn (BS.append "out: " d)
-                                       catchPush $ BS.hPut con d
-                                   else catchPush . BS.hPut con
-            , sConHandle       = (Just con)
+            { sCon             = con
             , sFeatures        = (SF Nothing [] [])
             , sConnectionState = XmppConnectionPlain
             , sHostname        = (Just hostname)
             , sJid             = Nothing
-            , sCloseConnection = (hClose con)
             , sPreferredLang   = Nothing -- TODO: Allow user to set
             , sStreamLang      = Nothing
             , sStreamId        = Nothing
@@ -180,9 +187,16 @@ xmppNewSession action = runStateT action xmppNoConnection
 -- Closes the connection and updates the XmppConMonad XmppConnection state.
 xmppKillConnection :: XmppConMonad (Either Ex.SomeException ())
 xmppKillConnection = do
-    cc <- gets sCloseConnection
+    cc <- gets (cClose . sCon)
     err <- liftIO $ (Ex.try cc :: IO (Either Ex.SomeException ()))
     put xmppNoConnection
+    return err
+
+xmppReplaceConnection :: XmppConnection -> XmppConMonad (Either Ex.SomeException ())
+xmppReplaceConnection newCon = do
+    cc <- gets (cClose . sCon)
+    err <- liftIO $ (Ex.try cc :: IO (Either Ex.SomeException ()))
+    put newCon
     return err
 
 -- Sends an IQ request and waits for the response. If the response ID does not
@@ -211,8 +225,8 @@ xmppSendIQ' iqID to tp lang body = do
 -- not we received a </stream:stream> element from the server is returned.
 xmppCloseStreams :: XmppConMonad ([Element], Bool)
 xmppCloseStreams = do
-    send <- gets sConPushBS
-    cc <- gets sCloseConnection
+    send <- gets (cSend . sCon)
+    cc <- gets (cClose . sCon)
     liftIO $ send "</stream:stream>"
     void $ liftIO $ forkIO $ do
         threadDelay 3000000

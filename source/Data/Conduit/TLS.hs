@@ -8,38 +8,42 @@ module Data.Conduit.TLS
        )
        where
 
-import Control.Monad(liftM, when)
-import Control.Monad.IO.Class
+import           Control.Monad
+import           Control.Monad (liftM, when)
+import           Control.Monad.IO.Class
 
-import Crypto.Random
+import           Crypto.Random
 
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BL
-import Data.Conduit
-import Control.Monad
+import           Data.Conduit
+import qualified Data.Conduit.Binary as CB
+import Data.IORef
 
-import Network.TLS as TLS
-import Network.TLS.Extra as TLSExtra
+import           Network.TLS as TLS
+import           Network.TLS.Extra as TLSExtra
 
-import System.IO(Handle)
+import           System.IO (Handle)
 
-client params gen handle = do
-    contextNewOnHandle handle params gen
+client params gen backend  = do
+    contextNew backend params gen
 
 defaultParams = defaultParamsClient
 
 tlsinit :: (MonadIO m, MonadIO m1) =>
         Bool
      -> TLSParams
-     -> Handle -> m ( Source m1 BS.ByteString
-                    , Sink BS.ByteString m1 ()
-                    , BS.ByteString -> IO ()
-                    , Context
-                    )
-tlsinit debug tlsParams handle = do
+     -> Backend
+     -> m ( Source m1 BS.ByteString
+          , Sink BS.ByteString m1 ()
+          , BS.ByteString -> IO ()
+          , Int -> m1 BS.ByteString
+          , Context
+          )
+tlsinit debug tlsParams backend = do
     when debug . liftIO $ putStrLn "TLS with debug mode enabled"
     gen <- liftIO $ (newGenIO :: IO SystemRandom) -- TODO: Find better random source?
-    con <- client tlsParams gen handle
+    con <- client tlsParams gen backend
     handshake con
     let src = forever $ do
             dt <- liftIO $ recvData con
@@ -53,10 +57,24 @@ tlsinit debug tlsParams handle = do
                        sendData con (BL.fromChunks [x])
                        when debug (liftIO $ putStr "out: " >>  BS.putStrLn x)
                        snk
+    read <- liftIO $ mkReadBuffer (recvData con)
     return ( src
            , snk
            , \s -> do
                when debug (liftIO $ BS.putStrLn s)
                sendData con $ BL.fromChunks [s]
+           , liftIO . read
            , con
            )
+
+mkReadBuffer :: IO BS.ByteString -> IO (Int -> IO BS.ByteString)
+mkReadBuffer read = do
+    buffer <- newIORef BS.empty
+    let read' n = do
+            nc <- readIORef buffer
+            bs <- if BS.null nc then read
+                                else return nc
+            let (result, rest) = BS.splitAt n bs
+            writeIORef buffer rest
+            return result
+    return read'

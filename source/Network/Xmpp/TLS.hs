@@ -9,6 +9,10 @@ import           Control.Monad
 import           Control.Monad.Error
 import           Control.Monad.State.Strict
 
+import qualified Data.ByteString as BS
+import qualified Data.ByteString.Lazy as BL
+import           Data.Conduit
+import qualified Data.Conduit.Binary as CB
 import           Data.Conduit.TLS as TLS
 import           Data.Typeable
 import           Data.XML.Types
@@ -17,6 +21,42 @@ import           Network.Xmpp.Monad
 import           Network.Xmpp.Pickle(ppElement)
 import           Network.Xmpp.Stream
 import           Network.Xmpp.Types
+
+mkBackend con = Backend { backendSend = \bs -> void (cSend con bs)
+                        , backendRecv = cRecv con
+                        , backendFlush = cFlush con
+                        , backendClose = cClose con
+                        }
+  where
+    cutBytes n = do
+        liftIO $ putStrLn "awaiting"
+        mbs <- await
+        liftIO $ putStrLn "done awaiting"
+        case mbs of
+            Nothing -> return BS.empty
+            Just bs -> do
+                let (a, b) = BS.splitAt n bs
+                liftIO . putStrLn $
+                    "remaining" ++ (show $ BS.length b) ++ " of " ++ (show n)
+
+                unless (BS.null b) $ leftover b
+                return a
+
+
+cutBytes n = do
+    liftIO $ putStrLn "awaiting"
+    mbs <- await
+    liftIO $ putStrLn "done awaiting"
+    case mbs of
+        Nothing -> return False
+        Just bs -> do
+            let (a, b) = BS.splitAt n bs
+            liftIO . putStrLn $
+                "remaining" ++ (show $ BS.length b) ++ " of " ++ (show n)
+
+            unless (BS.null b) $ leftover b
+            return True
+
 
 starttlsE :: Element
 starttlsE = Element "{urn:ietf:params:xml:ns:xmpp-tls}starttls" [] []
@@ -36,6 +76,7 @@ exampleParams = TLS.defaultParamsClient
 data XmppTLSError = TLSError TLSError
                   | TLSNoServerSupport
                   | TLSNoConnection
+                  | TLSConnectionSecured -- ^ Connection already secured
                   | TLSStreamError StreamError
                   | XmppTLSError -- General instance used for the Error instance
                     deriving (Show, Eq, Typeable)
@@ -48,8 +89,12 @@ instance Error XmppTLSError where
 startTLS :: TLS.TLSParams -> XmppConMonad (Either XmppTLSError ())
 startTLS params = Ex.handle (return . Left . TLSError) . runErrorT $ do
     features <- lift $ gets sFeatures
-    handle' <- lift $ gets sConHandle
-    handle <- maybe (throwError TLSNoConnection) return handle'
+    state <- gets sConnectionState
+    case state of
+        XmppConnectionPlain -> return ()
+        XmppConnectionClosed -> throwError TLSNoConnection
+        XmppConnectionSecured -> throwError TLSConnectionSecured
+    con <- lift $ gets sCon
     when (stls features == Nothing) $ throwError TLSNoServerSupport
     lift $ pushElement starttlsE
     answer <- lift $ pullElement
@@ -60,14 +105,15 @@ startTLS params = Ex.handle (return . Left . TLSError) . runErrorT $ do
             -- TODO: find something more suitable
         e -> lift . Ex.throwIO . StreamXMLError $
             "Unexpected element: " ++ ppElement e
-    (raw, _snk, psh, ctx) <- lift $ TLS.tlsinit debug params handle
-    lift $ modify ( \x -> x
-                  { sRawSrc = raw
---                , sConSrc =  -- Note: this momentarily leaves us in an
-                               -- inconsistent state
-                  , sConPushBS = catchPush . psh
-                  , sCloseConnection = TLS.bye ctx >> sCloseConnection x
-                  })
+    liftIO $ putStrLn "#"
+    (raw, _snk, psh, read, ctx) <- lift $ TLS.tlsinit debug params (mkBackend con)
+    liftIO $ putStrLn "*"
+    let newCon = Connection { cSend = catchSend . psh
+                            , cRecv = read
+                            , cFlush = contextFlush ctx
+                            , cClose = bye ctx >> cClose con
+                            }
+    lift $ modify ( \x -> x {sCon = newCon})
     either (lift . Ex.throwIO) return =<< lift xmppRestartStream
     modify (\s -> s{sConnectionState = XmppConnectionSecured})
     return ()

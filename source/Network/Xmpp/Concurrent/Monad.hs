@@ -56,7 +56,7 @@ withConnection a session =  do
             (do
                  (res, s') <- runStateT a s
                  atomically $ do
-                     putTMVar (writeRef session) (sConPushBS s')
+                     putTMVar (writeRef session) (cSend . sCon $ s')
                      putTMVar (conStateRef session) s'
                      return $ Right res
             )
@@ -102,7 +102,7 @@ endSession session =  do -- TODO: This has to be idempotent (is it?)
 closeConnection :: Session -> IO ()
 closeConnection session = Ex.mask_ $ do
     send <- atomically $ takeTMVar (writeRef session)
-    cc <- sCloseConnection <$> ( atomically $ readTMVar (conStateRef session))
+    cc <- cClose . sCon <$> ( atomically $ readTMVar (conStateRef session))
     send "</stream:stream>"
     void . forkIO $ do
       threadDelay 3000000
