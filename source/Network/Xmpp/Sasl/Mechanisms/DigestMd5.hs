@@ -63,7 +63,6 @@ xmppDigestMd5 authcid authzid password = do
         cnonce <- liftIO $ makeNonce
         _b <- respond . Just $ createResponse hostname pairs cnonce
         challenge2 <- pullFinalMessage
-        _ <- ErrorT $ left AuthStreamError <$> xmppRestartStream
         return ()
       where
         -- Produce the response to the challenge.
