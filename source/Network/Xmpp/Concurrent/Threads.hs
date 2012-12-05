@@ -24,7 +24,7 @@ import           GHC.IO (unsafeUnmask)
 -- all listener threads.
 readWorker :: (Stanza -> IO ())
            -> (StreamError -> IO ())
-           -> TMVar XmppConnection
+           -> TMVar Connection
            -> IO a
 readWorker onStanza onConnectionClosed stateRef =
     Ex.mask_ . forever $ do
@@ -32,12 +32,13 @@ readWorker onStanza onConnectionClosed stateRef =
                        -- we don't know whether pull will
                        -- necessarily be interruptible
                        s <- atomically $ do
-                            sr <- readTMVar stateRef
-                            when (sConnectionState sr == XmppConnectionClosed)
+                            con@(Connection con_) <- readTMVar stateRef
+                            state <- sConnectionState <$> readTMVar con_
+                            when (state == XmppConnectionClosed)
                                  retry
-                            return sr
+                            return con
                        allowInterrupt
-                       Just . fst <$> runStateT pullStanza s
+                       Just <$> pullStanza s
                        )
                    [ Ex.Handler $ \(Interrupt t) -> do
                          void $ handleInterrupts [t]
@@ -71,14 +72,16 @@ readWorker onStanza onConnectionClosed stateRef =
 -- connection.
 startThreadsWith :: (Stanza -> IO ())
                  -> TVar EventHandlers
+                 -> Connection
                  -> IO
                  (IO (),
                   TMVar (BS.ByteString -> IO Bool),
-                  TMVar XmppConnection,
+                  TMVar Connection,
                   ThreadId)
-startThreadsWith stanzaHandler eh = do
-    writeLock <- newTMVarIO (\_ -> return False)
-    conS <- newTMVarIO xmppNoConnection
+startThreadsWith stanzaHandler eh con = do
+    read <- withConnection' (gets $ cSend. cHand) con
+    writeLock <- newTMVarIO read
+    conS <- newTMVarIO con
 --    lw <- forkIO $ writeWorker outC writeLock
     cp <- forkIO $ connPersist writeLock
     rd <- forkIO $ readWorker stanzaHandler (noCon eh) conS

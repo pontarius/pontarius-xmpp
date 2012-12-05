@@ -47,33 +47,33 @@ data Query = Query { instructions :: Maybe Text.Text
 
 emptyQuery = Query Nothing False False []
 
-supported :: XmppConMonad (Either IbrError Bool)
-supported = runErrorT $ fromFeatures <+> fromDisco
-  where
-  fromFeatures = do
-      fs <- other <$> gets sFeatures
-      let fe = XML.Element
-                   "{http://jabber.org/features/iq-register}register"
-                   []
-                   []
-      return $ fe `elem` fs
-  fromDisco = do
-      hn' <- gets sHostname
-      hn <- case hn' of
-          Just h -> return (Jid Nothing h Nothing)
-          Nothing -> throwError IbrNoConnection
-      qi <- lift $ xmppQueryInfo Nothing Nothing
-      case qi of
-          Left e -> return False
-          Right qir -> return $ "jabber:iq:register" `elem` qiFeatures qir
-  f <+> g = do
-            r <- f
-            if r then return True else g
+-- supported :: XmppConMonad (Either IbrError Bool)
+-- supported = runErrorT $ fromFeatures <+> fromDisco
+--   where
+--   fromFeatures = do
+--       fs <- other <$> gets sFeatures
+--       let fe = XML.Element
+--                    "{http://jabber.org/features/iq-register}register"
+--                    []
+--                    []
+--       return $ fe `elem` fs
+--   fromDisco = do
+--       hn' <- gets sHostname
+--       hn <- case hn' of
+--           Just h -> return (Jid Nothing h Nothing)
+--           Nothing -> throwError IbrNoConnection
+--       qi <- lift $ xmppQueryInfo Nothing Nothing
+--       case qi of
+--           Left e -> return False
+--           Right qir -> return $ "jabber:iq:register" `elem` qiFeatures qir
+--   f <+> g = do
+--             r <- f
+--             if r then return True else g
 
 
-query :: IQRequestType -> Query -> XmppConMonad (Either IbrError Query)
-query queryType x = do
-    answer <- xmppSendIQ' "ibr" Nothing queryType Nothing (pickleElem xpQuery x)
+query :: IQRequestType -> Query -> Connection -> IO (Either IbrError Query)
+query queryType x con = do
+    answer <- pushIQ' "ibr" Nothing queryType Nothing (pickleElem xpQuery x) con
     case answer of
         Right IQResult{iqResultPayload = Just b} ->
             case unpickleElem xpQuery b of
@@ -96,9 +96,11 @@ mapError f = mapErrorT (liftM $ left f)
 
 -- | Retrieve the necessary fields and fill them in to register an account with
 -- the server
-registerWith :: [(Field, Text.Text)] -> XmppConMonad (Either RegisterError Query)
-registerWith givenFields = runErrorT $ do
-    fs <- mapError IbrError $ ErrorT requestFields
+registerWith :: [(Field, Text.Text)]
+             -> Connection
+             -> IO  (Either RegisterError Query)
+registerWith givenFields con = runErrorT $ do
+    fs <- mapError IbrError . ErrorT $ requestFields con
     when (registered fs) . throwError $ AlreadyRegistered
     let res = flip map (fields fs) $ \(field,_) ->
             case lookup field givenFields of
@@ -107,18 +109,18 @@ registerWith givenFields = runErrorT $ do
     fields <- case partitionEithers res of
         ([],fs) -> return fs
         (fs,_) -> throwError $ MissingFields fs
-    result <- mapError IbrError . ErrorT .  query Set $ emptyQuery {fields}
+    result <- mapError IbrError . ErrorT $ query Set (emptyQuery {fields}) con
     return result
 
 -- | Terminate your account on the server. You have to be logged in for this to
 -- work. You connection will most likely be terminated after unregistering.
-unregister :: XmppConMonad (Either IbrError Query)
+unregister :: Connection -> IO (Either IbrError Query)
 unregister = query Set $ emptyQuery {remove = True}
 
-requestFields = runErrorT $ do
+requestFields con = runErrorT $ do
 --     supp <- ErrorT supported
 --    unless supp $ throwError $ IbrNotSupported
-    qr <- ErrorT $ query Get emptyQuery
+    qr <- ErrorT $ query Get emptyQuery con
     return $ qr
 
 xpQuery :: PU [XML.Node] Query

@@ -31,11 +31,13 @@ module Network.Xmpp.Types
     , StreamError(..)
     , StreamErrorCondition(..)
     , Version(..)
-    , XmppConMonad
+    , HandleLike(..)
     , Connection(..)
-    , XmppConnection(..)
+    , Connection_(..)
+    , withConnection
+    , withConnection'
+    , mkConnection
     , XmppConnectionState(..)
-    , XmppT(..)
     , XmppStreamError(..)
     , langTag
     , module Network.Xmpp.Jid
@@ -43,15 +45,15 @@ module Network.Xmpp.Types
        where
 
 import           Control.Applicative ((<$>), many)
+import           Control.Concurrent.STM
 import           Control.Exception
+import           Control.Monad.Error
 import           Control.Monad.IO.Class
 import           Control.Monad.State.Strict
-import           Control.Monad.Error
 
 import qualified Data.Attoparsec.Text as AP
 import qualified Data.ByteString as BS
 import           Data.Conduit
-import           Data.Conduit.BufferedSource
 import           Data.IORef
 import           Data.Maybe (fromJust, fromMaybe, maybeToList)
 import           Data.String(IsString(..))
@@ -59,6 +61,7 @@ import           Data.Text (Text)
 import qualified Data.Text as Text
 import           Data.Typeable(Typeable)
 import           Data.XML.Types
+
 
 import qualified Network as N
 
@@ -743,54 +746,68 @@ data XmppConnectionState
     | XmppConnectionSecured -- ^ Connection established and secured via TLS.
       deriving (Show, Eq, Typeable)
 
-data Connection = Connection { cSend :: BS.ByteString -> IO Bool
-                             , cRecv :: Int -> IO BS.ByteString
-                              -- This is to hold the state of the XML parser
-                              -- (otherwise we will receive lot's of EvenBegin
-                              -- Document and forger about name prefixes)
-                             , cEventSource :: BufferedSource IO Event
+data HandleLike = Hand { cSend :: BS.ByteString -> IO Bool
+                       , cRecv :: Int -> IO BS.ByteString
+                          -- This is to hold the state of the XML parser
+                          -- (otherwise we will receive lot's of EvenBegin
+                          -- Document and forger about name prefixes)
+                       , cFlush :: IO ()
+                       , cClose :: IO ()
+                       }
 
-                             , cFlush :: IO ()
-                             , cClose :: IO ()
-                             }
+data Connection_ = Connection_
+                  { sConnectionState :: !XmppConnectionState -- ^ State of
+                                                             -- connection
+                  , cHand            :: HandleLike
+                  , cEventSource     :: ResumableSource IO Event
+                  , sFeatures        :: !ServerFeatures -- ^ Features the server
+                                                        -- advertised
+                  , sHostname        :: !(Maybe Text) -- ^ Hostname of the
+                                                      -- server
+                  , sJid             :: !(Maybe Jid) -- ^ Our JID
+                  , sPreferredLang   :: !(Maybe LangTag) -- ^ Default language
+                                                         -- when no explicit
+                                                         -- language tag is set
+                  , sStreamLang      :: !(Maybe LangTag) -- ^ Will be a `Just'
+                                                         -- value once connected
+                                                         -- to the server.
+                  , sStreamId        :: !(Maybe Text) -- ^ Stream ID as
+                                        -- specified by the
+                                        -- server.
+                  , sToJid           :: !(Maybe Jid) -- ^ JID to include in the
+                                                     -- stream element's `to'
+                                                     -- attribute when the
+                                                     -- connection is
+                                                     -- secured. See also below.
+                  , sJidWhenPlain    :: !Bool -- ^ Whether or not to also
+                                              -- include the Jid when the
+                                              -- connection is plain.
+                  , sFrom            :: !(Maybe Jid)  -- ^ From as specified by
+                                                      -- the server in the
+                                                      -- stream element's `from'
+                                                      -- attribute.
+                  }
 
-data XmppConnection = XmppConnection
-               { sCon             :: Connection
-               , sFeatures        :: !ServerFeatures -- ^ Features the server
-                                                     -- advertised
-               , sConnectionState :: !XmppConnectionState -- ^ State of connection
-               , sHostname        :: !(Maybe Text) -- ^ Hostname of the server
-               , sJid             :: !(Maybe Jid) -- ^ Our JID
-               , sPreferredLang   :: !(Maybe LangTag) -- ^ Default language when
-                                                      -- no explicit language
-                                                      -- tag is set
-               , sStreamLang      :: !(Maybe LangTag) -- ^ Will be a `Just' value
-                                                    -- once connected to the
-                                                    -- server.
-               , sStreamId        :: !(Maybe Text) -- ^ Stream ID as specified by
-                                                   -- the server.
-               , sToJid           :: !(Maybe Jid) -- ^ JID to include in the
-                                                  -- stream element's `to'
-                                                  -- attribute when the
-                                                  -- connection is secured. See
-                                                  -- also below.
-               , sJidWhenPlain    :: !Bool -- ^ Whether or not to also include the
-                                           -- Jid when the connection is plain.
-               , sFrom            :: !(Maybe Jid)  -- ^ From as specified by the
-                                                   -- server in the stream
-                                                   -- element's `from'
-                                                   -- attribute.
-               }
 
--- |
--- The Xmpp monad transformer. Contains internal state in order to
--- work with Pontarius. Pontarius clients needs to operate in this
--- context.
-newtype XmppT m a = XmppT { runXmppT :: StateT XmppConnection m a } deriving (Monad, MonadIO)
+newtype Connection = Connection {unConnection :: TMVar Connection_}
 
--- | Low-level and single-threaded Xmpp monad. See @Xmpp@ for a concurrent
--- implementation.
-type XmppConMonad a = StateT XmppConnection IO a
+withConnection :: StateT Connection_ IO c -> Connection -> IO c
+withConnection action (Connection con) = bracketOnError
+                                         (atomically $ takeTMVar con)
+                                         (atomically . putTMVar con )
+                                         (\c -> do
+                                               (r, c') <- runStateT action c
+                                               atomically $ putTMVar con c'
+                                               return r
+                                         )
 
--- Make XmppT derive the Monad and MonadIO instances.
-deriving instance (Monad m, MonadIO m) => MonadState (XmppConnection) (XmppT m)
+-- nonblocking version. Changes to the connection are ignored!
+withConnection' :: StateT Connection_ IO b -> Connection -> IO b
+withConnection' action (Connection con) = do
+    con_ <- atomically $ readTMVar con
+    (r, _) <- runStateT action con_
+    return r
+
+
+mkConnection :: Connection_ -> IO Connection
+mkConnection con = Connection `fmap` (atomically $ newTMVar con)

@@ -113,7 +113,7 @@ saslInit mechanism payload = lift . pushElement . saslInitE mechanism $
 -- | Pull the next element.
 pullSaslElement :: SaslM SaslElement
 pullSaslElement = do
-    el <- lift $ pullPickle (xpEither xpFailure xpSaslElement)
+    el <- lift $ pullUnpickle (xpEither xpFailure xpSaslElement)
     case el of
         Left e ->throwError $ AuthSaslFailure e
         Right r -> return r

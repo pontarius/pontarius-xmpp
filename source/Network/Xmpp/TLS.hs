@@ -86,15 +86,17 @@ instance Error XmppTLSError where
 
 -- Pushes "<starttls/>, waits for "<proceed/>", performs the TLS handshake, and
 -- restarts the stream. May throw errors.
-startTLS :: TLS.TLSParams -> XmppConMonad (Either XmppTLSError ())
-startTLS params = Ex.handle (return . Left . TLSError) . runErrorT $ do
+startTLS :: TLS.TLSParams -> Connection -> IO (Either XmppTLSError ())
+startTLS params con = Ex.handle (return . Left . TLSError)
+                      . flip withConnection con
+                      . runErrorT $ do
     features <- lift $ gets sFeatures
     state <- gets sConnectionState
     case state of
         XmppConnectionPlain -> return ()
         XmppConnectionClosed -> throwError TLSNoConnection
         XmppConnectionSecured -> throwError TLSConnectionSecured
-    con <- lift $ gets sCon
+    con <- lift $ gets cHand
     when (stls features == Nothing) $ throwError TLSNoServerSupport
     lift $ pushElement starttlsE
     answer <- lift $ pullElement
@@ -105,15 +107,13 @@ startTLS params = Ex.handle (return . Left . TLSError) . runErrorT $ do
             -- TODO: find something more suitable
         e -> lift . Ex.throwIO . StreamXMLError $
             "Unexpected element: " ++ ppElement e
-    liftIO $ putStrLn "#"
     (raw, _snk, psh, read, ctx) <- lift $ TLS.tlsinit debug params (mkBackend con)
-    liftIO $ putStrLn "*"
-    let newCon = Connection { cSend = catchSend . psh
-                            , cRecv = read
-                            , cFlush = contextFlush ctx
-                            , cClose = bye ctx >> cClose con
-                            }
-    lift $ modify ( \x -> x {sCon = newCon})
-    either (lift . Ex.throwIO) return =<< lift xmppRestartStream
+    let newHand = Hand { cSend = catchPush . psh
+                       , cRecv = read
+                       , cFlush = contextFlush ctx
+                       , cClose = bye ctx >> cClose con
+                       }
+    lift $ modify ( \x -> x {cHand = newHand})
+    either (lift . Ex.throwIO) return =<< lift restartStream
     modify (\s -> s{sConnectionState = XmppConnectionSecured})
     return ()

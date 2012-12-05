@@ -35,8 +35,6 @@ import           Network.Xmpp.Connection
 import           Network.Xmpp.Pickle
 import           Network.Xmpp.Stream
 import           Network.Xmpp.Types
-
-
 import           Network.Xmpp.Sasl.Common
 import           Network.Xmpp.Sasl.StringPrep
 import           Network.Xmpp.Sasl.Types

@@ -2,6 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Network.Xmpp.Session where
 
+import qualified Control.Exception as Ex
 import           Control.Monad.Error
 import           Data.Text as Text
 import           Data.XML.Pickle
@@ -10,6 +11,7 @@ import           Network
 import qualified Network.TLS as TLS
 import           Network.Xmpp.Bind
 import           Network.Xmpp.Concurrent.Types
+import           Network.Xmpp.Concurrent.Channels
 import           Network.Xmpp.Connection
 import           Network.Xmpp.Marshal
 import           Network.Xmpp.Pickle
@@ -45,28 +47,31 @@ simpleConnect :: HostName   -- ^ Host to connect to
               -> Text       -- ^ Password
               -> Maybe Text -- ^ Desired resource (or Nothing to let the server
                             -- decide)
-              -> XmppConMonad Jid
+              -> IO Context
 simpleConnect host port hostname username password resource = do
-      connect host port hostname
-      startTLS exampleParams
-      saslResponse <- simpleAuth username password resource
+      con' <- connectTcp host port hostname
+      con <- case con' of
+          Left e -> Ex.throwIO e
+          Right r -> return r
+      startTLS exampleParams con
+      saslResponse <- simpleAuth username password resource con
       case saslResponse of
-          Right jid -> return jid
+          Right jid -> newContext con
           Left e -> error $ show e
 
 
 -- | Connect to host with given address.
-connect :: HostName -> PortID -> Text -> XmppConMonad (Either StreamError ())
-connect address port hostname = do
-    xmppConnectTCP address port hostname
-    result <- xmppStartStream
+connectTcp :: HostName -> PortID -> Text -> IO (Either StreamError Connection)
+connectTcp address port hostname = do
+    con <- connectTcpRaw address port hostname
+    result <- withConnection startStream con
     case result of
         Left e -> do
-            pushElement . pickleElem xpStreamError $ toError e
-            xmppCloseStreams
-            return ()
-        Right () -> return ()
-    return result
+            withConnection (pushElement . pickleElem xpStreamError $ toError e)
+                           con
+            closeStreams con
+            return $ Left e
+        Right () -> return $ Right con
   where
         -- TODO: Descriptive texts in stream errors?
         toError  (StreamNotStreamElement _name) =
@@ -100,9 +105,9 @@ sessionIQ = IQRequestS $ IQRequest { iqRequestID      = "sess"
 
 -- Sends the session IQ set element and waits for an answer. Throws an error if
 -- if an IQ error stanza is returned from the server.
-xmppStartSession :: XmppConMonad ()
-xmppStartSession = do
-    answer <- xmppSendIQ' "session" Nothing Set Nothing sessionXML
+startSession :: Connection -> IO ()
+startSession con = do
+    answer <- pushIQ' "session" Nothing Set Nothing sessionXML con
     case answer of
         Left e -> error $ show e
         Right _ -> return ()
@@ -111,11 +116,12 @@ xmppStartSession = do
 -- resource.
 auth :: [SaslHandler]
      -> Maybe Text
-     -> XmppConMonad (Either AuthError Jid)
-auth mechanisms resource = runErrorT $ do
-    ErrorT $ xmppSasl mechanisms
-    jid <- lift $ xmppBind resource
-    lift $ xmppStartSession
+     -> Connection
+     -> IO (Either AuthError Jid)
+auth mechanisms resource con = runErrorT $ do
+    ErrorT $ xmppSasl mechanisms con
+    jid <- lift $ xmppBind resource con
+    lift $ startSession con
     return jid
 
 -- | Authenticate to the server with the given username and password
@@ -126,7 +132,8 @@ simpleAuth  :: Text.Text  -- ^ The username
             -> Text.Text  -- ^ The password
             -> Maybe Text -- ^ The desired resource or 'Nothing' to let the
                           -- server assign one
-            -> XmppConMonad (Either AuthError Jid)
+            -> Connection
+            -> IO (Either AuthError Jid)
 simpleAuth username passwd resource = flip auth resource $
         [ -- TODO: scramSha1Plus
           scramSha1 username Nothing passwd

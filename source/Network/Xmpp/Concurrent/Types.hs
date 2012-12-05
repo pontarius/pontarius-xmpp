@@ -8,9 +8,6 @@ import           Control.Concurrent
 import           Control.Concurrent.STM
 
 import qualified Data.ByteString as BS
-import           Data.IORef
-import qualified Data.Map as Map
-import           Data.Text(Text)
 import           Data.Typeable
 
 import           Network.Xmpp.Types
@@ -28,7 +25,7 @@ data Session = Session
     , idGenerator :: IO StanzaId
       -- | Lock (used by withConnection) to make sure that a maximum of one
       -- XmppConMonad action is executed at any given time.
-    , conStateRef :: TMVar XmppConnection
+    , conRef :: TMVar Connection
     , eventHandlers :: TVar EventHandlers
     , stopThreads :: IO ()
     }

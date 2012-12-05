@@ -7,11 +7,12 @@ module Network.Xmpp.Stream where
 import           Control.Applicative ((<$>), (<*>))
 import qualified Control.Exception as Ex
 import           Control.Monad.Error
+import           Control.Monad.Reader
 import           Control.Monad.State.Strict
 
 import qualified Data.ByteString as BS
 import           Data.Conduit
-import           Data.Conduit.BufferedSource
+import qualified Data.Conduit.Internal as DCI
 import           Data.Conduit.List as CL
 import           Data.Maybe (fromJust, isJust, isNothing)
 import           Data.Text as Text
@@ -61,8 +62,8 @@ openElementFromEvents = do
         _ -> throwError $ StreamConnectionError
 
 -- Sends the initial stream:stream element and pulls the server features.
-xmppStartStream :: XmppConMonad (Either StreamError ())
-xmppStartStream = runErrorT $ do
+startStream :: StateT Connection_ IO (Either StreamError ())
+startStream = runErrorT $ do
     state <- get
     -- Set the `to' attribute depending on the state of the connection.
     let from = case sConnectionState state of
@@ -80,24 +81,24 @@ xmppStartStream = runErrorT $ do
                                     , Nothing
                                     , sPreferredLang state
                                     )
-    (lt, from, id, features) <- ErrorT . pullToSinkEvents $ runErrorT $
-                                xmppStream from
-    modify (\s -> s { sFeatures = features
-                    , sStreamLang = Just lt
-                    , sStreamId = id
-                    , sFrom = from
-                    }
-           )
+    (lt, from, id, features) <- ErrorT . runEventsSink $ runErrorT $
+                                streamS from
+    modify (\s -> s{ sFeatures = features
+                   , sStreamLang = Just lt
+                   , sStreamId = id
+                   , sFrom = from
+                   } )
     return ()
 
 -- Sets a new Event source using the raw source (of bytes)
 -- and calls xmppStartStream.
-xmppRestartStream :: XmppConMonad (Either StreamError ())
-xmppRestartStream = do
-    raw <- gets (cRecv . sCon)
-    newSrc <- liftIO . bufferSource $ loopRead raw $= XP.parseBytes def
-    modify (\s -> s{sCon = (sCon s){cEventSource = newSrc}})
-    xmppStartStream
+restartStream :: StateT Connection_ IO (Either StreamError ())
+restartStream = do
+    raw <- gets (cRecv . cHand)
+    let newSource = DCI.ResumableSource (loopRead raw $= XP.parseBytes def)
+                                        (return ())
+    modify (\s -> s{cEventSource = newSource })
+    startStream
   where
     loopRead read = do
         bs <- liftIO (read 4096)
@@ -109,11 +110,11 @@ xmppRestartStream = do
 -- Also validates the stream element's attributes and throws an error if
 -- appropriate.
 -- TODO: from.
-xmppStream :: Maybe Jid -> StreamSink ( LangTag
+streamS :: Maybe Jid -> StreamSink ( LangTag
                                       , Maybe Jid
                                       , Maybe Text
                                       , ServerFeatures)
-xmppStream expectedTo = do
+streamS expectedTo = do
     (from, to, id, langTag) <- xmppStreamHeader
     features <- xmppStreamFeatures
     return (langTag, from, id, features)

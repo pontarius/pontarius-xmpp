@@ -36,9 +36,9 @@ import qualified Data.ByteString as BS
 import           Data.XML.Types
 
 import           Network.Xmpp.Connection
-import           Network.Xmpp.Pickle
 import           Network.Xmpp.Stream
 import           Network.Xmpp.Types
+import           Network.Xmpp.Pickle
 
 import qualified System.Random as Random
 

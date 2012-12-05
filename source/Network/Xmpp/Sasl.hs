@@ -30,7 +30,6 @@ import           Data.Text (Text)
 import qualified Data.Text.Encoding as Text
 
 import           Network.Xmpp.Connection
-import           Network.Xmpp.Pickle
 import           Network.Xmpp.Stream
 import           Network.Xmpp.Types
 
@@ -44,8 +43,9 @@ import           Network.Xmpp.Sasl.Mechanisms
 -- success.
 xmppSasl :: [SaslHandler] -- ^ Acceptable authentication mechanisms and their
                        -- corresponding handlers
-         -> XmppConMonad (Either AuthError ())
-xmppSasl handlers = do
+         -> Connection
+         -> IO (Either AuthError ())
+xmppSasl handlers = withConnection $ do
     -- Chooses the first mechanism that is acceptable by both the client and the
     -- server.
     mechanisms <- gets $ saslMechanisms . sFeatures
@@ -57,5 +57,5 @@ xmppSasl handlers = do
                 XmppConnectionClosed -> throwError AuthConnectionError
                 _ -> do
                     r <- handler
-                    _ <- ErrorT $ left AuthStreamError <$> xmppRestartStream
+                    _ <- ErrorT $ left AuthStreamError <$> restartStream
                     return r

@@ -89,8 +89,8 @@ queryInfo :: Jid -- ^ Entity to query
           -> Maybe Text.Text -- ^ Node
           -> Context
           -> IO (Either DiscoError QueryInfoResult)
-queryInfo to node session = do
-    res <- sendIQ' (Just to) Get Nothing queryBody session
+queryInfo to node context = do
+    res <- sendIQ' (Just to) Get Nothing queryBody context
     return $ case res of
         IQResponseError e -> Left $ DiscoIQError e
         IQResponseTimeout -> Left $ DiscoTimeout
@@ -105,9 +105,10 @@ queryInfo to node session = do
 
 xmppQueryInfo :: Maybe Jid
      -> Maybe Text.Text
-     -> XmppConMonad (Either DiscoError QueryInfoResult)
-xmppQueryInfo to node = do
-    res <- xmppSendIQ' "info" to Get Nothing queryBody
+     -> Connection
+     -> IO (Either DiscoError QueryInfoResult)
+xmppQueryInfo to node con = do
+    res <- pushIQ' "info" to Get Nothing queryBody con
     return $ case res of
         Left e -> Left $ DiscoIQError e
         Right r -> case iqResultPayload r of

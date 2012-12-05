@@ -1,8 +1,7 @@
 module Network.Xmpp.Basic
-  ( XmppConMonad
-  , XmppConnection(..)
+  ( Connection(..)
   , XmppConnectionState(..)
-  , connect
+  , connectTcp
   , simpleConnect
   , startTLS
   , simpleAuth

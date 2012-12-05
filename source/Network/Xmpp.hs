@@ -31,7 +31,7 @@ module Network.Xmpp
     Context
   , newContext
   , withConnection
-  , connect
+  , connectTcp
   , simpleConnect
   , startTLS
   , simpleAuth
@@ -93,6 +93,7 @@ module Network.Xmpp
   , sendMessage
   -- *** Receiving
   , pullMessage
+  , getMessage
   , waitForMessage
   , waitForMessageError
   , filterMessages
@@ -147,10 +148,13 @@ module Network.Xmpp
   -- * Miscellaneous
   , LangTag(..)
   , exampleParams
+  , PortID(..)
+
   ) where
 
 import Data.XML.Types (Element)
 
+import Network
 import Network.Xmpp.Bind
 import Network.Xmpp.Concurrent
 import Network.Xmpp.Concurrent.Channels

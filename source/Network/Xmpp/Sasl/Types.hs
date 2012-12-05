@@ -29,7 +29,7 @@ data SaslElement = SaslSuccess   (Maybe Text.Text)
 
 -- | SASL mechanism XmppConnection computation, with the possibility of throwing
 -- an authentication error.
-type SaslM a = ErrorT AuthError (StateT XmppConnection IO) a
+type SaslM a = ErrorT AuthError (StateT Connection_ IO) a
 
 type Pairs = [(ByteString, ByteString)]
 

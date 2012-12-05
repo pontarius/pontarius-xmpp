@@ -17,7 +17,7 @@ import           Control.Monad.State.Strict
 import           Data.ByteString as BS
 import           Data.Conduit
 import           Data.Conduit.Binary as CB
-import           Data.Conduit.BufferedSource
+import           Data.Conduit.Internal as DCI
 import qualified Data.Conduit.List as CL
 import           Data.IORef
 import           Data.Text(Text)
@@ -41,41 +41,42 @@ import           Text.XML.Unresolved(InvalidEventStream(..))
 debug :: Bool
 debug = False
 
-pushElement :: Element -> XmppConMonad Bool
+pushElement :: Element -> StateT Connection_ IO Bool
 pushElement x = do
-    send <- gets (cSend . sCon)
+    send <- gets (cSend . cHand)
     liftIO . send $ renderElement x
 
 -- | Encode and send stanza
-pushStanza :: Stanza -> XmppConMonad Bool
-pushStanza = pushElement . pickleElem xpStanza
+pushStanza :: Stanza -> Connection -> IO Bool
+pushStanza s = withConnection' . pushElement $ pickleElem xpStanza s
 
 -- XML documents and XMPP streams SHOULD be preceeded by an XML declaration.
 -- UTF-8 is the only supported XMPP encoding. The standalone document
 -- declaration (matching "SDDecl" in the XML standard) MUST NOT be included in
 -- XMPP streams. RFC 6120 defines XMPP only in terms of XML 1.0.
-pushXmlDecl :: XmppConMonad Bool
+pushXmlDecl :: StateT Connection_ IO Bool
 pushXmlDecl = do
-    con <- gets sCon
+    con <- gets cHand
     liftIO $ (cSend con) "<?xml version='1.0' encoding='UTF-8' ?>"
 
-pushOpenElement :: Element -> XmppConMonad Bool
+pushOpenElement :: Element -> StateT Connection_ IO Bool
 pushOpenElement e = do
-    sink <- gets (cSend . sCon )
+    sink <- gets (cSend . cHand )
     liftIO . sink $ renderOpenElement e
 
 -- `Connect-and-resumes' the given sink to the connection source, and pulls a
 -- `b' value.
-pullToSinkEvents :: Sink Event IO b -> XmppConMonad b
-pullToSinkEvents snk = do
-    source <- gets (cEventSource . sCon)
-    r <- lift $ source .$$+ snk
+runEventsSink :: Sink Event IO b -> StateT Connection_ IO b
+runEventsSink snk = do
+    source <- gets cEventSource
+    (src', r) <- lift $ source $$++ snk
+    modify (\s -> s{cEventSource = src'})
     return r
 
-pullElement :: XmppConMonad Element
+pullElement :: StateT Connection_ IO Element
 pullElement = do
     Ex.catches (do
-        e <- pullToSinkEvents (elements =$ await)
+        e <- runEventsSink (elements =$ await)
         case e of
             Nothing -> liftIO $ Ex.throwIO StreamConnectionError
             Just r -> return r
@@ -85,12 +86,11 @@ pullElement = do
                      -> liftIO . Ex.throwIO $ StreamXMLError s)
         , Ex.Handler $ \(e :: InvalidEventStream)
                      -> liftIO . Ex.throwIO $ StreamXMLError (show e)
-
         ]
 
 -- Pulls an element and unpickles it.
-pullPickle :: PU [Node] a -> XmppConMonad a
-pullPickle p = do
+pullUnpickle :: PU [Node] a -> StateT Connection_ IO a
+pullUnpickle p = do
     res <- unpickleElem p <$> pullElement
     case res of
         Left e -> liftIO . Ex.throwIO $ StreamXMLError (show e)
@@ -98,17 +98,17 @@ pullPickle p = do
 
 -- | Pulls a stanza (or stream error) from the stream. Throws an error on a stream
 -- error.
-pullStanza :: XmppConMonad Stanza
-pullStanza = do
-    res <- pullPickle xpStreamStanza
+pullStanza :: Connection -> IO Stanza
+pullStanza = withConnection' $ do
+    res <- pullUnpickle xpStreamStanza
     case res of
         Left e -> liftIO . Ex.throwIO $ StreamError e
         Right r -> return r
 
 -- Performs the given IO operation, catches any errors and re-throws everything
 -- except 'ResourceVanished' and IllegalOperation, in which case it will return False instead
-catchSend :: IO () -> IO Bool
-catchSend p = Ex.catch
+catchPush :: IO () -> IO Bool
+catchPush p = Ex.catch
     (p >> return True)
     (\e -> case GIE.ioe_type e of
          GIE.ResourceVanished -> return False
@@ -116,16 +116,16 @@ catchSend p = Ex.catch
          _ -> Ex.throwIO e
     )
 
--- -- XmppConnection state used when there is no connection.
-xmppNoConnection :: XmppConnection
-xmppNoConnection = XmppConnection
-               { sCon             = Connection { cSend = \_ -> return False
-                                               , cRecv = \_ -> Ex.throwIO
-                                                           $ StreamConnectionError
-                                               , cEventSource = undefined
-                                               , cFlush = return ()
-                                               , cClose = return ()
-                                               }
+-- -- Connection_ state used when there is no connection.
+xmppNoConnection :: Connection_
+xmppNoConnection = Connection_
+               { cHand            = Hand { cSend = \_ -> return False
+                                         , cRecv = \_ -> Ex.throwIO
+                                                         $ StreamConnectionError
+                                         , cFlush = return ()
+                                         , cClose = return ()
+                                         }
+               , cEventSource     = DCI.ResumableSource zeroSource (return ())
                , sFeatures        = SF Nothing [] []
                , sConnectionState = XmppConnectionClosed
                , sHostname        = Nothing
@@ -142,31 +142,30 @@ xmppNoConnection = XmppConnection
     zeroSource = liftIO . Ex.throwIO $ StreamConnectionError
 
 -- Connects to the given hostname on port 5222 (TODO: Make this dynamic) and
--- updates the XmppConMonad XmppConnection state.
-xmppConnectTCP :: HostName -> PortID -> Text -> XmppConMonad ()
-xmppConnectTCP host port hostname = do
-    hand <- liftIO $ do
-        h <- connectTo host port
-        hSetBuffering h NoBuffering
-        return h
-    eSource <- liftIO . bufferSource $ (sourceHandle hand) $= XP.parseBytes def
-    let con = Connection { cSend = if debug
-                                    then \d -> do
-                                        BS.putStrLn (BS.append "out: " d)
-                                        catchSend $ BS.hPut hand d
-                                    else catchSend . BS.hPut hand
-                          , cRecv = if debug then
-                                      \n -> do
-                                          bs <- BS.hGetSome hand n
-                                          BS.putStrLn bs
-                                          return bs
-                                    else BS.hGetSome hand
-                          , cEventSource = eSource
-                          , cFlush = hFlush hand
-                          , cClose = hClose hand
-                          }
-    let st = XmppConnection
-            { sCon             = con
+-- updates the XmppConMonad Connection_ state.
+connectTcpRaw :: HostName -> PortID -> Text -> IO Connection
+connectTcpRaw host port hostname = do
+    h <- connectTo host port
+    hSetBuffering h NoBuffering
+    let eSource = DCI.ResumableSource (sourceHandle h $= XP.parseBytes def)
+                                      (return ())
+    let hand = Hand { cSend = if debug
+                              then \d -> do
+                                  BS.putStrLn (BS.append "out: " d)
+                                  catchPush $ BS.hPut h d
+                              else catchPush . BS.hPut h
+                    , cRecv = if debug then
+                                \n -> do
+                                    bs <- BS.hGetSome h n
+                                    BS.putStrLn bs
+                                    return bs
+                              else BS.hGetSome h
+                    , cFlush = hFlush h
+                    , cClose = hClose h
+                    }
+    let con = Connection_
+            { cHand            = hand
+            , cEventSource     = eSource
             , sFeatures        = (SF Nothing [] [])
             , sConnectionState = XmppConnectionPlain
             , sHostname        = (Just hostname)
@@ -178,55 +177,48 @@ xmppConnectTCP host port hostname = do
             , sJidWhenPlain    = False -- TODO: Allow user to set
             , sFrom            = Nothing
             }
-    put st
+    mkConnection con
 
--- Execute a XmppConMonad computation.
-xmppNewSession :: XmppConMonad a -> IO (a, XmppConnection)
-xmppNewSession action = runStateT action xmppNoConnection
 
--- Closes the connection and updates the XmppConMonad XmppConnection state.
-xmppKillConnection :: XmppConMonad (Either Ex.SomeException ())
-xmppKillConnection = do
-    cc <- gets (cClose . sCon)
+-- Closes the connection and updates the XmppConMonad Connection_ state.
+killConnection :: Connection -> IO (Either Ex.SomeException ())
+killConnection = withConnection $ do
+    cc <- gets (cClose . cHand)
     err <- liftIO $ (Ex.try cc :: IO (Either Ex.SomeException ()))
     put xmppNoConnection
     return err
 
-xmppReplaceConnection :: XmppConnection -> XmppConMonad (Either Ex.SomeException ())
-xmppReplaceConnection newCon = do
-    cc <- gets (cClose . sCon)
-    err <- liftIO $ (Ex.try cc :: IO (Either Ex.SomeException ()))
-    put newCon
-    return err
-
 -- Sends an IQ request and waits for the response. If the response ID does not
 -- match the outgoing ID, an error is thrown.
-xmppSendIQ' :: StanzaId
+pushIQ' :: StanzaId
             -> Maybe Jid
             -> IQRequestType
             -> Maybe LangTag
             -> Element
-            -> XmppConMonad (Either IQError IQResult)
-xmppSendIQ' iqID to tp lang body = do
-    pushStanza . IQRequestS $ IQRequest iqID Nothing to lang tp body
-    res <- pullPickle $ xpEither xpIQError xpIQResult
+            -> Connection
+            -> IO (Either IQError IQResult)
+pushIQ' iqID to tp lang body con = do
+    pushStanza (IQRequestS $ IQRequest iqID Nothing to lang tp body) con
+    res <- pullStanza con
     case res of
-        Left e -> return $ Left e
-        Right iq' -> do
+        IQErrorS e -> return $ Left e
+        IQResultS r -> do
             unless
-                (iqID == iqResultID iq') . liftIO . Ex.throwIO $
+                (iqID == iqResultID r) . liftIO . Ex.throwIO $
                     StreamXMLError
-                ("In xmppSendIQ' IDs don't match: " ++ show iqID ++ " /= " ++
-                    show (iqResultID iq') ++ " .")
-            return $ Right iq'
+                ("In sendIQ' IDs don't match: " ++ show iqID ++ " /= " ++
+                    show (iqResultID r) ++ " .")
+            return $ Right r
+        _ -> liftIO . Ex.throwIO . StreamXMLError $
+               "sendIQ': unexpected stanza type "
 
 -- | Send "</stream:stream>" and wait for the server to finish processing and to
 -- close the connection. Any remaining elements from the server and whether or
 -- not we received a </stream:stream> element from the server is returned.
-xmppCloseStreams :: XmppConMonad ([Element], Bool)
-xmppCloseStreams = do
-    send <- gets (cSend . sCon)
-    cc <- gets (cClose . sCon)
+closeStreams :: Connection -> IO ([Element], Bool)
+closeStreams = withConnection $ do
+    send <- gets (cSend . cHand)
+    cc <- gets (cClose . cHand)
     liftIO $ send "</stream:stream>"
     void $ liftIO $ forkIO $ do
         threadDelay 3000000
@@ -236,18 +228,18 @@ xmppCloseStreams = do
   where
     -- Pulls elements from the stream until the stream ends, or an error is
     -- raised.
-    collectElems :: [Element] -> XmppConMonad ([Element], Bool)
-    collectElems elems = do
+    collectElems :: [Element] -> StateT Connection_ IO ([Element], Bool)
+    collectElems es = do
         result <- Ex.try pullElement
         case result of
-            Left StreamStreamEnd -> return (elems, True)
-            Left _ -> return (elems, False)
-            Right elem -> collectElems (elem:elems)
+            Left StreamStreamEnd -> return (es, True)
+            Left _ -> return (es, False)
+            Right e -> collectElems (e:es)
 
 debugConduit :: Pipe l ByteString ByteString u IO b
 debugConduit = forever $ do
-    s <- await
-    case s of
+    s' <- await
+    case s' of
         Just s ->  do
             liftIO $ BS.putStrLn (BS.append "in: " s)
             yield s

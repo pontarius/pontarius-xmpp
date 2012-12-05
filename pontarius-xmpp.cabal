@@ -82,7 +82,6 @@ Library
                  , Network.Xmpp.Concurrent.Threads
                  , Network.Xmpp.Concurrent.Monad
                  , Text.XML.Stream.Elements
-                 , Data.Conduit.BufferedSource
                  , Data.Conduit.TLS
                  , Network.Xmpp.Sasl.Common
                  , Network.Xmpp.Sasl.StringPrep

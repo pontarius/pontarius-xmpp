@@ -92,8 +92,8 @@ toChans messageC presenceC stanzaC iqHands sta = atomically $ do
 
 
 -- | Creates and initializes a new Xmpp context.
-newContext :: IO Context
-newContext = do
+newContext :: Connection -> IO Context
+newContext con = do
     messageC <- newTChanIO
     presenceC <- newTChanIO
     outC <- newTChanIO
@@ -101,7 +101,7 @@ newContext = do
     iqHandlers <- newTVarIO (Map.empty, Map.empty)
     eh <- newTVarIO $ EventHandlers { connectionClosedHandler = \_ -> return () }
     let stanzaHandler = toChans messageC presenceC stanzaC iqHandlers
-    (kill, wLock, conState, readerThread) <- startThreadsWith stanzaHandler eh
+    (kill, wLock, conState, readerThread) <- startThreadsWith stanzaHandler eh con
     writer <- forkIO $ writeWorker outC wLock
     workermCh <- newIORef $ Nothing
     workerpCh <- newIORef $ Nothing
@@ -113,7 +113,7 @@ newContext = do
     let sess = Session { writeRef = wLock
                        , readerThread = readerThread
                        , idGenerator = getId
-                       , conStateRef = conState
+                       , conRef = conState
                        , eventHandlers = eh
                        , stopThreads = kill >> killThread writer
                        }
