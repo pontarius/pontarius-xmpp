@@ -149,22 +149,22 @@ module Network.Xmpp
   , exampleParams
   ) where
 
-import           Data.XML.Types (Element)
+import Data.XML.Types (Element)
 
-import           Network.Xmpp.Bind
-import           Network.Xmpp.Concurrent
-import           Network.Xmpp.Concurrent.Channels
-import           Network.Xmpp.Concurrent.Types
-import           Network.Xmpp.Marshal
-import           Network.Xmpp.Message
-import           Network.Xmpp.Monad
-import           Network.Xmpp.Presence
-import           Network.Xmpp.Sasl
-import           Network.Xmpp.Session
+import Network.Xmpp.Bind
+import Network.Xmpp.Concurrent
+import Network.Xmpp.Concurrent.Channels
+import Network.Xmpp.Concurrent.Types
+import Network.Xmpp.Connection
+import Network.Xmpp.Marshal
+import Network.Xmpp.Message
+import Network.Xmpp.Presence
+import Network.Xmpp.Sasl
+import Network.Xmpp.Session
 -- import           Network.Xmpp.Session
-import           Network.Xmpp.Stream
-import           Network.Xmpp.TLS
-import           Network.Xmpp.Types
+import Network.Xmpp.Stream
+import Network.Xmpp.TLS
+import Network.Xmpp.Types
 
 
 -- -- Sends the session IQ set element and waits for an answer. Throws an error if

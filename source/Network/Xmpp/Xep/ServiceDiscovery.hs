@@ -25,12 +25,12 @@ import           Data.XML.Pickle
 import           Data.XML.Types
 
 import           Network.Xmpp
-import           Network.Xmpp.Monad
+import           Network.Xmpp.Concurrent
+import           Network.Xmpp.Concurrent.Channels
+import           Network.Xmpp.Concurrent.Types
+import           Network.Xmpp.Connection
 import           Network.Xmpp.Pickle
 import           Network.Xmpp.Types
-import           Network.Xmpp.Concurrent
-import           Network.Xmpp.Concurrent.Types
-import           Network.Xmpp.Concurrent.Channels
 
 data DiscoError = DiscoNoQueryElement
                 | DiscoIQError IQError

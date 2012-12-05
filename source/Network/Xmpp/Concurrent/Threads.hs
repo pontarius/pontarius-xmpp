@@ -4,21 +4,21 @@
 
 module Network.Xmpp.Concurrent.Threads where
 
-import Network.Xmpp.Types
+import           Network.Xmpp.Types
 
-import Control.Applicative((<$>))
-import Control.Concurrent
-import Control.Concurrent.STM
+import           Control.Applicative((<$>))
+import           Control.Concurrent
+import           Control.Concurrent.STM
 import qualified Control.Exception.Lifted as Ex
-import Control.Monad
-import Control.Monad.IO.Class
-import Control.Monad.State.Strict
+import           Control.Monad
+import           Control.Monad.IO.Class
+import           Control.Monad.State.Strict
 
 import qualified Data.ByteString as BS
-import Network.Xmpp.Monad
-import Network.Xmpp.Concurrent.Types
+import           Network.Xmpp.Concurrent.Types
+import           Network.Xmpp.Connection
 
-import GHC.IO (unsafeUnmask)
+import           GHC.IO (unsafeUnmask)
 
 -- Worker to read stanzas from the stream and concurrently distribute them to
 -- all listener threads.

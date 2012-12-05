@@ -18,7 +18,7 @@ import qualified Data.Map as Map
 import           Data.Text(Text)
 
 import           Network.Xmpp.Concurrent.Types
-import           Network.Xmpp.Monad
+import           Network.Xmpp.Connection
 
 
 

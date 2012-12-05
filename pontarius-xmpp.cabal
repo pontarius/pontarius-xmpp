@@ -61,7 +61,7 @@ Library
                  , Network.Xmpp.IM.Message
                  , Network.Xmpp.IM.Presence
                  , Network.Xmpp.Marshal
-                 , Network.Xmpp.Monad
+                 , Network.Xmpp.Connection
                  , Network.Xmpp.Message
                  , Network.Xmpp.Pickle
                  , Network.Xmpp.Presence

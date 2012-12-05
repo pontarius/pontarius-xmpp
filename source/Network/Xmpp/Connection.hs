@@ -2,7 +2,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Network.Xmpp.Monad where
+module Network.Xmpp.Connection where
 
 import           Control.Applicative((<$>))
 import           Control.Concurrent (forkIO, threadDelay)

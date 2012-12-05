@@ -16,9 +16,9 @@ module Network.Xmpp.Basic
 
        where
 
-import Network.Xmpp.Monad
+import Network.Xmpp.Connection
 import Network.Xmpp.Sasl
+import Network.Xmpp.Session
 import Network.Xmpp.Stream
 import Network.Xmpp.TLS
 import Network.Xmpp.Types
-import Network.Xmpp.Session

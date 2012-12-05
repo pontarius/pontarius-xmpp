@@ -17,7 +17,7 @@ import           Data.Conduit.TLS as TLS
 import           Data.Typeable
 import           Data.XML.Types
 
-import           Network.Xmpp.Monad
+import           Network.Xmpp.Connection
 import           Network.Xmpp.Pickle(ppElement)
 import           Network.Xmpp.Stream
 import           Network.Xmpp.Types

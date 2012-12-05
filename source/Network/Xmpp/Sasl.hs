@@ -29,15 +29,15 @@ import qualified Data.Text as Text
 import           Data.Text (Text)
 import qualified Data.Text.Encoding as Text
 
-import           Network.Xmpp.Monad
+import           Network.Xmpp.Connection
+import           Network.Xmpp.Pickle
 import           Network.Xmpp.Stream
 import           Network.Xmpp.Types
-import           Network.Xmpp.Pickle
 
 import qualified System.Random as Random
 
-import Network.Xmpp.Sasl.Types
-import Network.Xmpp.Sasl.Mechanisms
+import           Network.Xmpp.Sasl.Types
+import           Network.Xmpp.Sasl.Mechanisms
 
 -- | Uses the first supported mechanism to authenticate, if any. Updates the
 -- state with non-password credentials and restarts the stream upon

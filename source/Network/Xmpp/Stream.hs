@@ -19,10 +19,10 @@ import           Data.Void (Void)
 import           Data.XML.Pickle
 import           Data.XML.Types
 
-import           Network.Xmpp.Monad
+import           Network.Xmpp.Connection
+import           Network.Xmpp.Errors
 import           Network.Xmpp.Pickle
 import           Network.Xmpp.Types
-import           Network.Xmpp.Errors
 
 import           Text.XML.Stream.Elements
 import           Text.XML.Stream.Parse as XP

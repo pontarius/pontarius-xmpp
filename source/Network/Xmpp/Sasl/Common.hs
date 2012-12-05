@@ -22,10 +22,10 @@ import           Data.Word (Word8)
 import           Data.XML.Pickle
 import           Data.XML.Types
 
-import           Network.Xmpp.Monad
+import           Network.Xmpp.Connection
 import           Network.Xmpp.Pickle
-import           Network.Xmpp.Sasl.Types
 import           Network.Xmpp.Sasl.StringPrep
+import           Network.Xmpp.Sasl.Types
 
 import qualified System.Random as Random
 

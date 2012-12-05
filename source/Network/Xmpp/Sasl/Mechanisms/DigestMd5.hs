@@ -31,7 +31,7 @@ import qualified Data.ByteString as BS
 
 import           Data.XML.Types
 
-import           Network.Xmpp.Monad
+import           Network.Xmpp.Connection
 import           Network.Xmpp.Pickle
 import           Network.Xmpp.Stream
 import           Network.Xmpp.Types

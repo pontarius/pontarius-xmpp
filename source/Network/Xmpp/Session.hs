@@ -6,19 +6,19 @@ import           Control.Monad.Error
 import           Data.Text as Text
 import           Data.XML.Pickle
 import           Data.XML.Types(Element)
+import           Network
 import qualified Network.TLS as TLS
 import           Network.Xmpp.Bind
 import           Network.Xmpp.Concurrent.Types
+import           Network.Xmpp.Connection
 import           Network.Xmpp.Marshal
-import           Network.Xmpp.Monad
 import           Network.Xmpp.Pickle
 import           Network.Xmpp.Sasl
 import           Network.Xmpp.Sasl.Mechanisms
 import           Network.Xmpp.Sasl.Types
 import           Network.Xmpp.Stream
-import           Network.Xmpp.Types
-import           Network
 import           Network.Xmpp.TLS
+import           Network.Xmpp.Types
 
 -- | The quick and easy way to set up a connection to an XMPP server
 --

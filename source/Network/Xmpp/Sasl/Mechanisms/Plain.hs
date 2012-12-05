@@ -29,24 +29,24 @@ import qualified Data.Text as Text
 import           Data.Text (Text)
 import qualified Data.Text.Encoding as Text
 
-import Data.XML.Pickle
+import           Data.XML.Pickle
 
 import qualified Data.ByteString as BS
 
-import Data.XML.Types
+import           Data.XML.Types
 
-import           Network.Xmpp.Monad
+import           Network.Xmpp.Connection
+import           Network.Xmpp.Pickle
 import           Network.Xmpp.Stream
 import           Network.Xmpp.Types
-import           Network.Xmpp.Pickle
 
 import qualified System.Random as Random
 
-import Data.Maybe (fromMaybe)
+import           Data.Maybe (fromMaybe)
 import qualified Data.Text as Text
 
-import Network.Xmpp.Sasl.Common
-import Network.Xmpp.Sasl.Types
+import           Network.Xmpp.Sasl.Common
+import           Network.Xmpp.Sasl.Types
 
 -- TODO: stringprep
 xmppPlain :: Text.Text -- ^ Password
