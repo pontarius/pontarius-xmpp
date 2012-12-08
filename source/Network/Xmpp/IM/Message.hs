@@ -6,7 +6,7 @@ module Network.Xmpp.IM.Message
 
 import Control.Applicative ((<$>))
 
-import Data.Maybe (maybeToList)
+import Data.Maybe (maybeToList, listToMaybe)
 import Data.Text (Text)
 import Data.XML.Pickle
 import Data.XML.Types
@@ -14,11 +14,17 @@ import Data.XML.Types
 import Network.Xmpp.Types
 import Network.Xmpp.Pickle
 
-data MessageBody = MessageBody (Maybe LangTag) Text
-data MessageThread = MessageThread
-                        Text          -- Thread ID
-                        (Maybe Text)  -- Parent Thread
-data MessageSubject = MessageSubject (Maybe LangTag) Text
+data MessageBody = MessageBody { bodyLang :: (Maybe LangTag)
+                               , bodyContent :: Text
+                               }
+
+data MessageThread = MessageThread { theadID :: Text
+                                   , threadParent :: (Maybe Text)
+                                   }
+
+data MessageSubject = MessageSubject { subjectLang :: (Maybe LangTag)
+                                     , subjectContent :: Text
+                                     }
 
 xpMessageSubject :: PU [Element] MessageSubject
 xpMessageSubject = xpUnliftElems .
@@ -61,11 +67,15 @@ thread m = ms
 
 -- | Get the body elements of a message (if any). Messages may contain
 -- multiple bodies if each of them has a distinct xml:lang attribute
-body :: Message -> [MessageBody]
-body m = ms
+bodies :: Message -> [MessageBody]
+bodies m = ms
   where
     -- xpFindMatches will _always_ return Right
     Right ms = unpickle (xpFindMatches xpMessageBody) $ messagePayload m
+
+-- | Return the first body element, regardless of it's language.
+body :: Message -> Maybe Text
+body m = bodyContent <$> listToMaybe (bodies m)
 
 -- | Generate a new instant message
 newIM
@@ -109,8 +119,10 @@ simpleIM t bd = newIM
 -- taken from the original sender, the sender is set to Nothing,
 -- message ID, language tag, message type as well as subject and
 -- thread are inherited, the remaining payload is replaced by the
--- given one
-answerIM :: Maybe MessageBody -> [Element] -> Message -> Message
+-- given one.
+--
+-- If multiple message bodies are given they must have different language tags
+answerIM :: [MessageBody] -> [Element] -> Message -> Message
 answerIM bd payload msg = Message
     { messageID      = messageID msg
     , messageFrom    = Nothing
@@ -120,6 +132,6 @@ answerIM bd payload msg = Message
     , messagePayload =  concat $
                         (pickle xpMessageSubject <$> subject msg)
                         ++ maybeToList (pickle xpMessageThread <$> thread msg)
-                        ++ maybeToList (pickle xpMessageBody <$> bd)
+                        ++ (pickle xpMessageBody <$> bd)
                         ++ [payload]
     }

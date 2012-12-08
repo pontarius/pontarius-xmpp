@@ -33,6 +33,10 @@ pullMessage session = do
     c <- getMessageChan session
     atomically $ readTChan c
 
+-- | Get the next received message
+getMessage :: Context -> IO Message
+getMessage = waitForMessage (const True)
+
 -- | Pulls a (non-error) message and returns it if the given predicate returns
 -- @True@.
 waitForMessage :: (Message -> Bool) -> Context -> IO Message

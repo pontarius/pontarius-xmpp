@@ -3,6 +3,7 @@ module Network.Xmpp.IM
     subject
   , thread
   , body
+  , bodies
   , newIM
   , simpleIM
   , answerIM
