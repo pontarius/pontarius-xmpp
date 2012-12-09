@@ -39,7 +39,7 @@ supervisor = read "uart14@species64739.dyndns.org"
 testNS :: Text
 testNS = "xmpp:library:test"
 
-type Xmpp a = Context -> IO a
+type Xmpp a = Session -> IO a
 
 data Payload = Payload
                { payloadCounter :: Int
@@ -75,7 +75,7 @@ iqResponder context = do
         answerIQ next (Right $ Just answerBody) context
     when (payloadCounter payload == 10) $ do
         threadDelay 1000000
-        endSession (session context)
+        endContext (session context)
 
 autoAccept :: Xmpp ()
 autoAccept context = forever $ do
@@ -151,7 +151,7 @@ iqTest debug we them context = do
     debug "ending session"
 
 fork action context = do
-    context' <- forkContext context
+    context' <- forkSession context
     forkIO $ action context'
 
 ibrTest debug uname pw = IBR.registerWith [ (IBR.Username, "testuser2")
@@ -166,11 +166,11 @@ runMain debug number multi = do
                              0 -> (testUser2, testUser1,False)
   let debug' = liftIO . atomically .
                debug . (("Thread " ++ show number ++ ":") ++)
-  context <- newContext
+  context <- newSession
 
   setConnectionClosedHandler (\e s -> do
               debug' $ "connection lost because " ++ show e
-              endSession s) (session context)
+              endContext s) (session context)
   debug' "running"
   flip withConnection (session context) $ Ex.catch (do
       debug' "connect"

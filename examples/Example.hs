@@ -42,7 +42,7 @@ main = do
       singleThreaded $ xmppSASL "pwd"
       xmppThreadedBind (Just "botsi")
 --      singleThreaded $ xmppBind (Just "botsi")
-      singleThreaded $ xmppSession
+      singleThreaded $ xmppContext
       forkXmpp autoAccept
       forkXmpp mirror
       sendS . SPresence $ Presence Nothing Nothing Nothing Nothing

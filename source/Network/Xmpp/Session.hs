@@ -47,7 +47,7 @@ simpleConnect :: HostName   -- ^ Host to connect to
               -> Text       -- ^ Password
               -> Maybe Text -- ^ Desired resource (or Nothing to let the server
                             -- decide)
-              -> IO Context
+              -> IO Session
 simpleConnect host port hostname username password resource = do
       con' <- connectTcp host port hostname
       con <- case con' of
@@ -56,7 +56,7 @@ simpleConnect host port hostname username password resource = do
       startTLS exampleParams con
       saslResponse <- simpleAuth username password resource con
       case saslResponse of
-          Right jid -> newContext con
+          Right jid -> newSession con
           Left e -> error $ show e
 
 

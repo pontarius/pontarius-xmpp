@@ -7,7 +7,7 @@ module Network.Xmpp.Concurrent.Channels
        , module Network.Xmpp.Concurrent.Channels.Presence
        , module Network.Xmpp.Concurrent.Channels.IQ
        , toChans
-       , newContext
+       , newSession
        , writeWorker
        )
 
@@ -92,8 +92,8 @@ toChans messageC presenceC stanzaC iqHands sta = atomically $ do
 
 
 -- | Creates and initializes a new Xmpp context.
-newContext :: Connection -> IO Context
-newContext con = do
+newSession :: Connection -> IO Session
+newSession con = do
     messageC <- newTChanIO
     presenceC <- newTChanIO
     outC <- newTChanIO
@@ -110,22 +110,22 @@ newContext con = do
             curId <- readTVar idRef
             writeTVar idRef (curId + 1 :: Integer)
             return . read. show $ curId
-    let sess = Session { writeRef = wLock
+    let cont = Context { writeRef = wLock
                        , readerThread = readerThread
                        , idGenerator = getId
                        , conRef = conState
                        , eventHandlers = eh
                        , stopThreads = kill >> killThread writer
                        }
-    return $ Context { session = sess
-                      , mShadow = messageC
-                      , pShadow = presenceC
-                      , sShadow = stanzaC
-                      , messagesRef = workermCh
-                      , presenceRef = workerpCh
-                      , outCh = outC
-                      , iqHandlers = iqHandlers
-                      }
+    return $ Session { context = cont
+                     , mShadow = messageC
+                     , pShadow = presenceC
+                     , sShadow = stanzaC
+                     , messagesRef = workermCh
+                     , presenceRef = workerpCh
+                     , outCh = outC
+                     , iqHandlers = iqHandlers
+                     }
 
 -- Worker to write stanzas to the stream concurrently.
 writeWorker :: TChan Stanza -> TMVar (BS.ByteString -> IO Bool) -> IO ()

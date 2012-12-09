@@ -18,8 +18,8 @@ data EventHandlers = EventHandlers
     { connectionClosedHandler :: StreamError -> IO ()
     }
 
--- | Xmpp Session object
-data Session = Session
+-- | Xmpp Context object
+data Context = Context
     { writeRef :: TMVar (BS.ByteString -> IO Bool)
     , readerThread :: ThreadId
     , idGenerator :: IO StanzaId

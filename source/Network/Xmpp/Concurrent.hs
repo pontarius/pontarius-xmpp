@@ -1,6 +1,6 @@
 {-# OPTIONS_HADDOCK hide #-}
 module Network.Xmpp.Concurrent
-  ( Session
+  ( Context
   , module Network.Xmpp.Concurrent.Monad
   , module Network.Xmpp.Concurrent.Threads
   , module Network.Xmpp.Concurrent.Channels

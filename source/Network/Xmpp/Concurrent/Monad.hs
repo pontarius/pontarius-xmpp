@@ -20,7 +20,7 @@ import           Network.Xmpp.Connection
 -- -- temporarily stopped and resumed with the new session details once the action
 -- -- returns. The action will run in the calling thread. Any uncaught exceptions
 -- -- will be interpreted as connection failure.
--- withConnection :: XmppConMonad a -> Session -> IO (Either StreamError a)
+-- withConnection :: XmppConMonad a -> Context -> IO (Either StreamError a)
 -- withConnection a session =  do
 --     wait <- newEmptyTMVarIO
 --     Ex.mask_ $ do
@@ -59,7 +59,7 @@ import           Network.Xmpp.Connection
 --             ]
 
 -- | Executes a function to update the event handlers.
-modifyHandlers :: (EventHandlers -> EventHandlers) -> Session -> IO ()
+modifyHandlers :: (EventHandlers -> EventHandlers) -> Context -> IO ()
 modifyHandlers f session = atomically $ modifyTVar (eventHandlers session) f
   where
     -- Borrowing modifyTVar from
@@ -71,26 +71,26 @@ modifyHandlers f session = atomically $ modifyTVar (eventHandlers session) f
       writeTVar var (f x)
 
 -- | Sets the handler to be executed when the server connection is closed.
-setConnectionClosedHandler :: (StreamError -> Session -> IO ()) -> Session -> IO ()
+setConnectionClosedHandler :: (StreamError -> Context -> IO ()) -> Context -> IO ()
 setConnectionClosedHandler eh session = do
     modifyHandlers (\s -> s{connectionClosedHandler =
                                  \e -> eh e session}) session
 
 -- | Run an event handler.
-runHandler :: (EventHandlers -> IO a) -> Session -> IO a
+runHandler :: (EventHandlers -> IO a) -> Context -> IO a
 runHandler h session = h =<< atomically (readTVar $ eventHandlers session)
 
 
 -- | End the current Xmpp session.
-endSession :: Session -> IO ()
-endSession session =  do -- TODO: This has to be idempotent (is it?)
+endContext :: Context -> IO ()
+endContext session =  do -- TODO: This has to be idempotent (is it?)
     closeConnection session
     stopThreads session
 
 -- | Close the connection to the server. Closes the stream (by enforcing a
 -- write lock and sending a </stream:stream> element), waits (blocks) for three
 -- seconds, and then closes the connection.
-closeConnection :: Session -> IO ()
+closeConnection :: Context -> IO ()
 closeConnection session = Ex.mask_ $ do
     (_send, connection) <- atomically $ liftM2 (,)
                              (takeTMVar $ writeRef session)

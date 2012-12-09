@@ -9,8 +9,8 @@ import           Network.Xmpp.Concurrent.Types
 import           Network.Xmpp.Types
 
 -- | An XMPP session context
-data Context = Context
-    { session :: Session
+data Session = Session
+    { context :: Context
       -- The original master channels that the reader puts stanzas
       -- into. These are cloned by @get{STanza,Message,Presence}Chan
       -- on demand when first used by the thread and are stored in the

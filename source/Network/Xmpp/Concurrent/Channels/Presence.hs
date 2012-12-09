@@ -9,7 +9,7 @@ import Network.Xmpp.Concurrent.Types
 import Network.Xmpp.Concurrent.Channels.Basic
 
 -- | Analogous to 'getMessageChan'.
-getPresenceChan :: Context -> IO (TChan (Either PresenceError Presence))
+getPresenceChan :: Session -> IO (TChan (Either PresenceError Presence))
 getPresenceChan session = do
     pCh <- readIORef $ (presenceRef session)
     case pCh of
@@ -21,20 +21,20 @@ getPresenceChan session = do
 
 
 -- | Analogous to 'dropMessageChan'.
-dropPresenceChan :: Context -> IO ()
+dropPresenceChan :: Session -> IO ()
 dropPresenceChan session = writeIORef (presenceRef session) Nothing
 
 
 -- | Read an element from the inbound stanza channel, acquiring a copy of the
 -- channel as necessary.
-pullPresence :: Context -> IO (Either PresenceError Presence)
+pullPresence :: Session -> IO (Either PresenceError Presence)
 pullPresence session = do
     c <- getPresenceChan session
     atomically $ readTChan c
 
 -- | Pulls a (non-error) presence and returns it if the given predicate returns
 -- @True@.
-waitForPresence :: (Presence -> Bool) -> Context -> IO Presence
+waitForPresence :: (Presence -> Bool) -> Session -> IO Presence
 waitForPresence f session = do
     s <- pullPresence session
     case s of
@@ -43,5 +43,5 @@ waitForPresence f session = do
                 | otherwise -> waitForPresence f session
 
 -- | Send a presence stanza.
-sendPresence :: Presence -> Context -> IO ()
+sendPresence :: Presence -> Session -> IO ()
 sendPresence p session = sendStanza (PresenceS p) session

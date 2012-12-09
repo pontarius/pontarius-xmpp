@@ -28,8 +28,8 @@
 
 module Network.Xmpp
   ( -- * Session management
-    Context
-  , newContext
+    Session
+  , newSession
   , withConnection
   , connectTcp
   , simpleConnect
@@ -40,7 +40,7 @@ module Network.Xmpp
   , digestMd5
   , plain
   , closeConnection
-  , endSession
+  , endContext
   , setConnectionClosedHandler
   -- * JID
   -- | A JID (historically: Jabber ID) is XMPPs native format
@@ -144,7 +144,7 @@ module Network.Xmpp
   , iqRequestPayload
   , iqResultPayload
   -- * Threads
-  , forkContext
+  , forkSession
   -- * Miscellaneous
   , LangTag(..)
   , exampleParams
@@ -165,17 +165,6 @@ import Network.Xmpp.Message
 import Network.Xmpp.Presence
 import Network.Xmpp.Sasl
 import Network.Xmpp.Session
--- import           Network.Xmpp.Session
 import Network.Xmpp.Stream
 import Network.Xmpp.TLS
 import Network.Xmpp.Types
-
-
--- -- Sends the session IQ set element and waits for an answer. Throws an error if
--- -- if an IQ error stanza is returned from the server.
--- startSession :: Session -> IO ()
--- startSession session = do
---     answer <- sendIQ' Nothing Set Nothing sessionXML session
---     case answer of
---         IQResponseResult _ -> return ()
---         e -> error $ show e

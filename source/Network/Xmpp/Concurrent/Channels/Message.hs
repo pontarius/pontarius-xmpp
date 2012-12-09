@@ -11,7 +11,7 @@ import Network.Xmpp.Concurrent.Channels.Basic
 -- | Get the inbound stanza channel, duplicates from master if necessary. Please
 -- note that once duplicated it will keep filling up, call 'dropMessageChan' to
 -- allow it to be garbage collected.
-getMessageChan :: Context -> IO (TChan (Either MessageError Message))
+getMessageChan :: Session -> IO (TChan (Either MessageError Message))
 getMessageChan session = do
     mCh <- readIORef . messagesRef $ session
     case mCh of
@@ -23,23 +23,23 @@ getMessageChan session = do
 
 -- | Drop the local end of the inbound stanza channel from our context so it can
 -- be GC-ed.
-dropMessageChan :: Context -> IO ()
+dropMessageChan :: Session -> IO ()
 dropMessageChan session = writeIORef (messagesRef session) Nothing
 
 -- | Read an element from the inbound stanza channel, acquiring a copy of the
 -- channel as necessary.
-pullMessage :: Context -> IO (Either MessageError Message)
+pullMessage :: Session -> IO (Either MessageError Message)
 pullMessage session = do
     c <- getMessageChan session
     atomically $ readTChan c
 
 -- | Get the next received message
-getMessage :: Context -> IO Message
+getMessage :: Session -> IO Message
 getMessage = waitForMessage (const True)
 
 -- | Pulls a (non-error) message and returns it if the given predicate returns
 -- @True@.
-waitForMessage :: (Message -> Bool) -> Context -> IO Message
+waitForMessage :: (Message -> Bool) -> Session -> IO Message
 waitForMessage f session = do
     s <- pullMessage session
     case s of
@@ -48,7 +48,7 @@ waitForMessage f session = do
                 | otherwise -> waitForMessage f session
 
 -- | Pulls an error message and returns it if the given predicate returns @True@.
-waitForMessageError :: (MessageError -> Bool) -> Context -> IO MessageError
+waitForMessageError :: (MessageError -> Bool) -> Session -> IO MessageError
 waitForMessageError f session = do
     s <- pullMessage session
     case s of
@@ -60,7 +60,7 @@ waitForMessageError f session = do
 -- | Pulls a message and returns it if the given predicate returns @True@.
 filterMessages :: (MessageError -> Bool)
                -> (Message -> Bool)
-               -> Context -> IO (Either MessageError Message)
+               -> Session -> IO (Either MessageError Message)
 filterMessages f g session = do
     s <- pullMessage session
     case s of
@@ -70,5 +70,5 @@ filterMessages f g session = do
                 | otherwise -> filterMessages f g session
 
 -- | Send a message stanza.
-sendMessage :: Message -> Context -> IO ()
+sendMessage :: Message -> Session -> IO ()
 sendMessage m session = sendStanza (MessageS m) session

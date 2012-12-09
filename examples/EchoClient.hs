@@ -32,7 +32,7 @@ password = "pwd"
 resource = Just "bot"
 
 -- | Automatically accept all subscription requests from other entities
-autoAccept :: Context -> IO ()
+autoAccept :: Session -> IO ()
 autoAccept context = forever $ do
   st <- waitForPresence isPresenceSubscribe context
   let Just friend = presenceFrom st
