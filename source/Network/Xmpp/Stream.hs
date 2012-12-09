@@ -67,9 +67,9 @@ startStream = runErrorT $ do
     state <- get
     -- Set the `to' attribute depending on the state of the connection.
     let from = case sConnectionState state of
-                 XmppConnectionPlain -> if sJidWhenPlain state
+                 ConnectionPlain -> if sJidWhenPlain state
                                         then sJid state else Nothing
-                 XmppConnectionSecured -> sJid state
+                 ConnectionSecured -> sJid state
     case sHostname state of
         Nothing -> throwError StreamConnectionError
         Just hostname -> lift $ do

@@ -127,7 +127,7 @@ xmppNoConnection = Connection_
                                          }
                , cEventSource     = DCI.ResumableSource zeroSource (return ())
                , sFeatures        = SF Nothing [] []
-               , sConnectionState = XmppConnectionClosed
+               , sConnectionState = ConnectionClosed
                , sHostname        = Nothing
                , sJid             = Nothing
                , sStreamLang      = Nothing
@@ -167,7 +167,7 @@ connectTcpRaw host port hostname = do
             { cHand            = hand
             , cEventSource     = eSource
             , sFeatures        = (SF Nothing [] [])
-            , sConnectionState = XmppConnectionPlain
+            , sConnectionState = ConnectionPlain
             , sHostname        = (Just hostname)
             , sJid             = Nothing
             , sPreferredLang   = Nothing -- TODO: Allow user to set

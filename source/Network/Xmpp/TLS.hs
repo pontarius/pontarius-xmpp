@@ -93,9 +93,9 @@ startTLS params con = Ex.handle (return . Left . TLSError)
     features <- lift $ gets sFeatures
     state <- gets sConnectionState
     case state of
-        XmppConnectionPlain -> return ()
-        XmppConnectionClosed -> throwError TLSNoConnection
-        XmppConnectionSecured -> throwError TLSConnectionSecured
+        ConnectionPlain -> return ()
+        ConnectionClosed -> throwError TLSNoConnection
+        ConnectionSecured -> throwError TLSConnectionSecured
     con <- lift $ gets cHand
     when (stls features == Nothing) $ throwError TLSNoServerSupport
     lift $ pushElement starttlsE
@@ -115,5 +115,5 @@ startTLS params con = Ex.handle (return . Left . TLSError)
                        }
     lift $ modify ( \x -> x {cHand = newHand})
     either (lift . Ex.throwIO) return =<< lift restartStream
-    modify (\s -> s{sConnectionState = XmppConnectionSecured})
+    modify (\s -> s{sConnectionState = ConnectionSecured})
     return ()

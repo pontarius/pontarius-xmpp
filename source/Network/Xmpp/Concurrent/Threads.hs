@@ -34,7 +34,7 @@ readWorker onStanza onConnectionClosed stateRef =
                        s <- atomically $ do
                             con@(Connection con_) <- readTMVar stateRef
                             state <- sConnectionState <$> readTMVar con_
-                            when (state == XmppConnectionClosed)
+                            when (state == ConnectionClosed)
                                  retry
                             return con
                        allowInterrupt

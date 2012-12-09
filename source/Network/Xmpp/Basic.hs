@@ -1,6 +1,6 @@
 module Network.Xmpp.Basic
   ( Connection(..)
-  , XmppConnectionState(..)
+  , ConnectionState(..)
   , connectTcp
   , simpleConnect
   , startTLS

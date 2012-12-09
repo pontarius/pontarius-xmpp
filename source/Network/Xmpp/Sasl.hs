@@ -54,7 +54,7 @@ xmppSasl handlers = withConnection $ do
         (_name, handler):_ -> runErrorT $ do
             cs <- gets sConnectionState
             case cs of
-                XmppConnectionClosed -> throwError AuthConnectionError
+                ConnectionClosed -> throwError AuthConnectionError
                 _ -> do
                     r <- handler
                     _ <- ErrorT $ left AuthStreamError <$> restartStream

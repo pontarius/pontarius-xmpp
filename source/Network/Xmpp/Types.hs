@@ -37,7 +37,7 @@ module Network.Xmpp.Types
     , withConnection
     , withConnection'
     , mkConnection
-    , XmppConnectionState(..)
+    , ConnectionState(..)
     , XmppStreamError(..)
     , langTag
     , module Network.Xmpp.Jid
@@ -740,10 +740,10 @@ data ServerFeatures = SF
     , other          :: ![Element]
     } deriving Show
 
-data XmppConnectionState
-    = XmppConnectionClosed  -- ^ No connection at this point.
-    | XmppConnectionPlain   -- ^ Connection established, but not secured.
-    | XmppConnectionSecured -- ^ Connection established and secured via TLS.
+data ConnectionState
+    = ConnectionClosed  -- ^ No connection at this point.
+    | ConnectionPlain   -- ^ Connection established, but not secured.
+    | ConnectionSecured -- ^ Connection established and secured via TLS.
       deriving (Show, Eq, Typeable)
 
 data HandleLike = Hand { cSend :: BS.ByteString -> IO Bool
@@ -756,7 +756,7 @@ data HandleLike = Hand { cSend :: BS.ByteString -> IO Bool
                        }
 
 data Connection_ = Connection_
-                  { sConnectionState :: !XmppConnectionState -- ^ State of
+                  { sConnectionState :: !ConnectionState -- ^ State of
                                                              -- connection
                   , cHand            :: HandleLike
                   , cEventSource     :: ResumableSource IO Event
