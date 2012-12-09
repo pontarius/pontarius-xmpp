@@ -34,38 +34,17 @@ import           Network.Xmpp.Pickle
 import           Network.Xmpp.Types
 import           Text.XML.Stream.Elements
 
-toChans :: TChan (Either MessageError Message)
-        -> TChan (Either PresenceError Presence)
-        -> TChan Stanza
+toChans :: TChan Stanza
         -> TVar IQHandlers
         -> Stanza
         -> IO ()
-toChans messageC presenceC stanzaC iqHands sta = atomically $ do
+toChans stanzaC iqHands sta = atomically $ do
         writeTChan stanzaC sta
-        void $ readTChan stanzaC -- sic
         case sta of
-            MessageS  m -> do writeTChan messageC $ Right m
-                              _ <- readTChan messageC -- Sic!
-                              return ()
-                           -- this may seem ridiculous, but to prevent
-                           -- the channel from filling up we
-                           -- immedtiately remove the
-                           -- Stanza we just put in. It will still be
-                           -- available in duplicates.
-            MessageErrorS m -> do writeTChan messageC $ Left m
-                                  _ <- readTChan messageC
-                                  return ()
-            PresenceS      p -> do
-                             writeTChan presenceC $ Right p
-                             _ <- readTChan presenceC
-                             return ()
-            PresenceErrorS p ->  do
-                                   writeTChan presenceC $ Left p
-                                   _ <- readTChan presenceC
-                                   return ()
             IQRequestS     i -> handleIQRequest iqHands i
             IQResultS      i -> handleIQResponse iqHands (Right i)
             IQErrorS       i -> handleIQResponse iqHands (Left i)
+            _                -> return ()
   where
     -- If the IQ request has a namespace, send it through the appropriate channel.
     handleIQRequest :: TVar IQHandlers -> IQRequest -> STM ()
@@ -94,17 +73,13 @@ toChans messageC presenceC stanzaC iqHands sta = atomically $ do
 -- | Creates and initializes a new Xmpp context.
 newSession :: Connection -> IO Session
 newSession con = do
-    messageC <- newTChanIO
-    presenceC <- newTChanIO
     outC <- newTChanIO
-    stanzaC <- newTChanIO
+    stanzaChan <- newTChanIO
     iqHandlers <- newTVarIO (Map.empty, Map.empty)
     eh <- newTVarIO $ EventHandlers { connectionClosedHandler = \_ -> return () }
-    let stanzaHandler = toChans messageC presenceC stanzaC iqHandlers
+    let stanzaHandler = toChans stanzaChan iqHandlers
     (kill, wLock, conState, readerThread) <- startThreadsWith stanzaHandler eh con
     writer <- forkIO $ writeWorker outC wLock
-    workermCh <- newIORef $ Nothing
-    workerpCh <- newIORef $ Nothing
     idRef <- newTVarIO 1
     let getId = atomically $ do
             curId <- readTVar idRef
@@ -118,11 +93,7 @@ newSession con = do
                        , stopThreads = kill >> killThread writer
                        }
     return $ Session { context = cont
-                     , mShadow = messageC
-                     , pShadow = presenceC
-                     , sShadow = stanzaC
-                     , messagesRef = workermCh
-                     , presenceRef = workerpCh
+                     , stanzaCh = stanzaChan
                      , outCh = outC
                      , iqHandlers = iqHandlers
                      }

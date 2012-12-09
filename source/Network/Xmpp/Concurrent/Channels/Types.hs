@@ -11,18 +11,7 @@ import           Network.Xmpp.Types
 -- | An XMPP session context
 data Session = Session
     { context :: Context
-      -- The original master channels that the reader puts stanzas
-      -- into. These are cloned by @get{STanza,Message,Presence}Chan
-      -- on demand when first used by the thread and are stored in the
-      -- {message,presence}Ref fields below.
-    , mShadow :: TChan (Either MessageError Message)
-    , pShadow :: TChan (Either PresenceError Presence)
-    , sShadow :: TChan Stanza -- All stanzas
-      -- The cloned copies of the original/shadow channels. They are
-      -- thread-local (as opposed to the shadow channels) and contains all
-      -- stanzas received after the cloning of the shadow channels.
-    , messagesRef :: IORef (Maybe (TChan (Either MessageError Message)))
-    , presenceRef :: IORef (Maybe (TChan (Either PresenceError Presence)))
+    , stanzaCh :: TChan Stanza -- All stanzas
     , outCh :: TChan Stanza
     , iqHandlers :: TVar IQHandlers
       -- Writing lock, so that only one thread could write to the stream at any

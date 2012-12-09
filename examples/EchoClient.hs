@@ -26,35 +26,40 @@ import           Network.Xmpp.IM
 -- Server and authentication details.
 host     = "localhost"
 port     = PortNumber 5222
-realm    = "host.com"
+realm    = "server.com"
 username = "echo"
 password = "pwd"
 resource = Just "bot"
 
 -- | Automatically accept all subscription requests from other entities
 autoAccept :: Session -> IO ()
-autoAccept context = forever $ do
-  st <- waitForPresence isPresenceSubscribe context
+autoAccept session = forever $ do
+  st <- waitForPresence isPresenceSubscribe session
   let Just friend = presenceFrom st
-  sendPresence (presenceSubscribed friend) context
+  sendPresence (presenceSubscribed friend) session
   printf "Hello %s !" (show friend)
 
 main :: IO ()
 main = do
-    con <- simpleConnect
-               host
-               port
-               realm
-               username
-               password
-               resource
-    putStrLn "connected"
-    sendPresence presenceOnline con
-    _thread <- forkIO $ autoAccept con
-    forever $ do -- echo all messages back to the user
-        msg <- getMessage con
+    sess <- simpleConnect
+                host
+                port
+                realm
+                username
+                password
+                resource
+    -- We won't be able to receive stanzas before we set out status to online
+    sendPresence presenceOnline sess
+    putStrLn "Connected."
+    -- We want to see all incoming stanzas in the auto-accept thread as well.
+    sess' <- dupSession sess
+    _thread <- forkIO $ autoAccept sess'
+    forever $ do
+        -- Echo all messages back to the user.
+        msg <- getMessage sess
+        sendMessage (answerIM (bodies msg) [] msg) sess
+        -- Print the received message to the screen.
         let sender = show . fromJust $ messageFrom msg
         let contents = maybe "nothing" Text.unpack $ body msg
-        printf "%s sayd \"%s\"\n" sender contents
-        sendMessage (answerIM (bodies msg) [] msg) con
+        printf "%s says \"%s\"\n" sender contents
     return ()

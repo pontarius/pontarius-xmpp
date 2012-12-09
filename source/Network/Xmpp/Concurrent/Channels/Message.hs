@@ -8,30 +8,15 @@ import Network.Xmpp.Types
 import Network.Xmpp.Concurrent.Types
 import Network.Xmpp.Concurrent.Channels.Basic
 
--- | Get the inbound stanza channel, duplicates from master if necessary. Please
--- note that once duplicated it will keep filling up, call 'dropMessageChan' to
--- allow it to be garbage collected.
-getMessageChan :: Session -> IO (TChan (Either MessageError Message))
-getMessageChan session = do
-    mCh <- readIORef . messagesRef $ session
-    case mCh of
-        Nothing -> do
-            mCh' <- atomically $ dupTChan (mShadow session)
-            writeIORef (messagesRef session) (Just mCh')
-            return mCh'
-        Just mCh' -> return mCh'
-
--- | Drop the local end of the inbound stanza channel from our context so it can
--- be GC-ed.
-dropMessageChan :: Session -> IO ()
-dropMessageChan session = writeIORef (messagesRef session) Nothing
-
 -- | Read an element from the inbound stanza channel, acquiring a copy of the
 -- channel as necessary.
 pullMessage :: Session -> IO (Either MessageError Message)
 pullMessage session = do
-    c <- getMessageChan session
-    atomically $ readTChan c
+    stanza <- atomically . readTChan $ stanzaCh session
+    case stanza of
+        MessageS m -> return $ Right m
+        MessageErrorS e -> return $ Left e
+        _ -> pullMessage session
 
 -- | Get the next received message
 getMessage :: Session -> IO Message
