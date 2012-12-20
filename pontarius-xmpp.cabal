@@ -55,37 +55,41 @@ Library
   Exposed-modules: Network.Xmpp
                  , Network.Xmpp.IM
                  , Network.Xmpp.Basic
-  Other-modules:
-                 Network.Xmpp.Bind
-                 , Network.Xmpp.Concurrent
-                 , Network.Xmpp.IM.Message
-                 , Network.Xmpp.IM.Presence
-                 , Network.Xmpp.Marshal
-                 , Network.Xmpp.Connection
-                 , Network.Xmpp.Message
-                 , Network.Xmpp.Pickle
-                 , Network.Xmpp.Presence
-                 , Network.Xmpp.Sasl
-                 , Network.Xmpp.Sasl.Mechanisms
-                 , Network.Xmpp.Sasl.Mechanisms.Plain
-                 , Network.Xmpp.Sasl.Mechanisms.DigestMd5
-                 , Network.Xmpp.Sasl.Mechanisms.Scram
-                 , Network.Xmpp.Sasl.Types
-                 , Network.Xmpp.Session
-                 , Network.Xmpp.Stream
-                 , Network.Xmpp.TLS
-                 , Network.Xmpp.Types
-                 , Network.Xmpp.Xep.ServiceDiscovery
-                 , Network.Xmpp.Jid
-                 , Network.Xmpp.Concurrent.Types
-                 , Network.Xmpp.Concurrent.Channels.IQ
-                 , Network.Xmpp.Concurrent.Threads
-                 , Network.Xmpp.Concurrent.Monad
-                 , Text.XML.Stream.Elements
-                 , Data.Conduit.TLS
-                 , Network.Xmpp.Sasl.Common
-                 , Network.Xmpp.Sasl.StringPrep
-                 , Network.Xmpp.Errors
+  Other-modules: Data.Conduit.TLS
+               , Network.Xmpp.Bind
+               , Network.Xmpp.Concurrent
+               , Network.Xmpp.Concurrent.Types
+               , Network.Xmpp.Concurrent.Channels
+               , Network.Xmpp.Concurrent.Channels.Basic
+               , Network.Xmpp.Concurrent.Channels.IQ
+               , Network.Xmpp.Concurrent.Channels.Message
+               , Network.Xmpp.Concurrent.Channels.Presence
+               , Network.Xmpp.Concurrent.Channels.Types
+               , Network.Xmpp.Concurrent.Threads
+               , Network.Xmpp.Concurrent.Monad
+               , Network.Xmpp.Connection
+               , Network.Xmpp.Errors
+               , Network.Xmpp.IM.Message
+               , Network.Xmpp.IM.Presence
+               , Network.Xmpp.Jid
+               , Network.Xmpp.Marshal
+               , Network.Xmpp.Message
+               , Network.Xmpp.Pickle
+               , Network.Xmpp.Presence
+               , Network.Xmpp.Sasl
+               , Network.Xmpp.Sasl.Common
+               , Network.Xmpp.Sasl.Mechanisms
+               , Network.Xmpp.Sasl.Mechanisms.DigestMd5
+               , Network.Xmpp.Sasl.Mechanisms.Plain
+               , Network.Xmpp.Sasl.Mechanisms.Scram
+               , Network.Xmpp.Sasl.StringPrep
+               , Network.Xmpp.Sasl.Types
+               , Network.Xmpp.Session
+               , Network.Xmpp.Stream
+               , Network.Xmpp.TLS
+               , Network.Xmpp.Types
+               , Network.Xmpp.Xep.ServiceDiscovery
+               , Text.XML.Stream.Elements
   GHC-Options: -Wall
 
 Source-Repository head
