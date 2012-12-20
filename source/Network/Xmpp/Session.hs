@@ -73,21 +73,20 @@ connectTcp address port hostname = do
             return $ Left e
         Right () -> return $ Right con
   where
-        -- TODO: Descriptive texts in stream errors?
         toError  (StreamNotStreamElement _name) =
                 XmppStreamError StreamInvalidXml Nothing Nothing
         toError  (StreamInvalidStreamNamespace _ns) =
                 XmppStreamError StreamInvalidNamespace Nothing Nothing
         toError  (StreamInvalidStreamPrefix _prefix) =
                 XmppStreamError StreamBadNamespacePrefix Nothing Nothing
-        -- TODO: Catch remaining xmppStartStream errors.
         toError  (StreamWrongVersion _ver) =
                 XmppStreamError StreamUnsupportedVersion Nothing Nothing
         toError  (StreamWrongLangTag _) =
                 XmppStreamError StreamInvalidXml Nothing Nothing
         toError  StreamUnknownError =
                 XmppStreamError StreamBadFormat Nothing Nothing
-
+        -- TODO: Catch remaining xmppStartStream errors.
+        toError _ = XmppStreamError StreamBadFormat Nothing Nothing
 
 sessionXML :: Element
 sessionXML = pickleElem
