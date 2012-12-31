@@ -78,14 +78,14 @@ pullElement = do
     Ex.catches (do
         e <- runEventsSink (elements =$ await)
         case e of
-            Nothing -> liftIO $ Ex.throwIO StreamConnectionError
+            Nothing -> liftIO $ Ex.throwIO StreamOtherFailure
             Just r -> return r
         )
-        [ Ex.Handler (\StreamEnd -> Ex.throwIO StreamStreamEnd)
-        , Ex.Handler (\(InvalidXmppXml s)
-                     -> liftIO . Ex.throwIO $ StreamXMLError s)
-        , Ex.Handler $ \(e :: InvalidEventStream)
-                     -> liftIO . Ex.throwIO $ StreamXMLError (show e)
+        [ Ex.Handler (\StreamEnd -> Ex.throwIO StreamEndFailure)
+        , Ex.Handler (\(InvalidXmppXml s) -- Invalid XML `Event' encountered, or missing element close tag
+                     -> liftIO . Ex.throwIO $ StreamOtherFailure) -- TODO: Log: s
+        , Ex.Handler $ \(e :: InvalidEventStream) -- xml-conduit exception
+                     -> liftIO . Ex.throwIO $ StreamOtherFailure -- TODO: Log: (show e)
         ]
 
 -- Pulls an element and unpickles it.
@@ -93,7 +93,7 @@ pullUnpickle :: PU [Node] a -> StateT Connection_ IO a
 pullUnpickle p = do
     res <- unpickleElem p <$> pullElement
     case res of
-        Left e -> liftIO . Ex.throwIO $ StreamXMLError (show e)
+        Left e -> liftIO $ Ex.throwIO e
         Right r -> return r
 
 -- | Pulls a stanza (or stream error) from the stream. Throws an error on a stream
@@ -102,7 +102,7 @@ pullStanza :: Connection -> IO Stanza
 pullStanza = withConnection' $ do
     res <- pullUnpickle xpStreamStanza
     case res of
-        Left e -> liftIO . Ex.throwIO $ StreamError e
+        Left e -> liftIO . Ex.throwIO $ StreamErrorFailure e
         Right r -> return r
 
 -- Performs the given IO operation, catches any errors and re-throws everything
@@ -121,7 +121,7 @@ xmppNoConnection :: Connection_
 xmppNoConnection = Connection_
                { cHand            = Hand { cSend = \_ -> return False
                                          , cRecv = \_ -> Ex.throwIO
-                                                         $ StreamConnectionError
+                                                         $ StreamOtherFailure
                                          , cFlush = return ()
                                          , cClose = return ()
                                          }
@@ -139,7 +139,7 @@ xmppNoConnection = Connection_
                }
   where
     zeroSource :: Source IO output
-    zeroSource = liftIO . Ex.throwIO $ StreamConnectionError
+    zeroSource = liftIO . Ex.throwIO $ StreamOtherFailure
 
 -- Connects to the given hostname on port 5222 (TODO: Make this dynamic) and
 -- updates the XmppConMonad Connection_ state.
@@ -205,12 +205,12 @@ pushIQ' iqID to tp lang body con = do
         IQResultS r -> do
             unless
                 (iqID == iqResultID r) . liftIO . Ex.throwIO $
-                    StreamXMLError
-                ("In sendIQ' IDs don't match: " ++ show iqID ++ " /= " ++
-                    show (iqResultID r) ++ " .")
+                    StreamOtherFailure
+                -- TODO: Log: ("In sendIQ' IDs don't match: " ++ show iqID ++
+                -- " /= " ++ show (iqResultID r) ++ " .")
             return $ Right r
-        _ -> liftIO . Ex.throwIO . StreamXMLError $
-               "sendIQ': unexpected stanza type "
+        _ -> liftIO $ Ex.throwIO StreamOtherFailure
+             -- TODO: Log: "sendIQ': unexpected stanza type "
 
 -- | Send "</stream:stream>" and wait for the server to finish processing and to
 -- close the connection. Any remaining elements from the server and whether or
@@ -232,7 +232,7 @@ closeStreams = withConnection $ do
     collectElems es = do
         result <- Ex.try pullElement
         case result of
-            Left StreamStreamEnd -> return (es, True)
+            Left StreamEndFailure -> return (es, True)
             Left _ -> return (es, False)
             Right e -> collectElems (e:es)
 

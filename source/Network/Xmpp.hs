@@ -2,11 +2,11 @@
 -- Module:      $Header$
 -- Description: RFC 6120 (XMPP: Core).
 -- License:     Apache License 2.0
---
+-- 
 -- Maintainer:  info@jonkri.com
 -- Stability:   unstable
 -- Portability: portable
---
+-- 
 -- The Extensible Messaging and Presence Protocol (XMPP) is an open technology
 -- for near-real-time communication, which powers a wide range of applications
 -- including instant messaging, presence, multi-party chat, voice and video
@@ -15,14 +15,10 @@
 -- asynchronous, end-to-end exchange of structured data by means of direct,
 -- persistent XML streams among a distributed network of globally addressable,
 -- presence-aware clients and servers.
---
+-- 
 -- Pontarius is an XMPP client library, implementing the core capabilities of
 -- XMPP (RFC 6120): setup and teardown of XML streams, channel encryption,
 -- authentication, error handling, and communication primitives for messaging.
---
--- Note that we are not recommending anyone to use Pontarius XMPP at this time
--- as it's still in an experimental stage and will have its API and data types
--- modified frequently.
 
 {-# LANGUAGE NoMonomorphismRestriction, OverloadedStrings #-}
 
@@ -149,6 +145,10 @@ module Network.Xmpp
   , LangTag(..)
   , exampleParams
   , PortID(..)
+  , StreamFailure(..)
+  , StreamErrorInfo(..)
+  , StreamErrorCondition(..)
+  , TLSFailure(..)
 
   ) where
 

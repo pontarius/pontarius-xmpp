@@ -13,7 +13,7 @@ data AuthError = AuthXmlError
                | AuthChallengeError
                | AuthServerAuthError -- ^ The server failed to authenticate
                                      -- itself
-               | AuthStreamError StreamError -- ^ Stream error on stream restart
+               | AuthStreamError StreamFailure -- ^ Stream error on stream restart
                -- TODO: Rename AuthConnectionError?
                | AuthConnectionError -- ^ Connection is closed
                | AuthError -- General instance used for the Error instance

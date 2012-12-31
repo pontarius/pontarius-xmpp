@@ -28,7 +28,7 @@ module Network.Xmpp.Types
     , StanzaErrorCondition(..)
     , StanzaErrorType(..)
     , StanzaId(..)
-    , StreamError(..)
+    , StreamFailure(..)
     , StreamErrorCondition(..)
     , Version(..)
     , HandleLike(..)
@@ -38,8 +38,9 @@ module Network.Xmpp.Types
     , withConnection'
     , mkConnection
     , ConnectionState(..)
-    , XmppStreamError(..)
+    , StreamErrorInfo(..)
     , langTag
+    , TLSFailure(..)
     , module Network.Xmpp.Jid
     )
        where
@@ -62,6 +63,7 @@ import qualified Data.Text as Text
 import           Data.Typeable(Typeable)
 import           Data.XML.Types
 
+import qualified Network.TLS as TLS
 
 import qualified Network as N
 
@@ -619,28 +621,26 @@ instance Read StreamErrorCondition where
     readsPrec _ "unsupported-version"      = [(StreamUnsupportedVersion   , "")]
     readsPrec _ _                          = [(StreamUndefinedCondition   , "")]
 
-data XmppStreamError = XmppStreamError
+-- | Encapsulates information about an XMPP stream error.
+data StreamErrorInfo = StreamErrorInfo
     { errorCondition :: !StreamErrorCondition
     , errorText      :: !(Maybe (Maybe LangTag, Text))
     , errorXML       :: !(Maybe Element)
     } deriving (Show, Eq)
 
-data StreamError = StreamError XmppStreamError
-                 | StreamUnknownError -- Something has gone wrong, but we don't
-                                      -- know what
-                 | StreamNotStreamElement Text
-                 | StreamInvalidStreamNamespace (Maybe Text)
-                 | StreamInvalidStreamPrefix (Maybe Text)
-                 | StreamWrongTo (Maybe Text)
-                 | StreamWrongVersion (Maybe Text)
-                 | StreamWrongLangTag (Maybe Text)
-                 | StreamXMLError String -- If stream pickling goes wrong.
-                 | StreamStreamEnd -- received closing stream tag
-                 | StreamConnectionError
-                 deriving (Show, Eq, Typeable)
+-- | Signals an XMPP stream error or another unpredicted stream-related
+-- situation.
+data StreamFailure = StreamErrorFailure StreamErrorInfo -- ^ An error XML stream
+                                                        -- element has been
+                                                        -- encountered.
+                   | StreamEndFailure -- ^ The server has closed the stream.
+                   | StreamOtherFailure -- ^ Undefined condition. More
+                                        -- information should be available in
+                                        -- the log.
+                   deriving (Show, Eq, Typeable)
 
-instance Exception StreamError
-instance Error StreamError where noMsg = StreamConnectionError
+instance Exception StreamFailure
+instance Error StreamFailure where noMsg = StreamOtherFailure
 
 -- =============================================================================
 --  XML TYPES
@@ -811,3 +811,16 @@ withConnection' action (Connection con) = do
 
 mkConnection :: Connection_ -> IO Connection
 mkConnection con = Connection `fmap` (atomically $ newTMVar con)
+
+
+-- | Failure conditions that may arise during TLS negotiation.
+data TLSFailure = TLSError TLS.TLSError
+                | TLSNoServerSupport
+                | TLSNoConnection
+                | TLSConnectionSecured -- ^ Connection already secured
+                | TLSStreamError StreamFailure
+                | TLSFailureError -- General instance used for the Error instance (TODO)
+                deriving (Show, Eq, Typeable)
+
+instance Error TLSFailure where
+  noMsg = TLSFailureError

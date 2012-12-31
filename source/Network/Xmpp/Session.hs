@@ -61,7 +61,7 @@ simpleConnect host port hostname username password resource = do
 
 
 -- | Connect to host with given address.
-connectTcp :: HostName -> PortID -> Text -> IO (Either StreamError Connection)
+connectTcp :: HostName -> PortID -> Text -> IO (Either StreamFailure Connection)
 connectTcp address port hostname = do
     con <- connectTcpRaw address port hostname
     result <- withConnection startStream con
@@ -73,20 +73,20 @@ connectTcp address port hostname = do
             return $ Left e
         Right () -> return $ Right con
   where
-        toError  (StreamNotStreamElement _name) =
-                XmppStreamError StreamInvalidXml Nothing Nothing
-        toError  (StreamInvalidStreamNamespace _ns) =
-                XmppStreamError StreamInvalidNamespace Nothing Nothing
-        toError  (StreamInvalidStreamPrefix _prefix) =
-                XmppStreamError StreamBadNamespacePrefix Nothing Nothing
-        toError  (StreamWrongVersion _ver) =
-                XmppStreamError StreamUnsupportedVersion Nothing Nothing
-        toError  (StreamWrongLangTag _) =
-                XmppStreamError StreamInvalidXml Nothing Nothing
-        toError  StreamUnknownError =
-                XmppStreamError StreamBadFormat Nothing Nothing
+        -- toError  (StreamNotStreamElement _name) =
+        --         XmppStreamFailure StreamInvalidXml Nothing Nothing
+        -- toError  (StreamInvalidStreamNamespace _ns) =
+        --         XmppStreamFailure StreamInvalidNamespace Nothing Nothing
+        -- toError  (StreamInvalidStreamPrefix _prefix) =
+        --         XmppStreamFailure StreamBadNamespacePrefix Nothing Nothing
+        -- toError  (StreamWrongVersion _ver) =
+        --         XmppStreamFailure StreamUnsupportedVersion Nothing Nothing
+        -- toError  (StreamWrongLangTag _) =
+        --         XmppStreamFailure StreamInvalidXml Nothing Nothing
+        -- toError  StreamUnknownError =
+        --         XmppStreamFailure StreamBadFormat Nothing Nothing
         -- TODO: Catch remaining xmppStartStream errors.
-        toError _ = XmppStreamError StreamBadFormat Nothing Nothing
+        toError _ = StreamErrorInfo StreamBadFormat Nothing Nothing
 
 sessionXML :: Element
 sessionXML = pickleElem

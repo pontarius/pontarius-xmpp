@@ -23,7 +23,7 @@ import           GHC.IO (unsafeUnmask)
 -- Worker to read stanzas from the stream and concurrently distribute them to
 -- all listener threads.
 readWorker :: (Stanza -> IO ())
-           -> (StreamError -> IO ())
+           -> (StreamFailure -> IO ())
            -> TMVar Connection
            -> IO a
 readWorker onStanza onConnectionClosed stateRef =
@@ -43,7 +43,7 @@ readWorker onStanza onConnectionClosed stateRef =
                    [ Ex.Handler $ \(Interrupt t) -> do
                          void $ handleInterrupts [t]
                          return Nothing
-                   , Ex.Handler $ \(e :: StreamError) -> do
+                   , Ex.Handler $ \(e :: StreamFailure) -> do
                          onConnectionClosed e
                          return Nothing
                    ]
@@ -96,7 +96,7 @@ startThreadsWith stanzaHandler eh con = do
         _ <- forM threads killThread
         return ()
     -- Call the connection closed handlers.
-    noCon :: TVar EventHandlers -> StreamError -> IO ()
+    noCon :: TVar EventHandlers -> StreamFailure -> IO ()
     noCon h e = do
         hands <- atomically $ readTVar h
         _ <- forkIO $ connectionClosedHandler hands e

@@ -15,7 +15,7 @@ import           Network.Xmpp.Types
 -- | Handlers to be run when the Xmpp session ends and when the Xmpp connection is
 -- closed.
 data EventHandlers = EventHandlers
-    { connectionClosedHandler :: StreamError -> IO ()
+    { connectionClosedHandler :: StreamFailure -> IO ()
     }
 
 -- | Xmpp Context object

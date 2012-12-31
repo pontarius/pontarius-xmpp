@@ -34,8 +34,8 @@ xmppBind rsrc c = do
     jid <- case () of () | Right IQResult{iqResultPayload = Just b} <- answer
                          , Right jid <- unpickleElem xpJid b
                            -> return jid
-                         | otherwise -> throw $ StreamXMLError
-                                               ("Bind couldn't unpickle JID from " ++ show answer)
+                         | otherwise -> throw StreamOtherFailure
+                                               -- TODO: Log: ("Bind couldn't unpickle JID from " ++ show answer)
     withConnection (modify $ \s -> s{sJid = Just jid}) c
     return jid
   where

@@ -72,21 +72,9 @@ exampleParams = TLS.defaultParamsClient
           return TLS.CertificateUsageAccept
     }
 
--- | Error conditions that may arise during TLS negotiation.
-data XmppTLSError = TLSError TLSError
-                  | TLSNoServerSupport
-                  | TLSNoConnection
-                  | TLSConnectionSecured -- ^ Connection already secured
-                  | TLSStreamError StreamError
-                  | XmppTLSError -- General instance used for the Error instance
-                    deriving (Show, Eq, Typeable)
-
-instance Error XmppTLSError where
-  noMsg = XmppTLSError
-
 -- Pushes "<starttls/>, waits for "<proceed/>", performs the TLS handshake, and
--- restarts the stream. May throw errors.
-startTLS :: TLS.TLSParams -> Connection -> IO (Either XmppTLSError ())
+-- restarts the stream.
+startTLS :: TLS.TLSParams -> Connection -> IO (Either TLSFailure ())
 startTLS params con = Ex.handle (return . Left . TLSError)
                       . flip withConnection con
                       . runErrorT $ do
@@ -103,10 +91,10 @@ startTLS params con = Ex.handle (return . Left . TLSError)
     case answer of
         Element "{urn:ietf:params:xml:ns:xmpp-tls}proceed" [] [] -> return ()
         Element "{urn:ietf:params:xml:ns:xmpp-tls}failure" _ _ ->
-            lift . Ex.throwIO $ StreamConnectionError
+            lift $ Ex.throwIO StreamOtherFailure
             -- TODO: find something more suitable
-        e -> lift . Ex.throwIO . StreamXMLError $
-            "Unexpected element: " ++ ppElement e
+        e -> lift $ Ex.throwIO StreamOtherFailure
+            -- TODO: Log: "Unexpected element: " ++ ppElement e
     (raw, _snk, psh, read, ctx) <- lift $ TLS.tlsinit debug params (mkBackend con)
     let newHand = Hand { cSend = catchPush . psh
                        , cRecv = read
