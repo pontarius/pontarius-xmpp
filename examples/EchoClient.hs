@@ -22,6 +22,11 @@ import           Text.Printf
 
 import           Network.Xmpp
 import           Network.Xmpp.IM
+import           System.Log.Formatter
+import           System.Log.Logger
+import           System.Log.Handler hiding (setLevel)
+import           System.Log.Handler.Simple
+import           System.IO (stderr)
 
 -- Server and authentication details.
 host     = "localhost"
@@ -41,6 +46,11 @@ autoAccept session = forever $ do
 
 main :: IO ()
 main = do
+    updateGlobalLogger "Pontarius.Xmpp" $ setLevel DEBUG
+    handler <- streamHandler stderr DEBUG >>= \h ->
+        return $ setFormatter h (simpleLogFormatter "$time - $loggername: $prio: $msg")
+    updateGlobalLogger "Pontarius.Xmpp" (addHandler handler)
+    
     sess <- simpleConnect
                 host
                 port

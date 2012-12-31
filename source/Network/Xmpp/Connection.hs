@@ -15,12 +15,14 @@ import qualified GHC.IO.Exception as GIE
 import           Control.Monad.State.Strict
 
 import           Data.ByteString as BS
+import           Data.ByteString.Char8 as BSC8
 import           Data.Conduit
 import           Data.Conduit.Binary as CB
 import           Data.Conduit.Internal as DCI
 import qualified Data.Conduit.List as CL
 import           Data.IORef
 import           Data.Text(Text)
+import qualified Data.Text as T
 import           Data.XML.Pickle
 import           Data.XML.Types
 
@@ -34,6 +36,9 @@ import           System.IO
 import           Text.XML.Stream.Elements
 import           Text.XML.Stream.Parse as XP
 import           Text.XML.Unresolved(InvalidEventStream(..))
+
+import           System.Log.Logger
+import           Data.ByteString.Base64
 
 -- Enable/disable debug output
 -- This will dump all incoming and outgoing network taffic to the console,
@@ -145,21 +150,25 @@ xmppNoConnection = Connection_
 -- updates the XmppConMonad Connection_ state.
 connectTcpRaw :: HostName -> PortID -> Text -> IO Connection
 connectTcpRaw host port hostname = do
+    let PortNumber portNumber = port
+    debugM "Pontarius.Xmpp" $ "Connecting to " ++ host ++ " on port " ++
+        (show portNumber) ++ " through the realm " ++ (T.unpack hostname) ++ "."
     h <- connectTo host port
+    debugM "Pontarius.Xmpp" "Setting NoBuffering mode on handle."
     hSetBuffering h NoBuffering
-    let eSource = DCI.ResumableSource (sourceHandle h $= XP.parseBytes def)
+    let eSource = DCI.ResumableSource ((sourceHandle h $= logConduit) $= XP.parseBytes def)
                                       (return ())
-    let hand = Hand { cSend = if debug
-                              then \d -> do
-                                  BS.putStrLn (BS.append "out: " d)
-                                  catchPush $ BS.hPut h d
-                              else catchPush . BS.hPut h
-                    , cRecv = if debug then
-                                \n -> do
-                                    bs <- BS.hGetSome h n
-                                    BS.putStrLn bs
-                                    return bs
-                              else BS.hGetSome h
+    let hand = Hand { cSend = \d -> do
+                         let d64 = encode d
+                         debugM "Pontarius.Xmpp" $ "Sending TCP data: " ++
+                             (BSC8.unpack d64) ++ "."
+                         catchPush $ BS.hPut h d
+                    , cRecv = \n -> do
+                         d <- BS.hGetSome h n
+                         let d64 = encode d
+                         debugM "Pontarius.Xmpp" $ "Received TCP data: " ++
+                             (BSC8.unpack d64) ++ "."
+                         return d
                     , cFlush = hFlush h
                     , cClose = hClose h
                     }
@@ -178,6 +187,13 @@ connectTcpRaw host port hostname = do
             , sFrom            = Nothing
             }
     mkConnection con
+  where
+    logConduit :: Conduit ByteString IO ByteString
+    logConduit = CL.mapM $ \d -> do
+        let d64 = encode d
+        debugM "Pontarius.Xmpp" $ "Received TCP data: " ++ (BSC8.unpack d64) ++
+            "."
+        return d
 
 
 -- Closes the connection and updates the XmppConMonad Connection_ state.
