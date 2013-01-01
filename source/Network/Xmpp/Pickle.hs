@@ -27,7 +27,7 @@ import Data.XML.Pickle
 
 import Network.Xmpp.Types
 
-import Text.XML.Stream.Elements
+import Text.Xml.Stream.Elements
 
 mbToBool :: Maybe t -> Bool
 mbToBool (Just _) = True

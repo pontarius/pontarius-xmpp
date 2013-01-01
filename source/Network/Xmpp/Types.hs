@@ -40,7 +40,7 @@ module Network.Xmpp.Types
     , ConnectionState(..)
     , StreamErrorInfo(..)
     , langTag
-    , TLSFailure(..)
+    , TlsFailure(..)
     , module Network.Xmpp.Jid
     )
        where
@@ -625,7 +625,7 @@ instance Read StreamErrorCondition where
 data StreamErrorInfo = StreamErrorInfo
     { errorCondition :: !StreamErrorCondition
     , errorText      :: !(Maybe (Maybe LangTag, Text))
-    , errorXML       :: !(Maybe Element)
+    , errorXml       :: !(Maybe Element)
     } deriving (Show, Eq)
 
 -- | Signals an XMPP stream error or another unpredicted stream-related
@@ -814,13 +814,13 @@ mkConnection con = Connection `fmap` (atomically $ newTMVar con)
 
 
 -- | Failure conditions that may arise during TLS negotiation.
-data TLSFailure = TLSError TLS.TLSError
-                | TLSNoServerSupport
-                | TLSNoConnection
-                | TLSConnectionSecured -- ^ Connection already secured
-                | TLSStreamError StreamFailure
-                | TLSFailureError -- General instance used for the Error instance (TODO)
+data TlsFailure = TlsError TLS.TLSError
+                | TlsNoServerSupport
+                | TlsNoConnection
+                | TlsConnectionSecured -- ^ Connection already secured
+                | TlsStreamError StreamFailure
+                | TlsFailureError -- General instance used for the Error instance (TODO)
                 deriving (Show, Eq, Typeable)
 
-instance Error TLSFailure where
-  noMsg = TLSFailureError
+instance Error TlsFailure where
+  noMsg = TlsFailureError

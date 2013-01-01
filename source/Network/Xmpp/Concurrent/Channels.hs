@@ -32,7 +32,7 @@ import           Network.Xmpp.Concurrent.Types
 import           Network.Xmpp.Marshal
 import           Network.Xmpp.Pickle
 import           Network.Xmpp.Types
-import           Text.XML.Stream.Elements
+import           Text.Xml.Stream.Elements
 
 toChans :: TChan Stanza
         -> TVar IQHandlers

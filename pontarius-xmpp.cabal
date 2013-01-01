@@ -56,7 +56,7 @@ Library
   Exposed-modules: Network.Xmpp
                  , Network.Xmpp.IM
                  , Network.Xmpp.Basic
-  Other-modules: Data.Conduit.TLS
+  Other-modules: Data.Conduit.Tls
                , Network.Xmpp.Bind
                , Network.Xmpp.Concurrent
                , Network.Xmpp.Concurrent.Types
@@ -87,10 +87,10 @@ Library
                , Network.Xmpp.Sasl.Types
                , Network.Xmpp.Session
                , Network.Xmpp.Stream
-               , Network.Xmpp.TLS
+               , Network.Xmpp.Tls
                , Network.Xmpp.Types
                , Network.Xmpp.Xep.ServiceDiscovery
-               , Text.XML.Stream.Elements
+               , Text.Xml.Stream.Elements
   GHC-Options: -Wall
 
 Source-Repository head

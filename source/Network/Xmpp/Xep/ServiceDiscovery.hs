@@ -35,7 +35,7 @@ import           Network.Xmpp.Types
 data DiscoError = DiscoNoQueryElement
                 | DiscoIQError IQError
                 | DiscoTimeout
-                | DiscoXMLError Element UnpickleError
+                | DiscoXmlError Element UnpickleError
 
                 deriving (Show)
 
@@ -97,7 +97,7 @@ queryInfo to node context = do
         IQResponseResult r -> case iqResultPayload r of
             Nothing -> Left DiscoNoQueryElement
             Just p -> case unpickleElem xpQueryInfo p of
-                Left e -> Left $ DiscoXMLError p e
+                Left e -> Left $ DiscoXmlError p e
                 Right r -> Right r
   where
     queryBody = pickleElem xpQueryInfo (QIR node [] [])
@@ -114,7 +114,7 @@ xmppQueryInfo to node con = do
         Right r -> case iqResultPayload r of
             Nothing -> Left DiscoNoQueryElement
             Just p -> case unpickleElem xpQueryInfo p of
-                Left e -> Left $ DiscoXMLError p e
+                Left e -> Left $ DiscoXmlError p e
                 Right r -> Right r
   where
     queryBody = pickleElem xpQueryInfo (QIR node [] [])
@@ -161,7 +161,7 @@ queryItems to node session = do
         IQResponseResult r -> case iqResultPayload r of
             Nothing -> Left DiscoNoQueryElement
             Just p -> case unpickleElem xpQueryItems p of
-                Left e -> Left $ DiscoXMLError p e
+                Left e -> Left $ DiscoXmlError p e
                 Right r -> Right r
   where
     queryBody = pickleElem xpQueryItems (node, [])

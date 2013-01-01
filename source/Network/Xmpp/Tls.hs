@@ -2,7 +2,7 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Network.Xmpp.TLS where
+module Network.Xmpp.Tls where
 
 import qualified Control.Exception.Lifted as Ex
 import           Control.Monad
@@ -13,7 +13,7 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BL
 import           Data.Conduit
 import qualified Data.Conduit.Binary as CB
-import           Data.Conduit.TLS as TLS
+import           Data.Conduit.Tls as TLS
 import           Data.Typeable
 import           Data.XML.Types
 
@@ -74,18 +74,18 @@ exampleParams = TLS.defaultParamsClient
 
 -- Pushes "<starttls/>, waits for "<proceed/>", performs the TLS handshake, and
 -- restarts the stream.
-startTLS :: TLS.TLSParams -> Connection -> IO (Either TLSFailure ())
-startTLS params con = Ex.handle (return . Left . TLSError)
+startTls :: TLS.TLSParams -> Connection -> IO (Either TlsFailure ())
+startTls params con = Ex.handle (return . Left . TlsError)
                       . flip withConnection con
                       . runErrorT $ do
     features <- lift $ gets sFeatures
     state <- gets sConnectionState
     case state of
         ConnectionPlain -> return ()
-        ConnectionClosed -> throwError TLSNoConnection
-        ConnectionSecured -> throwError TLSConnectionSecured
+        ConnectionClosed -> throwError TlsNoConnection
+        ConnectionSecured -> throwError TlsConnectionSecured
     con <- lift $ gets cHand
-    when (stls features == Nothing) $ throwError TLSNoServerSupport
+    when (stls features == Nothing) $ throwError TlsNoServerSupport
     lift $ pushElement starttlsE
     answer <- lift $ pullElement
     case answer of

@@ -3,7 +3,7 @@ module Network.Xmpp.Basic
   , ConnectionState(..)
   , connectTcp
   , simpleConnect
-  , startTLS
+  , startTls
   , simpleAuth
   , auth
   , scramSha1
@@ -19,5 +19,5 @@ import Network.Xmpp.Connection
 import Network.Xmpp.Sasl
 import Network.Xmpp.Session
 import Network.Xmpp.Stream
-import Network.Xmpp.TLS
+import Network.Xmpp.Tls
 import Network.Xmpp.Types

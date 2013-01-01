@@ -25,18 +25,18 @@ import           Network.Xmpp.Errors
 import           Network.Xmpp.Pickle
 import           Network.Xmpp.Types
 
-import           Text.XML.Stream.Elements
+import           Text.Xml.Stream.Elements
 import           Text.XML.Stream.Parse as XP
 
 -- import Text.XML.Stream.Elements
 
--- Unpickles and returns a stream element. Throws a StreamXMLError on failure.
+-- Unpickles and returns a stream element. Throws a StreamXmlError on failure.
 streamUnpickleElem :: PU [Node] a
                    -> Element
                    -> StreamSink a
 streamUnpickleElem p x = do
     case unpickleElem p x of
-        Left l -> throwError $ StreamOtherFailure -- TODO: Log: StreamXMLError (show l)
+        Left l -> throwError $ StreamOtherFailure -- TODO: Log: StreamXmlError (show l)
         Right r -> return r
 
 -- This is the conduit sink that handles the stream XML events. We extend it
@@ -166,14 +166,14 @@ xpStreamFeatures = xpWrap
              (Just "stream")
          )
          (xpTriple
-              (xpOption pickleTLSFeature)
+              (xpOption pickleTlsFeature)
               (xpOption pickleSaslFeature)
               (xpAll xpElemVerbatim)
          )
     )
   where
-    pickleTLSFeature :: PU [Node] Bool
-    pickleTLSFeature = xpElemNodes "{urn:ietf:params:xml:ns:xmpp-tls}starttls"
+    pickleTlsFeature :: PU [Node] Bool
+    pickleTlsFeature = xpElemNodes "{urn:ietf:params:xml:ns:xmpp-tls}starttls"
         (xpElemExists "required")
     pickleSaslFeature :: PU [Node] [Text]
     pickleSaslFeature =  xpElemNodes

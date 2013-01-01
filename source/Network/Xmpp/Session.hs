@@ -19,7 +19,7 @@ import           Network.Xmpp.Sasl
 import           Network.Xmpp.Sasl.Mechanisms
 import           Network.Xmpp.Sasl.Types
 import           Network.Xmpp.Stream
-import           Network.Xmpp.TLS
+import           Network.Xmpp.Tls
 import           Network.Xmpp.Types
 
 -- | The quick and easy way to set up a connection to an XMPP server
@@ -53,7 +53,7 @@ simpleConnect host port hostname username password resource = do
       con <- case con' of
           Left e -> Ex.throwIO e
           Right r -> return r
-      startTLS exampleParams con
+      startTls exampleParams con
       saslResponse <- simpleAuth username password resource con
       case saslResponse of
           Right jid -> newSession con
@@ -88,8 +88,8 @@ connectTcp address port hostname = do
         -- TODO: Catch remaining xmppStartStream errors.
         toError _ = StreamErrorInfo StreamBadFormat Nothing Nothing
 
-sessionXML :: Element
-sessionXML = pickleElem
+sessionXml :: Element
+sessionXml = pickleElem
     (xpElemBlank "{urn:ietf:params:xml:ns:xmpp-session}session")
     ()
 
@@ -99,14 +99,14 @@ sessionIQ = IQRequestS $ IQRequest { iqRequestID      = "sess"
                                    , iqRequestTo      = Nothing
                                    , iqRequestLangTag = Nothing
                                    , iqRequestType    = Set
-                                   , iqRequestPayload = sessionXML
+                                   , iqRequestPayload = sessionXml
                                    }
 
 -- Sends the session IQ set element and waits for an answer. Throws an error if
 -- if an IQ error stanza is returned from the server.
 startSession :: Connection -> IO ()
 startSession con = do
-    answer <- pushIQ' "session" Nothing Set Nothing sessionXML con
+    answer <- pushIQ' "session" Nothing Set Nothing sessionXml con
     case answer of
         Left e -> error $ show e
         Right _ -> return ()

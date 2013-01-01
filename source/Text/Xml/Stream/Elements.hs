@@ -1,7 +1,7 @@
 {-# OPTIONS_HADDOCK hide #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE OverloadedStrings #-}
-module Text.XML.Stream.Elements where
+module Text.Xml.Stream.Elements where
 
 import           Control.Applicative ((<$>))
 import           Control.Exception

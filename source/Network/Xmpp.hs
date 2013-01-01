@@ -25,11 +25,11 @@
 module Network.Xmpp
   ( -- * Session management
     Session
+  , simpleConnect
+  , connectTcp
   , newSession
   , withConnection
-  , connectTcp
-  , simpleConnect
-  , startTLS
+  , startTls
   , simpleAuth
   , auth
   , scramSha1
@@ -148,7 +148,7 @@ module Network.Xmpp
   , StreamFailure(..)
   , StreamErrorInfo(..)
   , StreamErrorCondition(..)
-  , TLSFailure(..)
+  , TlsFailure(..)
 
   ) where
 
@@ -166,5 +166,5 @@ import Network.Xmpp.Presence
 import Network.Xmpp.Sasl
 import Network.Xmpp.Session
 import Network.Xmpp.Stream
-import Network.Xmpp.TLS
+import Network.Xmpp.Tls
 import Network.Xmpp.Types

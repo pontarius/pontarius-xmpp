@@ -33,7 +33,7 @@ import           Network.Xmpp.Pickle
 
 import           System.IO
 
-import           Text.XML.Stream.Elements
+import           Text.Xml.Stream.Elements
 import           Text.XML.Stream.Parse as XP
 import           Text.XML.Unresolved(InvalidEventStream(..))
 
@@ -62,7 +62,7 @@ pushStanza s = withConnection' . pushElement $ pickleElem xpStanza s
 pushXmlDecl :: StateT Connection_ IO Bool
 pushXmlDecl = do
     con <- gets cHand
-    liftIO $ (cSend con) "<?xml version='1.0' encoding='UTF-8' ?>"
+    liftIO $ (cSend con) "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>"
 
 pushOpenElement :: Element -> StateT Connection_ IO Bool
 pushOpenElement e = do
