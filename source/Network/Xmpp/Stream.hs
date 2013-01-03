@@ -24,13 +24,14 @@ import           Network.Xmpp.Connection
 import           Network.Xmpp.Errors
 import           Network.Xmpp.Pickle
 import           Network.Xmpp.Types
+import           Network.Xmpp.Marshal
 
 import           Text.Xml.Stream.Elements
 import           Text.XML.Stream.Parse as XP
 
 -- import Text.XML.Stream.Elements
 
--- Unpickles and returns a stream element. Throws a StreamXmlError on failure.
+-- Unpickles and returns a stream element.
 streamUnpickleElem :: PU [Node] a
                    -> Element
                    -> StreamSink a
@@ -61,34 +62,98 @@ openElementFromEvents = do
         Just (EventBeginElement name attrs) -> return $ Element name attrs []
         _ -> throwError $ StreamOtherFailure
 
--- Sends the initial stream:stream element and pulls the server features.
+-- Sends the initial stream:stream element and pulls the server features. If the
+-- server responds in a way that is invalid, an appropriate stream error will be
+-- generated, the connection to the server will be closed, and a StreamFilure
+-- will be produced.
 startStream :: StateT Connection_ IO (Either StreamFailure ())
 startStream = runErrorT $ do
-    state <- get
-    -- Set the `to' attribute depending on the state of the connection.
-    let from = case sConnectionState state of
+    state <- lift $ get
+    con <- liftIO $ mkConnection state
+    -- Set the `from' (which is also the expected to) attribute depending on the
+    -- state of the connection.
+    let expectedTo = case sConnectionState state of
                  ConnectionPlain -> if sJidWhenPlain state
                                         then sJid state else Nothing
                  ConnectionSecured -> sJid state
     case sHostname state of
-        Nothing -> throwError StreamOtherFailure
+        Nothing -> throwError StreamOtherFailure -- TODO: When does this happen?
         Just hostname -> lift $ do
             pushXmlDecl
             pushOpenElement $
                 pickleElem xpStream ( "1.0"
-                                    , from
+                                    , expectedTo
                                     , Just (Jid Nothing hostname Nothing)
                                     , Nothing
                                     , sPreferredLang state
                                     )
-    (lt, from, id, features) <- ErrorT . runEventsSink $ runErrorT $
-                                streamS from
-    modify (\s -> s{ sFeatures = features
-                   , sStreamLang = Just lt
-                   , sStreamId = id
-                   , sFrom = from
-                   } )
-    return ()
+    response <- ErrorT $ runEventsSink $ runErrorT $ streamS expectedTo
+    case response of
+      -- Successful unpickling of stream element.
+      Right (ver, from, to, id, lt, features)
+        | (unpack $ fromJust id) /= "1.0" ->
+            closeStreamWithError con StreamUnsupportedVersion Nothing
+        | lt == Nothing ->
+            closeStreamWithError con StreamInvalidXml Nothing
+        -- If `from' is set, we verify that it's the correct one. TODO: Should we check against the realm instead?
+        | isJust from && (from /= Just (Jid Nothing (fromJust $ sHostname state) Nothing)) ->
+            closeStreamWithError con StreamInvalidFrom Nothing
+        | to /= expectedTo ->
+            closeStreamWithError con StreamUndefinedCondition (Just $ Element "invalid-to" [] []) -- TODO: Suitable?
+        | otherwise -> do
+            modify (\s -> s{ sFeatures = features
+                           , sStreamLang = lt
+                           , sStreamId = id
+                           , sFrom = from
+                         } )
+            return ()
+      -- Unpickling failed - we investigate the element.
+      Left (Element name attrs children)
+        | (nameLocalName name /= "stream") ->
+            closeStreamWithError con StreamInvalidXml Nothing
+        | (nameNamespace name /= Just "http://etherx.jabber.org/streams") ->
+            closeStreamWithError con StreamInvalidNamespace Nothing
+        | (isJust $ namePrefix name) && (fromJust (namePrefix name) /= "stream") ->
+            closeStreamWithError con StreamBadNamespacePrefix Nothing
+        | otherwise -> ErrorT $ checkchildren con (flattenAttrs attrs)
+  where
+    -- closeStreamWithError :: MonadIO m => Connection -> StreamErrorCondition ->
+    --                         Maybe Element -> ErrorT StreamFailure m ()
+    closeStreamWithError con sec el = do
+        liftIO $ do
+            withConnection (pushElement . pickleElem xpStreamError $
+                                StreamErrorInfo sec Nothing el) con
+            closeStreams con
+        throwError StreamOtherFailure
+    checkchildren con children =
+        let to'  = lookup "to"      children
+            ver' = lookup "version" children
+            xl   = lookup xmlLang   children
+          in case () of () | Just (Nothing :: Maybe Jid) == (safeRead <$> to') ->
+                               runErrorT $ closeStreamWithError con
+                                   StreamBadNamespacePrefix Nothing
+                           | Nothing == ver' ->
+                               runErrorT $ closeStreamWithError con
+                                   StreamUnsupportedVersion Nothing
+                           | Just (Nothing :: Maybe LangTag) == (safeRead <$> xl) ->
+                               runErrorT $ closeStreamWithError con
+                                   StreamInvalidXml Nothing
+                           | otherwise ->
+                               runErrorT $ closeStreamWithError con
+                                   StreamBadFormat Nothing
+    safeRead x = case reads $ Text.unpack x of
+        [] -> Nothing
+        [(y,_),_] -> Just y
+
+flattenAttrs :: [(Name, [Content])] -> [(Name, Text.Text)]
+flattenAttrs attrs = Prelude.map (\(name, content) ->
+                             ( name
+                             , Text.concat $ Prelude.map uncontentify content)
+                             )
+                         attrs
+  where
+    uncontentify (ContentText t) = t
+    uncontentify _ = ""
 
 -- Sets a new Event source using the raw source (of bytes)
 -- and calls xmppStartStream.
@@ -107,40 +172,41 @@ restartStream = do
             else yield bs >> loopRead read
 
 -- Reads the (partial) stream:stream and the server features from the stream.
--- Also validates the stream element's attributes and throws an error if
--- appropriate.
+-- Returns the (unvalidated) stream attributes, the unparsed element, or
+-- throwError throws a `StreamOtherFailure' (if something other than an element
+-- was encountered at first, or if something other than stream features was
+-- encountered second).
 -- TODO: from.
-streamS :: Maybe Jid -> StreamSink ( LangTag
-                                      , Maybe Jid
-                                      , Maybe Text
-                                      , ServerFeatures)
+streamS :: Maybe Jid -> StreamSink (Either Element ( Text
+                                                   , Maybe Jid
+                                                   , Maybe Jid
+                                                   , Maybe Text
+                                                   , Maybe LangTag
+                                                   , ServerFeatures ))
 streamS expectedTo = do
-    (from, to, id, langTag) <- xmppStreamHeader
-    features <- xmppStreamFeatures
-    return (langTag, from, id, features)
+    header <- xmppStreamHeader
+    case header of
+      Right (version, from, to, id, langTag) -> do
+        features <- xmppStreamFeatures
+        return $ Right (version, from, to, id, langTag, features)
+      Left el -> return $ Left el
   where
-    xmppStreamHeader :: StreamSink (Maybe Jid, Maybe Jid, Maybe Text.Text, LangTag)
+    xmppStreamHeader :: StreamSink (Either Element (Text, Maybe Jid, Maybe Jid, Maybe Text.Text, Maybe LangTag))
     xmppStreamHeader = do
         lift throwOutJunk
         -- Get the stream:stream element (or whatever it is) from the server,
         -- and validate what we get.
-        el <- openElementFromEvents
+        el <- openElementFromEvents -- May throw `StreamOtherFailure' if an
+                                    -- element is not received
         case unpickleElem xpStream el of
-            Left _  -> throwError StreamOtherFailure -- TODO: findStreamErrors el
-            Right r -> validateData r
-
-    validateData (_, _, _, _, Nothing) = throwError StreamOtherFailure -- StreamWrongLangTag Nothing
-    validateData (ver, from, to, i, Just lang)
-      | ver /= "1.0" = throwError StreamOtherFailure -- StreamWrongVersion (Just ver)
-      | isJust to && to /= expectedTo = throwError StreamOtherFailure -- StreamWrongTo (Text.pack . show <$> to)
-      | otherwise = return (from, to, i, lang)
+            Left _ -> return $ Left el
+            Right r -> return $ Right r
     xmppStreamFeatures :: StreamSink ServerFeatures
     xmppStreamFeatures = do
         e <- lift $ elements =$ CL.head
         case e of
-            Nothing -> liftIO $ Ex.throwIO StreamOtherFailure
+            Nothing -> throwError StreamOtherFailure
             Just r -> streamUnpickleElem xpStreamFeatures r
-
 
 
 xpStream :: PU [Node] (Text, Maybe Jid, Maybe Jid, Maybe Text, Maybe LangTag)
