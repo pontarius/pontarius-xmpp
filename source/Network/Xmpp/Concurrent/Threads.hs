@@ -18,13 +18,15 @@ import qualified Data.ByteString as BS
 import           Network.Xmpp.Concurrent.Types
 import           Network.Xmpp.Connection
 
+import           Control.Concurrent.STM.TMVar
+
 import           GHC.IO (unsafeUnmask)
 
 -- Worker to read stanzas from the stream and concurrently distribute them to
 -- all listener threads.
 readWorker :: (Stanza -> IO ())
            -> (StreamFailure -> IO ())
-           -> TMVar Connection
+           -> TMVar (TMVar Connection)
            -> IO a
 readWorker onStanza onConnectionClosed stateRef =
     Ex.mask_ . forever $ do
@@ -32,8 +34,8 @@ readWorker onStanza onConnectionClosed stateRef =
                        -- we don't know whether pull will
                        -- necessarily be interruptible
                        s <- atomically $ do
-                            con@(Connection con_) <- readTMVar stateRef
-                            state <- sConnectionState <$> readTMVar con_
+                            con <- readTMVar stateRef
+                            state <- sConnectionState <$> readTMVar con
                             when (state == ConnectionClosed)
                                  retry
                             return con
@@ -72,11 +74,11 @@ readWorker onStanza onConnectionClosed stateRef =
 -- connection.
 startThreadsWith :: (Stanza -> IO ())
                  -> TVar EventHandlers
-                 -> Connection
+                 -> TMVar Connection
                  -> IO
                  (IO (),
                   TMVar (BS.ByteString -> IO Bool),
-                  TMVar Connection,
+                  TMVar (TMVar Connection),
                   ThreadId)
 startThreadsWith stanzaHandler eh con = do
     read <- withConnection' (gets $ cSend. cHand) con

@@ -17,6 +17,8 @@ import Network.Xmpp.Types
 
 import Control.Monad.State(modify)
 
+import Control.Concurrent.STM.TMVar
+
 -- Produces a `bind' element, optionally wrapping a resource.
 bindBody :: Maybe Text -> Element
 bindBody = pickleElem $
@@ -28,7 +30,7 @@ bindBody = pickleElem $
 
 -- Sends a (synchronous) IQ set request for a (`Just') given or server-generated
 -- resource and extract the JID from the non-error response.
-xmppBind  :: Maybe Text -> Connection -> IO Jid
+xmppBind  :: Maybe Text -> TMVar Connection -> IO Jid
 xmppBind rsrc c = do
     answer <- pushIQ' "bind" Nothing Set Nothing (bindBody rsrc) c
     jid <- case () of () | Right IQResult{iqResultPayload = Just b} <- answer

@@ -40,45 +40,48 @@ import           Text.XML.Unresolved(InvalidEventStream(..))
 import           System.Log.Logger
 import           Data.ByteString.Base64
 
+import           Control.Concurrent.STM.TMVar
+
+
 -- Enable/disable debug output
 -- This will dump all incoming and outgoing network taffic to the console,
 -- prefixed with "in: " and "out: " respectively
 debug :: Bool
 debug = False
 
-pushElement :: Element -> StateT Connection_ IO Bool
+pushElement :: Element -> StateT Connection IO Bool
 pushElement x = do
     send <- gets (cSend . cHand)
     liftIO . send $ renderElement x
 
 -- | Encode and send stanza
-pushStanza :: Stanza -> Connection -> IO Bool
+pushStanza :: Stanza -> TMVar Connection -> IO Bool
 pushStanza s = withConnection' . pushElement $ pickleElem xpStanza s
 
 -- XML documents and XMPP streams SHOULD be preceeded by an XML declaration.
 -- UTF-8 is the only supported XMPP encoding. The standalone document
 -- declaration (matching "SDDecl" in the XML standard) MUST NOT be included in
 -- XMPP streams. RFC 6120 defines XMPP only in terms of XML 1.0.
-pushXmlDecl :: StateT Connection_ IO Bool
+pushXmlDecl :: StateT Connection IO Bool
 pushXmlDecl = do
     con <- gets cHand
     liftIO $ (cSend con) "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>"
 
-pushOpenElement :: Element -> StateT Connection_ IO Bool
+pushOpenElement :: Element -> StateT Connection IO Bool
 pushOpenElement e = do
     sink <- gets (cSend . cHand )
     liftIO . sink $ renderOpenElement e
 
 -- `Connect-and-resumes' the given sink to the connection source, and pulls a
 -- `b' value.
-runEventsSink :: Sink Event IO b -> StateT Connection_ IO b
+runEventsSink :: Sink Event IO b -> StateT Connection IO b
 runEventsSink snk = do
     source <- gets cEventSource
     (src', r) <- lift $ source $$++ snk
     modify (\s -> s{cEventSource = src'})
     return r
 
-pullElement :: StateT Connection_ IO Element
+pullElement :: StateT Connection IO Element
 pullElement = do
     Ex.catches (do
         e <- runEventsSink (elements =$ await)
@@ -94,7 +97,7 @@ pullElement = do
         ]
 
 -- Pulls an element and unpickles it.
-pullUnpickle :: PU [Node] a -> StateT Connection_ IO a
+pullUnpickle :: PU [Node] a -> StateT Connection IO a
 pullUnpickle p = do
     res <- unpickleElem p <$> pullElement
     case res of
@@ -103,7 +106,7 @@ pullUnpickle p = do
 
 -- | Pulls a stanza (or stream error) from the stream. Throws an error on a stream
 -- error.
-pullStanza :: Connection -> IO Stanza
+pullStanza :: TMVar Connection -> IO Stanza
 pullStanza = withConnection' $ do
     res <- pullUnpickle xpStreamStanza
     case res of
@@ -121,9 +124,9 @@ catchPush p = Ex.catch
          _ -> Ex.throwIO e
     )
 
--- -- Connection_ state used when there is no connection.
-xmppNoConnection :: Connection_
-xmppNoConnection = Connection_
+-- -- Connection state used when there is no connection.
+xmppNoConnection :: Connection
+xmppNoConnection = Connection
                { cHand            = Hand { cSend = \_ -> return False
                                          , cRecv = \_ -> Ex.throwIO
                                                          $ StreamOtherFailure
@@ -147,8 +150,8 @@ xmppNoConnection = Connection_
     zeroSource = liftIO . Ex.throwIO $ StreamOtherFailure
 
 -- Connects to the given hostname on port 5222 (TODO: Make this dynamic) and
--- updates the XmppConMonad Connection_ state.
-connectTcpRaw :: HostName -> PortID -> Text -> IO Connection
+-- updates the XmppConMonad Connection state.
+connectTcpRaw :: HostName -> PortID -> Text -> IO (TMVar Connection)
 connectTcpRaw host port hostname = do
     let PortNumber portNumber = port
     debugM "Pontarius.Xmpp" $ "Connecting to " ++ host ++ " on port " ++
@@ -172,7 +175,7 @@ connectTcpRaw host port hostname = do
                     , cFlush = hFlush h
                     , cClose = hClose h
                     }
-    let con = Connection_
+    let con = Connection
             { cHand            = hand
             , cEventSource     = eSource
             , sFeatures        = (SF Nothing [] [])
@@ -196,8 +199,8 @@ connectTcpRaw host port hostname = do
         return d
 
 
--- Closes the connection and updates the XmppConMonad Connection_ state.
-killConnection :: Connection -> IO (Either Ex.SomeException ())
+-- Closes the connection and updates the XmppConMonad Connection state.
+killConnection :: TMVar Connection -> IO (Either Ex.SomeException ())
 killConnection = withConnection $ do
     cc <- gets (cClose . cHand)
     err <- liftIO $ (Ex.try cc :: IO (Either Ex.SomeException ()))
@@ -211,7 +214,7 @@ pushIQ' :: StanzaId
             -> IQRequestType
             -> Maybe LangTag
             -> Element
-            -> Connection
+            -> TMVar Connection
             -> IO (Either IQError IQResult)
 pushIQ' iqID to tp lang body con = do
     pushStanza (IQRequestS $ IQRequest iqID Nothing to lang tp body) con
@@ -231,7 +234,7 @@ pushIQ' iqID to tp lang body con = do
 -- | Send "</stream:stream>" and wait for the server to finish processing and to
 -- close the connection. Any remaining elements from the server and whether or
 -- not we received a </stream:stream> element from the server is returned.
-closeStreams :: Connection -> IO ([Element], Bool)
+closeStreams :: TMVar Connection -> IO ([Element], Bool)
 closeStreams = withConnection $ do
     send <- gets (cSend . cHand)
     cc <- gets (cClose . cHand)
@@ -244,7 +247,7 @@ closeStreams = withConnection $ do
   where
     -- Pulls elements from the stream until the stream ends, or an error is
     -- raised.
-    collectElems :: [Element] -> StateT Connection_ IO ([Element], Bool)
+    collectElems :: [Element] -> StateT Connection IO ([Element], Bool)
     collectElems es = do
         result <- Ex.try pullElement
         case result of

@@ -21,47 +21,35 @@ import           Network.Xmpp.Sasl.Types
 import           Network.Xmpp.Stream
 import           Network.Xmpp.Tls
 import           Network.Xmpp.Types
+import           Control.Concurrent.STM.TMVar
+import           Data.Maybe
 
--- | The quick and easy way to set up a connection to an XMPP server
---
--- This will
---
---   * connect to the host
---
---   * secure the connection with TLS
---
---   * authenticate to the server using either SCRAM-SHA1 (preferred) or
---     Digest-MD5
---
---   * bind a resource
---
---   * return the full JID you have been assigned
---
--- Note that the server might assign a different resource even when we send
--- a preference.
-simpleConnect :: HostName   -- ^ Host to connect to
-              -> PortID     -- ^ Port to connec to
-              -> Text       -- ^ Hostname of the server (to distinguish the XMPP
-                            -- service)
-              -> Text       -- ^ User name (authcid)
-              -> Text       -- ^ Password
-              -> Maybe Text -- ^ Desired resource (or Nothing to let the server
-                            -- decide)
-              -> IO Session
-simpleConnect host port hostname username password resource = do
-      con' <- connectTcp host port hostname
-      con <- case con' of
-          Left e -> Ex.throwIO e
-          Right r -> return r
-      startTls exampleParams con
-      saslResponse <- simpleAuth username password resource con
-      case saslResponse of
-          Right jid -> newSession con
-          Left e -> error $ show e
-
+-- | Creates a 'Session' object by setting up a connection with an XMPP server.
+-- 
+-- Will connect to the specified host, optionally secure the connection with
+-- TLS, as well as optionally authenticate and acquire an XMPP resource.
+session :: HostName                          -- ^ Host to connect to
+        -> Text                              -- ^ The realm host name (to
+                                             -- distinguish the XMPP service)
+        -> PortID                            -- ^ Port to connect to
+        -> Maybe TLS.TLSParams               -- ^ TLS settings, if securing the
+                                             -- connection to the server is
+                                             -- desired
+        -> Maybe ([SaslHandler], Maybe Text) -- ^ SASL handlers and the desired
+                                             -- JID resource (or Nothing to let
+                                             -- the server decide)
+        -> IO Session -- TODO: ErrorT
+session hostname realm port tls sasl = do
+    con' <- connectTcp hostname port realm
+    con <- case con' of
+        Left e -> Ex.throwIO e
+        Right c -> return c
+    if isJust tls then startTls (fromJust tls) con >> return () else return () -- TODO: Eats TlsFailure
+    saslResponse <- if isJust sasl then auth (fst $ fromJust sasl) (snd $ fromJust sasl) con >> return () else return () -- TODO: Eats AuthError
+    newSession con
 
 -- | Connect to host with given address.
-connectTcp :: HostName -> PortID -> Text -> IO (Either StreamFailure Connection)
+connectTcp :: HostName -> PortID -> Text -> IO (Either StreamFailure (TMVar Connection))
 connectTcp address port hostname = do
     con <- connectTcpRaw address port hostname
     result <- withConnection startStream con
@@ -104,7 +92,7 @@ sessionIQ = IQRequestS $ IQRequest { iqRequestID      = "sess"
 
 -- Sends the session IQ set element and waits for an answer. Throws an error if
 -- if an IQ error stanza is returned from the server.
-startSession :: Connection -> IO ()
+startSession :: TMVar Connection -> IO ()
 startSession con = do
     answer <- pushIQ' "session" Nothing Set Nothing sessionXml con
     case answer of
@@ -115,7 +103,7 @@ startSession con = do
 -- resource.
 auth :: [SaslHandler]
      -> Maybe Text
-     -> Connection
+     -> TMVar Connection
      -> IO (Either AuthError Jid)
 auth mechanisms resource con = runErrorT $ do
     ErrorT $ xmppSasl mechanisms con
@@ -131,7 +119,7 @@ simpleAuth  :: Text.Text  -- ^ The username
             -> Text.Text  -- ^ The password
             -> Maybe Text -- ^ The desired resource or 'Nothing' to let the
                           -- server assign one
-            -> Connection
+            -> TMVar Connection
             -> IO (Either AuthError Jid)
 simpleAuth username passwd resource = flip auth resource $
         [ -- TODO: scramSha1Plus

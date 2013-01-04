@@ -69,7 +69,6 @@ Library
                , Network.Xmpp.Concurrent.Threads
                , Network.Xmpp.Concurrent.Monad
                , Network.Xmpp.Connection
-               , Network.Xmpp.Errors
                , Network.Xmpp.IM.Message
                , Network.Xmpp.IM.Presence
                , Network.Xmpp.Jid

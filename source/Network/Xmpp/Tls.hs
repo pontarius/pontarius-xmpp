@@ -22,6 +22,8 @@ import           Network.Xmpp.Pickle(ppElement)
 import           Network.Xmpp.Stream
 import           Network.Xmpp.Types
 
+import           Control.Concurrent.STM.TMVar
+
 mkBackend con = Backend { backendSend = \bs -> void (cSend con bs)
                         , backendRecv = cRecv con
                         , backendFlush = cFlush con
@@ -74,7 +76,7 @@ exampleParams = TLS.defaultParamsClient
 
 -- Pushes "<starttls/>, waits for "<proceed/>", performs the TLS handshake, and
 -- restarts the stream.
-startTls :: TLS.TLSParams -> Connection -> IO (Either TlsFailure ())
+startTls :: TLS.TLSParams -> TMVar Connection -> IO (Either TlsFailure ())
 startTls params con = Ex.handle (return . Left . TlsError)
                       . flip withConnection con
                       . runErrorT $ do

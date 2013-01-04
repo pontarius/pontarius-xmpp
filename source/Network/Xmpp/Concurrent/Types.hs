@@ -25,7 +25,7 @@ data Context = Context
     , idGenerator :: IO StanzaId
       -- | Lock (used by withConnection) to make sure that a maximum of one
       -- XmppConMonad action is executed at any given time.
-    , conRef :: TMVar Connection
+    , conRef :: TMVar (TMVar Connection)
     , eventHandlers :: TVar EventHandlers
     , stopThreads :: IO ()
     }

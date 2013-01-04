@@ -38,12 +38,14 @@ import qualified System.Random as Random
 import           Network.Xmpp.Sasl.Types
 import           Network.Xmpp.Sasl.Mechanisms
 
+import           Control.Concurrent.STM.TMVar
+
 -- | Uses the first supported mechanism to authenticate, if any. Updates the
 -- state with non-password credentials and restarts the stream upon
 -- success.
 xmppSasl :: [SaslHandler] -- ^ Acceptable authentication mechanisms and their
                        -- corresponding handlers
-         -> Connection
+         -> TMVar Connection
          -> IO (Either AuthError ())
 xmppSasl handlers = withConnection $ do
     -- Chooses the first mechanism that is acceptable by both the client and the

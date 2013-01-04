@@ -21,7 +21,6 @@ import           Data.XML.Pickle
 import           Data.XML.Types
 
 import           Network.Xmpp.Connection
-import           Network.Xmpp.Errors
 import           Network.Xmpp.Pickle
 import           Network.Xmpp.Types
 import           Network.Xmpp.Marshal
@@ -66,7 +65,7 @@ openElementFromEvents = do
 -- server responds in a way that is invalid, an appropriate stream error will be
 -- generated, the connection to the server will be closed, and a StreamFilure
 -- will be produced.
-startStream :: StateT Connection_ IO (Either StreamFailure ())
+startStream :: StateT Connection IO (Either StreamFailure ())
 startStream = runErrorT $ do
     state <- lift $ get
     con <- liftIO $ mkConnection state
@@ -117,7 +116,7 @@ startStream = runErrorT $ do
             closeStreamWithError con StreamBadNamespacePrefix Nothing
         | otherwise -> ErrorT $ checkchildren con (flattenAttrs attrs)
   where
-    -- closeStreamWithError :: MonadIO m => Connection -> StreamErrorCondition ->
+    -- closeStreamWithError :: MonadIO m => TMVar Connection -> StreamErrorCondition ->
     --                         Maybe Element -> ErrorT StreamFailure m ()
     closeStreamWithError con sec el = do
         liftIO $ do
@@ -157,7 +156,7 @@ flattenAttrs attrs = Prelude.map (\(name, content) ->
 
 -- Sets a new Event source using the raw source (of bytes)
 -- and calls xmppStartStream.
-restartStream :: StateT Connection_ IO (Either StreamFailure ())
+restartStream :: StateT Connection IO (Either StreamFailure ())
 restartStream = do
     raw <- gets (cRecv . cHand)
     let newSource = DCI.ResumableSource (loopRead raw $= XP.parseBytes def)

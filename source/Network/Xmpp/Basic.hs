@@ -2,16 +2,21 @@ module Network.Xmpp.Basic
   ( Connection(..)
   , ConnectionState(..)
   , connectTcp
-  , simpleConnect
+  , newSession
+  , withConnection
   , startTls
   , simpleAuth
   , auth
   , scramSha1
   , digestMd5
   , plain
+  , closeConnection
   , pushStanza
   , pullStanza
-  )
+  , closeConnection
+  , endContext
+  , setConnectionClosedHandler
+ )
 
        where
 
@@ -21,3 +26,4 @@ import Network.Xmpp.Session
 import Network.Xmpp.Stream
 import Network.Xmpp.Tls
 import Network.Xmpp.Types
+import Network.Xmpp.Concurrent

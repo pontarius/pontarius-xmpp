@@ -33,7 +33,6 @@ module Network.Xmpp.Types
     , Version(..)
     , HandleLike(..)
     , Connection(..)
-    , Connection_(..)
     , withConnection
     , withConnection'
     , mkConnection
@@ -755,7 +754,7 @@ data HandleLike = Hand { cSend :: BS.ByteString -> IO Bool
                        , cClose :: IO ()
                        }
 
-data Connection_ = Connection_
+data Connection = Connection
                   { sConnectionState :: !ConnectionState -- ^ State of
                                                              -- connection
                   , cHand            :: HandleLike
@@ -789,10 +788,8 @@ data Connection_ = Connection_
                   }
 
 
-newtype Connection = Connection {unConnection :: TMVar Connection_}
-
-withConnection :: StateT Connection_ IO c -> Connection -> IO c
-withConnection action (Connection con) = bracketOnError
+withConnection :: StateT Connection IO c -> TMVar Connection -> IO c
+withConnection action con = bracketOnError
                                          (atomically $ takeTMVar con)
                                          (atomically . putTMVar con )
                                          (\c -> do
@@ -802,15 +799,15 @@ withConnection action (Connection con) = bracketOnError
                                          )
 
 -- nonblocking version. Changes to the connection are ignored!
-withConnection' :: StateT Connection_ IO b -> Connection -> IO b
-withConnection' action (Connection con) = do
+withConnection' :: StateT Connection IO b -> TMVar Connection -> IO b
+withConnection' action con = do
     con_ <- atomically $ readTMVar con
     (r, _) <- runStateT action con_
     return r
 
 
-mkConnection :: Connection_ -> IO Connection
-mkConnection con = Connection `fmap` (atomically $ newTMVar con)
+mkConnection :: Connection -> IO (TMVar Connection)
+mkConnection con = {- Connection `fmap` -} (atomically $ newTMVar con)
 
 
 -- | Failure conditions that may arise during TLS negotiation.

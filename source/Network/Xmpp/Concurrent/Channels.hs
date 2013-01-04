@@ -71,7 +71,7 @@ toChans stanzaC iqHands sta = atomically $ do
 
 
 -- | Creates and initializes a new Xmpp context.
-newSession :: Connection -> IO Session
+newSession :: TMVar Connection -> IO Session
 newSession con = do
     outC <- newTChanIO
     stanzaChan <- newTChanIO

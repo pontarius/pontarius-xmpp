@@ -31,6 +31,7 @@ import           Network.Xmpp.Concurrent.Types
 import           Network.Xmpp.Connection
 import           Network.Xmpp.Pickle
 import           Network.Xmpp.Types
+import           Control.Concurrent.STM.TMVar
 
 data DiscoError = DiscoNoQueryElement
                 | DiscoIQError IQError
@@ -105,7 +106,7 @@ queryInfo to node context = do
 
 xmppQueryInfo :: Maybe Jid
      -> Maybe Text.Text
-     -> Connection
+     -> TMVar Connection
      -> IO (Either DiscoError QueryInfoResult)
 xmppQueryInfo to node con = do
     res <- pushIQ' "info" to Get Nothing queryBody con

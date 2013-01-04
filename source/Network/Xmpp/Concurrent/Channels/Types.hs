@@ -8,7 +8,8 @@ import           Data.Text (Text)
 import           Network.Xmpp.Concurrent.Types
 import           Network.Xmpp.Types
 
--- | An XMPP session context
+-- | The @Session@ object holds the current state of the XMPP connection, and is
+-- thus necessary for any interaction with it.
 data Session = Session
     { context :: Context
     , stanzaCh :: TChan Stanza -- All stanzas
