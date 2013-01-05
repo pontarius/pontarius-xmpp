@@ -51,7 +51,7 @@ xmppDigestMd5 authcid authzid password = do
     case hn of
         Just hn' -> do
             xmppDigestMd5' hn' ac az pw
-        Nothing -> throwError AuthConnectionError
+        Nothing -> throwError AuthConnectionFailure
   where
     xmppDigestMd5' :: Text -> Text -> Maybe Text -> Text -> SaslM ()
     xmppDigestMd5' hostname authcid authzid password = do

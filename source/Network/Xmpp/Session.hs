@@ -26,8 +26,10 @@ import           Data.Maybe
 
 -- | Creates a 'Session' object by setting up a connection with an XMPP server.
 -- 
--- Will connect to the specified host, optionally secure the connection with
--- TLS, as well as optionally authenticate and acquire an XMPP resource.
+-- Will connect to the specified host. If the fourth parameters is a 'Just'
+-- value, @session@ will attempt to secure the connection with TLS. If the fifth
+-- parameters is a 'Just' value, @session@ will attempt to authenticate and
+-- acquire an XMPP resource.
 session :: HostName                          -- ^ Host to connect to
         -> Text                              -- ^ The realm host name (to
                                              -- distinguish the XMPP service)
@@ -45,7 +47,7 @@ session hostname realm port tls sasl = do
         Left e -> Ex.throwIO e
         Right c -> return c
     if isJust tls then startTls (fromJust tls) con >> return () else return () -- TODO: Eats TlsFailure
-    saslResponse <- if isJust sasl then auth (fst $ fromJust sasl) (snd $ fromJust sasl) con >> return () else return () -- TODO: Eats AuthError
+    saslResponse <- if isJust sasl then auth (fst $ fromJust sasl) (snd $ fromJust sasl) con >> return () else return () -- TODO: Eats AuthFailure
     newSession con
 
 -- | Connect to host with given address.
@@ -104,7 +106,7 @@ startSession con = do
 auth :: [SaslHandler]
      -> Maybe Text
      -> TMVar Connection
-     -> IO (Either AuthError Jid)
+     -> IO (Either AuthFailure Jid)
 auth mechanisms resource con = runErrorT $ do
     ErrorT $ xmppSasl mechanisms con
     jid <- lift $ xmppBind resource con
@@ -120,7 +122,7 @@ simpleAuth  :: Text.Text  -- ^ The username
             -> Maybe Text -- ^ The desired resource or 'Nothing' to let the
                           -- server assign one
             -> TMVar Connection
-            -> IO (Either AuthError Jid)
+            -> IO (Either AuthFailure Jid)
 simpleAuth username passwd resource = flip auth resource $
         [ -- TODO: scramSha1Plus
           scramSha1 username Nothing passwd

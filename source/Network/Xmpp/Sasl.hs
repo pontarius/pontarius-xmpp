@@ -46,7 +46,7 @@ import           Control.Concurrent.STM.TMVar
 xmppSasl :: [SaslHandler] -- ^ Acceptable authentication mechanisms and their
                        -- corresponding handlers
          -> TMVar Connection
-         -> IO (Either AuthError ())
+         -> IO (Either AuthFailure ())
 xmppSasl handlers = withConnection $ do
     -- Chooses the first mechanism that is acceptable by both the client and the
     -- server.
@@ -56,8 +56,8 @@ xmppSasl handlers = withConnection $ do
         (_name, handler):_ -> runErrorT $ do
             cs <- gets sConnectionState
             case cs of
-                ConnectionClosed -> throwError AuthConnectionError
+                ConnectionClosed -> throwError AuthConnectionFailure
                 _ -> do
                     r <- handler
-                    _ <- ErrorT $ left AuthStreamError <$> restartStream
+                    _ <- ErrorT $ left AuthStreamFailure <$> restartStream
                     return r

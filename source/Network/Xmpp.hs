@@ -26,10 +26,15 @@ module Network.Xmpp
   ( -- * Session management
     Session
   , session
-  -- * JID
+    -- TODO: Close session, etc.
+    -- ** Authentication handlers
+  , scramSha1
+  , plain
+  , digestMd5
+  -- * Addressing
   -- | A JID (historically: Jabber ID) is XMPPs native format
   -- for addressing entities in the network. It is somewhat similar to an e-mail
-  -- address but contains three parts instead of two:
+  -- address, but contains three parts instead of two.
   , Jid(..)
   , isBare
   , isFull
@@ -37,32 +42,32 @@ module Network.Xmpp
   -- | The basic protocol data unit in XMPP is the XML stanza. The stanza is
   -- essentially a fragment of XML that is sent over a stream. @Stanzas@ come in
   -- 3 flavors:
-  --
-  --  * @'Message'@, for traditional push-style message passing between peers
-  --
-  --  * @'Presence'@, for communicating status updates
-  --
-  --  * IQ (info/query), for request-response semantics communication
-  --
+  -- 
+  --  * /Message/, for traditional push-style message passing between peers
+  -- 
+  --  * /Presence/, for communicating status updates
+  -- 
+  --  * /Info/\//Query/ (or /IQ/), for request-response semantics communication
+  -- 
   -- All stanza types have the following attributes in common:
-  --
+  -- 
   --  * The /id/ attribute is used by the originating entity to track any
   --    response or error stanza that it might receive in relation to the
   --    generated stanza from another entity (such as an intermediate server or
   --    the intended recipient).  It is up to the originating entity whether the
   --    value of the 'id' attribute is unique only within its current stream or
   --    unique globally.
-  --
+  -- 
   --  * The /from/ attribute specifies the JID of the sender.
-  --
+  -- 
   --  * The /to/ attribute specifies the JID of the intended recipient for the
   --    stanza.
-  --
+  -- 
   --  * The /type/ attribute specifies the purpose or context of the message,
   --    presence, or IQ stanza. The particular allowable values for the 'type'
   --    attribute vary depending on whether the stanza is a message, presence,
   --    or IQ stanza.
-  --
+
   -- ** Messages
   -- | The /message/ stanza is a /push/ mechanism whereby one entity
   -- pushes information to another entity, similar to the communications that

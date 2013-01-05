@@ -127,11 +127,11 @@ pullChallenge = do
       SaslChallenge (Just scb64)
           | Right sc <- B64.decode . Text.encodeUtf8 $ scb64
              -> return $ Just sc
-      _ -> throwError AuthChallengeError
+      _ -> throwError AuthChallengeFailure
 
--- | Extract value from Just, failing with AuthChallengeError on Nothing.
+-- | Extract value from Just, failing with AuthChallengeFailure on Nothing.
 saslFromJust :: Maybe a -> SaslM a
-saslFromJust Nothing = throwError $ AuthChallengeError
+saslFromJust Nothing = throwError $ AuthChallengeFailure
 saslFromJust (Just d) = return d
 
 -- | Pull the next element and check that it is success.
@@ -140,7 +140,7 @@ pullSuccess = do
     e <- pullSaslElement
     case e of
         SaslSuccess x -> return x
-        _ -> throwError $ AuthXmlError
+        _ -> throwError $ AuthXmlFailure
 
 -- | Pull the next element. When it's success, return it's payload.
 -- If it's a challenge, send an empty response and pull success.
@@ -156,13 +156,13 @@ pullFinalMessage = do
   where
     decode Nothing  = return Nothing
     decode (Just d) = case B64.decode $ Text.encodeUtf8 d of
-        Left _e -> throwError $ AuthChallengeError
+        Left _e -> throwError $ AuthChallengeFailure
         Right x -> return $ Just x
 
 -- | Extract p=q pairs from a challenge.
 toPairs :: BS.ByteString -> SaslM Pairs
 toPairs ctext = case pairs ctext of
-    Left _e -> throwError AuthChallengeError
+    Left _e -> throwError AuthChallengeFailure
     Right r -> return r
 
 -- | Send a SASL response element. The content will be base64-encoded.
@@ -172,11 +172,11 @@ respond = lift . pushElement . saslResponseE .
 
 
 -- | Run the appropriate stringprep profiles on the credentials.
--- May fail with 'AuthStringPrepError'
+-- May fail with 'AuthStringPrepFailure'
 prepCredentials :: Text.Text -> Maybe Text.Text -> Text.Text
                 -> SaslM (Text.Text, Maybe Text.Text, Text.Text)
 prepCredentials authcid authzid password = case credentials of
-    Nothing -> throwError $ AuthStringPrepError
+    Nothing -> throwError $ AuthStringPrepFailure
     Just creds -> return creds
   where
     credentials = do

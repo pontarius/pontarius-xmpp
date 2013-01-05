@@ -7,29 +7,29 @@ import           Data.ByteString(ByteString)
 import qualified Data.Text as Text
 import           Network.Xmpp.Types
 
-data AuthError = AuthXmlError
+data AuthFailure = AuthXmlFailure
                | AuthNoAcceptableMechanism [Text.Text] -- ^ Wraps mechanisms
                                                        -- offered
-               | AuthChallengeError
-               | AuthServerAuthError -- ^ The server failed to authenticate
+               | AuthChallengeFailure
+               | AuthServerAuthFailure -- ^ The server failed to authenticate
                                      -- itself
-               | AuthStreamError StreamFailure -- ^ Stream error on stream restart
-               -- TODO: Rename AuthConnectionError?
-               | AuthConnectionError -- ^ Connection is closed
-               | AuthError -- General instance used for the Error instance
+               | AuthStreamFailure StreamFailure -- ^ Stream error on stream restart
+               -- TODO: Rename AuthConnectionFailure?
+               | AuthConnectionFailure -- ^ Connection is closed
+               | AuthFailure -- General instance used for the Error instance
                | AuthSaslFailure SaslFailure -- ^ Defined SASL error condition
-               | AuthStringPrepError -- ^ StringPrep failed
+               | AuthStringPrepFailure -- ^ StringPrep failed
                  deriving Show
 
-instance Error AuthError where
-    noMsg = AuthError
+instance Error AuthFailure where
+    noMsg = AuthFailure
 
 data SaslElement = SaslSuccess   (Maybe Text.Text)
                  | SaslChallenge (Maybe Text.Text)
 
 -- | SASL mechanism XmppConnection computation, with the possibility of throwing
 -- an authentication error.
-type SaslM a = ErrorT AuthError (StateT Connection IO) a
+type SaslM a = ErrorT AuthFailure (StateT Connection IO) a
 
 type Pairs = [(ByteString, ByteString)]
 
