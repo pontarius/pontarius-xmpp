@@ -31,7 +31,7 @@ import qualified Data.ByteString as BS
 
 import           Data.XML.Types
 
-import           Network.Xmpp.Connection
+import           Network.Xmpp.Connection_
 import           Network.Xmpp.Pickle
 import           Network.Xmpp.Stream
 import           Network.Xmpp.Types
@@ -47,7 +47,7 @@ xmppDigestMd5 ::  Text -- ^ Authentication identity (authzid or username)
                -> SaslM ()
 xmppDigestMd5 authcid authzid password = do
     (ac, az, pw) <- prepCredentials authcid authzid password
-    hn <- gets sHostname
+    hn <- gets cHostName
     case hn of
         Just hn' -> do
             xmppDigestMd5' hn' ac az pw

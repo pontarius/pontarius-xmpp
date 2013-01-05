@@ -11,7 +11,7 @@ import Data.Text as Text
 import Data.XML.Pickle
 import Data.XML.Types
 
-import Network.Xmpp.Connection
+import Network.Xmpp.Connection_
 import Network.Xmpp.Pickle
 import Network.Xmpp.Types
 
@@ -38,7 +38,7 @@ xmppBind rsrc c = do
                            -> return jid
                          | otherwise -> throw StreamOtherFailure
                                                -- TODO: Log: ("Bind couldn't unpickle JID from " ++ show answer)
-    withConnection (modify $ \s -> s{sJid = Just jid}) c
+    withConnection (modify $ \s -> s{cJid = Just jid}) c
     return jid
   where
     -- Extracts the character data in the `jid' element.

@@ -20,7 +20,7 @@ import           Data.Void (Void)
 import           Data.XML.Pickle
 import           Data.XML.Types
 
-import           Network.Xmpp.Connection
+import           Network.Xmpp.Connection_
 import           Network.Xmpp.Pickle
 import           Network.Xmpp.Types
 import           Network.Xmpp.Marshal
@@ -71,11 +71,11 @@ startStream = runErrorT $ do
     con <- liftIO $ mkConnection state
     -- Set the `from' (which is also the expected to) attribute depending on the
     -- state of the connection.
-    let expectedTo = case sConnectionState state of
-                 ConnectionPlain -> if sJidWhenPlain state
-                                        then sJid state else Nothing
-                 ConnectionSecured -> sJid state
-    case sHostname state of
+    let expectedTo = case cState state of
+                 ConnectionPlain -> if cJidWhenPlain state
+                                        then cJid state else Nothing
+                 ConnectionSecured -> cJid state
+    case cHostName state of
         Nothing -> throwError StreamOtherFailure -- TODO: When does this happen?
         Just hostname -> lift $ do
             pushXmlDecl
@@ -84,7 +84,7 @@ startStream = runErrorT $ do
                                     , expectedTo
                                     , Just (Jid Nothing hostname Nothing)
                                     , Nothing
-                                    , sPreferredLang state
+                                    , cPreferredLang state
                                     )
     response <- ErrorT $ runEventsSink $ runErrorT $ streamS expectedTo
     case response of
@@ -95,15 +95,15 @@ startStream = runErrorT $ do
         | lt == Nothing ->
             closeStreamWithError con StreamInvalidXml Nothing
         -- If `from' is set, we verify that it's the correct one. TODO: Should we check against the realm instead?
-        | isJust from && (from /= Just (Jid Nothing (fromJust $ sHostname state) Nothing)) ->
+        | isJust from && (from /= Just (Jid Nothing (fromJust $ cHostName state) Nothing)) ->
             closeStreamWithError con StreamInvalidFrom Nothing
         | to /= expectedTo ->
             closeStreamWithError con StreamUndefinedCondition (Just $ Element "invalid-to" [] []) -- TODO: Suitable?
         | otherwise -> do
-            modify (\s -> s{ sFeatures = features
-                           , sStreamLang = lt
-                           , sStreamId = id
-                           , sFrom = from
+            modify (\s -> s{ cFeatures = features
+                           , cStreamLang = lt
+                           , cStreamId = id
+                           , cFrom = from
                          } )
             return ()
       -- Unpickling failed - we investigate the element.
@@ -158,7 +158,7 @@ flattenAttrs attrs = Prelude.map (\(name, content) ->
 -- and calls xmppStartStream.
 restartStream :: StateT Connection IO (Either StreamFailure ())
 restartStream = do
-    raw <- gets (cRecv . cHand)
+    raw <- gets (cRecv . cHandle)
     let newSource = DCI.ResumableSource (loopRead raw $= XP.parseBytes def)
                                         (return ())
     modify (\s -> s{cEventSource = newSource })

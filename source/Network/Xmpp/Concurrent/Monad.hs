@@ -9,7 +9,7 @@ import qualified Control.Exception.Lifted as Ex
 import           Control.Monad.Reader
 
 import           Network.Xmpp.Concurrent.Types
-import           Network.Xmpp.Connection
+import           Network.Xmpp.Connection_
 
 
 
@@ -71,8 +71,8 @@ modifyHandlers f session = atomically $ modifyTVar (eventHandlers session) f
       writeTVar var (f x)
 
 -- | Sets the handler to be executed when the server connection is closed.
-setConnectionClosedHandler :: (StreamFailure -> Context -> IO ()) -> Context -> IO ()
-setConnectionClosedHandler eh session = do
+setConnectionClosedHandler_ :: (StreamFailure -> Context -> IO ()) -> Context -> IO ()
+setConnectionClosedHandler_ eh session = do
     modifyHandlers (\s -> s{connectionClosedHandler =
                                  \e -> eh e session}) session
 

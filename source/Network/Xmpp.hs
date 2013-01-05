@@ -1,7 +1,5 @@
 -- |
 -- Module:      $Header$
--- Description: RFC 6120 (XMPP: Core).
--- License:     Apache License 2.0
 -- 
 -- Maintainer:  info@jonkri.com
 -- Stability:   unstable
@@ -16,9 +14,12 @@
 -- persistent XML streams among a distributed network of globally addressable,
 -- presence-aware clients and servers.
 -- 
--- Pontarius is an XMPP client library, implementing the core capabilities of
--- XMPP (RFC 6120): setup and teardown of XML streams, channel encryption,
+-- Pontarius XMPP is an XMPP client library, implementing the core capabilities
+-- of XMPP (RFC 6120): setup and teardown of XML streams, channel encryption,
 -- authentication, error handling, and communication primitives for messaging.
+-- 
+-- For low-level access to Pontarius XMPP, see the "Network.Xmpp.Connection"
+-- module.
 
 {-# LANGUAGE NoMonomorphismRestriction, OverloadedStrings #-}
 
@@ -142,6 +143,7 @@ module Network.Xmpp
   , StreamErrorInfo(..)
   , StreamErrorCondition(..)
   , TlsFailure(..)
+  , AuthFailure(..)
 
   ) where
 
@@ -152,11 +154,12 @@ import Network.Xmpp.Bind
 import Network.Xmpp.Concurrent
 import Network.Xmpp.Concurrent.Channels
 import Network.Xmpp.Concurrent.Types
-import Network.Xmpp.Connection
+import Network.Xmpp.Connection_
 import Network.Xmpp.Marshal
 import Network.Xmpp.Message
 import Network.Xmpp.Presence
 import Network.Xmpp.Sasl
+import Network.Xmpp.Sasl.Types
 import Network.Xmpp.Session
 import Network.Xmpp.Stream
 import Network.Xmpp.Tls

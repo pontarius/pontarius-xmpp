@@ -31,7 +31,7 @@ module Network.Xmpp.Types
     , StreamFailure(..)
     , StreamErrorCondition(..)
     , Version(..)
-    , HandleLike(..)
+    , ConnectionHandle(..)
     , Connection(..)
     , withConnection
     , withConnection'
@@ -739,54 +739,47 @@ data ServerFeatures = SF
     , other          :: ![Element]
     } deriving Show
 
+-- | Signals the state of the connection.
 data ConnectionState
     = ConnectionClosed  -- ^ No connection at this point.
     | ConnectionPlain   -- ^ Connection established, but not secured.
     | ConnectionSecured -- ^ Connection established and secured via TLS.
       deriving (Show, Eq, Typeable)
 
-data HandleLike = Hand { cSend :: BS.ByteString -> IO Bool
-                       , cRecv :: Int -> IO BS.ByteString
-                          -- This is to hold the state of the XML parser
-                          -- (otherwise we will receive lot's of EvenBegin
-                          -- Document and forger about name prefixes)
-                       , cFlush :: IO ()
-                       , cClose :: IO ()
-                       }
+-- | Defines operations for sending, receiving, flushing, and closing on a
+-- connection.
+data ConnectionHandle =
+    ConnectionHandle { cSend :: BS.ByteString -> IO Bool
+                     , cRecv :: Int -> IO BS.ByteString
+                       -- This is to hold the state of the XML parser (otherwise
+                       -- we will receive EventBeginDocument events and forget
+                       -- about name prefixes).
+                     , cFlush :: IO ()
+                     , cClose :: IO ()
+                     }
 
 data Connection = Connection
-                  { sConnectionState :: !ConnectionState -- ^ State of
-                                                             -- connection
-                  , cHand            :: HandleLike
-                  , cEventSource     :: ResumableSource IO Event
-                  , sFeatures        :: !ServerFeatures -- ^ Features the server
-                                                        -- advertised
-                  , sHostname        :: !(Maybe Text) -- ^ Hostname of the
-                                                      -- server
-                  , sJid             :: !(Maybe Jid) -- ^ Our JID
-                  , sPreferredLang   :: !(Maybe LangTag) -- ^ Default language
-                                                         -- when no explicit
-                                                         -- language tag is set
-                  , sStreamLang      :: !(Maybe LangTag) -- ^ Will be a `Just'
-                                                         -- value once connected
-                                                         -- to the server.
-                  , sStreamId        :: !(Maybe Text) -- ^ Stream ID as
-                                        -- specified by the
-                                        -- server.
-                  , sToJid           :: !(Maybe Jid) -- ^ JID to include in the
-                                                     -- stream element's `to'
-                                                     -- attribute when the
-                                                     -- connection is
-                                                     -- secured. See also below.
-                  , sJidWhenPlain    :: !Bool -- ^ Whether or not to also
-                                              -- include the Jid when the
-                                              -- connection is plain.
-                  , sFrom            :: !(Maybe Jid)  -- ^ From as specified by
-                                                      -- the server in the
-                                                      -- stream element's `from'
-                                                      -- attribute.
-                  }
-
+    { cState :: !ConnectionState -- ^ State of connection
+    , cHandle :: ConnectionHandle -- ^ Handle to send, receive, flush, and close
+                                  -- on the connection.
+    , cEventSource :: ResumableSource IO Event -- ^ Event conduit source, and
+                                               -- its associated finalizer
+    , cFeatures :: !ServerFeatures -- ^ Features as advertised by the server
+    , cHostName :: !(Maybe Text) -- ^ Hostname of the server
+    , cJid :: !(Maybe Jid) -- ^ Our JID
+    , cPreferredLang :: !(Maybe LangTag) -- ^ Default language when no explicit
+                                         -- language tag is set
+    , cStreamLang :: !(Maybe LangTag) -- ^ Will be a `Just' value once connected
+                                      -- to the server.
+    , cStreamId :: !(Maybe Text) -- ^ Stream ID as specified by the server.
+    , cToJid :: !(Maybe Jid) -- ^ JID to include in the stream element's `to'
+                             -- attribute when the connection is secured. See
+                             -- also below.
+    , cJidWhenPlain :: !Bool -- ^ Whether or not to also include the Jid when
+                             -- the connection is plain.
+    , cFrom :: !(Maybe Jid)  -- ^ From as specified by the server in the stream
+                             -- element's `from' attribute.
+    }
 
 withConnection :: StateT Connection IO c -> TMVar Connection -> IO c
 withConnection action con = bracketOnError

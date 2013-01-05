@@ -8,8 +8,7 @@ import           Data.Text (Text)
 import           Network.Xmpp.Concurrent.Types
 import           Network.Xmpp.Types
 
--- | The @Session@ object holds the current state of the XMPP connection, and is
--- thus necessary for any interaction with it.
+-- | A concurrent interface to Pontarius XMPP.
 data Session = Session
     { context :: Context
     , stanzaCh :: TChan Stanza -- All stanzas

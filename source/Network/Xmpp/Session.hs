@@ -12,7 +12,7 @@ import qualified Network.TLS as TLS
 import           Network.Xmpp.Bind
 import           Network.Xmpp.Concurrent.Types
 import           Network.Xmpp.Concurrent.Channels
-import           Network.Xmpp.Connection
+import           Network.Xmpp.Connection_
 import           Network.Xmpp.Marshal
 import           Network.Xmpp.Pickle
 import           Network.Xmpp.Sasl
@@ -42,7 +42,7 @@ session :: HostName                          -- ^ Host to connect to
                                              -- the server decide)
         -> IO Session -- TODO: ErrorT
 session hostname realm port tls sasl = do
-    con' <- connectTcp hostname port realm
+    con' <- connect hostname port realm
     con <- case con' of
         Left e -> Ex.throwIO e
         Right c -> return c
@@ -50,33 +50,15 @@ session hostname realm port tls sasl = do
     saslResponse <- if isJust sasl then auth (fst $ fromJust sasl) (snd $ fromJust sasl) con >> return () else return () -- TODO: Eats AuthFailure
     newSession con
 
--- | Connect to host with given address.
-connectTcp :: HostName -> PortID -> Text -> IO (Either StreamFailure (TMVar Connection))
-connectTcp address port hostname = do
-    con <- connectTcpRaw address port hostname
+-- | Connects to the XMPP server and opens the XMPP stream against the given
+-- host name, port, and realm.
+connect :: HostName -> PortID -> Text -> IO (Either StreamFailure (TMVar Connection))
+connect address port hostname = do
+    con <- connectTcp address port hostname
     result <- withConnection startStream con
     case result of
-        Left e -> do
-            withConnection (pushElement . pickleElem xpStreamError $ toError e)
-                           con
-            closeStreams con
-            return $ Left e
+        Left e -> return $ Left e -- TODO
         Right () -> return $ Right con
-  where
-        -- toError  (StreamNotStreamElement _name) =
-        --         XmppStreamFailure StreamInvalidXml Nothing Nothing
-        -- toError  (StreamInvalidStreamNamespace _ns) =
-        --         XmppStreamFailure StreamInvalidNamespace Nothing Nothing
-        -- toError  (StreamInvalidStreamPrefix _prefix) =
-        --         XmppStreamFailure StreamBadNamespacePrefix Nothing Nothing
-        -- toError  (StreamWrongVersion _ver) =
-        --         XmppStreamFailure StreamUnsupportedVersion Nothing Nothing
-        -- toError  (StreamWrongLangTag _) =
-        --         XmppStreamFailure StreamInvalidXml Nothing Nothing
-        -- toError  StreamUnknownError =
-        --         XmppStreamFailure StreamBadFormat Nothing Nothing
-        -- TODO: Catch remaining xmppStartStream errors.
-        toError _ = StreamErrorInfo StreamBadFormat Nothing Nothing
 
 sessionXml :: Element
 sessionXml = pickleElem

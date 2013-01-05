@@ -16,7 +16,7 @@ import           Control.Monad.State.Strict
 
 import qualified Data.ByteString as BS
 import           Network.Xmpp.Concurrent.Types
-import           Network.Xmpp.Connection
+import           Network.Xmpp.Connection_
 
 import           Control.Concurrent.STM.TMVar
 
@@ -35,7 +35,7 @@ readWorker onStanza onConnectionClosed stateRef =
                        -- necessarily be interruptible
                        s <- atomically $ do
                             con <- readTMVar stateRef
-                            state <- sConnectionState <$> readTMVar con
+                            state <- cState <$> readTMVar con
                             when (state == ConnectionClosed)
                                  retry
                             return con
@@ -81,7 +81,7 @@ startThreadsWith :: (Stanza -> IO ())
                   TMVar (TMVar Connection),
                   ThreadId)
 startThreadsWith stanzaHandler eh con = do
-    read <- withConnection' (gets $ cSend. cHand) con
+    read <- withConnection' (gets $ cSend. cHandle) con
     writeLock <- newTMVarIO read
     conS <- newTMVarIO con
 --    lw <- forkIO $ writeWorker outC writeLock

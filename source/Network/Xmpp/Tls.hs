@@ -17,7 +17,7 @@ import           Data.Conduit.Tls as TLS
 import           Data.Typeable
 import           Data.XML.Types
 
-import           Network.Xmpp.Connection
+import           Network.Xmpp.Connection_
 import           Network.Xmpp.Pickle(ppElement)
 import           Network.Xmpp.Stream
 import           Network.Xmpp.Types
@@ -80,13 +80,13 @@ startTls :: TLS.TLSParams -> TMVar Connection -> IO (Either TlsFailure ())
 startTls params con = Ex.handle (return . Left . TlsError)
                       . flip withConnection con
                       . runErrorT $ do
-    features <- lift $ gets sFeatures
-    state <- gets sConnectionState
+    features <- lift $ gets cFeatures
+    state <- gets cState
     case state of
         ConnectionPlain -> return ()
         ConnectionClosed -> throwError TlsNoConnection
         ConnectionSecured -> throwError TlsConnectionSecured
-    con <- lift $ gets cHand
+    con <- lift $ gets cHandle
     when (stls features == Nothing) $ throwError TlsNoServerSupport
     lift $ pushElement starttlsE
     answer <- lift $ pullElement
@@ -98,12 +98,12 @@ startTls params con = Ex.handle (return . Left . TlsError)
         e -> lift $ Ex.throwIO StreamOtherFailure
             -- TODO: Log: "Unexpected element: " ++ ppElement e
     (raw, _snk, psh, read, ctx) <- lift $ TLS.tlsinit debug params (mkBackend con)
-    let newHand = Hand { cSend = catchPush . psh
-                       , cRecv = read
-                       , cFlush = contextFlush ctx
-                       , cClose = bye ctx >> cClose con
-                       }
-    lift $ modify ( \x -> x {cHand = newHand})
+    let newHand = ConnectionHandle { cSend = catchPush . psh
+                                   , cRecv = read
+                                   , cFlush = contextFlush ctx
+                                   , cClose = bye ctx >> cClose con
+                                   }
+    lift $ modify ( \x -> x {cHandle = newHand})
     either (lift . Ex.throwIO) return =<< lift restartStream
-    modify (\s -> s{sConnectionState = ConnectionSecured})
+    modify (\s -> s{cState = ConnectionSecured})
     return ()

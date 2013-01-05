@@ -28,7 +28,7 @@ import           Network.Xmpp
 import           Network.Xmpp.Concurrent
 import           Network.Xmpp.Concurrent.Channels
 import           Network.Xmpp.Concurrent.Types
-import           Network.Xmpp.Connection
+import           Network.Xmpp.Connection_
 import           Network.Xmpp.Pickle
 import           Network.Xmpp.Types
 import           Control.Concurrent.STM.TMVar

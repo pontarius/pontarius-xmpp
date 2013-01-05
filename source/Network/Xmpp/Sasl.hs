@@ -29,7 +29,7 @@ import qualified Data.Text as Text
 import           Data.Text (Text)
 import qualified Data.Text.Encoding as Text
 
-import           Network.Xmpp.Connection
+import           Network.Xmpp.Connection_
 import           Network.Xmpp.Stream
 import           Network.Xmpp.Types
 
@@ -50,11 +50,11 @@ xmppSasl :: [SaslHandler] -- ^ Acceptable authentication mechanisms and their
 xmppSasl handlers = withConnection $ do
     -- Chooses the first mechanism that is acceptable by both the client and the
     -- server.
-    mechanisms <- gets $ saslMechanisms . sFeatures
+    mechanisms <- gets $ saslMechanisms . cFeatures
     case (filter (\(name, _) -> name `elem` mechanisms)) handlers of
         [] -> return . Left $ AuthNoAcceptableMechanism mechanisms
         (_name, handler):_ -> runErrorT $ do
-            cs <- gets sConnectionState
+            cs <- gets cState
             case cs of
                 ConnectionClosed -> throwError AuthConnectionFailure
                 _ -> do
