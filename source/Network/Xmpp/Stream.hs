@@ -90,7 +90,7 @@ startStream = runErrorT $ do
     case response of
       -- Successful unpickling of stream element.
       Right (ver, from, to, id, lt, features)
-        | (unpack $ fromJust id) /= "1.0" ->
+        | (unpack ver) /= "1.0" ->
             closeStreamWithError con StreamUnsupportedVersion Nothing
         | lt == Nothing ->
             closeStreamWithError con StreamInvalidXml Nothing
