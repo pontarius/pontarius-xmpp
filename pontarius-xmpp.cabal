@@ -31,13 +31,14 @@ Library
                , resourcet         >=0.3.0
                , containers        >=0.4.0.0
                , random            >=1.0.0.0
-               , tls               >=1.0.0
+               , tls               >=1.1.0
                , tls-extra         >=0.5.0
                , pureMD5           >=2.1.2.1
                , base64-bytestring >=0.1.0.0
                , binary            >=0.4.1
                , attoparsec        >=0.10.0.3
                , crypto-api        >=0.9
+               , crypto-random-api >=0.2
                , cryptohash        >=0.6.1
                , text              >=0.11.1.5
                , bytestring        >=0.9.1.9
