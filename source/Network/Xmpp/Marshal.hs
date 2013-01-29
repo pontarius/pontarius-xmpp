@@ -18,7 +18,7 @@ xpStreamStanza :: PU [Node] (Either XmppStreamError Stanza)
 xpStreamStanza = xpEither xpStreamError xpStanza
 
 xpStanza :: PU [Node] Stanza
-xpStanza = xpAlt stanzaSel
+xpStanza = ("xpStanza" , "") <?+> xpAlt stanzaSel
     [ xpWrap IQRequestS     (\(IQRequestS     x) -> x) xpIQRequest
     , xpWrap IQResultS      (\(IQResultS      x) -> x) xpIQResult
     , xpWrap IQErrorS       (\(IQErrorS       x) -> x) xpIQError
@@ -39,7 +39,7 @@ xpStanza = xpAlt stanzaSel
     stanzaSel (PresenceErrorS _) = 6
 
 xpMessage :: PU [Node] (Message)
-xpMessage = xpWrap
+xpMessage = ("xpMessage" , "") <?+> xpWrap
     (\((tp, qid, from, to, lang), ext) -> Message qid from to lang tp ext)
     (\(Message qid from to lang tp ext) -> ((tp, qid, from, to, lang), ext))
     (xpElem "{jabber:client}message"
@@ -55,7 +55,7 @@ xpMessage = xpWrap
     )
 
 xpPresence :: PU [Node] Presence
-xpPresence = xpWrap
+xpPresence = ("xpPresence" , "") <?+> xpWrap
     (\((qid, from, to, lang, tp), ext) -> Presence qid from to lang tp ext)
     (\(Presence qid from to lang tp ext) -> ((qid, from, to, lang, tp), ext))
     (xpElem "{jabber:client}presence"
@@ -70,7 +70,7 @@ xpPresence = xpWrap
     )
 
 xpIQRequest :: PU [Node] IQRequest
-xpIQRequest = xpWrap
+xpIQRequest = ("xpIQRequest" , "") <?+> xpWrap
     (\((qid, from, to, lang, tp),body) -> IQRequest qid from to lang tp body)
     (\(IQRequest qid from to lang tp body) -> ((qid, from, to, lang, tp), body))
     (xpElem "{jabber:client}iq"
@@ -85,7 +85,7 @@ xpIQRequest = xpWrap
     )
 
 xpIQResult :: PU [Node] IQResult
-xpIQResult = xpWrap
+xpIQResult = ("xpIQResult" , "") <?+> xpWrap
     (\((qid, from, to, lang, _tp),body) -> IQResult qid from to lang body)
     (\(IQResult qid from to lang body) -> ((qid, from, to, lang, ()), body))
     (xpElem "{jabber:client}iq"
@@ -104,7 +104,7 @@ xpIQResult = xpWrap
 ----------------------------------------------------------
 
 xpErrorCondition :: PU [Node] StanzaErrorCondition
-xpErrorCondition = xpWrap
+xpErrorCondition = ("xpErrorCondition" , "") <?+> xpWrap
     (\(cond, (), ()) -> cond)
     (\cond -> (cond, (), ()))
     (xpElemByNamespace
@@ -115,7 +115,7 @@ xpErrorCondition = xpWrap
     )
 
 xpStanzaError :: PU [Node] StanzaError
-xpStanzaError = xpWrap
+xpStanzaError = ("xpStanzaError" , "") <?+> xpWrap
     (\(tp, (cond, txt, ext)) -> StanzaError tp cond txt ext)
     (\(StanzaError tp cond txt ext) -> (tp, (cond, txt, ext)))
     (xpElem "{jabber:client}error"
@@ -131,7 +131,7 @@ xpStanzaError = xpWrap
     )
 
 xpMessageError :: PU [Node] (MessageError)
-xpMessageError = xpWrap
+xpMessageError = ("xpMessageError" , "") <?+> xpWrap
     (\((_, qid, from, to, lang), (err, ext)) ->
         MessageError qid from to lang err ext)
     (\(MessageError qid from to lang err ext) ->
@@ -149,7 +149,7 @@ xpMessageError = xpWrap
     )
 
 xpPresenceError :: PU [Node] PresenceError
-xpPresenceError = xpWrap
+xpPresenceError = ("xpPresenceError" , "") <?+> xpWrap
     (\((qid, from, to, lang, _),(err, ext)) ->
         PresenceError qid from to lang err ext)
     (\(PresenceError qid from to lang err ext) ->
@@ -166,7 +166,7 @@ xpPresenceError = xpWrap
     )
 
 xpIQError :: PU [Node] IQError
-xpIQError = xpWrap
+xpIQError = ("xpIQError" , "") <?+> xpWrap
     (\((qid, from, to, lang, _tp),(err, body)) ->
         IQError qid from to lang err body)
     (\(IQError qid from to lang err body) ->
@@ -183,7 +183,7 @@ xpIQError = xpWrap
     )
 
 xpStreamError :: PU [Node] XmppStreamError
-xpStreamError = xpWrap
+xpStreamError = ("xpStreamError" , "") <?+> xpWrap
     (\((cond,() ,()), txt, el) -> XmppStreamError cond txt el)
     (\(XmppStreamError cond txt el) ->((cond,() ,()), txt, el))
     (xpElemNodes

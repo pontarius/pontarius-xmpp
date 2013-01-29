@@ -36,7 +36,7 @@ findStreamErrors (Element name attrs children)
                              -> StreamUnknownError
     safeRead x = case reads $ Text.unpack x of
         [] -> Nothing
-        [(y,_),_] -> Just y
+        ((y,_):_) -> Just y
 
 flattenAttrs :: [(Name, [Content])] -> [(Name, Text.Text)]
 flattenAttrs attrs = map (\(name, content) ->

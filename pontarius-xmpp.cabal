@@ -49,14 +49,15 @@ Library
                , stm               >=2.1.2.1
                , xml-types         >=0.3.1
                , xml-conduit       >=1.0
-               , xml-picklers      >=0.2.2
+               , xml-picklers      >=0.3
                , data-default      >=0.2
                , stringprep        >=0.1.3
   Exposed-modules: Network.Xmpp
                  , Network.Xmpp.IM
                  , Network.Xmpp.Basic
-  Other-modules:
-                 Network.Xmpp.Bind
+                 , Network.Xmpp.Lens
+-- Undocumented modules
+                 , Network.Xmpp.Bind
                  , Network.Xmpp.Concurrent
                  , Network.Xmpp.IM.Message
                  , Network.Xmpp.IM.Presence
@@ -79,6 +80,8 @@ Library
                  , Network.Xmpp.Jid
                  , Network.Xmpp.Concurrent.Types
                  , Network.Xmpp.Concurrent.Channels.IQ
+                 , Network.Xmpp.Concurrent.Channels
+                 , Network.Xmpp.Concurrent.Channels.Types
                  , Network.Xmpp.Concurrent.Threads
                  , Network.Xmpp.Concurrent.Monad
                  , Text.XML.Stream.Elements

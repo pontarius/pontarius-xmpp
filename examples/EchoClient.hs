@@ -26,7 +26,7 @@ import           Network.Xmpp.IM
 -- Server and authentication details.
 host     = "localhost"
 port     = PortNumber 5222
-realm    = "server.com"
+realm    = "species64739.dyndns.org"
 username = "echo"
 password = "pwd"
 resource = Just "bot"

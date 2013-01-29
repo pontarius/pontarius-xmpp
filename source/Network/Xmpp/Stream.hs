@@ -30,6 +30,14 @@ import           Text.XML.Stream.Parse as XP
 
 -- import Text.XML.Stream.Elements
 
+mbl :: Maybe [a] -> [a]
+mbl (Just l) = l
+mbl Nothing = []
+
+lmb :: [t] -> Maybe [t]
+lmb [] = Nothing
+lmb x = Just x
+
 -- Unpickles and returns a stream element. Throws a StreamXMLError on failure.
 streamUnpickleElem :: PU [Node] a
                    -> Element
@@ -125,6 +133,7 @@ streamS expectedTo = do
         -- Get the stream:stream element (or whatever it is) from the server,
         -- and validate what we get.
         el <- openElementFromEvents
+        liftIO . print $ unpickleElem xpStream el
         case unpickleElem xpStream el of
             Left _  -> throwError $ findStreamErrors el
             Right r -> validateData r
@@ -144,7 +153,7 @@ streamS expectedTo = do
 
 
 xpStream :: PU [Node] (Text, Maybe Jid, Maybe Jid, Maybe Text, Maybe LangTag)
-xpStream = xpElemAttrs
+xpStream = ("xpStream","") <?+> xpElemAttrs
     (Name "stream" (Just "http://etherx.jabber.org/streams") (Just "stream"))
     (xp5Tuple
          (xpAttr "version" xpId)
@@ -156,7 +165,7 @@ xpStream = xpElemAttrs
 
 -- Pickler/Unpickler for the stream features - TLS, SASL, and the rest.
 xpStreamFeatures :: PU [Node] ServerFeatures
-xpStreamFeatures = xpWrap
+xpStreamFeatures = ("xpStreamFeatures", "") <?+> xpWrap
     (\(tls, sasl, rest) -> SF tls (mbl sasl) rest)
     (\(SF tls sasl rest) -> (tls, lmb sasl, rest))
     (xpElemNodes

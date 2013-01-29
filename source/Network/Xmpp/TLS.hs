@@ -18,7 +18,7 @@ import           Data.Typeable
 import           Data.XML.Types
 
 import           Network.Xmpp.Connection
-import           Network.Xmpp.Pickle(ppElement)
+import           Text.XML.Stream.Elements(ppElement)
 import           Network.Xmpp.Stream
 import           Network.Xmpp.Types
 

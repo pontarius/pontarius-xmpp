@@ -147,7 +147,13 @@ connectTcpRaw :: HostName -> PortID -> Text -> IO Connection
 connectTcpRaw host port hostname = do
     h <- connectTo host port
     hSetBuffering h NoBuffering
-    let eSource = DCI.ResumableSource (sourceHandle h $= XP.parseBytes def)
+    let eSource = if debug then
+                     DCI.ResumableSource (sourceHandle h
+                                          $= debugOut
+                                          $= XP.parseBytes def)
+                                      (return ())
+                  else DCI.ResumableSource (sourceHandle h
+                                          $= XP.parseBytes def)
                                       (return ())
     let hand = Hand { cSend = if debug
                               then \d -> do
@@ -157,6 +163,7 @@ connectTcpRaw host port hostname = do
                     , cRecv = if debug then
                                 \n -> do
                                     bs <- BS.hGetSome h n
+                                    Prelude.putStr "in: "
                                     BS.putStrLn bs
                                     return bs
                               else BS.hGetSome h
@@ -178,7 +185,16 @@ connectTcpRaw host port hostname = do
             , sFrom            = Nothing
             }
     mkConnection con
-
+  where
+    debugOut = do
+        d <- await
+        case d of
+            Nothing -> return ()
+            Just bs -> do
+                liftIO $ BS.putStr "in: "
+                liftIO $ BS.putStrLn bs
+                yield bs
+                debugOut
 
 -- Closes the connection and updates the XmppConMonad Connection_ state.
 killConnection :: Connection -> IO (Either Ex.SomeException ())
@@ -190,7 +206,7 @@ killConnection = withConnection $ do
 
 -- Sends an IQ request and waits for the response. If the response ID does not
 -- match the outgoing ID, an error is thrown.
-pushIQ' :: StanzaId
+pushIQ' :: StanzaID
             -> Maybe Jid
             -> IQRequestType
             -> Maybe LangTag

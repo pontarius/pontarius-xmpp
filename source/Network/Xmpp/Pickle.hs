@@ -8,19 +8,13 @@
 
 
 module Network.Xmpp.Pickle
-    ( mbToBool
-    , xmlLang
+    ( xmlLang
     , xpLangTag
-    , xpNodeElem
-    , ignoreAttrs
-    , mbl
-    , lmb
-    , right
     , unpickleElem'
     , unpickleElem
     , pickleElem
-    , ppElement
-    ) where
+    )
+    where
 
 import Data.XML.Types
 import Data.XML.Pickle
@@ -29,50 +23,23 @@ import Network.Xmpp.Types
 
 import Text.XML.Stream.Elements
 
-mbToBool :: Maybe t -> Bool
-mbToBool (Just _) = True
-mbToBool _ = False
-
 xmlLang :: Name
 xmlLang = Name "lang" (Just "http://www.w3.org/XML/1998/namespace") (Just "xml")
 
 xpLangTag :: PU [Attribute] (Maybe LangTag)
 xpLangTag = xpAttrImplied xmlLang xpPrim
 
-xpNodeElem :: PU [Node] a -> PU Element a
-xpNodeElem xp = PU { pickleTree = \x -> head $ (pickleTree xp x) >>= \y ->
-                      case y of
-                        NodeElement e -> [e]
-                        _ -> []
-             , unpickleTree = \x -> case unpickleTree xp $ [NodeElement x] of
-                        Left l -> Left l
-                        Right (a,(_,c)) -> Right (a,(Nothing,c))
-                   }
-
-ignoreAttrs :: PU t ((), b) -> PU t b
-ignoreAttrs = xpWrap snd ((),)
-
-mbl :: Maybe [a] -> [a]
-mbl (Just l) = l
-mbl Nothing = []
-
-lmb :: [t] -> Maybe [t]
-lmb [] = Nothing
-lmb x = Just x
-
-right :: Either [Char] t -> t
-right (Left l) = error l
-right (Right r) = r
+-- Given a pickler and an element, produces an object.
+unpickleElem :: PU [Node] a -> Element -> Either UnpickleError a
+unpickleElem p x = unpickle p [NodeElement x]
 
 unpickleElem' :: PU [Node] c -> Element -> c
-unpickleElem' p x = case unpickle (xpNodeElem p) x of
+unpickleElem' p x = case unpickleElem p x of
   Left l -> error $ (show l) ++ "\n  saw: " ++ ppElement x
   Right r -> r
 
--- Given a pickler and an element, produces an object.
-unpickleElem :: PU [Node] a -> Element -> Either UnpickleError a
-unpickleElem p x = unpickle (xpNodeElem p) x
-
 -- Given a pickler and an object, produces an Element.
 pickleElem :: PU [Node] a -> a -> Element
-pickleElem p = pickle $ xpNodeElem p
+pickleElem p x = case pickle p x of
+    [NodeElement e] -> e
+    _ -> error "pickleElem: Pickler didn't return a single element."

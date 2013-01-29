@@ -22,7 +22,7 @@ data EventHandlers = EventHandlers
 data Context = Context
     { writeRef :: TMVar (BS.ByteString -> IO Bool)
     , readerThread :: ThreadId
-    , idGenerator :: IO StanzaId
+    , idGenerator :: IO StanzaID
       -- | Lock (used by withConnection) to make sure that a maximum of one
       -- XmppConMonad action is executed at any given time.
     , conRef :: TMVar Connection

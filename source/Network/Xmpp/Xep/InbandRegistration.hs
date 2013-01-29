@@ -22,6 +22,8 @@ import qualified Data.XML.Types as XML
 import           Network.Xmpp.Connection
 import           Network.Xmpp.Pickle
 import           Network.Xmpp.Types
+import           Network.Xmpp.Basic
+import           Network.Xmpp
 import           Network.Xmpp.Xep.ServiceDiscovery
 
 
@@ -34,6 +36,7 @@ ibrName x = (XML.Name x (Just ibrns) Nothing)
 data IbrError = IbrNotSupported
               | IbrNoConnection
               | IbrIQError IQError
+              | IbrTimeout
 
                 deriving (Show)
 instance Error IbrError
@@ -46,30 +49,6 @@ data Query = Query { instructions :: Maybe Text.Text
                    } deriving Show
 
 emptyQuery = Query Nothing False False []
-
--- supported :: XmppConMonad (Either IbrError Bool)
--- supported = runErrorT $ fromFeatures <+> fromDisco
---   where
---   fromFeatures = do
---       fs <- other <$> gets sFeatures
---       let fe = XML.Element
---                    "{http://jabber.org/features/iq-register}register"
---                    []
---                    []
---       return $ fe `elem` fs
---   fromDisco = do
---       hn' <- gets sHostname
---       hn <- case hn' of
---           Just h -> return (Jid Nothing h Nothing)
---           Nothing -> throwError IbrNoConnection
---       qi <- lift $ xmppQueryInfo Nothing Nothing
---       case qi of
---           Left e -> return False
---           Right qir -> return $ "jabber:iq:register" `elem` qiFeatures qir
---   f <+> g = do
---             r <- f
---             if r then return True else g
-
 
 query :: IQRequestType -> Query -> Connection -> IO (Either IbrError Query)
 query queryType x con = do
@@ -85,6 +64,23 @@ query queryType x con = do
         Right _ -> return $ Right emptyQuery -- TODO: That doesn't seem right
         Left e -> return . Left $ IbrIQError e
 
+query' :: IQRequestType -> Query -> Session -> IO (Either IbrError Query)
+query' queryType x con = do
+    answer <- sendIQ' Nothing queryType Nothing (pickleElem xpQuery x) con
+    case answer of
+        IQResponseResult IQResult{iqResultPayload = Just b} ->
+            case unpickleElem xpQuery b of
+                Right query -> return $ Right query
+                Left e -> throw . StreamXMLError $
+                            "RequestField: unpickle failed, got "
+                            ++ Text.unpack (ppUnpickleError e)
+                            ++ " saw " ++ ppElement b
+        IQResponseResult _ -> return $ Right emptyQuery -- TODO: That doesn't
+                                                        -- seem right
+        IQResponseError e -> return . Left $ IbrIQError e
+        IQResponseTimeout -> return . Left $ IbrTimeout
+
+
 data RegisterError = IbrError IbrError
                    | MissingFields   [Field]
                    | AlreadyRegistered
@@ -95,10 +91,10 @@ instance Error RegisterError
 mapError f = mapErrorT (liftM $ left f)
 
 -- | Retrieve the necessary fields and fill them in to register an account with
--- the server
+-- the server.
 registerWith :: [(Field, Text.Text)]
              -> Connection
-             -> IO  (Either RegisterError Query)
+             -> IO (Either RegisterError Query)
 registerWith givenFields con = runErrorT $ do
     fs <- mapError IbrError . ErrorT $ requestFields con
     when (registered fs) . throwError $ AlreadyRegistered
@@ -112,14 +108,30 @@ registerWith givenFields con = runErrorT $ do
     result <- mapError IbrError . ErrorT $ query Set (emptyQuery {fields}) con
     return result
 
+
+
+createAccountWith host hostname port fields = runErrorT $ do
+      con' <- liftIO $ connectTcp host port hostname
+      con <- case con' of
+          Left e -> throwError $ IbrError IbrNoConnection
+          Right r -> return r
+      lift $ startTLS exampleParams con
+      ErrorT $ registerWith fields con
+
+deleteAccount host hostname port username password = do
+    con <- simpleConnect host port hostname username password Nothing
+    unregister' con
+--    endsession con
+
 -- | Terminate your account on the server. You have to be logged in for this to
 -- work. You connection will most likely be terminated after unregistering.
 unregister :: Connection -> IO (Either IbrError Query)
 unregister = query Set $ emptyQuery {remove = True}
 
+unregister' :: Session -> IO (Either IbrError Query)
+unregister' = query' Set $ emptyQuery {remove = True}
+
 requestFields con = runErrorT $ do
---     supp <- ErrorT supported
---    unless supp $ throwError $ IbrNotSupported
     qr <- ErrorT $ query Get emptyQuery con
     return $ qr
 

@@ -87,6 +87,17 @@ connectTcp address port hostname = do
                 XmppStreamError StreamInvalidXml Nothing Nothing
         toError  StreamUnknownError =
                 XmppStreamError StreamBadFormat Nothing Nothing
+        toError (StreamWrongTo _) =
+                XmppStreamError StreamBadFormat Nothing Nothing
+        toError (StreamXMLError _) =
+                XmppStreamError StreamInvalidXml Nothing Nothing
+        toError StreamStreamEnd =
+                XmppStreamError StreamBadFormat Nothing Nothing
+        toError StreamConnectionError =
+                XmppStreamError StreamRemoteConnectionFailed Nothing Nothing
+        toError (StreamError _) =
+                XmppStreamError StreamUndefinedCondition Nothing Nothing
+
 
 
 sessionXML :: Element
