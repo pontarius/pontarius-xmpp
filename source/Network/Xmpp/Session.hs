@@ -11,7 +11,7 @@ import           Network
 import qualified Network.TLS as TLS
 import           Network.Xmpp.Bind
 import           Network.Xmpp.Concurrent.Types
-import           Network.Xmpp.Concurrent.Channels
+import           Network.Xmpp.Concurrent
 import           Network.Xmpp.Connection_
 import           Network.Xmpp.Marshal
 import           Network.Xmpp.Pickle

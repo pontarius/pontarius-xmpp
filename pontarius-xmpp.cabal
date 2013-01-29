@@ -61,12 +61,10 @@ Library
                , Network.Xmpp.Bind
                , Network.Xmpp.Concurrent
                , Network.Xmpp.Concurrent.Types
-               , Network.Xmpp.Concurrent.Channels
-               , Network.Xmpp.Concurrent.Channels.Basic
-               , Network.Xmpp.Concurrent.Channels.IQ
-               , Network.Xmpp.Concurrent.Channels.Message
-               , Network.Xmpp.Concurrent.Channels.Presence
-               , Network.Xmpp.Concurrent.Channels.Types
+               , Network.Xmpp.Concurrent.Basic
+               , Network.Xmpp.Concurrent.IQ
+               , Network.Xmpp.Concurrent.Message
+               , Network.Xmpp.Concurrent.Presence
                , Network.Xmpp.Concurrent.Threads
                , Network.Xmpp.Concurrent.Monad
                , Network.Xmpp.Connection_

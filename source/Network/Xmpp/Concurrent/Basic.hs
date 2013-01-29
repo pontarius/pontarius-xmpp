@@ -1,8 +1,8 @@
 {-# OPTIONS_HADDOCK hide #-}
-module Network.Xmpp.Concurrent.Channels.Basic where
+module Network.Xmpp.Concurrent.Basic where
 
 import Control.Concurrent.STM
-import Network.Xmpp.Concurrent.Channels.Types
+import Network.Xmpp.Concurrent.Types
 import Network.Xmpp.Types
 
 -- | Send a stanza to the server.

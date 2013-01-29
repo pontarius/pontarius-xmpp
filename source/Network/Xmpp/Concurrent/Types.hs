@@ -12,15 +12,34 @@ import           Data.Typeable
 
 import           Network.Xmpp.Types
 
+import           Data.IORef
+import qualified Data.Map as Map
+import           Data.Text (Text)
+
+import           Network.Xmpp.Types
+
 -- | Handlers to be run when the Xmpp session ends and when the Xmpp connection is
 -- closed.
 data EventHandlers = EventHandlers
     { connectionClosedHandler :: StreamFailure -> IO ()
     }
 
--- | Xmpp Context object
-data Context = Context
-    { writeRef :: TMVar (BS.ByteString -> IO Bool)
+-- | Interrupt is used to signal to the reader thread that it should stop. Th contained semphore signals the reader to resume it's work.
+data Interrupt = Interrupt (TMVar ()) deriving Typeable
+instance Show Interrupt where show _ = "<Interrupt>"
+
+instance Ex.Exception Interrupt
+
+
+-- | A concurrent interface to Pontarius XMPP.
+data Session = Session
+    { stanzaCh :: TChan Stanza -- All stanzas
+    , outCh :: TChan Stanza
+    , iqHandlers :: TVar IQHandlers
+      -- Writing lock, so that only one thread could write to the stream at any
+      -- given time.
+      -- Fields below are from Context.
+    , writeRef :: TMVar (BS.ByteString -> IO Bool)
     , readerThread :: ThreadId
     , idGenerator :: IO StanzaId
       -- | Lock (used by withConnection) to make sure that a maximum of one
@@ -30,9 +49,15 @@ data Context = Context
     , stopThreads :: IO ()
     }
 
+-- | IQHandlers holds the registered channels for incomming IQ requests and
+-- TMVars of and TMVars for expected IQ responses
+type IQHandlers = (Map.Map (IQRequestType, Text) (TChan IQRequestTicket)
+                  , Map.Map StanzaId (TMVar IQResponse)
+                  )
 
--- | Interrupt is used to signal to the reader thread that it should stop. Th contained semphore signals the reader to resume it's work.
-data Interrupt = Interrupt (TMVar ()) deriving Typeable
-instance Show Interrupt where show _ = "<Interrupt>"
-
-instance Ex.Exception Interrupt
+-- | Contains whether or not a reply has been sent, and the IQ request body to
+-- reply to.
+data IQRequestTicket = IQRequestTicket
+    { sentRef     :: (TVar Bool)
+    , iqRequestBody :: IQRequest
+    }

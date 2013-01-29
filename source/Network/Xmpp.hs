@@ -152,7 +152,6 @@ import Data.XML.Types (Element)
 import Network
 import Network.Xmpp.Bind
 import Network.Xmpp.Concurrent
-import Network.Xmpp.Concurrent.Channels
 import Network.Xmpp.Concurrent.Types
 import Network.Xmpp.Connection_
 import Network.Xmpp.Marshal
