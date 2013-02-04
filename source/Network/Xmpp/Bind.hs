@@ -1,4 +1,3 @@
-{-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 {-# OPTIONS_HADDOCK hide #-}
@@ -19,6 +18,8 @@ import Control.Monad.State(modify)
 
 import Control.Concurrent.STM.TMVar
 
+import Control.Monad.Error
+
 -- Produces a `bind' element, optionally wrapping a resource.
 bindBody :: Maybe Text -> Element
 bindBody = pickleElem $
@@ -30,16 +31,21 @@ bindBody = pickleElem $
 
 -- Sends a (synchronous) IQ set request for a (`Just') given or server-generated
 -- resource and extract the JID from the non-error response.
-xmppBind  :: Maybe Text -> TMVar Connection -> IO Jid
-xmppBind rsrc c = do
-    answer <- pushIQ' "bind" Nothing Set Nothing (bindBody rsrc) c
-    jid <- case () of () | Right IQResult{iqResultPayload = Just b} <- answer
-                         , Right jid <- unpickleElem xpJid b
-                           -> return jid
-                         | otherwise -> throw StreamOtherFailure
-                                               -- TODO: Log: ("Bind couldn't unpickle JID from " ++ show answer)
-    withConnection (modify $ \s -> s{cJid = Just jid}) c
-    return jid
+xmppBind  :: Maybe Text -> TMVar Connection -> IO (Either XmppFailure Jid)
+xmppBind rsrc c = runErrorT $ do
+    answer <- ErrorT $ pushIQ' "bind" Nothing Set Nothing (bindBody rsrc) c
+    case answer of
+        Right IQResult{iqResultPayload = Just b} -> do
+            let jid = unpickleElem xpJid b
+            case jid of
+                Right jid' -> do
+                    ErrorT $ withConnection (do
+                                      modify $ \s -> s{cJid = Just jid'}
+                                      return $ Right jid') c -- not pretty
+                    return jid'
+                otherwise -> throwError XmppOtherFailure
+                -- TODO: Log: ("Bind couldn't unpickle JID from " ++ show answer)
+        otherwise -> throwError XmppOtherFailure
   where
     -- Extracts the character data in the `jid' element.
     xpJid :: PU [Node] Jid

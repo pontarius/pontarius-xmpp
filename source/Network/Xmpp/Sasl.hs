@@ -42,22 +42,26 @@ import           Control.Concurrent.STM.TMVar
 
 -- | Uses the first supported mechanism to authenticate, if any. Updates the
 -- state with non-password credentials and restarts the stream upon
--- success.
+-- success. Returns `Nothing' on success, an `AuthFailure' if
+-- authentication fails, or an `XmppFailure' if anything else fails.
 xmppSasl :: [SaslHandler] -- ^ Acceptable authentication mechanisms and their
                        -- corresponding handlers
          -> TMVar Connection
-         -> IO (Either AuthFailure ())
+         -> IO (Either XmppFailure (Maybe AuthFailure))
 xmppSasl handlers = withConnection $ do
     -- Chooses the first mechanism that is acceptable by both the client and the
     -- server.
     mechanisms <- gets $ saslMechanisms . cFeatures
     case (filter (\(name, _) -> name `elem` mechanisms)) handlers of
-        [] -> return . Left $ AuthNoAcceptableMechanism mechanisms
-        (_name, handler):_ -> runErrorT $ do
+        [] -> return $ Right $ Just $ AuthNoAcceptableMechanism mechanisms
+        (_name, handler):_ -> do
             cs <- gets cState
             case cs of
-                ConnectionClosed -> throwError AuthConnectionFailure
+                ConnectionClosed -> return . Right $ Just AuthNoConnection
                 _ -> do
-                    r <- handler
-                    _ <- ErrorT $ left AuthStreamFailure <$> restartStream
-                    return r
+                       r <- runErrorT handler
+                       case r of
+                           Left ae -> return $ Right $ Just ae
+                           Right a -> do
+                               _ <- runErrorT $ ErrorT restartStream
+                               return $ Right $ Nothing

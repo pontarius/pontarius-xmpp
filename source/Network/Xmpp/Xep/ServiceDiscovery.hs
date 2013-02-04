@@ -33,7 +33,7 @@ import           Network.Xmpp.Types
 import           Control.Concurrent.STM.TMVar
 
 data DiscoError = DiscoNoQueryElement
-                | DiscoIQError IQError
+                | DiscoIQError (Maybe IQError)
                 | DiscoTimeout
                 | DiscoXmlError Element UnpickleError
 
@@ -92,7 +92,7 @@ queryInfo :: Jid -- ^ Entity to query
 queryInfo to node context = do
     res <- sendIQ' (Just to) Get Nothing queryBody context
     return $ case res of
-        IQResponseError e -> Left $ DiscoIQError e
+        IQResponseError e -> Left $ DiscoIQError (Just e)
         IQResponseTimeout -> Left $ DiscoTimeout
         IQResponseResult r -> case iqResultPayload r of
             Nothing -> Left DiscoNoQueryElement
@@ -110,12 +110,14 @@ xmppQueryInfo :: Maybe Jid
 xmppQueryInfo to node con = do
     res <- pushIQ' "info" to Get Nothing queryBody con
     return $ case res of
-        Left e -> Left $ DiscoIQError e
-        Right r -> case iqResultPayload r of
-            Nothing -> Left DiscoNoQueryElement
-            Just p -> case unpickleElem xpQueryInfo p of
-                Left e -> Left $ DiscoXmlError p e
-                Right r -> Right r
+        Left e -> Left $ DiscoIQError Nothing
+        Right res' -> case res' of
+            Left e -> Left $ DiscoIQError (Just e)
+            Right r -> case iqResultPayload r of
+                Nothing -> Left DiscoNoQueryElement
+                Just p -> case unpickleElem xpQueryInfo p of
+                    Left e -> Left $ DiscoXmlError p e
+                    Right r -> Right r
   where
     queryBody = pickleElem xpQueryInfo (QIR node [] [])
 
@@ -156,7 +158,7 @@ queryItems :: Jid -- ^ Entity to query
 queryItems to node session = do
     res <- sendIQ' (Just to) Get Nothing queryBody session
     return $ case res of
-        IQResponseError e -> Left $ DiscoIQError e
+        IQResponseError e -> Left $ DiscoIQError (Just e)
         IQResponseTimeout -> Left $ DiscoTimeout
         IQResponseResult r -> case iqResultPayload r of
             Nothing -> Left DiscoNoQueryElement

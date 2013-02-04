@@ -21,7 +21,7 @@ import           Network.Xmpp.Types
 -- | Handlers to be run when the Xmpp session ends and when the Xmpp connection is
 -- closed.
 data EventHandlers = EventHandlers
-    { connectionClosedHandler :: StreamFailure -> IO ()
+    { connectionClosedHandler :: XmppFailure -> IO ()
     }
 
 -- | Interrupt is used to signal to the reader thread that it should stop. Th contained semphore signals the reader to resume it's work.

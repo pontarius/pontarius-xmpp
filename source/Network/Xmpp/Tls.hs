@@ -76,7 +76,7 @@ exampleParams = TLS.defaultParamsClient
 
 -- Pushes "<starttls/>, waits for "<proceed/>", performs the TLS handshake, and
 -- restarts the stream.
-startTls :: TLS.TLSParams -> TMVar Connection -> IO (Either TlsFailure ())
+startTls :: TLS.TLSParams -> TMVar Connection -> IO (Either XmppFailure ())
 startTls params con = Ex.handle (return . Left . TlsError)
                       . flip withConnection con
                       . runErrorT $ do
@@ -84,19 +84,16 @@ startTls params con = Ex.handle (return . Left . TlsError)
     state <- gets cState
     case state of
         ConnectionPlain -> return ()
-        ConnectionClosed -> throwError TlsNoConnection
+        ConnectionClosed -> throwError XmppNoConnection
         ConnectionSecured -> throwError TlsConnectionSecured
     con <- lift $ gets cHandle
     when (stls features == Nothing) $ throwError TlsNoServerSupport
     lift $ pushElement starttlsE
     answer <- lift $ pullElement
     case answer of
-        Element "{urn:ietf:params:xml:ns:xmpp-tls}proceed" [] [] -> return ()
-        Element "{urn:ietf:params:xml:ns:xmpp-tls}failure" _ _ ->
-            lift $ Ex.throwIO StreamOtherFailure
-            -- TODO: find something more suitable
-        e -> lift $ Ex.throwIO StreamOtherFailure
-            -- TODO: Log: "Unexpected element: " ++ ppElement e
+        Left e -> return $ Left e
+        Right (Element "{urn:ietf:params:xml:ns:xmpp-tls}proceed" [] []) -> return $ Right ()
+        Right (Element "{urn:ietf:params:xml:ns:xmpp-tls}failure" _ _) -> return $ Left XmppOtherFailure
     (raw, _snk, psh, read, ctx) <- lift $ TLS.tlsinit debug params (mkBackend con)
     let newHand = ConnectionHandle { cSend = catchPush . psh
                                    , cRecv = read

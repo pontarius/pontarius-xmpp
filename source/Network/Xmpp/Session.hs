@@ -40,25 +40,29 @@ session :: HostName                          -- ^ Host to connect to
         -> Maybe ([SaslHandler], Maybe Text) -- ^ SASL handlers and the desired
                                              -- JID resource (or Nothing to let
                                              -- the server decide)
-        -> IO Session -- TODO: ErrorT
-session hostname realm port tls sasl = do
-    con' <- connect hostname port realm
-    con <- case con' of
-        Left e -> Ex.throwIO e
-        Right c -> return c
-    if isJust tls then startTls (fromJust tls) con >> return () else return () -- TODO: Eats TlsFailure
-    saslResponse <- if isJust sasl then auth (fst $ fromJust sasl) (snd $ fromJust sasl) con >> return () else return () -- TODO: Eats AuthFailure
-    newSession con
-
+        -> IO (Either XmppFailure (Session, Maybe AuthFailure))
+session hostname realm port tls sasl = runErrorT $ do
+    con <- ErrorT $ connect hostname port realm
+    if isJust tls
+        then ErrorT $ startTls (fromJust tls) con
+        else return ()
+    aut <- if isJust sasl
+               then ErrorT $ auth (fst $ fromJust sasl) (snd $ fromJust sasl) con
+               else return Nothing
+    ses <- ErrorT $ newSession con
+    return (ses, aut)
+    
 -- | Connects to the XMPP server and opens the XMPP stream against the given
 -- host name, port, and realm.
-connect :: HostName -> PortID -> Text -> IO (Either StreamFailure (TMVar Connection))
+connect :: HostName -> PortID -> Text -> IO (Either XmppFailure (TMVar Connection))
 connect address port hostname = do
     con <- connectTcp address port hostname
-    result <- withConnection startStream con
-    case result of
-        Left e -> return $ Left e -- TODO
-        Right () -> return $ Right con
+    case con of
+        Right con' -> do
+            result <- withConnection startStream con'
+            return $ Right con'
+        Left e -> do
+            return $ Left e
 
 sessionXml :: Element
 sessionXml = pickleElem
@@ -88,12 +92,12 @@ startSession con = do
 auth :: [SaslHandler]
      -> Maybe Text
      -> TMVar Connection
-     -> IO (Either AuthFailure Jid)
+     -> IO (Either XmppFailure (Maybe AuthFailure))
 auth mechanisms resource con = runErrorT $ do
     ErrorT $ xmppSasl mechanisms con
     jid <- lift $ xmppBind resource con
     lift $ startSession con
-    return jid
+    return Nothing
 
 -- | Authenticate to the server with the given username and password
 -- and bind a resource.
@@ -104,7 +108,7 @@ simpleAuth  :: Text.Text  -- ^ The username
             -> Maybe Text -- ^ The desired resource or 'Nothing' to let the
                           -- server assign one
             -> TMVar Connection
-            -> IO (Either AuthFailure Jid)
+            -> IO (Either XmppFailure (Maybe AuthFailure))
 simpleAuth username passwd resource = flip auth resource $
         [ -- TODO: scramSha1Plus
           scramSha1 username Nothing passwd

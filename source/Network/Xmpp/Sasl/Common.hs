@@ -107,16 +107,21 @@ quote :: BS.ByteString -> BS.ByteString
 quote x = BS.concat ["\"",x,"\""]
 
 saslInit :: Text.Text -> Maybe BS.ByteString -> SaslM Bool
-saslInit mechanism payload = lift . pushElement . saslInitE mechanism $
-                               Text.decodeUtf8 . B64.encode <$> payload
+saslInit mechanism payload = do
+    r <- lift . pushElement . saslInitE mechanism $
+        Text.decodeUtf8 . B64.encode <$> payload
+    case r of
+        Left e -> throwError $ AuthStreamFailure e
+        Right b -> return b
 
 -- | Pull the next element.
 pullSaslElement :: SaslM SaslElement
 pullSaslElement = do
-    el <- lift $ pullUnpickle (xpEither xpFailure xpSaslElement)
-    case el of
-        Left e ->throwError $ AuthSaslFailure e
-        Right r -> return r
+    r <- lift $ pullUnpickle (xpEither xpFailure xpSaslElement)
+    case r of
+        Left e -> throwError $ AuthStreamFailure e
+        Right (Left e) -> throwError $ AuthSaslFailure e
+        Right (Right r) -> return r
 
 -- | Pull the next element, checking that it is a challenge.
 pullChallenge :: SaslM (Maybe BS.ByteString)
@@ -167,8 +172,11 @@ toPairs ctext = case pairs ctext of
 
 -- | Send a SASL response element. The content will be base64-encoded.
 respond :: Maybe BS.ByteString -> SaslM Bool
-respond = lift . pushElement . saslResponseE .
-    fmap (Text.decodeUtf8 . B64.encode)
+respond m = do
+    r <- lift . pushElement . saslResponseE . fmap (Text.decodeUtf8 . B64.encode) $ m
+    case r of
+        Left e -> throwError $ AuthStreamFailure e
+        Right b -> return b
 
 
 -- | Run the appropriate stringprep profiles on the credentials.

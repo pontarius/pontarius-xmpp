@@ -48,10 +48,7 @@ xmppDigestMd5 ::  Text -- ^ Authentication identity (authzid or username)
 xmppDigestMd5 authcid authzid password = do
     (ac, az, pw) <- prepCredentials authcid authzid password
     hn <- gets cHostName
-    case hn of
-        Just hn' -> do
-            xmppDigestMd5' hn' ac az pw
-        Nothing -> throwError AuthConnectionFailure
+    xmppDigestMd5' (fromJust hn) ac az pw
   where
     xmppDigestMd5' :: Text -> Text -> Maybe Text -> Text -> SaslM ()
     xmppDigestMd5' hostname authcid authzid password = do

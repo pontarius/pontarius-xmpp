@@ -139,11 +139,16 @@ module Network.Xmpp
   , LangTag(..)
   , exampleParams
   , PortID(..)
-  , StreamFailure(..)
+  , XmppFailure(..)
   , StreamErrorInfo(..)
   , StreamErrorCondition(..)
-  , TlsFailure(..)
-  , AuthFailure(..)
+  , AuthFailure( AuthXmlFailure -- Does not export AuthStreamFailure
+               , AuthNoAcceptableMechanism
+               , AuthChallengeFailure
+               , AuthNoConnection
+               , AuthFailure
+               , AuthSaslFailure
+               , AuthStringPrepFailure )
 
   ) where
 

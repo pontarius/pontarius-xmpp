@@ -36,12 +36,12 @@ streamUnpickleElem :: PU [Node] a
                    -> StreamSink a
 streamUnpickleElem p x = do
     case unpickleElem p x of
-        Left l -> throwError $ StreamOtherFailure -- TODO: Log: StreamXmlError (show l)
+        Left l -> throwError $ XmppOtherFailure -- TODO: Log: StreamXmlError (show l)
         Right r -> return r
 
 -- This is the conduit sink that handles the stream XML events. We extend it
 -- with ErrorT capabilities.
-type StreamSink a = ErrorT StreamFailure (Pipe Event Event Void () IO) a
+type StreamSink a = ErrorT XmppFailure (Pipe Event Event Void () IO) a
 
 -- Discards all events before the first EventBeginElement.
 throwOutJunk :: Monad m => Sink Event m ()
@@ -59,13 +59,13 @@ openElementFromEvents = do
     hd <- lift CL.head
     case hd of
         Just (EventBeginElement name attrs) -> return $ Element name attrs []
-        _ -> throwError $ StreamOtherFailure
+        _ -> throwError $ XmppOtherFailure
 
 -- Sends the initial stream:stream element and pulls the server features. If the
 -- server responds in a way that is invalid, an appropriate stream error will be
--- generated, the connection to the server will be closed, and a StreamFilure
+-- generated, the connection to the server will be closed, and a XmppFailure
 -- will be produced.
-startStream :: StateT Connection IO (Either StreamFailure ())
+startStream :: StateT Connection IO (Either XmppFailure ())
 startStream = runErrorT $ do
     state <- lift $ get
     con <- liftIO $ mkConnection state
@@ -76,7 +76,7 @@ startStream = runErrorT $ do
                                         then cJid state else Nothing
                  ConnectionSecured -> cJid state
     case cHostName state of
-        Nothing -> throwError StreamOtherFailure -- TODO: When does this happen?
+        Nothing -> throwError XmppOtherFailure -- TODO: When does this happen?
         Just hostname -> lift $ do
             pushXmlDecl
             pushOpenElement $
@@ -88,8 +88,9 @@ startStream = runErrorT $ do
                                     )
     response <- ErrorT $ runEventsSink $ runErrorT $ streamS expectedTo
     case response of
+      Left e -> throwError e
       -- Successful unpickling of stream element.
-      Right (ver, from, to, id, lt, features)
+      Right (Right (ver, from, to, id, lt, features))
         | (unpack ver) /= "1.0" ->
             closeStreamWithError con StreamUnsupportedVersion Nothing
         | lt == Nothing ->
@@ -107,7 +108,7 @@ startStream = runErrorT $ do
                          } )
             return ()
       -- Unpickling failed - we investigate the element.
-      Left (Element name attrs children)
+      Right (Left (Element name attrs children))
         | (nameLocalName name /= "stream") ->
             closeStreamWithError con StreamInvalidXml Nothing
         | (nameNamespace name /= Just "http://etherx.jabber.org/streams") ->
@@ -117,13 +118,13 @@ startStream = runErrorT $ do
         | otherwise -> ErrorT $ checkchildren con (flattenAttrs attrs)
   where
     -- closeStreamWithError :: MonadIO m => TMVar Connection -> StreamErrorCondition ->
-    --                         Maybe Element -> ErrorT StreamFailure m ()
+    --                         Maybe Element -> ErrorT XmppFailure m ()
     closeStreamWithError con sec el = do
         liftIO $ do
             withConnection (pushElement . pickleElem xpStreamError $
                                 StreamErrorInfo sec Nothing el) con
             closeStreams con
-        throwError StreamOtherFailure
+        throwError XmppOtherFailure
     checkchildren con children =
         let to'  = lookup "to"      children
             ver' = lookup "version" children
@@ -156,7 +157,7 @@ flattenAttrs attrs = Prelude.map (\(name, content) ->
 
 -- Sets a new Event source using the raw source (of bytes)
 -- and calls xmppStartStream.
-restartStream :: StateT Connection IO (Either StreamFailure ())
+restartStream :: StateT Connection IO (Either XmppFailure ())
 restartStream = do
     raw <- gets (cRecv . cHandle)
     let newSource = DCI.ResumableSource (loopRead raw $= XP.parseBytes def)
@@ -172,7 +173,7 @@ restartStream = do
 
 -- Reads the (partial) stream:stream and the server features from the stream.
 -- Returns the (unvalidated) stream attributes, the unparsed element, or
--- throwError throws a `StreamOtherFailure' (if something other than an element
+-- throwError throws a `XmppOtherFailure' (if something other than an element
 -- was encountered at first, or if something other than stream features was
 -- encountered second).
 -- TODO: from.
@@ -195,7 +196,7 @@ streamS expectedTo = do
         lift throwOutJunk
         -- Get the stream:stream element (or whatever it is) from the server,
         -- and validate what we get.
-        el <- openElementFromEvents -- May throw `StreamOtherFailure' if an
+        el <- openElementFromEvents -- May throw `XmppOtherFailure' if an
                                     -- element is not received
         case unpickleElem xpStream el of
             Left _ -> return $ Left el
@@ -204,7 +205,7 @@ streamS expectedTo = do
     xmppStreamFeatures = do
         e <- lift $ elements =$ CL.head
         case e of
-            Nothing -> throwError StreamOtherFailure
+            Nothing -> throwError XmppOtherFailure
             Just r -> streamUnpickleElem xpStreamFeatures r
 
 

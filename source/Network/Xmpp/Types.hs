@@ -28,7 +28,7 @@ module Network.Xmpp.Types
     , StanzaErrorCondition(..)
     , StanzaErrorType(..)
     , StanzaId(..)
-    , StreamFailure(..)
+    , XmppFailure(..)
     , StreamErrorCondition(..)
     , Version(..)
     , ConnectionHandle(..)
@@ -39,7 +39,6 @@ module Network.Xmpp.Types
     , ConnectionState(..)
     , StreamErrorInfo(..)
     , langTag
-    , TlsFailure(..)
     , module Network.Xmpp.Jid
     )
        where
@@ -629,17 +628,32 @@ data StreamErrorInfo = StreamErrorInfo
 
 -- | Signals an XMPP stream error or another unpredicted stream-related
 -- situation.
-data StreamFailure = StreamErrorFailure StreamErrorInfo -- ^ An error XML stream
+data XmppFailure = StreamErrorFailure StreamErrorInfo -- ^ An error XML stream
                                                         -- element has been
                                                         -- encountered.
-                   | StreamEndFailure -- ^ The server has closed the stream.
-                   | StreamOtherFailure -- ^ Undefined condition. More
-                                        -- information should be available in
-                                        -- the log.
-                   deriving (Show, Eq, Typeable)
+                 | StreamEndFailure -- ^ The stream has been closed.
+                                    -- This exception is caught by the
+                                    -- concurrent implementation, and
+                                    -- will thus not be visible
+                                    -- through use of 'Session'.
+                 | StreamCloseError ([Element], XmppFailure) -- ^ When an XmppFailure
+                                              -- is encountered in
+                                              -- closeStreams, this
+                                              -- constructor wraps the
+                                              -- elements collected so
+                                              -- far.
+                 | TlsError TLS.TLSError
+                 | TlsNoServerSupport
+                 | XmppNoConnection
+                 | TlsConnectionSecured -- ^ Connection already secured
+                 | XmppOtherFailure -- ^ Undefined condition. More
+                                    -- information should be available
+                                    -- in the log.
+                 | XmppIOException IOException
+                 deriving (Show, Eq, Typeable)
 
-instance Exception StreamFailure
-instance Error StreamFailure where noMsg = StreamOtherFailure
+instance Exception XmppFailure
+instance Error XmppFailure where noMsg = XmppOtherFailure
 
 -- =============================================================================
 --  XML TYPES
@@ -781,7 +795,7 @@ data Connection = Connection
                              -- element's `from' attribute.
     }
 
-withConnection :: StateT Connection IO c -> TMVar Connection -> IO c
+withConnection :: StateT Connection IO (Either XmppFailure c) -> TMVar Connection -> IO (Either XmppFailure c)
 withConnection action con = bracketOnError
                                          (atomically $ takeTMVar con)
                                          (atomically . putTMVar con )
@@ -792,7 +806,7 @@ withConnection action con = bracketOnError
                                          )
 
 -- nonblocking version. Changes to the connection are ignored!
-withConnection' :: StateT Connection IO b -> TMVar Connection -> IO b
+withConnection' :: StateT Connection IO (Either XmppFailure b) -> TMVar Connection -> IO (Either XmppFailure b)
 withConnection' action con = do
     con_ <- atomically $ readTMVar con
     (r, _) <- runStateT action con_
@@ -801,16 +815,3 @@ withConnection' action con = do
 
 mkConnection :: Connection -> IO (TMVar Connection)
 mkConnection con = {- Connection `fmap` -} (atomically $ newTMVar con)
-
-
--- | Failure conditions that may arise during TLS negotiation.
-data TlsFailure = TlsError TLS.TLSError
-                | TlsNoServerSupport
-                | TlsNoConnection
-                | TlsConnectionSecured -- ^ Connection already secured
-                | TlsStreamError StreamFailure
-                | TlsFailureError -- General instance used for the Error instance (TODO)
-                deriving (Show, Eq, Typeable)
-
-instance Error TlsFailure where
-  noMsg = TlsFailureError

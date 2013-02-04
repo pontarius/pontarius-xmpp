@@ -35,6 +35,8 @@ import           Network.Xmpp.Pickle
 import           Network.Xmpp.Types
 import           Text.Xml.Stream.Elements
 
+import           Control.Monad.Error
+
 toChans :: TChan Stanza
         -> TVar IQHandlers
         -> Stanza
@@ -72,16 +74,16 @@ toChans stanzaC iqHands sta = atomically $ do
 
 
 -- | Creates and initializes a new Xmpp context.
-newSession :: TMVar Connection -> IO Session
-newSession con = do
-    outC <- newTChanIO
-    stanzaChan <- newTChanIO
-    iqHandlers <- newTVarIO (Map.empty, Map.empty)
-    eh <- newTVarIO $ EventHandlers { connectionClosedHandler = \_ -> return () }
+newSession :: TMVar Connection -> IO (Either XmppFailure Session)
+newSession con = runErrorT $ do
+    outC <- lift newTChanIO
+    stanzaChan <- lift newTChanIO
+    iqHandlers <- lift $ newTVarIO (Map.empty, Map.empty)
+    eh <- lift $ newTVarIO $ EventHandlers { connectionClosedHandler = \_ -> return () }
     let stanzaHandler = toChans stanzaChan iqHandlers
-    (kill, wLock, conState, readerThread) <- startThreadsWith stanzaHandler eh con
-    writer <- forkIO $ writeWorker outC wLock
-    idRef <- newTVarIO 1
+    (kill, wLock, conState, readerThread) <- ErrorT $ startThreadsWith stanzaHandler eh con
+    writer <- lift $ forkIO $ writeWorker outC wLock
+    idRef <- lift $ newTVarIO 1
     let getId = atomically $ do
             curId <- readTVar idRef
             writeTVar idRef (curId + 1 :: Integer)

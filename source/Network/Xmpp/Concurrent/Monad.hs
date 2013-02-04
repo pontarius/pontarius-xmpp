@@ -71,7 +71,7 @@ modifyHandlers f session = atomically $ modifyTVar (eventHandlers session) f
       writeTVar var (f x)
 
 -- | Sets the handler to be executed when the server connection is closed.
-setConnectionClosedHandler_ :: (StreamFailure -> Session -> IO ()) -> Session -> IO ()
+setConnectionClosedHandler_ :: (XmppFailure -> Session -> IO ()) -> Session -> IO ()
 setConnectionClosedHandler_ eh session = do
     modifyHandlers (\s -> s{connectionClosedHandler =
                                  \e -> eh e session}) session

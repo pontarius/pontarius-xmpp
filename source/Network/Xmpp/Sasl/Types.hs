@@ -13,9 +13,9 @@ data AuthFailure = AuthXmlFailure
                | AuthChallengeFailure
                | AuthServerAuthFailure -- ^ The server failed to authenticate
                                      -- itself
-               | AuthStreamFailure StreamFailure -- ^ Stream error on stream restart
+               | AuthStreamFailure XmppFailure -- ^ Stream error on stream restart
                -- TODO: Rename AuthConnectionFailure?
-               | AuthConnectionFailure -- ^ Connection is closed
+               | AuthNoConnection
                | AuthFailure -- General instance used for the Error instance
                | AuthSaslFailure SaslFailure -- ^ Defined SASL error condition
                | AuthStringPrepFailure -- ^ StringPrep failed

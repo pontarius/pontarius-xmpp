@@ -22,10 +22,12 @@ import           Control.Concurrent.STM.TMVar
 
 import           GHC.IO (unsafeUnmask)
 
+import           Control.Monad.Error
+
 -- Worker to read stanzas from the stream and concurrently distribute them to
 -- all listener threads.
 readWorker :: (Stanza -> IO ())
-           -> (StreamFailure -> IO ())
+           -> (XmppFailure -> IO ())
            -> TMVar (TMVar Connection)
            -> IO a
 readWorker onStanza onConnectionClosed stateRef =
@@ -45,13 +47,14 @@ readWorker onStanza onConnectionClosed stateRef =
                    [ Ex.Handler $ \(Interrupt t) -> do
                          void $ handleInterrupts [t]
                          return Nothing
-                   , Ex.Handler $ \(e :: StreamFailure) -> do
+                   , Ex.Handler $ \(e :: XmppFailure) -> do
                          onConnectionClosed e
                          return Nothing
                    ]
         case res of
-              Nothing -> return () -- Caught an exception, nothing to do
-              Just sta -> onStanza sta
+              Nothing -> return () -- Caught an exception, nothing to do. TODO: Can this happen?
+              Just (Left e) -> return ()
+              Just (Right sta) -> onStanza sta
   where
     -- Defining an Control.Exception.allowInterrupt equivalent for GHC 7
     -- compatibility.
@@ -75,30 +78,32 @@ readWorker onStanza onConnectionClosed stateRef =
 startThreadsWith :: (Stanza -> IO ())
                  -> TVar EventHandlers
                  -> TMVar Connection
-                 -> IO
-                 (IO (),
+                 -> IO (Either XmppFailure (IO (),
                   TMVar (BS.ByteString -> IO Bool),
                   TMVar (TMVar Connection),
-                  ThreadId)
+                  ThreadId))
 startThreadsWith stanzaHandler eh con = do
-    read <- withConnection' (gets $ cSend. cHandle) con
-    writeLock <- newTMVarIO read
-    conS <- newTMVarIO con
---    lw <- forkIO $ writeWorker outC writeLock
-    cp <- forkIO $ connPersist writeLock
-    rd <- forkIO $ readWorker stanzaHandler (noCon eh) conS
-    return ( killConnection writeLock [rd, cp]
-           , writeLock
-           , conS
-           , rd
-           )
+    read <- withConnection' (gets $ cSend . cHandle >>= \d -> return $ Right d) con
+    case read of
+        Left e -> return $ Left e
+        Right read' -> do
+          writeLock <- newTMVarIO read'
+          conS <- newTMVarIO con
+          --    lw <- forkIO $ writeWorker outC writeLock
+          cp <- forkIO $ connPersist writeLock
+          rd <- forkIO $ readWorker stanzaHandler (noCon eh) conS
+          return $ Right ( killConnection writeLock [rd, cp]
+                         , writeLock
+                         , conS
+                         , rd
+                         )
   where
     killConnection writeLock threads = liftIO $ do
         _ <- atomically $ takeTMVar writeLock -- Should we put it back?
         _ <- forM threads killThread
         return ()
     -- Call the connection closed handlers.
-    noCon :: TVar EventHandlers -> StreamFailure -> IO ()
+    noCon :: TVar EventHandlers -> XmppFailure -> IO ()
     noCon h e = do
         hands <- atomically $ readTVar h
         _ <- forkIO $ connectionClosedHandler hands e
