@@ -35,9 +35,7 @@ module Network.Xmpp.Connection
        where
 
 import Network.Xmpp.Connection_
-import Network.Xmpp.Sasl
 import Network.Xmpp.Session
-import Network.Xmpp.Stream
 import Network.Xmpp.Tls
 import Network.Xmpp.Types
 import Network.Xmpp.Concurrent

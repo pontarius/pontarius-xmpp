@@ -152,19 +152,12 @@ module Network.Xmpp
 
   ) where
 
-import Data.XML.Types (Element)
-
 import Network
-import Network.Xmpp.Bind
 import Network.Xmpp.Concurrent
-import Network.Xmpp.Concurrent.Types
-import Network.Xmpp.Connection_
-import Network.Xmpp.Marshal
 import Network.Xmpp.Message
 import Network.Xmpp.Presence
 import Network.Xmpp.Sasl
 import Network.Xmpp.Sasl.Types
 import Network.Xmpp.Session
-import Network.Xmpp.Stream
 import Network.Xmpp.Tls
 import Network.Xmpp.Types
