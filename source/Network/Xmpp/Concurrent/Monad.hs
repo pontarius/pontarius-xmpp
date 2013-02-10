@@ -9,7 +9,7 @@ import qualified Control.Exception.Lifted as Ex
 import           Control.Monad.Reader
 
 import           Network.Xmpp.Concurrent.Types
-import           Network.Xmpp.Connection_
+import           Network.Xmpp.Connection
 
 
 

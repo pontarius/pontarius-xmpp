@@ -1,14 +1,17 @@
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
+
 {-# OPTIONS_HADDOCK hide #-}
 
-{-# LANGUAGE OverloadedStrings #-}
-
-module Network.Xmpp.Utilities (idGenerator) where
+module Network.Xmpp.Utilities (idGenerator, presTo, message, answerMessage) where
 
 import Network.Xmpp.Types
 
 import Control.Monad.STM
 import Control.Concurrent.STM.TVar
 import Prelude
+
+import Data.XML.Types
 
 import qualified Data.Attoparsec.Text as AP
 import qualified Data.Text as Text
@@ -52,3 +55,29 @@ idGenerator prefix = atomically $ do
 -- Constructs a "Version" based on the major and minor version numbers.
 versionFromNumbers :: Integer -> Integer -> Version
 versionFromNumbers major minor = Version major minor
+
+-- | Add a recipient to a presence notification.
+presTo :: Presence -> Jid -> Presence
+presTo pres to = pres{presenceTo = Just to}
+
+-- | An empty message.
+message :: Message
+message = Message { messageID      = Nothing
+                  , messageFrom    = Nothing
+                  , messageTo      = Nothing
+                  , messageLangTag = Nothing
+                  , messageType    = Normal
+                  , messagePayload = []
+                  }
+
+-- Produce an answer message with the given payload, switching the "from" and
+-- "to" attributes in the original message.
+answerMessage :: Message -> [Element] -> Maybe Message
+answerMessage Message{messageFrom = Just frm, ..} payload =
+    Just Message{ messageFrom    = messageTo
+                , messageID      = Nothing
+                , messageTo      = Just frm
+                , messagePayload = payload
+                , ..
+                }
+answerMessage _ _ = Nothing

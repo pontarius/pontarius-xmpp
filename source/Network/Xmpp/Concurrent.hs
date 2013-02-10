@@ -11,6 +11,7 @@ module Network.Xmpp.Concurrent
   , toChans
   , newSession
   , writeWorker
+  , session
   ) where
 
 import           Network.Xmpp.Concurrent.Monad
@@ -31,9 +32,17 @@ import           Network.Xmpp.Concurrent.Presence
 import           Network.Xmpp.Concurrent.Types
 import           Network.Xmpp.Concurrent.Threads
 import           Network.Xmpp.Marshal
-import           Network.Xmpp.Pickle
 import           Network.Xmpp.Types
 import           Text.Xml.Stream.Elements
+import           Network
+import           Data.Text as Text
+import           Network.Xmpp.Tls
+import qualified Network.TLS as TLS
+import           Network.Xmpp.Sasl
+import           Network.Xmpp.Sasl.Mechanisms
+import           Network.Xmpp.Sasl.Types
+import           Data.Maybe
+import           Network.Xmpp.Stream
 
 import           Control.Monad.Error
 
@@ -111,3 +120,31 @@ writeWorker stCh writeR = forever $ do
         atomically $ unGetTChan stCh next -- If the writing failed, the
                                           -- connection is dead.
         threadDelay 250000 -- Avoid free spinning.
+
+-- | Creates a 'Session' object by setting up a connection with an XMPP server.
+-- 
+-- Will connect to the specified host. If the fourth parameters is a 'Just'
+-- value, @session@ will attempt to secure the connection with TLS. If the fifth
+-- parameters is a 'Just' value, @session@ will attempt to authenticate and
+-- acquire an XMPP resource.
+session :: HostName                          -- ^ Host to connect to
+        -> Text                              -- ^ The realm host name (to
+                                             -- distinguish the XMPP service)
+        -> PortID                            -- ^ Port to connect to
+        -> Maybe TLS.TLSParams               -- ^ TLS settings, if securing the
+                                             -- connection to the server is
+                                             -- desired
+        -> Maybe ([SaslHandler], Maybe Text) -- ^ SASL handlers and the desired
+                                             -- JID resource (or Nothing to let
+                                             -- the server decide)
+        -> IO (Either XmppFailure (Session, Maybe AuthFailure))
+session hostname realm port tls sasl = runErrorT $ do
+    con <- ErrorT $ connect hostname port realm
+    if isJust tls
+        then ErrorT $ startTls (fromJust tls) con
+        else return ()
+    aut <- if isJust sasl
+               then ErrorT $ auth (fst $ fromJust sasl) (snd $ fromJust sasl) con
+               else return Nothing
+    ses <- ErrorT $ newSession con
+    return (ses, aut)

@@ -11,7 +11,6 @@ module Network.Xmpp.Marshal where
 import Data.XML.Pickle
 import Data.XML.Types
 
-import Network.Xmpp.Pickle
 import Network.Xmpp.Types
 
 xpStreamStanza :: PU [Node] (Either StreamErrorInfo Stanza)
@@ -207,3 +206,35 @@ xpStreamError = xpWrap
               (xpOption xpElemVerbatim) -- Application specific error conditions
          )
     )
+
+xpLangTag :: PU [Attribute] (Maybe LangTag)
+xpLangTag = xpAttrImplied xmlLang xpPrim
+
+xmlLang :: Name
+xmlLang = Name "lang" (Just "http://www.w3.org/XML/1998/namespace") (Just "xml")
+
+-- Given a pickler and an object, produces an Element.
+pickleElem :: PU [Node] a -> a -> Element
+pickleElem p = pickle $ xpNodeElem p
+
+-- Given a pickler and an element, produces an object.
+unpickleElem :: PU [Node] a -> Element -> Either UnpickleError a
+unpickleElem p x = unpickle (xpNodeElem p) x
+
+xpNodeElem :: PU [Node] a -> PU Element a
+xpNodeElem xp = PU { pickleTree = \x -> head $ (pickleTree xp x) >>= \y ->
+                      case y of
+                        NodeElement e -> [e]
+                        _ -> []
+             , unpickleTree = \x -> case unpickleTree xp $ [NodeElement x] of
+                        Left l -> Left l
+                        Right (a,(_,c)) -> Right (a,(Nothing,c))
+                   }
+
+mbl :: Maybe [a] -> [a]
+mbl (Just l) = l
+mbl Nothing = []
+
+lmb :: [t] -> Maybe [t]
+lmb [] = Nothing
+lmb x = Just x

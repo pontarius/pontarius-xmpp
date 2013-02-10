@@ -16,7 +16,7 @@ import           Control.Monad.State.Strict
 
 import qualified Data.ByteString as BS
 import           Network.Xmpp.Concurrent.Types
-import           Network.Xmpp.Connection_
+import           Network.Xmpp.Connection
 
 import           Control.Concurrent.STM.TMVar
 

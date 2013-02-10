@@ -20,13 +20,15 @@ import           Data.Void (Void)
 import           Data.XML.Pickle
 import           Data.XML.Types
 
-import           Network.Xmpp.Connection_
-import           Network.Xmpp.Pickle
+import           Network.Xmpp.Connection
 import           Network.Xmpp.Types
 import           Network.Xmpp.Marshal
 
 import           Text.Xml.Stream.Elements
 import           Text.XML.Stream.Parse as XP
+
+import Network
+import Control.Concurrent.STM
 
 -- import Text.XML.Stream.Elements
 
@@ -246,3 +248,15 @@ xpStreamFeatures = xpWrap
         "{urn:ietf:params:xml:ns:xmpp-sasl}mechanisms"
         (xpAll $ xpElemNodes
              "{urn:ietf:params:xml:ns:xmpp-sasl}mechanism" (xpContent xpId))
+
+-- | Connects to the XMPP server and opens the XMPP stream against the given
+-- host name, port, and realm.
+connect :: HostName -> PortID -> Text -> IO (Either XmppFailure (TMVar Connection))
+connect address port hostname = do
+    con <- connectTcp address port hostname
+    case con of
+        Right con' -> do
+            result <- withConnection startStream con'
+            return $ Right con'
+        Left e -> do
+            return $ Left e
