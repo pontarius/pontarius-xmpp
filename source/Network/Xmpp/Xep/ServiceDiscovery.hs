@@ -26,16 +26,16 @@ import           Data.XML.Types
 
 import           Network.Xmpp
 import           Network.Xmpp.Concurrent
-import           Network.Xmpp.Concurrent.Channels
 import           Network.Xmpp.Concurrent.Types
-import           Network.Xmpp.Connection
+import           Network.Xmpp.Connection_
 import           Network.Xmpp.Pickle
 import           Network.Xmpp.Types
+import           Control.Concurrent.STM.TMVar
 
 data DiscoError = DiscoNoQueryElement
-                | DiscoIQError IQError
+                | DiscoIQError (Maybe IQError)
                 | DiscoTimeout
-                | DiscoXMLError Element UnpickleError
+                | DiscoXmlError Element UnpickleError
 
                 deriving (Show)
 
@@ -92,12 +92,12 @@ queryInfo :: Jid -- ^ Entity to query
 queryInfo to node context = do
     res <- sendIQ' (Just to) Get Nothing queryBody context
     return $ case res of
-        IQResponseError e -> Left $ DiscoIQError e
+        IQResponseError e -> Left $ DiscoIQError (Just e)
         IQResponseTimeout -> Left $ DiscoTimeout
         IQResponseResult r -> case iqResultPayload r of
             Nothing -> Left DiscoNoQueryElement
             Just p -> case unpickleElem xpQueryInfo p of
-                Left e -> Left $ DiscoXMLError p e
+                Left e -> Left $ DiscoXmlError p e
                 Right r -> Right r
   where
     queryBody = pickleElem xpQueryInfo (QIR node [] [])
@@ -105,17 +105,19 @@ queryInfo to node context = do
 
 xmppQueryInfo :: Maybe Jid
      -> Maybe Text.Text
-     -> Connection
+     -> TMVar Connection
      -> IO (Either DiscoError QueryInfoResult)
 xmppQueryInfo to node con = do
     res <- pushIQ' "info" to Get Nothing queryBody con
     return $ case res of
-        Left e -> Left $ DiscoIQError e
-        Right r -> case iqResultPayload r of
-            Nothing -> Left DiscoNoQueryElement
-            Just p -> case unpickleElem xpQueryInfo p of
-                Left e -> Left $ DiscoXMLError p e
-                Right r -> Right r
+        Left e -> Left $ DiscoIQError Nothing
+        Right res' -> case res' of
+            Left e -> Left $ DiscoIQError (Just e)
+            Right r -> case iqResultPayload r of
+                Nothing -> Left DiscoNoQueryElement
+                Just p -> case unpickleElem xpQueryInfo p of
+                    Left e -> Left $ DiscoXmlError p e
+                    Right r -> Right r
   where
     queryBody = pickleElem xpQueryInfo (QIR node [] [])
 
@@ -156,12 +158,12 @@ queryItems :: Jid -- ^ Entity to query
 queryItems to node session = do
     res <- sendIQ' (Just to) Get Nothing queryBody session
     return $ case res of
-        IQResponseError e -> Left $ DiscoIQError e
+        IQResponseError e -> Left $ DiscoIQError (Just e)
         IQResponseTimeout -> Left $ DiscoTimeout
         IQResponseResult r -> case iqResultPayload r of
             Nothing -> Left DiscoNoQueryElement
             Just p -> case unpickleElem xpQueryItems p of
-                Left e -> Left $ DiscoXMLError p e
+                Left e -> Left $ DiscoXmlError p e
                 Right r -> Right r
   where
     queryBody = pickleElem xpQueryItems (node, [])

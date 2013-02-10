@@ -14,7 +14,7 @@ import Data.XML.Types
 import Network.Xmpp.Pickle
 import Network.Xmpp.Types
 
-xpStreamStanza :: PU [Node] (Either XmppStreamError Stanza)
+xpStreamStanza :: PU [Node] (Either StreamErrorInfo Stanza)
 xpStreamStanza = xpEither xpStreamError xpStanza
 
 xpStanza :: PU [Node] Stanza
@@ -182,10 +182,10 @@ xpIQError = ("xpIQError" , "") <?+> xpWrap
          (xp2Tuple xpStanzaError (xpOption xpElemVerbatim))
     )
 
-xpStreamError :: PU [Node] XmppStreamError
+xpStreamError :: PU [Node] StreamErrorInfo
 xpStreamError = ("xpStreamError" , "") <?+> xpWrap
-    (\((cond,() ,()), txt, el) -> XmppStreamError cond txt el)
-    (\(XmppStreamError cond txt el) ->((cond,() ,()), txt, el))
+    (\((cond,() ,()), txt, el) -> StreamErrorInfo cond txt el)
+    (\(StreamErrorInfo cond txt el) ->((cond,() ,()), txt, el))
     (xpElemNodes
          (Name
               "error"

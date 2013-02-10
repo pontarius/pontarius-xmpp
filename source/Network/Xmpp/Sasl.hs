@@ -29,7 +29,7 @@ import qualified Data.Text as Text
 import           Data.Text (Text)
 import qualified Data.Text.Encoding as Text
 
-import           Network.Xmpp.Connection
+import           Network.Xmpp.Connection_
 import           Network.Xmpp.Stream
 import           Network.Xmpp.Types
 
@@ -38,24 +38,30 @@ import qualified System.Random as Random
 import           Network.Xmpp.Sasl.Types
 import           Network.Xmpp.Sasl.Mechanisms
 
+import           Control.Concurrent.STM.TMVar
+
 -- | Uses the first supported mechanism to authenticate, if any. Updates the
 -- state with non-password credentials and restarts the stream upon
--- success.
+-- success. Returns `Nothing' on success, an `AuthFailure' if
+-- authentication fails, or an `XmppFailure' if anything else fails.
 xmppSasl :: [SaslHandler] -- ^ Acceptable authentication mechanisms and their
                        -- corresponding handlers
-         -> Connection
-         -> IO (Either AuthError ())
+         -> TMVar Connection
+         -> IO (Either XmppFailure (Maybe AuthFailure))
 xmppSasl handlers = withConnection $ do
     -- Chooses the first mechanism that is acceptable by both the client and the
     -- server.
-    mechanisms <- gets $ saslMechanisms . sFeatures
+    mechanisms <- gets $ saslMechanisms . cFeatures
     case (filter (\(name, _) -> name `elem` mechanisms)) handlers of
-        [] -> return . Left $ AuthNoAcceptableMechanism mechanisms
-        (_name, handler):_ -> runErrorT $ do
-            cs <- gets sConnectionState
+        [] -> return $ Right $ Just $ AuthNoAcceptableMechanism mechanisms
+        (_name, handler):_ -> do
+            cs <- gets cState
             case cs of
-                ConnectionClosed -> throwError AuthConnectionError
+                ConnectionClosed -> return . Right $ Just AuthNoConnection
                 _ -> do
-                    r <- handler
-                    _ <- ErrorT $ left AuthStreamError <$> restartStream
-                    return r
+                       r <- runErrorT handler
+                       case r of
+                           Left ae -> return $ Right $ Just ae
+                           Right a -> do
+                               _ <- runErrorT $ ErrorT restartStream
+                               return $ Right $ Nothing

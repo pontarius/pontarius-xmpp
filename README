@@ -1,2 +1,2 @@
-Pontarius is an active work in progress to build a Haskell XMPP library that
-implements the client capabilities of RFC 6120 ("XMPP Core").
+Pontarius XMPP is an active work in progress to build a Haskell XMPP library
+that implements the client capabilities of RFC 6120 ("XMPP Core").

@@ -1,5 +1,5 @@
 {-# OPTIONS_HADDOCK hide #-}
-module Network.Xmpp.Concurrent.Channels.IQ where
+module Network.Xmpp.Concurrent.IQ where
 
 import           Control.Concurrent (forkIO, threadDelay)
 import           Control.Concurrent.STM
@@ -11,8 +11,7 @@ import qualified Data.Map as Map
 import           Data.Text (Text)
 import           Data.XML.Types
 
-import           Network.Xmpp.Concurrent.Channels.Basic
-import           Network.Xmpp.Concurrent.Channels.Types
+import           Network.Xmpp.Concurrent.Basic
 import           Network.Xmpp.Concurrent.Types
 import           Network.Xmpp.Types
 
@@ -27,7 +26,7 @@ sendIQ :: Maybe Int -- ^ Timeout
        -> Session
        -> IO (TMVar IQResponse)
 sendIQ timeOut to tp lang body session = do -- TODO: Add timeout
-    newId <- idGenerator (context session)
+    newId <- idGenerator session
     ref <- atomically $ do
         resRef <- newEmptyTMVar
         (byNS, byId) <- readTVar (iqHandlers session)

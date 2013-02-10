@@ -1,12 +1,11 @@
 {-# OPTIONS_HADDOCK hide #-}
-module Network.Xmpp.Concurrent.Channels.Presence where
+module Network.Xmpp.Concurrent.Presence where
 
-import Network.Xmpp.Concurrent.Channels.Types
 import Control.Concurrent.STM
 import Data.IORef
 import Network.Xmpp.Types
 import Network.Xmpp.Concurrent.Types
-import Network.Xmpp.Concurrent.Channels.Basic
+import Network.Xmpp.Concurrent.Basic
 
 -- | Read an element from the inbound stanza channel, acquiring a copy of the
 -- channel as necessary.

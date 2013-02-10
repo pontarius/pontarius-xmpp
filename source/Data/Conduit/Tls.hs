@@ -1,6 +1,6 @@
 {-# Language NoMonomorphismRestriction #-}
 {-# OPTIONS_HADDOCK hide #-}
-module Data.Conduit.TLS
+module Data.Conduit.Tls
        ( tlsinit
 --       , conduitStdout
        , module TLS
@@ -21,6 +21,7 @@ import qualified Data.Conduit.Binary as CB
 import Data.IORef
 
 import           Network.TLS as TLS
+import           Crypto.Random.API
 import           Network.TLS.Extra as TLSExtra
 
 import           System.IO (Handle)
@@ -42,7 +43,7 @@ tlsinit :: (MonadIO m, MonadIO m1) =>
           )
 tlsinit debug tlsParams backend = do
     when debug . liftIO $ putStrLn "TLS with debug mode enabled"
-    gen <- liftIO $ (newGenIO :: IO SystemRandom) -- TODO: Find better random source?
+    gen <- liftIO $ getSystemRandomGen -- TODO: Find better random source?
     con <- client tlsParams gen backend
     handshake con
     let src = forever $ do

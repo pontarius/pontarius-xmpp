@@ -2,7 +2,7 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Network.Xmpp.TLS where
+module Network.Xmpp.Tls where
 
 import qualified Control.Exception.Lifted as Ex
 import           Control.Monad
@@ -13,14 +13,15 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BL
 import           Data.Conduit
 import qualified Data.Conduit.Binary as CB
-import           Data.Conduit.TLS as TLS
+import           Data.Conduit.Tls as TLS
 import           Data.Typeable
 import           Data.XML.Types
 
-import           Network.Xmpp.Connection
-import           Text.XML.Stream.Elements(ppElement)
+import           Network.Xmpp.Connection_
 import           Network.Xmpp.Stream
 import           Network.Xmpp.Types
+
+import           Control.Concurrent.STM.TMVar
 
 mkBackend con = Backend { backendSend = \bs -> void (cSend con bs)
                         , backendRecv = cRecv con
@@ -72,48 +73,33 @@ exampleParams = TLS.defaultParamsClient
           return TLS.CertificateUsageAccept
     }
 
--- | Error conditions that may arise during TLS negotiation.
-data XmppTLSError = TLSError TLSError
-                  | TLSNoServerSupport
-                  | TLSNoConnection
-                  | TLSConnectionSecured -- ^ Connection already secured
-                  | TLSStreamError StreamError
-                  | XmppTLSError -- General instance used for the Error instance
-                    deriving (Show, Eq, Typeable)
-
-instance Error XmppTLSError where
-  noMsg = XmppTLSError
-
 -- Pushes "<starttls/>, waits for "<proceed/>", performs the TLS handshake, and
--- restarts the stream. May throw errors.
-startTLS :: TLS.TLSParams -> Connection -> IO (Either XmppTLSError ())
-startTLS params con = Ex.handle (return . Left . TLSError)
+-- restarts the stream.
+startTls :: TLS.TLSParams -> TMVar Connection -> IO (Either XmppFailure ())
+startTls params con = Ex.handle (return . Left . TlsError)
                       . flip withConnection con
                       . runErrorT $ do
-    features <- lift $ gets sFeatures
-    state <- gets sConnectionState
+    features <- lift $ gets cFeatures
+    state <- gets cState
     case state of
         ConnectionPlain -> return ()
-        ConnectionClosed -> throwError TLSNoConnection
-        ConnectionSecured -> throwError TLSConnectionSecured
-    con <- lift $ gets cHand
-    when (stls features == Nothing) $ throwError TLSNoServerSupport
+        ConnectionClosed -> throwError XmppNoConnection
+        ConnectionSecured -> throwError TlsConnectionSecured
+    con <- lift $ gets cHandle
+    when (stls features == Nothing) $ throwError TlsNoServerSupport
     lift $ pushElement starttlsE
     answer <- lift $ pullElement
     case answer of
-        Element "{urn:ietf:params:xml:ns:xmpp-tls}proceed" [] [] -> return ()
-        Element "{urn:ietf:params:xml:ns:xmpp-tls}failure" _ _ ->
-            lift . Ex.throwIO $ StreamConnectionError
-            -- TODO: find something more suitable
-        e -> lift . Ex.throwIO . StreamXMLError $
-            "Unexpected element: " ++ ppElement e
+        Left e -> return $ Left e
+        Right (Element "{urn:ietf:params:xml:ns:xmpp-tls}proceed" [] []) -> return $ Right ()
+        Right (Element "{urn:ietf:params:xml:ns:xmpp-tls}failure" _ _) -> return $ Left XmppOtherFailure
     (raw, _snk, psh, read, ctx) <- lift $ TLS.tlsinit debug params (mkBackend con)
-    let newHand = Hand { cSend = catchPush . psh
-                       , cRecv = read
-                       , cFlush = contextFlush ctx
-                       , cClose = bye ctx >> cClose con
-                       }
-    lift $ modify ( \x -> x {cHand = newHand})
+    let newHand = ConnectionHandle { cSend = catchPush . psh
+                                   , cRecv = read
+                                   , cFlush = contextFlush ctx
+                                   , cClose = bye ctx >> cClose con
+                                   }
+    lift $ modify ( \x -> x {cHandle = newHand})
     either (lift . Ex.throwIO) return =<< lift restartStream
-    modify (\s -> s{sConnectionState = ConnectionSecured})
+    modify (\s -> s{cState = ConnectionSecured})
     return ()

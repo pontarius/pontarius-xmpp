@@ -28,17 +28,16 @@ module Network.Xmpp.Types
     , StanzaErrorCondition(..)
     , StanzaErrorType(..)
     , StanzaID(..)
-    , StreamError(..)
+    , XmppFailure(..)
     , StreamErrorCondition(..)
     , Version(..)
-    , HandleLike(..)
+    , ConnectionHandle(..)
     , Connection(..)
-    , Connection_(..)
     , withConnection
     , withConnection'
     , mkConnection
     , ConnectionState(..)
-    , XmppStreamError(..)
+    , StreamErrorInfo(..)
     , langTag
     , module Network.Xmpp.Jid
     )
@@ -62,6 +61,7 @@ import qualified Data.Text as Text
 import           Data.Typeable(Typeable)
 import           Data.XML.Types
 
+import qualified Network.TLS as TLS
 
 import qualified Network as N
 
@@ -619,28 +619,41 @@ instance Read StreamErrorCondition where
     readsPrec _ "unsupported-version"      = [(StreamUnsupportedVersion   , "")]
     readsPrec _ _                          = [(StreamUndefinedCondition   , "")]
 
-data XmppStreamError = XmppStreamError
+-- | Encapsulates information about an XMPP stream error.
+data StreamErrorInfo = StreamErrorInfo
     { errorCondition :: !StreamErrorCondition
     , errorText      :: !(Maybe (Maybe LangTag, Text))
-    , errorXML       :: !(Maybe Element)
+    , errorXml       :: !(Maybe Element)
     } deriving (Show, Eq)
 
-data StreamError = StreamError XmppStreamError
-                 | StreamUnknownError -- Something has gone wrong, but we don't
-                                      -- know what
-                 | StreamNotStreamElement Text
-                 | StreamInvalidStreamNamespace (Maybe Text)
-                 | StreamInvalidStreamPrefix (Maybe Text)
-                 | StreamWrongTo (Maybe Text)
-                 | StreamWrongVersion (Maybe Text)
-                 | StreamWrongLangTag (Maybe Text)
-                 | StreamXMLError String -- If stream pickling goes wrong.
-                 | StreamStreamEnd -- received closing stream tag
-                 | StreamConnectionError
+-- | Signals an XMPP stream error or another unpredicted stream-related
+-- situation.
+data XmppFailure = StreamErrorFailure StreamErrorInfo -- ^ An error XML stream
+                                                        -- element has been
+                                                        -- encountered.
+                 | StreamEndFailure -- ^ The stream has been closed.
+                                    -- This exception is caught by the
+                                    -- concurrent implementation, and
+                                    -- will thus not be visible
+                                    -- through use of 'Session'.
+                 | StreamCloseError ([Element], XmppFailure) -- ^ When an XmppFailure
+                                              -- is encountered in
+                                              -- closeStreams, this
+                                              -- constructor wraps the
+                                              -- elements collected so
+                                              -- far.
+                 | TlsError TLS.TLSError
+                 | TlsNoServerSupport
+                 | XmppNoConnection
+                 | TlsConnectionSecured -- ^ Connection already secured
+                 | XmppOtherFailure -- ^ Undefined condition. More
+                                    -- information should be available
+                                    -- in the log.
+                 | XmppIOException IOException
                  deriving (Show, Eq, Typeable)
 
-instance Exception StreamError
-instance Error StreamError where noMsg = StreamConnectionError
+instance Exception XmppFailure
+instance Error XmppFailure where noMsg = XmppOtherFailure
 
 -- =============================================================================
 --  XML TYPES
@@ -740,59 +753,50 @@ data ServerFeatures = SF
     , other          :: ![Element]
     } deriving Show
 
+-- | Signals the state of the connection.
 data ConnectionState
     = ConnectionClosed  -- ^ No connection at this point.
     | ConnectionPlain   -- ^ Connection established, but not secured.
     | ConnectionSecured -- ^ Connection established and secured via TLS.
       deriving (Show, Eq, Typeable)
 
-data HandleLike = Hand { cSend :: BS.ByteString -> IO Bool
-                       , cRecv :: Int -> IO BS.ByteString
-                          -- This is to hold the state of the XML parser
-                          -- (otherwise we will receive lot's of EvenBegin
-                          -- Document and forger about name prefixes)
-                       , cFlush :: IO ()
-                       , cClose :: IO ()
-                       }
+-- | Defines operations for sending, receiving, flushing, and closing on a
+-- connection.
+data ConnectionHandle =
+    ConnectionHandle { cSend :: BS.ByteString -> IO Bool
+                     , cRecv :: Int -> IO BS.ByteString
+                       -- This is to hold the state of the XML parser (otherwise
+                       -- we will receive EventBeginDocument events and forget
+                       -- about name prefixes).
+                     , cFlush :: IO ()
+                     , cClose :: IO ()
+                     }
 
-data Connection_ = Connection_
-                  { sConnectionState :: !ConnectionState -- ^ State of
-                                                             -- connection
-                  , cHand            :: HandleLike
-                  , cEventSource     :: ResumableSource IO Event
-                  , sFeatures        :: !ServerFeatures -- ^ Features the server
-                                                        -- advertised
-                  , sHostname        :: !(Maybe Text) -- ^ Hostname of the
-                                                      -- server
-                  , sJid             :: !(Maybe Jid) -- ^ Our JID
-                  , sPreferredLang   :: !(Maybe LangTag) -- ^ Default language
-                                                         -- when no explicit
-                                                         -- language tag is set
-                  , sStreamLang      :: !(Maybe LangTag) -- ^ Will be a `Just'
-                                                         -- value once connected
-                                                         -- to the server.
-                  , sStreamId        :: !(Maybe Text) -- ^ Stream ID as
-                                        -- specified by the
-                                        -- server.
-                  , sToJid           :: !(Maybe Jid) -- ^ JID to include in the
-                                                     -- stream element's `to'
-                                                     -- attribute when the
-                                                     -- connection is
-                                                     -- secured. See also below.
-                  , sJidWhenPlain    :: !Bool -- ^ Whether or not to also
-                                              -- include the Jid when the
-                                              -- connection is plain.
-                  , sFrom            :: !(Maybe Jid)  -- ^ From as specified by
-                                                      -- the server in the
-                                                      -- stream element's `from'
-                                                      -- attribute.
-                  }
+data Connection = Connection
+    { cState :: !ConnectionState -- ^ State of connection
+    , cHandle :: ConnectionHandle -- ^ Handle to send, receive, flush, and close
+                                  -- on the connection.
+    , cEventSource :: ResumableSource IO Event -- ^ Event conduit source, and
+                                               -- its associated finalizer
+    , cFeatures :: !ServerFeatures -- ^ Features as advertised by the server
+    , cHostName :: !(Maybe Text) -- ^ Hostname of the server
+    , cJid :: !(Maybe Jid) -- ^ Our JID
+    , cPreferredLang :: !(Maybe LangTag) -- ^ Default language when no explicit
+                                         -- language tag is set
+    , cStreamLang :: !(Maybe LangTag) -- ^ Will be a `Just' value once connected
+                                      -- to the server.
+    , cStreamId :: !(Maybe Text) -- ^ Stream ID as specified by the server.
+    , cToJid :: !(Maybe Jid) -- ^ JID to include in the stream element's `to'
+                             -- attribute when the connection is secured. See
+                             -- also below.
+    , cJidWhenPlain :: !Bool -- ^ Whether or not to also include the Jid when
+                             -- the connection is plain.
+    , cFrom :: !(Maybe Jid)  -- ^ From as specified by the server in the stream
+                             -- element's `from' attribute.
+    }
 
-
-newtype Connection = Connection {unConnection :: TMVar Connection_}
-
-withConnection :: StateT Connection_ IO c -> Connection -> IO c
-withConnection action (Connection con) = bracketOnError
+withConnection :: StateT Connection IO (Either XmppFailure c) -> TMVar Connection -> IO (Either XmppFailure c)
+withConnection action con = bracketOnError
                                          (atomically $ takeTMVar con)
                                          (atomically . putTMVar con )
                                          (\c -> do
@@ -802,12 +806,12 @@ withConnection action (Connection con) = bracketOnError
                                          )
 
 -- nonblocking version. Changes to the connection are ignored!
-withConnection' :: StateT Connection_ IO b -> Connection -> IO b
-withConnection' action (Connection con) = do
+withConnection' :: StateT Connection IO (Either XmppFailure b) -> TMVar Connection -> IO (Either XmppFailure b)
+withConnection' action con = do
     con_ <- atomically $ readTMVar con
     (r, _) <- runStateT action con_
     return r
 
 
-mkConnection :: Connection_ -> IO Connection
-mkConnection con = Connection `fmap` (atomically $ newTMVar con)
+mkConnection :: Connection -> IO (TMVar Connection)
+mkConnection con = {- Connection `fmap` -} (atomically $ newTMVar con)

@@ -19,7 +19,7 @@ import qualified Data.Text as Text
 import           Data.XML.Pickle
 import qualified Data.XML.Types as XML
 
-import           Network.Xmpp.Connection
+import           Network.Xmpp.Connection_
 import           Network.Xmpp.Pickle
 import           Network.Xmpp.Types
 import           Network.Xmpp.Basic
@@ -50,7 +50,7 @@ data Query = Query { instructions :: Maybe Text.Text
 
 emptyQuery = Query Nothing False False []
 
-query :: IQRequestType -> Query -> Connection -> IO (Either IbrError Query)
+query :: IQRequestType -> Query -> TMVar Connection -> IO (Either IbrError Query)
 query queryType x con = do
     answer <- pushIQ' "ibr" Nothing queryType Nothing (pickleElem xpQuery x) con
     case answer of
@@ -93,8 +93,8 @@ mapError f = mapErrorT (liftM $ left f)
 -- | Retrieve the necessary fields and fill them in to register an account with
 -- the server.
 registerWith :: [(Field, Text.Text)]
-             -> Connection
-             -> IO (Either RegisterError Query)
+             -> TMVar Connection
+             -> IO  (Either RegisterError Query)
 registerWith givenFields con = runErrorT $ do
     fs <- mapError IbrError . ErrorT $ requestFields con
     when (registered fs) . throwError $ AlreadyRegistered
@@ -125,7 +125,7 @@ deleteAccount host hostname port username password = do
 
 -- | Terminate your account on the server. You have to be logged in for this to
 -- work. You connection will most likely be terminated after unregistering.
-unregister :: Connection -> IO (Either IbrError Query)
+unregister :: TMVar Connection -> IO (Either IbrError Query)
 unregister = query Set $ emptyQuery {remove = True}
 
 unregister' :: Session -> IO (Either IbrError Query)

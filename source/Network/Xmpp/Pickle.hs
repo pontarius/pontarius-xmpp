@@ -21,7 +21,7 @@ import Data.XML.Pickle
 
 import Network.Xmpp.Types
 
-import Text.XML.Stream.Elements
+import Text.Xml.Stream.Elements
 
 xmlLang :: Name
 xmlLang = Name "lang" (Just "http://www.w3.org/XML/1998/namespace") (Just "xml")
