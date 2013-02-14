@@ -28,6 +28,10 @@ module Network.Xmpp.Internal
   , auth
   , pushStanza
   , pullStanza
+  , pushIQ'
+  , pickleElem
+  , unpickleElem
+  , xpLangTag
  )
 
        where
@@ -37,3 +41,4 @@ import Network.Xmpp.Sasl
 import Network.Xmpp.Tls
 import Network.Xmpp.Types
 import Network.Xmpp.Stream
+import Network.Xmpp.Marshal

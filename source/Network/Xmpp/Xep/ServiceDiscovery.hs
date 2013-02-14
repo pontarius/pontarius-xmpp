@@ -25,11 +25,7 @@ import           Data.XML.Pickle
 import           Data.XML.Types
 
 import           Network.Xmpp
-import           Network.Xmpp.Concurrent
-import           Network.Xmpp.Concurrent.Types
-import           Network.Xmpp.Stream
-import           Network.Xmpp.Marshal
-import           Network.Xmpp.Types
+import           Network.Xmpp.Internal
 import           Control.Concurrent.STM.TMVar
 
 data DiscoError = DiscoNoQueryElement

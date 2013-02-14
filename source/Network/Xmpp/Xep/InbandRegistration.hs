@@ -19,9 +19,7 @@ import qualified Data.Text as Text
 import           Data.XML.Pickle
 import qualified Data.XML.Types as XML
 
-import           Network.Xmpp.Stream
-import           Network.Xmpp.Pickle
-import           Network.Xmpp.Types
+import           Network.Xmpp.Internal
 import           Network.Xmpp.Xep.ServiceDiscovery
 
 
