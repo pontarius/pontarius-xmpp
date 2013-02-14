@@ -9,7 +9,7 @@ import qualified Control.Exception.Lifted as Ex
 import           Control.Monad.Reader
 
 import           Network.Xmpp.Concurrent.Types
-import           Network.Xmpp.Connection
+import           Network.Xmpp.Stream
 
 
 
@@ -94,6 +94,6 @@ closeConnection :: Session -> IO ()
 closeConnection session = Ex.mask_ $ do
     (_send, connection) <- atomically $ liftM2 (,)
                              (takeTMVar $ writeRef session)
-                             (takeTMVar $ conRef session)
+                             (takeTMVar $ streamRef session)
     _ <- closeStreams connection
     return ()

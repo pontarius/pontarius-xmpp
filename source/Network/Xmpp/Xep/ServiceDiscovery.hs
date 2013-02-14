@@ -27,7 +27,7 @@ import           Data.XML.Types
 import           Network.Xmpp
 import           Network.Xmpp.Concurrent
 import           Network.Xmpp.Concurrent.Types
-import           Network.Xmpp.Connection
+import           Network.Xmpp.Stream
 import           Network.Xmpp.Marshal
 import           Network.Xmpp.Types
 import           Control.Concurrent.STM.TMVar
@@ -105,7 +105,7 @@ queryInfo to node context = do
 
 xmppQueryInfo :: Maybe Jid
      -> Maybe Text.Text
-     -> TMVar Connection
+     -> TMVar Stream
      -> IO (Either DiscoError QueryInfoResult)
 xmppQueryInfo to node con = do
     res <- pushIQ' "info" to Get Nothing queryBody con

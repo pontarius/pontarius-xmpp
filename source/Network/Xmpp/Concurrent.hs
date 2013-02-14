@@ -83,14 +83,14 @@ toChans stanzaC iqHands sta = atomically $ do
 
 
 -- | Creates and initializes a new Xmpp context.
-newSession :: TMVar Connection -> IO (Either XmppFailure Session)
-newSession con = runErrorT $ do
+newSession :: TMVar Stream -> IO (Either XmppFailure Session)
+newSession stream = runErrorT $ do
     outC <- lift newTChanIO
     stanzaChan <- lift newTChanIO
     iqHandlers <- lift $ newTVarIO (Map.empty, Map.empty)
     eh <- lift $ newTVarIO $ EventHandlers { connectionClosedHandler = \_ -> return () }
     let stanzaHandler = toChans stanzaChan iqHandlers
-    (kill, wLock, conState, readerThread) <- ErrorT $ startThreadsWith stanzaHandler eh con
+    (kill, wLock, streamState, readerThread) <- ErrorT $ startThreadsWith stanzaHandler eh stream
     writer <- lift $ forkIO $ writeWorker outC wLock
     idRef <- lift $ newTVarIO 1
     let getId = atomically $ do
@@ -103,7 +103,7 @@ newSession con = runErrorT $ do
                      , writeRef = wLock
                      , readerThread = readerThread
                      , idGenerator = getId
-                     , conRef = conState
+                     , streamRef = streamState
                      , eventHandlers = eh
                      , stopThreads = kill >> killThread writer
                      }
@@ -139,7 +139,7 @@ session :: HostName                          -- ^ Host to connect to
                                              -- the server decide)
         -> IO (Either XmppFailure (Session, Maybe AuthFailure))
 session hostname realm port tls sasl = runErrorT $ do
-    con <- ErrorT $ connect hostname port realm
+    con <- ErrorT $ openStream hostname port realm
     if isJust tls
         then ErrorT $ startTls (fromJust tls) con
         else return ()

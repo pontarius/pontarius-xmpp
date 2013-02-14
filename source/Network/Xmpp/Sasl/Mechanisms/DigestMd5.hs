@@ -31,7 +31,6 @@ import qualified Data.ByteString as BS
 
 import           Data.XML.Types
 
-import           Network.Xmpp.Connection
 import           Network.Xmpp.Stream
 import           Network.Xmpp.Types
 import           Network.Xmpp.Sasl.Common

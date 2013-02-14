@@ -31,12 +31,12 @@ module Network.Xmpp.Types
     , XmppFailure(..)
     , StreamErrorCondition(..)
     , Version(..)
-    , ConnectionHandle(..)
-    , Connection(..)
-    , withConnection
-    , withConnection'
-    , mkConnection
-    , ConnectionState(..)
+    , StreamHandle(..)
+    , Stream(..)
+    , withStream
+    , withStream'
+    , mkStream
+    , StreamState(..)
     , StreamErrorInfo(..)
     , langTag
     , Jid(..)
@@ -652,8 +652,8 @@ data XmppFailure = StreamErrorFailure StreamErrorInfo -- ^ An error XML stream
                                               -- far.
                  | TlsError TLS.TLSError
                  | TlsNoServerSupport
-                 | XmppNoConnection
-                 | TlsConnectionSecured -- ^ Connection already secured
+                 | XmppNoStream
+                 | TlsStreamSecured -- ^ Connection already secured
                  | XmppOtherFailure -- ^ Undefined condition. More
                                     -- information should be available
                                     -- in the log.
@@ -762,27 +762,27 @@ data ServerFeatures = SF
     } deriving Show
 
 -- | Signals the state of the connection.
-data ConnectionState
-    = ConnectionClosed  -- ^ No connection at this point.
-    | ConnectionPlain   -- ^ Connection established, but not secured.
-    | ConnectionSecured -- ^ Connection established and secured via TLS.
+data StreamState
+    = Closed  -- ^ No stream at this point.
+    | Plain   -- ^ Stream established, but not secured.
+    | Secured -- ^ Stream established and secured via TLS.
       deriving (Show, Eq, Typeable)
 
 -- | Defines operations for sending, receiving, flushing, and closing on a
 -- connection.
-data ConnectionHandle =
-    ConnectionHandle { cSend :: BS.ByteString -> IO Bool
-                     , cRecv :: Int -> IO BS.ByteString
-                       -- This is to hold the state of the XML parser (otherwise
-                       -- we will receive EventBeginDocument events and forget
-                       -- about name prefixes).
-                     , cFlush :: IO ()
-                     , cClose :: IO ()
-                     }
+data StreamHandle =
+    StreamHandle { cSend :: BS.ByteString -> IO Bool
+                 , cRecv :: Int -> IO BS.ByteString
+                   -- This is to hold the state of the XML parser (otherwise
+                   -- we will receive EventBeginDocument events and forget
+                   -- about name prefixes).
+                 , cFlush :: IO ()
+                 , cClose :: IO ()
+                 }
 
-data Connection = Connection
-    { cState :: !ConnectionState -- ^ State of connection
-    , cHandle :: ConnectionHandle -- ^ Handle to send, receive, flush, and close
+data Stream = Stream
+    { cState :: !StreamState -- ^ State of connection
+    , cHandle :: StreamHandle -- ^ Handle to send, receive, flush, and close
                                   -- on the connection.
     , cEventSource :: ResumableSource IO Event -- ^ Event conduit source, and
                                                -- its associated finalizer
@@ -803,26 +803,26 @@ data Connection = Connection
                              -- element's `from' attribute.
     }
 
-withConnection :: StateT Connection IO (Either XmppFailure c) -> TMVar Connection -> IO (Either XmppFailure c)
-withConnection action con = bracketOnError
-                                         (atomically $ takeTMVar con)
-                                         (atomically . putTMVar con )
-                                         (\c -> do
-                                               (r, c') <- runStateT action c
-                                               atomically $ putTMVar con c'
+withStream :: StateT Stream IO (Either XmppFailure c) -> TMVar Stream -> IO (Either XmppFailure c)
+withStream action stream = bracketOnError
+                                         (atomically $ takeTMVar stream)
+                                         (atomically . putTMVar stream)
+                                         (\s -> do
+                                               (r, s') <- runStateT action s
+                                               atomically $ putTMVar stream s'
                                                return r
                                          )
 
 -- nonblocking version. Changes to the connection are ignored!
-withConnection' :: StateT Connection IO (Either XmppFailure b) -> TMVar Connection -> IO (Either XmppFailure b)
-withConnection' action con = do
-    con_ <- atomically $ readTMVar con
-    (r, _) <- runStateT action con_
+withStream' :: StateT Stream IO (Either XmppFailure b) -> TMVar Stream -> IO (Either XmppFailure b)
+withStream' action stream = do
+    stream_ <- atomically $ readTMVar stream
+    (r, _) <- runStateT action stream_
     return r
 
 
-mkConnection :: Connection -> IO (TMVar Connection)
-mkConnection con = {- Connection `fmap` -} (atomically $ newTMVar con)
+mkStream :: Stream -> IO (TMVar Stream)
+mkStream con = {- Stream `fmap` -} (atomically $ newTMVar con)
 
 ---------------
 -- JID

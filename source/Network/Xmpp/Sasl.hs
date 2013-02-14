@@ -36,7 +36,6 @@ import qualified Data.Text as Text
 import           Data.Text (Text)
 import qualified Data.Text.Encoding as Text
 
-import           Network.Xmpp.Connection
 import           Network.Xmpp.Stream
 import           Network.Xmpp.Types
 
@@ -67,9 +66,9 @@ import Control.Monad.Error
 -- authentication fails, or an `XmppFailure' if anything else fails.
 xmppSasl :: [SaslHandler] -- ^ Acceptable authentication mechanisms and their
                        -- corresponding handlers
-         -> TMVar Connection
+         -> TMVar Stream
          -> IO (Either XmppFailure (Maybe AuthFailure))
-xmppSasl handlers = withConnection $ do
+xmppSasl handlers = withStream $ do
     -- Chooses the first mechanism that is acceptable by both the client and the
     -- server.
     mechanisms <- gets $ saslMechanisms . cFeatures
@@ -78,7 +77,7 @@ xmppSasl handlers = withConnection $ do
         (_name, handler):_ -> do
             cs <- gets cState
             case cs of
-                ConnectionClosed -> return . Right $ Just AuthNoConnection
+                Closed -> return . Right $ Just AuthNoStream
                 _ -> do
                        r <- runErrorT handler
                        case r of
@@ -91,7 +90,7 @@ xmppSasl handlers = withConnection $ do
 -- resource.
 auth :: [SaslHandler]
      -> Maybe Text
-     -> TMVar Connection
+     -> TMVar Stream
      -> IO (Either XmppFailure (Maybe AuthFailure))
 auth mechanisms resource con = runErrorT $ do
     ErrorT $ xmppSasl mechanisms con
@@ -107,7 +106,7 @@ simpleAuth  :: Text.Text  -- ^ The username
             -> Text.Text  -- ^ The password
             -> Maybe Text -- ^ The desired resource or 'Nothing' to let the
                           -- server assign one
-            -> TMVar Connection
+            -> TMVar Stream
             -> IO (Either XmppFailure (Maybe AuthFailure))
 simpleAuth username passwd resource = flip auth resource $
         [ -- TODO: scramSha1Plus
@@ -126,7 +125,7 @@ bindBody = pickleElem $
 
 -- Sends a (synchronous) IQ set request for a (`Just') given or server-generated
 -- resource and extract the JID from the non-error response.
-xmppBind  :: Maybe Text -> TMVar Connection -> IO (Either XmppFailure Jid)
+xmppBind  :: Maybe Text -> TMVar Stream -> IO (Either XmppFailure Jid)
 xmppBind rsrc c = runErrorT $ do
     answer <- ErrorT $ pushIQ' "bind" Nothing Set Nothing (bindBody rsrc) c
     case answer of
@@ -134,7 +133,7 @@ xmppBind rsrc c = runErrorT $ do
             let jid = unpickleElem xpJid b
             case jid of
                 Right jid' -> do
-                    ErrorT $ withConnection (do
+                    ErrorT $ withStream (do
                                       modify $ \s -> s{cJid = Just jid'}
                                       return $ Right jid') c -- not pretty
                     return jid'
@@ -167,7 +166,7 @@ sessionIQ = IQRequestS $ IQRequest { iqRequestID      = "sess"
 
 -- Sends the session IQ set element and waits for an answer. Throws an error if
 -- if an IQ error stanza is returned from the server.
-startSession :: TMVar Connection -> IO ()
+startSession :: TMVar Stream -> IO ()
 startSession con = do
     answer <- pushIQ' "session" Nothing Set Nothing sessionXml con
     case answer of

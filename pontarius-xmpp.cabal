@@ -58,7 +58,6 @@ Library
                  , Network.Xmpp.Internal
                  , Network.Xmpp.IM
   Other-modules: Data.Conduit.Tls
-               , Network.Xmpp.Bind
                , Network.Xmpp.Concurrent
                , Network.Xmpp.Concurrent.Types
                , Network.Xmpp.Concurrent.Basic
@@ -67,7 +66,6 @@ Library
                , Network.Xmpp.Concurrent.Presence
                , Network.Xmpp.Concurrent.Threads
                , Network.Xmpp.Concurrent.Monad
-               , Network.Xmpp.Connection
                , Network.Xmpp.IM.Message
                , Network.Xmpp.IM.Presence
                , Network.Xmpp.Marshal

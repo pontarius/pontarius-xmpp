@@ -16,7 +16,7 @@ import           Control.Monad.State.Strict
 
 import qualified Data.ByteString as BS
 import           Network.Xmpp.Concurrent.Types
-import           Network.Xmpp.Connection
+import           Network.Xmpp.Stream
 
 import           Control.Concurrent.STM.TMVar
 
@@ -28,7 +28,7 @@ import           Control.Monad.Error
 -- all listener threads.
 readWorker :: (Stanza -> IO ())
            -> (XmppFailure -> IO ())
-           -> TMVar (TMVar Connection)
+           -> TMVar (TMVar Stream)
            -> IO a
 readWorker onStanza onConnectionClosed stateRef =
     Ex.mask_ . forever $ do
@@ -38,7 +38,7 @@ readWorker onStanza onConnectionClosed stateRef =
                        s <- atomically $ do
                             con <- readTMVar stateRef
                             state <- cState <$> readTMVar con
-                            when (state == ConnectionClosed)
+                            when (state == Closed)
                                  retry
                             return con
                        allowInterrupt
@@ -77,13 +77,13 @@ readWorker onStanza onConnectionClosed stateRef =
 -- connection.
 startThreadsWith :: (Stanza -> IO ())
                  -> TVar EventHandlers
-                 -> TMVar Connection
+                 -> TMVar Stream
                  -> IO (Either XmppFailure (IO (),
                   TMVar (BS.ByteString -> IO Bool),
-                  TMVar (TMVar Connection),
+                  TMVar (TMVar Stream),
                   ThreadId))
 startThreadsWith stanzaHandler eh con = do
-    read <- withConnection' (gets $ cSend . cHandle >>= \d -> return $ Right d) con
+    read <- withStream' (gets $ cSend . cHandle >>= \d -> return $ Right d) con
     case read of
         Left e -> return $ Left e
         Right read' -> do

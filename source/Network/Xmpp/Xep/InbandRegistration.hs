@@ -19,7 +19,7 @@ import qualified Data.Text as Text
 import           Data.XML.Pickle
 import qualified Data.XML.Types as XML
 
-import           Network.Xmpp.Connection
+import           Network.Xmpp.Stream
 import           Network.Xmpp.Pickle
 import           Network.Xmpp.Types
 import           Network.Xmpp.Xep.ServiceDiscovery
@@ -32,7 +32,7 @@ ibrns = "jabber:iq:register"
 ibrName x = (XML.Name x (Just ibrns) Nothing)
 
 data IbrError = IbrNotSupported
-              | IbrNoConnection
+              | IbrNoStream
               | IbrIQError IQError
 
                 deriving (Show)
@@ -61,7 +61,7 @@ emptyQuery = Query Nothing False False []
 --       hn' <- gets sHostname
 --       hn <- case hn' of
 --           Just h -> return (Jid Nothing h Nothing)
---           Nothing -> throwError IbrNoConnection
+--           Nothing -> throwError IbrNoStream
 --       qi <- lift $ xmppQueryInfo Nothing Nothing
 --       case qi of
 --           Left e -> return False
@@ -71,7 +71,7 @@ emptyQuery = Query Nothing False False []
 --             if r then return True else g
 
 
-query :: IQRequestType -> Query -> TMVar Connection -> IO (Either IbrError Query)
+query :: IQRequestType -> Query -> TMVar Stream -> IO (Either IbrError Query)
 query queryType x con = do
     answer <- pushIQ' "ibr" Nothing queryType Nothing (pickleElem xpQuery x) con
     case answer of
@@ -97,7 +97,7 @@ mapError f = mapErrorT (liftM $ left f)
 -- | Retrieve the necessary fields and fill them in to register an account with
 -- the server
 registerWith :: [(Field, Text.Text)]
-             -> TMVar Connection
+             -> TMVar Stream
              -> IO  (Either RegisterError Query)
 registerWith givenFields con = runErrorT $ do
     fs <- mapError IbrError . ErrorT $ requestFields con
@@ -114,7 +114,7 @@ registerWith givenFields con = runErrorT $ do
 
 -- | Terminate your account on the server. You have to be logged in for this to
 -- work. You connection will most likely be terminated after unregistering.
-unregister :: TMVar Connection -> IO (Either IbrError Query)
+unregister :: TMVar Stream -> IO (Either IbrError Query)
 unregister = query Set $ emptyQuery {remove = True}
 
 requestFields con = runErrorT $ do

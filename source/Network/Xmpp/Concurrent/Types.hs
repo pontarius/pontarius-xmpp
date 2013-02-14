@@ -42,9 +42,9 @@ data Session = Session
     , writeRef :: TMVar (BS.ByteString -> IO Bool)
     , readerThread :: ThreadId
     , idGenerator :: IO StanzaId
-      -- | Lock (used by withConnection) to make sure that a maximum of one
-      -- XmppConMonad action is executed at any given time.
-    , conRef :: TMVar (TMVar Connection)
+      -- | Lock (used by withStream) to make sure that a maximum of one
+      -- Stream action is executed at any given time.
+    , streamRef :: TMVar (TMVar Stream)
     , eventHandlers :: TVar EventHandlers
     , stopThreads :: IO ()
     }

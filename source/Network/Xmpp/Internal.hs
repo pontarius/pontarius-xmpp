@@ -8,21 +8,21 @@
 -- This module allows for low-level access to Pontarius XMPP. Generally, the
 -- "Network.Xmpp" module should be used instead.
 -- 
--- The 'Connection' object provides the most low-level access to the XMPP
+-- The 'Stream' object provides the most low-level access to the XMPP
 -- stream: a simple and single-threaded interface which exposes the conduit
 -- 'Event' source, as well as the input and output byte streams. Custom stateful
--- 'Connection' functions can be executed using 'withConnection'.
+-- 'Stream' functions can be executed using 'withStream'.
 -- 
 -- The TLS, SASL, and 'Session' functionalities of Pontarius XMPP are built on
 -- top of this API.
 
 module Network.Xmpp.Internal
-  ( Connection(..)
-  , ConnectionState(..)
-  , ConnectionHandle(..)
+  ( Stream(..)
+  , StreamState(..)
+  , StreamHandle(..)
   , ServerFeatures(..)
-  , connect
-  , withConnection
+  , openStream
+  , withStream
   , startTls
   , simpleAuth
   , auth
@@ -32,7 +32,7 @@ module Network.Xmpp.Internal
 
        where
 
-import Network.Xmpp.Connection
+import Network.Xmpp.Stream
 import Network.Xmpp.Sasl
 import Network.Xmpp.Tls
 import Network.Xmpp.Types

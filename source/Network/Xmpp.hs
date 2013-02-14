@@ -145,7 +145,7 @@ module Network.Xmpp
   , AuthFailure( AuthXmlFailure -- Does not export AuthStreamFailure
                , AuthNoAcceptableMechanism
                , AuthChallengeFailure
-               , AuthNoConnection
+               , AuthNoStream
                , AuthFailure
                , AuthSaslFailure
                , AuthStringPrepFailure )
