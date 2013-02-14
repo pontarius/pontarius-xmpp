@@ -11,6 +11,8 @@ module Network.Xmpp.Marshal where
 import Data.XML.Pickle
 import Data.XML.Types
 
+import Data.Text
+
 import Network.Xmpp.Types
 
 xpStreamStanza :: PU [Node] (Either StreamErrorInfo Stanza)
@@ -222,7 +224,7 @@ unpickleElem :: PU [Node] a -> Element -> Either UnpickleError a
 unpickleElem p x = unpickle (xpNodeElem p) x
 
 xpNodeElem :: PU [Node] a -> PU Element a
-xpNodeElem xp = PU { pickleTree = \x -> head $ (pickleTree xp x) >>= \y ->
+xpNodeElem xp = PU { pickleTree = \x -> Prelude.head $ (pickleTree xp x) >>= \y ->
                       case y of
                         NodeElement e -> [e]
                         _ -> []
@@ -238,3 +240,41 @@ mbl Nothing = []
 lmb :: [t] -> Maybe [t]
 lmb [] = Nothing
 lmb x = Just x
+
+xpStream :: PU [Node] (Text, Maybe Jid, Maybe Jid, Maybe Text, Maybe LangTag)
+xpStream = xpElemAttrs
+    (Name "stream" (Just "http://etherx.jabber.org/streams") (Just "stream"))
+    (xp5Tuple
+         (xpAttr "version" xpId)
+         (xpAttrImplied "from" xpPrim)
+         (xpAttrImplied "to" xpPrim)
+         (xpAttrImplied "id" xpId)
+         xpLangTag
+    )
+
+-- Pickler/Unpickler for the stream features - TLS, SASL, and the rest.
+xpStreamFeatures :: PU [Node] ServerFeatures
+xpStreamFeatures = xpWrap
+    (\(tls, sasl, rest) -> SF tls (mbl sasl) rest)
+    (\(SF tls sasl rest) -> (tls, lmb sasl, rest))
+    (xpElemNodes
+         (Name
+             "features"
+             (Just "http://etherx.jabber.org/streams")
+             (Just "stream")
+         )
+         (xpTriple
+              (xpOption pickleTlsFeature)
+              (xpOption pickleSaslFeature)
+              (xpAll xpElemVerbatim)
+         )
+    )
+  where
+    pickleTlsFeature :: PU [Node] Bool
+    pickleTlsFeature = xpElemNodes "{urn:ietf:params:xml:ns:xmpp-tls}starttls"
+        (xpElemExists "required")
+    pickleSaslFeature :: PU [Node] [Text]
+    pickleSaslFeature =  xpElemNodes
+        "{urn:ietf:params:xml:ns:xmpp-sasl}mechanisms"
+        (xpAll $ xpElemNodes
+             "{urn:ietf:params:xml:ns:xmpp-sasl}mechanism" (xpContent xpId))

@@ -229,45 +229,6 @@ streamS expectedTo = do
             Nothing -> throwError XmppOtherFailure
             Just r -> streamUnpickleElem xpStreamFeatures r
 
-
-xpStream :: PU [Node] (Text, Maybe Jid, Maybe Jid, Maybe Text, Maybe LangTag)
-xpStream = xpElemAttrs
-    (Name "stream" (Just "http://etherx.jabber.org/streams") (Just "stream"))
-    (xp5Tuple
-         (xpAttr "version" xpId)
-         (xpAttrImplied "from" xpPrim)
-         (xpAttrImplied "to" xpPrim)
-         (xpAttrImplied "id" xpId)
-         xpLangTag
-    )
-
--- Pickler/Unpickler for the stream features - TLS, SASL, and the rest.
-xpStreamFeatures :: PU [Node] ServerFeatures
-xpStreamFeatures = xpWrap
-    (\(tls, sasl, rest) -> SF tls (mbl sasl) rest)
-    (\(SF tls sasl rest) -> (tls, lmb sasl, rest))
-    (xpElemNodes
-         (Name
-             "features"
-             (Just "http://etherx.jabber.org/streams")
-             (Just "stream")
-         )
-         (xpTriple
-              (xpOption pickleTlsFeature)
-              (xpOption pickleSaslFeature)
-              (xpAll xpElemVerbatim)
-         )
-    )
-  where
-    pickleTlsFeature :: PU [Node] Bool
-    pickleTlsFeature = xpElemNodes "{urn:ietf:params:xml:ns:xmpp-tls}starttls"
-        (xpElemExists "required")
-    pickleSaslFeature :: PU [Node] [Text]
-    pickleSaslFeature =  xpElemNodes
-        "{urn:ietf:params:xml:ns:xmpp-sasl}mechanisms"
-        (xpAll $ xpElemNodes
-             "{urn:ietf:params:xml:ns:xmpp-sasl}mechanism" (xpContent xpId))
-
 -- | Connects to the XMPP server and opens the XMPP stream against the given
 -- host name, port, and realm.
 openStream :: HostName -> PortID -> Text -> IO (Either XmppFailure (TMVar Stream))
