@@ -32,12 +32,26 @@ module Network.Xmpp.Internal
   , pickleElem
   , unpickleElem
   , xpLangTag
+  , SaslM(..)
+  , SaslHandler(..)
+  , prepCredentials
+  , saslInit
+  , toPairs
+  , saslFromJust
+  , pullChallenge
+  , makeNonce
+  , respond
+  , pullFinalMessage
+  , Pairs(..)
+  , quote
  )
 
        where
 
 import Network.Xmpp.Stream
 import Network.Xmpp.Sasl
+import Network.Xmpp.Sasl.Common
+import Network.Xmpp.Sasl.Types
 import Network.Xmpp.Tls
 import Network.Xmpp.Types
 import Network.Xmpp.Stream
