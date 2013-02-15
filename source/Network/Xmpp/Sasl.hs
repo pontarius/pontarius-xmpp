@@ -71,11 +71,11 @@ xmppSasl :: [SaslHandler] -- ^ Acceptable authentication mechanisms and their
 xmppSasl handlers = withStream $ do
     -- Chooses the first mechanism that is acceptable by both the client and the
     -- server.
-    mechanisms <- gets $ saslMechanisms . cFeatures
+    mechanisms <- gets $ streamSaslMechanisms . streamFeatures
     case (filter (\(name, _) -> name `elem` mechanisms)) handlers of
         [] -> return $ Right $ Just $ AuthNoAcceptableMechanism mechanisms
         (_name, handler):_ -> do
-            cs <- gets cState
+            cs <- gets streamState
             case cs of
                 Closed -> return . Right $ Just AuthNoStream
                 _ -> do
@@ -134,7 +134,7 @@ xmppBind rsrc c = runErrorT $ do
             case jid of
                 Right jid' -> do
                     ErrorT $ withStream (do
-                                      modify $ \s -> s{cJid = Just jid'}
+                                      modify $ \s -> s{streamJid = Just jid'}
                                       return $ Right jid') c -- not pretty
                     return jid'
                 otherwise -> throwError XmppOtherFailure

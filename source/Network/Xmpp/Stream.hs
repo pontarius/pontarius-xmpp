@@ -1,4 +1,5 @@
 {-# OPTIONS_HADDOCK hide #-}
+
 {-# LANGUAGE NoMonomorphismRestriction, OverloadedStrings #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -92,11 +93,11 @@ startStream = runErrorT $ do
     stream <- liftIO $ mkStream state
     -- Set the `from' (which is also the expected to) attribute depending on the
     -- state of the stream.
-    let expectedTo = case cState state of
-                 Plain -> if cJidWhenPlain state
-                                        then cJid state else Nothing
-                 Secured -> cJid state
-    case cHostName state of
+    let expectedTo = case streamState state of
+                 Plain -> if includeJidWhenPlain state
+                                        then toJid state else Nothing
+                 Secured -> toJid state
+    case streamHostname state of
         Nothing -> throwError XmppOtherFailure -- TODO: When does this happen?
         Just hostname -> lift $ do
             pushXmlDecl
@@ -105,7 +106,7 @@ startStream = runErrorT $ do
                                     , expectedTo
                                     , Just (Jid Nothing hostname Nothing)
                                     , Nothing
-                                    , cPreferredLang state
+                                    , preferredLang state
                                     )
     response <- ErrorT $ runEventsSink $ runErrorT $ streamS expectedTo
     case response of
@@ -117,15 +118,15 @@ startStream = runErrorT $ do
         | lt == Nothing ->
             closeStreamWithError stream StreamInvalidXml Nothing
         -- If `from' is set, we verify that it's the correct one. TODO: Should we check against the realm instead?
-        | isJust from && (from /= Just (Jid Nothing (fromJust $ cHostName state) Nothing)) ->
+        | isJust from && (from /= Just (Jid Nothing (fromJust $ streamHostname state) Nothing)) ->
             closeStreamWithError stream StreamInvalidFrom Nothing
         | to /= expectedTo ->
             closeStreamWithError stream StreamUndefinedCondition (Just $ Element "invalid-to" [] []) -- TODO: Suitable?
         | otherwise -> do
-            modify (\s -> s{ cFeatures = features
-                           , cStreamLang = lt
-                           , cStreamId = id
-                           , cFrom = from
+            modify (\s -> s{ streamFeatures = features
+                           , streamLang = lt
+                           , streamId = id
+                           , streamFrom = from
                          } )
             return ()
       -- Unpickling failed - we investigate the element.
@@ -180,10 +181,10 @@ flattenAttrs attrs = Prelude.map (\(name, content) ->
 -- and calls xmppStartStream.
 restartStream :: StateT Stream IO (Either XmppFailure ())
 restartStream = do
-    raw <- gets (cRecv . cHandle)
+    raw <- gets (streamReceive . streamHandle)
     let newSource = DCI.ResumableSource (loopRead raw $= XP.parseBytes def)
                                         (return ())
-    modify (\s -> s{cEventSource = newSource })
+    modify (\s -> s{streamEventSource = newSource })
     startStream
   where
     loopRead read = do
@@ -203,7 +204,7 @@ streamS :: Maybe Jid -> StreamSink (Either Element ( Text
                                                    , Maybe Jid
                                                    , Maybe Text
                                                    , Maybe LangTag
-                                                   , ServerFeatures ))
+                                                   , StreamFeatures ))
 streamS expectedTo = do
     header <- xmppStreamHeader
     case header of
@@ -222,7 +223,7 @@ streamS expectedTo = do
         case unpickleElem xpStream el of
             Left _ -> return $ Left el
             Right r -> return $ Right r
-    xmppStreamFeatures :: StreamSink ServerFeatures
+    xmppStreamFeatures :: StreamSink StreamFeatures
     xmppStreamFeatures = do
         e <- lift $ elements =$ CL.head
         case e of
@@ -246,8 +247,8 @@ openStream address port hostname = do
 -- Surpresses StreamEndFailure exceptions, but may throw a StreamCloseError.
 closeStreams :: TMVar Stream -> IO (Either XmppFailure [Element])
 closeStreams = withStream $ do
-    send <- gets (cSend . cHandle)
-    cc <- gets (cClose . cHandle)
+    send <- gets (streamSend . streamHandle)
+    cc <- gets (streamClose . streamHandle)
     liftIO $ send "</stream:stream>"
     void $ liftIO $ forkIO $ do
         threadDelay 3000000 -- TODO: Configurable value
@@ -282,7 +283,7 @@ wrapIOException action = do
 
 pushElement :: Element -> StateT Stream IO (Either XmppFailure Bool)
 pushElement x = do
-    send <- gets (cSend . cHandle)
+    send <- gets (streamSend . streamHandle)
     wrapIOException $ send $ renderElement x
 
 -- | Encode and send stanza
@@ -295,21 +296,21 @@ pushStanza s = withStream' . pushElement $ pickleElem xpStanza s
 -- XMPP streams. RFC 6120 defines XMPP only in terms of XML 1.0.
 pushXmlDecl :: StateT Stream IO (Either XmppFailure Bool)
 pushXmlDecl = do
-    con <- gets cHandle
-    wrapIOException $ (cSend con) "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>"
+    con <- gets streamHandle
+    wrapIOException $ (streamSend con) "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>"
 
 pushOpenElement :: Element -> StateT Stream IO (Either XmppFailure Bool)
 pushOpenElement e = do
-    sink <- gets (cSend . cHandle)
+    sink <- gets (streamSend . streamHandle)
     wrapIOException $ sink $ renderOpenElement e
 
 -- `Connect-and-resumes' the given sink to the stream source, and pulls a
 -- `b' value.
 runEventsSink :: Sink Event IO b -> StateT Stream IO (Either XmppFailure b)
 runEventsSink snk = do -- TODO: Wrap exceptions?
-    source <- gets cEventSource
+    source <- gets streamEventSource
     (src', r) <- lift $ source $$++ snk
-    modify (\s -> s{cEventSource = src'})
+    modify (\s -> s{streamEventSource = src'})
     return $ Right r
 
 pullElement :: StateT Stream IO (Either XmppFailure Element)
@@ -362,25 +363,25 @@ catchPush p = ExL.catch
 
 -- Stream state used when there is no connection.
 xmppNoStream :: Stream
-xmppNoStream = Stream
-               { cHandle = StreamHandle { cSend = \_ -> return False
-                                        , cRecv = \_ -> ExL.throwIO
-                                                            XmppOtherFailure
-                                        , cFlush = return ()
-                                        , cClose = return ()
-                                        }
-               , cEventSource = DCI.ResumableSource zeroSource (return ())
-               , cFeatures = SF Nothing [] []
-               , cState = Closed
-               , cHostName = Nothing
-               , cJid = Nothing
-               , cStreamLang = Nothing
-               , cStreamId = Nothing
-               , cPreferredLang = Nothing
-               , cToJid = Nothing
-               , cJidWhenPlain = False
-               , cFrom = Nothing
-               }
+xmppNoStream = Stream {
+      streamState = Closed
+    , streamHandle = StreamHandle { streamSend = \_ -> return False
+                                  , streamReceive = \_ -> ExL.throwIO
+                                                          XmppOtherFailure
+                                  , streamFlush = return ()
+                                  , streamClose = return ()
+                                  }
+    , streamEventSource = DCI.ResumableSource zeroSource (return ())
+    , streamFeatures = StreamFeatures Nothing [] []
+    , streamHostname = Nothing
+    , streamFrom = Nothing
+    , streamId = Nothing
+    , streamLang = Nothing
+    , streamJid = Nothing
+    , preferredLang = Nothing
+    , toJid = Nothing
+    , includeJidWhenPlain = False
+    }
   where
     zeroSource :: Source IO output
     zeroSource = liftIO . ExL.throwIO $ XmppOtherFailure
@@ -396,35 +397,35 @@ connectTcp host port hostname = do
     let eSource = DCI.ResumableSource
                   ((sourceHandle h $= logConduit) $= XP.parseBytes def)
                   (return ())
-    let hand = StreamHandle { cSend = \d -> do
+    let hand = StreamHandle { streamSend = \d -> do
                                      let d64 = encode d
                                      debugM "Pontarius.Xmpp" $
                                        "Sending TCP data: " ++ (BSC8.unpack d64)
                                        ++ "."
                                      catchPush $ BS.hPut h d
-                                , cRecv = \n -> do
+                                , streamReceive = \n -> do
                                      d <- BS.hGetSome h n
                                      let d64 = encode d
                                      debugM "Pontarius.Xmpp" $
                                        "Received TCP data: " ++
                                        (BSC8.unpack d64) ++ "."
                                      return d
-                                , cFlush = hFlush h
-                                , cClose = hClose h
+                                , streamFlush = hFlush h
+                                , streamClose = hClose h
                                 }
     let stream = Stream
-            { cHandle = hand
-            , cEventSource = eSource
-            , cFeatures = (SF Nothing [] [])
-            , cState = Plain
-            , cHostName = (Just hostname)
-            , cJid = Nothing
-            , cPreferredLang = Nothing -- TODO: Allow user to set
-            , cStreamLang = Nothing
-            , cStreamId = Nothing
-            , cToJid = Nothing -- TODO: Allow user to set
-            , cJidWhenPlain = False -- TODO: Allow user to set
-            , cFrom = Nothing
+            { streamState = Plain
+            , streamHandle = hand
+            , streamEventSource = eSource
+            , streamFeatures = StreamFeatures Nothing [] []
+            , streamHostname = (Just hostname)
+            , streamFrom = Nothing
+            , streamId = Nothing
+            , streamLang = Nothing
+            , streamJid = Nothing
+            , preferredLang = Nothing -- TODO: Allow user to set
+            , toJid = Nothing -- TODO: Allow user to set
+            , includeJidWhenPlain = False -- TODO: Allow user to set
             }
     stream' <- mkStream stream
     return $ Right stream'
@@ -441,7 +442,7 @@ connectTcp host port hostname = do
 -- killStream :: TMVar Stream -> IO (Either ExL.SomeException ())
 killStream :: TMVar Stream -> IO (Either XmppFailure ())
 killStream = withStream $ do
-    cc <- gets (cClose . cHandle)
+    cc <- gets (streamClose . streamHandle)
     err <- wrapIOException cc
     -- (ExL.try cc :: IO (Either ExL.SomeException ()))
     put xmppNoStream

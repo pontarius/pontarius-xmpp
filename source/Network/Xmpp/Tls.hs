@@ -22,10 +22,10 @@ import           Network.Xmpp.Types
 
 import           Control.Concurrent.STM.TMVar
 
-mkBackend con = Backend { backendSend = \bs -> void (cSend con bs)
-                        , backendRecv = cRecv con
-                        , backendFlush = cFlush con
-                        , backendClose = cClose con
+mkBackend con = Backend { backendSend = \bs -> void (streamSend con bs)
+                        , backendRecv = streamReceive con
+                        , backendFlush = streamFlush con
+                        , backendClose = streamClose con
                         }
   where
     cutBytes n = do
@@ -78,14 +78,14 @@ startTls :: TLS.TLSParams -> TMVar Stream -> IO (Either XmppFailure ())
 startTls params con = Ex.handle (return . Left . TlsError)
                       . flip withStream con
                       . runErrorT $ do
-    features <- lift $ gets cFeatures
-    state <- gets cState
+    features <- lift $ gets streamFeatures
+    state <- gets streamState
     case state of
         Plain -> return ()
         Closed -> throwError XmppNoStream
         Secured -> throwError TlsStreamSecured
-    con <- lift $ gets cHandle
-    when (stls features == Nothing) $ throwError TlsNoServerSupport
+    con <- lift $ gets streamHandle
+    when (streamTls features == Nothing) $ throwError TlsNoServerSupport
     lift $ pushElement starttlsE
     answer <- lift $ pullElement
     case answer of
@@ -93,12 +93,12 @@ startTls params con = Ex.handle (return . Left . TlsError)
         Right (Element "{urn:ietf:params:xml:ns:xmpp-tls}proceed" [] []) -> return $ Right ()
         Right (Element "{urn:ietf:params:xml:ns:xmpp-tls}failure" _ _) -> return $ Left XmppOtherFailure
     (raw, _snk, psh, read, ctx) <- lift $ TLS.tlsinit debug params (mkBackend con)
-    let newHand = StreamHandle { cSend = catchPush . psh
-                                   , cRecv = read
-                                   , cFlush = contextFlush ctx
-                                   , cClose = bye ctx >> cClose con
+    let newHand = StreamHandle { streamSend = catchPush . psh
+                                   , streamReceive = read
+                                   , streamFlush = contextFlush ctx
+                                   , streamClose = bye ctx >> streamClose con
                                    }
-    lift $ modify ( \x -> x {cHandle = newHand})
+    lift $ modify ( \x -> x {streamHandle = newHand})
     either (lift . Ex.throwIO) return =<< lift restartStream
-    modify (\s -> s{cState = Secured})
+    modify (\s -> s{streamState = Secured})
     return ()

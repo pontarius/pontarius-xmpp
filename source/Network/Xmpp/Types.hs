@@ -22,7 +22,7 @@ module Network.Xmpp.Types
     , PresenceType(..)
     , SaslError(..)
     , SaslFailure(..)
-    , ServerFeatures(..)
+    , StreamFeatures(..)
     , Stanza(..)
     , StanzaError(..)
     , StanzaErrorCondition(..)
@@ -755,52 +755,63 @@ langTagParser = do
     tagChars :: [Char]
     tagChars = ['a'..'z'] ++ ['A'..'Z']
 
-data ServerFeatures = SF
-    { stls           :: !(Maybe Bool)
-    , saslMechanisms :: ![Text.Text]
-    , other          :: ![Element]
+data StreamFeatures = StreamFeatures
+    { streamTls            :: !(Maybe Bool)
+    , streamSaslMechanisms :: ![Text.Text]
+    , streamOtherFeatures  :: ![Element] -- TODO: All feature elements instead?
     } deriving Show
 
--- | Signals the state of the connection.
+-- | Signals the state of the stream connection.
 data StreamState
-    = Closed  -- ^ No stream at this point.
-    | Plain   -- ^ Stream established, but not secured.
-    | Secured -- ^ Stream established and secured via TLS.
+    = Closed  -- ^ No stream has been established
+    | Plain   -- ^ Stream established, but not secured via TLS
+    | Secured -- ^ Stream established and secured via TLS
       deriving (Show, Eq, Typeable)
 
 -- | Defines operations for sending, receiving, flushing, and closing on a
--- connection.
+-- stream.
 data StreamHandle =
-    StreamHandle { cSend :: BS.ByteString -> IO Bool
-                 , cRecv :: Int -> IO BS.ByteString
-                   -- This is to hold the state of the XML parser (otherwise
-                   -- we will receive EventBeginDocument events and forget
-                   -- about name prefixes).
-                 , cFlush :: IO ()
-                 , cClose :: IO ()
+    StreamHandle { streamSend :: BS.ByteString -> IO Bool
+                 , streamReceive :: Int -> IO BS.ByteString
+                   -- This is to hold the state of the XML parser (otherwise we
+                   -- will receive EventBeginDocument events and forget about
+                   -- name prefixes). (TODO: Clarify)
+                 , streamFlush :: IO ()
+                 , streamClose :: IO ()
                  }
 
 data Stream = Stream
-    { cState :: !StreamState -- ^ State of connection
-    , cHandle :: StreamHandle -- ^ Handle to send, receive, flush, and close
-                                  -- on the connection.
-    , cEventSource :: ResumableSource IO Event -- ^ Event conduit source, and
-                                               -- its associated finalizer
-    , cFeatures :: !ServerFeatures -- ^ Features as advertised by the server
-    , cHostName :: !(Maybe Text) -- ^ Hostname of the server
-    , cJid :: !(Maybe Jid) -- ^ Our JID
-    , cPreferredLang :: !(Maybe LangTag) -- ^ Default language when no explicit
+    { -- | State of the stream - 'Closed', 'Plain', or 'Secured'
+      streamState :: !StreamState -- ^ State of connection
+      -- | Functions to send, receive, flush, and close on the stream
+    , streamHandle :: StreamHandle
+      -- | Event conduit source, and its associated finalizer
+    , streamEventSource :: ResumableSource IO Event
+      -- | Stream features advertised by the server
+    , streamFeatures :: !StreamFeatures -- TODO: Maybe?
+      -- | The hostname we specified for the connection
+    , streamHostname :: !(Maybe Text)
+      -- | The hostname specified in the server's stream element's
+      -- `from' attribute
+    , streamFrom :: !(Maybe Jid)
+      -- | The identifier specified in the server's stream element's
+      -- `id' attribute
+    , streamId :: !(Maybe Text)
+      -- | The language tag value specified in the server's stream
+      -- element's `langtag' attribute; will be a `Just' value once
+      -- connected to the server
+      -- TODO: Verify
+    , streamLang :: !(Maybe LangTag)
+      -- | Our JID as assigned by the server
+    , streamJid :: !(Maybe Jid)
+      -- TODO: Move the below fields to a configuration record
+    , preferredLang :: !(Maybe LangTag) -- ^ Default language when no explicit
                                          -- language tag is set
-    , cStreamLang :: !(Maybe LangTag) -- ^ Will be a `Just' value once connected
-                                      -- to the server.
-    , cStreamId :: !(Maybe Text) -- ^ Stream ID as specified by the server.
-    , cToJid :: !(Maybe Jid) -- ^ JID to include in the stream element's `to'
+    , toJid :: !(Maybe Jid) -- ^ JID to include in the stream element's `to'
                              -- attribute when the connection is secured. See
                              -- also below.
-    , cJidWhenPlain :: !Bool -- ^ Whether or not to also include the Jid when
+    , includeJidWhenPlain :: !Bool -- ^ Whether or not to also include the Jid when
                              -- the connection is plain.
-    , cFrom :: !(Maybe Jid)  -- ^ From as specified by the server in the stream
-                             -- element's `from' attribute.
     }
 
 withStream :: StateT Stream IO (Either XmppFailure c) -> TMVar Stream -> IO (Either XmppFailure c)

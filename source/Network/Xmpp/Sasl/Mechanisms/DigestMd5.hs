@@ -45,7 +45,7 @@ xmppDigestMd5 ::  Text -- ^ Authentication identity (authzid or username)
                -> SaslM ()
 xmppDigestMd5 authcid authzid password = do
     (ac, az, pw) <- prepCredentials authcid authzid password
-    hn <- gets cHostName
+    hn <- gets streamHostname
     xmppDigestMd5' (fromJust hn) ac az pw
   where
     xmppDigestMd5' :: Text -> Text -> Maybe Text -> Text -> SaslM ()

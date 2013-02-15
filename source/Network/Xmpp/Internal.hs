@@ -20,7 +20,7 @@ module Network.Xmpp.Internal
   ( Stream(..)
   , StreamState(..)
   , StreamHandle(..)
-  , ServerFeatures(..)
+  , StreamFeatures(..)
   , openStream
   , withStream
   , startTls

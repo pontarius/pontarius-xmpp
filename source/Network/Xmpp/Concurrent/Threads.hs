@@ -37,7 +37,7 @@ readWorker onStanza onConnectionClosed stateRef =
                        -- necessarily be interruptible
                        s <- atomically $ do
                             con <- readTMVar stateRef
-                            state <- cState <$> readTMVar con
+                            state <- streamState <$> readTMVar con
                             when (state == Closed)
                                  retry
                             return con
@@ -83,7 +83,7 @@ startThreadsWith :: (Stanza -> IO ())
                   TMVar (TMVar Stream),
                   ThreadId))
 startThreadsWith stanzaHandler eh con = do
-    read <- withStream' (gets $ cSend . cHandle >>= \d -> return $ Right d) con
+    read <- withStream' (gets $ streamSend . streamHandle >>= \d -> return $ Right d) con
     case read of
         Left e -> return $ Left e
         Right read' -> do

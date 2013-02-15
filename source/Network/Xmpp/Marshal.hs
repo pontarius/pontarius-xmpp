@@ -253,10 +253,10 @@ xpStream = xpElemAttrs
     )
 
 -- Pickler/Unpickler for the stream features - TLS, SASL, and the rest.
-xpStreamFeatures :: PU [Node] ServerFeatures
+xpStreamFeatures :: PU [Node] StreamFeatures
 xpStreamFeatures = xpWrap
-    (\(tls, sasl, rest) -> SF tls (mbl sasl) rest)
-    (\(SF tls sasl rest) -> (tls, lmb sasl, rest))
+    (\(tls, sasl, rest) -> StreamFeatures tls (mbl sasl) rest)
+    (\(StreamFeatures tls sasl rest) -> (tls, lmb sasl, rest))
     (xpElemNodes
          (Name
              "features"
