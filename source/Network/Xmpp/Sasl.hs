@@ -12,7 +12,6 @@ module Network.Xmpp.Sasl
     , scramSha1
     , plain
     , auth
-    , simpleAuth
     ) where
 
 import           Control.Applicative
@@ -97,22 +96,6 @@ auth mechanisms resource con = runErrorT $ do
     jid <- lift $ xmppBind resource con
     lift $ startSession con
     return Nothing
-
--- | Authenticate to the server with the given username and password
--- and bind a resource.
---
--- Prefers SCRAM-SHA1 over DIGEST-MD5.
-simpleAuth  :: Text.Text  -- ^ The username
-            -> Text.Text  -- ^ The password
-            -> Maybe Text -- ^ The desired resource or 'Nothing' to let the
-                          -- server assign one
-            -> TMVar Stream
-            -> IO (Either XmppFailure (Maybe AuthFailure))
-simpleAuth username passwd resource = flip auth resource $
-        [ -- TODO: scramSha1Plus
-          scramSha1 username Nothing passwd
-        , digestMd5 username Nothing passwd
-        ]
 
 -- Produces a `bind' element, optionally wrapping a resource.
 bindBody :: Maybe Text -> Element

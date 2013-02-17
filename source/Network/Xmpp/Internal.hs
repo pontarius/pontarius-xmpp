@@ -24,7 +24,6 @@ module Network.Xmpp.Internal
   , openStream
   , withStream
   , startTls
-  , simpleAuth
   , auth
   , pushStanza
   , pullStanza
