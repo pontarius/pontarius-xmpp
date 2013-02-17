@@ -57,8 +57,7 @@ Library
   Exposed-modules: Network.Xmpp
                  , Network.Xmpp.Internal
                  , Network.Xmpp.IM
-  Other-modules: Data.Conduit.Tls
-               , Network.Xmpp.Concurrent
+  Other-modules: Network.Xmpp.Concurrent
                , Network.Xmpp.Concurrent.Types
                , Network.Xmpp.Concurrent.Basic
                , Network.Xmpp.Concurrent.IQ
