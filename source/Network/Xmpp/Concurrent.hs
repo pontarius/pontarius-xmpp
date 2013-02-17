@@ -33,7 +33,6 @@ import           Network.Xmpp.Concurrent.Types
 import           Network.Xmpp.Concurrent.Threads
 import           Network.Xmpp.Marshal
 import           Network.Xmpp.Types
-import           Text.Xml.Stream.Elements
 import           Network
 import           Data.Text as Text
 import           Network.Xmpp.Tls
@@ -43,6 +42,7 @@ import           Network.Xmpp.Sasl.Mechanisms
 import           Network.Xmpp.Sasl.Types
 import           Data.Maybe
 import           Network.Xmpp.Stream
+import           Network.Xmpp.Utilities
 
 import           Control.Monad.Error
 

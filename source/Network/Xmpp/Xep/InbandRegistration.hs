@@ -202,3 +202,6 @@ instance Read Field where
 
 -- Registered
 -- Instructions
+
+ppElement :: Element -> String
+ppElement = Text.unpack . Text.decodeUtf8 . renderElement

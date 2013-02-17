@@ -3,7 +3,7 @@
 
 {-# OPTIONS_HADDOCK hide #-}
 
-module Network.Xmpp.Utilities (idGenerator, presTo, message, answerMessage) where
+module Network.Xmpp.Utilities (presTo, message, answerMessage, openElementToEvents, renderOpenElement, renderElement) where
 
 import Network.Xmpp.Types
 
@@ -16,7 +16,24 @@ import Data.XML.Types
 import qualified Data.Attoparsec.Text as AP
 import qualified Data.Text as Text
 
+import qualified Data.ByteString as BS
+import qualified Data.Text as Text
+import qualified Data.Text.Encoding as Text
+import           System.IO.Unsafe(unsafePerformIO)
+import           Data.Conduit.List as CL
+-- import           Data.Typeable
+import           Control.Applicative ((<$>))
+import           Control.Exception
+import           Control.Monad.Trans.Class
 
+import           Data.Conduit as C
+import           Data.XML.Types
+
+import qualified Text.XML.Stream.Render as TXSR
+import           Text.XML.Unresolved as TXU
+
+
+-- TODO: Not used, and should probably be removed.
 -- | Creates a new @IdGenerator@. Internally, it will maintain an infinite list
 -- of IDs ('[\'a\', \'b\', \'c\'...]'). The argument is a prefix to prepend the
 -- IDs with. Calling the function will extract an ID and update the generator's
@@ -39,11 +56,11 @@ idGenerator prefix = atomically $ do
     -- Generates an infinite and predictable list of IDs, all beginning with the
     -- provided prefix. Adds the prefix to all combinations of IDs (ids').
     ids :: Text.Text -> [Text.Text]
-    ids p = map (\ id -> Text.append p id) ids'
+    ids p = Prelude.map (\ id -> Text.append p id) ids'
       where
         -- Generate all combinations of IDs, with increasing length.
         ids' :: [Text.Text]
-        ids' = map Text.pack $ concatMap ids'' [1..]
+        ids' = Prelude.map Text.pack $ Prelude.concatMap ids'' [1..]
         -- Generates all combinations of IDs with the given length.
         ids'' :: Integer -> [String]
         ids'' 0 = [""]
@@ -81,3 +98,29 @@ answerMessage Message{messageFrom = Just frm, ..} payload =
                 , ..
                 }
 answerMessage _ _ = Nothing
+
+openElementToEvents :: Element -> [Event]
+openElementToEvents (Element name as ns) = EventBeginElement name as : goN ns []
+  where
+    goE (Element name' as' ns') =
+          (EventBeginElement name' as' :)
+        . goN ns'
+        . (EventEndElement name' :)
+    goN [] = id
+    goN [x] = goN' x
+    goN (x:xs) = goN' x . goN xs
+    goN' (NodeElement e) = goE e
+    goN' (NodeInstruction i) = (EventInstruction i :)
+    goN' (NodeContent c) = (EventContent c :)
+    goN' (NodeComment t) = (EventComment t :)
+
+renderOpenElement :: Element -> BS.ByteString
+renderOpenElement e = Text.encodeUtf8 . Text.concat . unsafePerformIO
+    $ CL.sourceList (openElementToEvents e) $$ TXSR.renderText def =$ CL.consume
+
+renderElement :: Element -> BS.ByteString
+renderElement e = Text.encodeUtf8 . Text.concat . unsafePerformIO
+    $ CL.sourceList (elementToEvents e) $$ TXSR.renderText def =$ CL.consume
+  where
+    elementToEvents :: Element -> [Event]
+    elementToEvents e@(Element name _ _) = openElementToEvents e ++ [EventEndElement name]

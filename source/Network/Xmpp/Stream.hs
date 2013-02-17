@@ -25,7 +25,6 @@ import           Data.XML.Types
 import           Network.Xmpp.Types
 import           Network.Xmpp.Marshal
 
-import           Text.Xml.Stream.Elements
 import           Text.XML.Stream.Parse as XP
 import           Control.Concurrent (forkIO, threadDelay)
 
@@ -49,6 +48,9 @@ import qualified Data.Text as T
 import           Data.ByteString.Char8 as BSC8
 import           Text.XML.Unresolved(InvalidEventStream(..))
 import qualified Control.Exception.Lifted as ExL
+
+import           Control.Monad.Trans.Resource as R
+import           Network.Xmpp.Utilities
 
 -- import Text.XML.Stream.Elements
 
@@ -481,3 +483,48 @@ debugConduit = forever $ do
             liftIO $ BS.putStrLn (BS.append "in: " s)
             yield s
         Nothing -> return ()
+
+elements :: R.MonadThrow m => Conduit Event m Element
+elements = do
+        x <- await
+        case x of
+            Just (EventBeginElement n as) -> do
+                                                 goE n as >>= yield
+                                                 elements
+            Just (EventEndElement streamName) -> lift $ R.monadThrow StreamEnd
+            Nothing -> return ()
+            _ -> lift $ R.monadThrow $ InvalidXmppXml $ "not an element: " ++ show x
+  where
+    many' f =
+        go id
+      where
+        go front = do
+            x <- f
+            case x of
+                Left x -> return $ (x, front [])
+                Right y -> go (front . (:) y)
+    goE n as = do
+        (y, ns) <- many' goN
+        if y == Just (EventEndElement n)
+            then return $ Element n as $ compressNodes ns
+            else lift $ R.monadThrow $ InvalidXmppXml $
+                                         "Missing close tag: " ++ show n
+    goN = do
+        x <- await
+        case x of
+            Just (EventBeginElement n as) -> (Right . NodeElement) <$> goE n as
+            Just (EventInstruction i) -> return $ Right $ NodeInstruction i
+            Just (EventContent c) -> return $ Right $ NodeContent c
+            Just (EventComment t) -> return $ Right $ NodeComment t
+            Just (EventCDATA t) -> return $ Right $ NodeContent $ ContentText t
+            _ -> return $ Left x
+
+    compressNodes :: [Node] -> [Node]
+    compressNodes [] = []
+    compressNodes [x] = [x]
+    compressNodes (NodeContent (ContentText x) : NodeContent (ContentText y) : z) =
+        compressNodes $ NodeContent (ContentText $ x `Text.append` y) : z
+    compressNodes (x:xs) = x : compressNodes xs
+
+    streamName :: Name
+    streamName = (Name "stream" (Just "http://etherx.jabber.org/streams") (Just "stream"))

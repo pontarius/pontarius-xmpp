@@ -80,7 +80,6 @@ Library
                , Network.Xmpp.Tls
                , Network.Xmpp.Types
                , Network.Xmpp.Xep.ServiceDiscovery
-               , Text.Xml.Stream.Elements
   GHC-Options: -Wall
 
 Source-Repository head

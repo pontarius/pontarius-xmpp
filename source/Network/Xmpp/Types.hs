@@ -43,6 +43,8 @@ module Network.Xmpp.Types
     , isBare
     , isFull
     , fromString
+    , StreamEnd(..)
+    , InvalidXmppXml(..)
     )
        where
 
@@ -1019,3 +1021,10 @@ resourceprepProfile = SP.Profile { SP.maps = [SP.b1]
                                                    ]
                                  , SP.shouldCheckBidi = True
                                  }
+
+data StreamEnd = StreamEnd deriving (Typeable, Show)
+instance Exception StreamEnd
+
+data InvalidXmppXml = InvalidXmppXml String deriving (Show, Typeable)
+
+instance Exception InvalidXmppXml
