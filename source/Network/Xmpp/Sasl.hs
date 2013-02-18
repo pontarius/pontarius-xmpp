@@ -67,7 +67,7 @@ xmppSasl :: [SaslHandler] -- ^ Acceptable authentication mechanisms and their
                        -- corresponding handlers
          -> TMVar Stream
          -> IO (Either XmppFailure (Maybe AuthFailure))
-xmppSasl handlers = withStream $ do
+xmppSasl handlers stream = (flip withStream stream) $ do
     -- Chooses the first mechanism that is acceptable by both the client and the
     -- server.
     mechanisms <- gets $ streamSaslMechanisms . streamFeatures
@@ -77,13 +77,7 @@ xmppSasl handlers = withStream $ do
             cs <- gets streamState
             case cs of
                 Closed -> return . Right $ Just AuthNoStream
-                _ -> do
-                       r <- runErrorT handler
-                       case r of
-                           Left ae -> return $ Right $ Just ae
-                           Right a -> do
-                               _ <- runErrorT $ ErrorT restartStream
-                               return $ Right $ Nothing
+                _ -> lift $ handler stream
 
 -- | Authenticate to the server using the first matching method and bind a
 -- resource.

@@ -31,8 +31,8 @@ import           Network.Xmpp.Sasl.StringPrep
 import           Network.Xmpp.Sasl.Types
 import           Network.Xmpp.Types
 
-
 import           Control.Monad.State.Strict
+import           Control.Concurrent.STM
 
 -- | A nicer name for undefined, for use as a dummy token to determin
 -- the hash function to use
@@ -164,6 +164,24 @@ scramSha1 :: Text.Text  -- ^ username
           -> Text.Text   -- ^ password
           -> SaslHandler
 scramSha1 authcid authzid passwd =
-    ("SCRAM-SHA-1"
-    , scram (hashToken :: Crypto.SHA1) authcid authzid passwd
+    ( "SCRAM-SHA-1"
+    , \stream -> do
+        stream_ <- atomically $ readTMVar stream
+        r <- runErrorT $ do
+          -- Alrighty! The problem here is that `scramSha1' runs in the
+          -- `IO (Either XmppFailure (Maybe AuthFailure))' monad, while we need
+          -- to call an `ErrorT AuthFailure (StateT Stream IO) ()' calculation.
+          -- The key is to use `mapErrorT', which is called with the following
+          -- ypes:
+          -- 
+          -- mapErrorT :: (StateT Stream IO (Either AuthError ()) -> IO (Either AuthError ()))
+          --           -> ErrorT AuthError (StateT Stream IO) ()
+          --           -> ErrorT AuthError IO ()
+          mapErrorT
+            (\s -> runStateT s stream_ >>= \(r, _) -> return r)
+            (scram (hashToken :: Crypto.SHA1) authcid authzid passwd)
+        case r of
+          Left (AuthStreamFailure e) -> return $ Left e
+          Left e -> return $ Right $ Just e
+          Right () -> return $ Right $ Nothing
     )

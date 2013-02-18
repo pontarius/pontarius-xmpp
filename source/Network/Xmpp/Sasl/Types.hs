@@ -6,6 +6,7 @@ import           Control.Monad.State.Strict
 import           Data.ByteString(ByteString)
 import qualified Data.Text as Text
 import           Network.Xmpp.Types
+import           Control.Concurrent.STM
 
 data AuthFailure = AuthXmlFailure
                | AuthNoAcceptableMechanism [Text.Text] -- ^ Wraps mechanisms
@@ -32,4 +33,4 @@ type Pairs = [(ByteString, ByteString)]
 -- | Tuple defining the SASL Handler's name, and a SASL mechanism computation.
 -- The SASL mechanism is a stateful @Stream@ computation, which has the
 -- possibility of resulting in an authentication error.
-type SaslHandler = (Text.Text, ErrorT AuthFailure (StateT Stream IO) ())
+type SaslHandler = (Text.Text, (TMVar Stream -> IO (Either XmppFailure (Maybe AuthFailure))))
