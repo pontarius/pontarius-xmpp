@@ -15,7 +15,7 @@ data AuthFailure = AuthXmlFailure
                                      -- itself
                | AuthStreamFailure XmppFailure -- ^ Stream error on stream restart
                -- TODO: Rename AuthConnectionFailure?
-               | AuthNoConnection
+               | AuthNoStream
                | AuthFailure -- General instance used for the Error instance
                | AuthSaslFailure SaslFailure -- ^ Defined SASL error condition
                | AuthStringPrepFailure -- ^ StringPrep failed
@@ -27,11 +27,9 @@ instance Error AuthFailure where
 data SaslElement = SaslSuccess   (Maybe Text.Text)
                  | SaslChallenge (Maybe Text.Text)
 
--- | SASL mechanism XmppConnection computation, with the possibility of throwing
--- an authentication error.
-type SaslM a = ErrorT AuthFailure (StateT Connection IO) a
-
 type Pairs = [(ByteString, ByteString)]
 
--- | Tuple defining the SASL Handler's name, and a SASL mechanism computation
-type SaslHandler = (Text.Text, SaslM ())
+-- | Tuple defining the SASL Handler's name, and a SASL mechanism computation.
+-- The SASL mechanism is a stateful @Stream@ computation, which has the
+-- possibility of resulting in an authentication error.
+type SaslHandler = (Text.Text, ErrorT AuthFailure (StateT Stream IO) ())

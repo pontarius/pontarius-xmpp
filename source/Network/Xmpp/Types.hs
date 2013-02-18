@@ -22,7 +22,7 @@ module Network.Xmpp.Types
     , PresenceType(..)
     , SaslError(..)
     , SaslFailure(..)
-    , ServerFeatures(..)
+    , StreamFeatures(..)
     , Stanza(..)
     , StanzaError(..)
     , StanzaErrorCondition(..)
@@ -31,19 +31,20 @@ module Network.Xmpp.Types
     , XmppFailure(..)
     , StreamErrorCondition(..)
     , Version(..)
-    , ConnectionHandle(..)
-    , Connection(..)
-    , withConnection
-    , withConnection'
-    , mkConnection
-    , ConnectionState(..)
+    , StreamHandle(..)
+    , Stream(..)
+    , StreamState(..)
     , StreamErrorInfo(..)
     , langTag
-    , module Network.Xmpp.Jid
+    , Jid(..)
+    , isBare
+    , isFull
+    , fromString
+    , StreamEnd(..)
+    , InvalidXmppXml(..)
     )
        where
 
-import           Control.Applicative ((<$>), many)
 import           Control.Concurrent.STM
 import           Control.Exception
 import           Control.Monad.Error
@@ -65,24 +66,30 @@ import qualified Network.TLS as TLS
 
 import qualified Network as N
 
-import           Network.Xmpp.Jid
-
 import           System.IO
+
+import           Control.Applicative ((<$>), (<|>), many)
+import           Control.Monad(guard)
+
+import qualified Data.Set as Set
+import           Data.String (IsString(..))
+import qualified Text.NamePrep as SP
+import qualified Text.StringPrep as SP
 
 -- |
 -- Wraps a string of random characters that, when using an appropriate
--- @IDGenerator@, is guaranteed to be unique for the Xmpp session.
+-- @IdGenerator@, is guaranteed to be unique for the Xmpp session.
 
-data StanzaID = SI !Text deriving (Eq, Ord)
+data StanzaId = StanzaId !Text deriving (Eq, Ord)
 
-instance Show StanzaID where
-  show (SI s) = Text.unpack s
+instance Show StanzaId where
+  show (StanzaId s) = Text.unpack s
 
-instance Read StanzaID where
-  readsPrec _ x = [(SI $ Text.pack x, "")]
+instance Read StanzaId where
+  readsPrec _ x = [(StanzaId $ Text.pack x, "")]
 
-instance IsString StanzaID where
-  fromString = SI . Text.pack
+instance IsString StanzaId where
+  fromString = StanzaId . Text.pack
 
 -- | The Xmpp communication primities (Message, Presence and Info/Query) are
 -- called stanzas.
@@ -644,8 +651,8 @@ data XmppFailure = StreamErrorFailure StreamErrorInfo -- ^ An error XML stream
                                               -- far.
                  | TlsError TLS.TLSError
                  | TlsNoServerSupport
-                 | XmppNoConnection
-                 | TlsConnectionSecured -- ^ Connection already secured
+                 | XmppNoStream
+                 | TlsStreamSecured -- ^ Connection already secured
                  | XmppOtherFailure -- ^ Undefined condition. More
                                     -- information should be available
                                     -- in the log.
@@ -747,71 +754,253 @@ langTagParser = do
     tagChars :: [Char]
     tagChars = ['a'..'z'] ++ ['A'..'Z']
 
-data ServerFeatures = SF
-    { stls           :: !(Maybe Bool)
-    , saslMechanisms :: ![Text.Text]
-    , other          :: ![Element]
+data StreamFeatures = StreamFeatures
+    { streamTls            :: !(Maybe Bool)
+    , streamSaslMechanisms :: ![Text.Text]
+    , streamOtherFeatures  :: ![Element] -- TODO: All feature elements instead?
     } deriving Show
 
--- | Signals the state of the connection.
-data ConnectionState
-    = ConnectionClosed  -- ^ No connection at this point.
-    | ConnectionPlain   -- ^ Connection established, but not secured.
-    | ConnectionSecured -- ^ Connection established and secured via TLS.
+-- | Signals the state of the stream connection.
+data StreamState
+    = Closed  -- ^ No stream has been established
+    | Plain   -- ^ Stream established, but not secured via TLS
+    | Secured -- ^ Stream established and secured via TLS
       deriving (Show, Eq, Typeable)
 
 -- | Defines operations for sending, receiving, flushing, and closing on a
--- connection.
-data ConnectionHandle =
-    ConnectionHandle { cSend :: BS.ByteString -> IO Bool
-                     , cRecv :: Int -> IO BS.ByteString
-                       -- This is to hold the state of the XML parser (otherwise
-                       -- we will receive EventBeginDocument events and forget
-                       -- about name prefixes).
-                     , cFlush :: IO ()
-                     , cClose :: IO ()
-                     }
+-- stream.
+data StreamHandle =
+    StreamHandle { streamSend :: BS.ByteString -> IO Bool
+                 , streamReceive :: Int -> IO BS.ByteString
+                   -- This is to hold the state of the XML parser (otherwise we
+                   -- will receive EventBeginDocument events and forget about
+                   -- name prefixes). (TODO: Clarify)
+                 , streamFlush :: IO ()
+                 , streamClose :: IO ()
+                 }
 
-data Connection = Connection
-    { cState :: !ConnectionState -- ^ State of connection
-    , cHandle :: ConnectionHandle -- ^ Handle to send, receive, flush, and close
-                                  -- on the connection.
-    , cEventSource :: ResumableSource IO Event -- ^ Event conduit source, and
-                                               -- its associated finalizer
-    , cFeatures :: !ServerFeatures -- ^ Features as advertised by the server
-    , cHostName :: !(Maybe Text) -- ^ Hostname of the server
-    , cJid :: !(Maybe Jid) -- ^ Our JID
-    , cPreferredLang :: !(Maybe LangTag) -- ^ Default language when no explicit
+data Stream = Stream
+    { -- | State of the stream - 'Closed', 'Plain', or 'Secured'
+      streamState :: !StreamState -- ^ State of connection
+      -- | Functions to send, receive, flush, and close on the stream
+    , streamHandle :: StreamHandle
+      -- | Event conduit source, and its associated finalizer
+    , streamEventSource :: ResumableSource IO Event
+      -- | Stream features advertised by the server
+    , streamFeatures :: !StreamFeatures -- TODO: Maybe?
+      -- | The hostname we specified for the connection
+    , streamHostname :: !(Maybe Text)
+      -- | The hostname specified in the server's stream element's
+      -- `from' attribute
+    , streamFrom :: !(Maybe Jid)
+      -- | The identifier specified in the server's stream element's
+      -- `id' attribute
+    , streamId :: !(Maybe Text)
+      -- | The language tag value specified in the server's stream
+      -- element's `langtag' attribute; will be a `Just' value once
+      -- connected to the server
+      -- TODO: Verify
+    , streamLang :: !(Maybe LangTag)
+      -- | Our JID as assigned by the server
+    , streamJid :: !(Maybe Jid)
+      -- TODO: Move the below fields to a configuration record
+    , preferredLang :: !(Maybe LangTag) -- ^ Default language when no explicit
                                          -- language tag is set
-    , cStreamLang :: !(Maybe LangTag) -- ^ Will be a `Just' value once connected
-                                      -- to the server.
-    , cStreamId :: !(Maybe Text) -- ^ Stream ID as specified by the server.
-    , cToJid :: !(Maybe Jid) -- ^ JID to include in the stream element's `to'
+    , toJid :: !(Maybe Jid) -- ^ JID to include in the stream element's `to'
                              -- attribute when the connection is secured. See
                              -- also below.
-    , cJidWhenPlain :: !Bool -- ^ Whether or not to also include the Jid when
+    , includeJidWhenPlain :: !Bool -- ^ Whether or not to also include the Jid when
                              -- the connection is plain.
-    , cFrom :: !(Maybe Jid)  -- ^ From as specified by the server in the stream
-                             -- element's `from' attribute.
     }
 
-withConnection :: StateT Connection IO (Either XmppFailure c) -> TMVar Connection -> IO (Either XmppFailure c)
-withConnection action con = bracketOnError
-                                         (atomically $ takeTMVar con)
-                                         (atomically . putTMVar con )
-                                         (\c -> do
-                                               (r, c') <- runStateT action c
-                                               atomically $ putTMVar con c'
-                                               return r
-                                         )
+---------------
+-- JID
+---------------
 
--- nonblocking version. Changes to the connection are ignored!
-withConnection' :: StateT Connection IO (Either XmppFailure b) -> TMVar Connection -> IO (Either XmppFailure b)
-withConnection' action con = do
-    con_ <- atomically $ readTMVar con
-    (r, _) <- runStateT action con_
-    return r
+-- | A JID is XMPP\'s native format for addressing entities in the network. It
+-- is somewhat similar to an e-mail address but contains three parts instead of
+-- two.
+data Jid = Jid { -- | The @localpart@ of a JID is an optional identifier placed
+                 -- before the domainpart and separated from the latter by a
+                 -- \'\@\' character. Typically a localpart uniquely identifies
+                 -- the entity requesting and using network access provided by a
+                 -- server (i.e., a local account), although it can also
+                 -- represent other kinds of entities (e.g., a chat room
+                 -- associated with a multi-user chat service). The entity
+                 -- represented by an XMPP localpart is addressed within the
+                 -- context of a specific domain (i.e.,
+                 -- @localpart\@domainpart@).
+                 localpart :: !(Maybe Text)
 
+                 -- | The domainpart typically identifies the /home/ server to
+                 -- which clients connect for XML routing and data management
+                 -- functionality. However, it is not necessary for an XMPP
+                 -- domainpart to identify an entity that provides core XMPP
+                 -- server functionality (e.g., a domainpart can identify an
+                 -- entity such as a multi-user chat service, a
+                 -- publish-subscribe service, or a user directory).
+               , domainpart :: !Text
 
-mkConnection :: Connection -> IO (TMVar Connection)
-mkConnection con = {- Connection `fmap` -} (atomically $ newTMVar con)
+                 -- | The resourcepart of a JID is an optional identifier placed
+                 -- after the domainpart and separated from the latter by the
+                 -- \'\/\' character. A resourcepart can modify either a
+                 -- @localpart\@domainpart@ address or a mere @domainpart@
+                 -- address. Typically a resourcepart uniquely identifies a
+                 -- specific connection (e.g., a device or location) or object
+                 -- (e.g., an occupant in a multi-user chat room) belonging to
+                 -- the entity associated with an XMPP localpart at a domain
+                 -- (i.e., @localpart\@domainpart/resourcepart@).
+               , resourcepart :: !(Maybe Text)
+               } deriving Eq
+
+instance Show Jid where
+  show (Jid nd dmn res) =
+      maybe "" ((++ "@") . Text.unpack) nd ++ Text.unpack dmn ++
+          maybe "" (('/' :) . Text.unpack) res
+
+instance Read Jid where
+  readsPrec _ x = case fromText (Text.pack x) of
+      Nothing -> []
+      Just j -> [(j,"")]
+
+instance IsString Jid where
+  fromString = fromJust . fromText . Text.pack
+
+-- | Converts a Text to a JID.
+fromText :: Text -> Maybe Jid
+fromText t = do
+    (l, d, r) <- eitherToMaybe $ AP.parseOnly jidParts t
+    fromStrings l d r
+  where
+    eitherToMaybe = either (const Nothing) Just
+
+-- | Converts localpart, domainpart, and resourcepart strings to a JID. Runs the
+-- appropriate stringprep profiles and validates the parts.
+fromStrings :: Maybe Text -> Text -> Maybe Text -> Maybe Jid
+fromStrings l d r = do
+    localPart <- case l of
+        Nothing -> return Nothing
+        Just l'-> do
+            l'' <- SP.runStringPrep nodeprepProfile l'
+            guard $ validPartLength l''
+            let prohibMap = Set.fromList nodeprepExtraProhibitedCharacters
+            guard $ Text.all (`Set.notMember` prohibMap) l''
+            return $ Just l''
+    domainPart <- SP.runStringPrep (SP.namePrepProfile False) d
+    guard $ validDomainPart domainPart
+    resourcePart <- case r of
+        Nothing -> return Nothing
+        Just r' -> do
+            r'' <- SP.runStringPrep resourceprepProfile r'
+            guard $ validPartLength r''
+            return $ Just r''
+    return $ Jid localPart domainPart resourcePart
+  where
+    validDomainPart :: Text -> Bool
+    validDomainPart _s = True -- TODO
+
+    validPartLength :: Text -> Bool
+    validPartLength p = Text.length p > 0 && Text.length p < 1024
+
+-- | Returns 'True' if the JID is /bare/, and 'False' otherwise.
+isBare :: Jid -> Bool
+isBare j | resourcepart j == Nothing = True
+         | otherwise                 = False
+
+-- | Returns 'True' if the JID is /full/, and 'False' otherwise.
+isFull :: Jid -> Bool
+isFull = not . isBare
+
+-- Parses an JID string and returns its three parts. It performs no validation
+-- or transformations.
+jidParts :: AP.Parser (Maybe Text, Text, Maybe Text)
+jidParts = do
+    -- Read until we reach an '@', a '/', or EOF.
+    a <- AP.takeWhile1 (AP.notInClass ['@', '/'])
+    -- Case 1: We found an '@', and thus the localpart. At least the domainpart
+    -- is remaining. Read the '@' and until a '/' or EOF.
+    do
+        b <- domainPartP
+        -- Case 1A: We found a '/' and thus have all the JID parts. Read the '/'
+        -- and until EOF.
+        do
+            c <- resourcePartP -- Parse resourcepart
+            return (Just a, b, Just c)
+        -- Case 1B: We have reached EOF; the JID is in the form
+        -- localpart@domainpart.
+            <|> do
+                AP.endOfInput
+                return (Just a, b, Nothing)
+          -- Case 2: We found a '/'; the JID is in the form
+          -- domainpart/resourcepart.
+          <|> do
+              b <- resourcePartP
+              AP.endOfInput
+              return (Nothing, a, Just b)
+          -- Case 3: We have reached EOF; we have an JID consisting of only a
+          -- domainpart.
+        <|> do
+            AP.endOfInput
+            return (Nothing, a, Nothing)
+  where
+    -- Read an '@' and everything until a '/'.
+    domainPartP :: AP.Parser Text
+    domainPartP = do
+        _ <- AP.char '@'
+        AP.takeWhile1 (/= '/')
+    -- Read everything until a '/'.
+    resourcePartP :: AP.Parser Text
+    resourcePartP = do
+        _ <- AP.char '/'
+        AP.takeText
+
+-- The `nodeprep' StringPrep profile.
+nodeprepProfile :: SP.StringPrepProfile
+nodeprepProfile = SP.Profile { SP.maps = [SP.b1, SP.b2]
+                             , SP.shouldNormalize = True
+                             , SP.prohibited = [SP.a1
+                                               , SP.c11
+                                               , SP.c12
+                                               , SP.c21
+                                               , SP.c22
+                                               , SP.c3
+                                               , SP.c4
+                                               , SP.c5
+                                               , SP.c6
+                                               , SP.c7
+                                               , SP.c8
+                                               , SP.c9
+                                               ]
+                             , SP.shouldCheckBidi = True
+                             }
+
+-- These characters needs to be checked for after normalization.
+nodeprepExtraProhibitedCharacters :: [Char]
+nodeprepExtraProhibitedCharacters = ['\x22', '\x26', '\x27', '\x2F', '\x3A',
+                                     '\x3C', '\x3E', '\x40']
+
+-- The `resourceprep' StringPrep profile.
+resourceprepProfile :: SP.StringPrepProfile
+resourceprepProfile = SP.Profile { SP.maps = [SP.b1]
+                                 , SP.shouldNormalize = True
+                                 , SP.prohibited = [ SP.a1
+                                                   , SP.c12
+                                                   , SP.c21
+                                                   , SP.c22
+                                                   , SP.c3
+                                                   , SP.c4
+                                                   , SP.c5
+                                                   , SP.c6
+                                                   , SP.c7
+                                                   , SP.c8
+                                                   , SP.c9
+                                                   ]
+                                 , SP.shouldCheckBidi = True
+                                 }
+
+data StreamEnd = StreamEnd deriving (Typeable, Show)
+instance Exception StreamEnd
+
+data InvalidXmppXml = InvalidXmppXml String deriving (Show, Typeable)
+
+instance Exception InvalidXmppXml

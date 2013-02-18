@@ -18,7 +18,7 @@
 -- of XMPP (RFC 6120): setup and teardown of XML streams, channel encryption,
 -- authentication, error handling, and communication primitives for messaging.
 -- 
--- For low-level access to Pontarius XMPP, see the "Network.Xmpp.Connection"
+-- For low-level access to Pontarius XMPP, see the "Network.Xmpp.Internal"
 -- module.
 
 {-# LANGUAGE NoMonomorphismRestriction, OverloadedStrings #-}
@@ -96,7 +96,7 @@ module Network.Xmpp
   , PresenceType(..)
   , PresenceError(..)
   -- *** Creating
-  , module Network.Xmpp.Presence
+  , presTo
   -- *** Sending
   -- | Sends a presence stanza. In general, the presence stanza should have no
   -- 'to' attribute, in which case the server to which the client is connected
@@ -145,7 +145,7 @@ module Network.Xmpp
   , AuthFailure( AuthXmlFailure -- Does not export AuthStreamFailure
                , AuthNoAcceptableMechanism
                , AuthChallengeFailure
-               , AuthNoConnection
+               , AuthNoStream
                , AuthFailure
                , AuthSaslFailure
                , AuthStringPrepFailure )
@@ -154,10 +154,8 @@ module Network.Xmpp
 
 import Network
 import Network.Xmpp.Concurrent
-import Network.Xmpp.Message
-import Network.Xmpp.Presence
+import Network.Xmpp.Utilities
 import Network.Xmpp.Sasl
 import Network.Xmpp.Sasl.Types
-import Network.Xmpp.Session
 import Network.Xmpp.Tls
 import Network.Xmpp.Types

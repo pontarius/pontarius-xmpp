@@ -11,7 +11,8 @@ module Network.Xmpp.Marshal where
 import Data.XML.Pickle
 import Data.XML.Types
 
-import Network.Xmpp.Pickle
+import Data.Text
+
 import Network.Xmpp.Types
 
 xpStreamStanza :: PU [Node] (Either StreamErrorInfo Stanza)
@@ -207,3 +208,73 @@ xpStreamError = ("xpStreamError" , "") <?+> xpWrap
               (xpOption xpElemVerbatim) -- Application specific error conditions
          )
     )
+
+xpLangTag :: PU [Attribute] (Maybe LangTag)
+xpLangTag = xpAttrImplied xmlLang xpPrim
+
+xmlLang :: Name
+xmlLang = Name "lang" (Just "http://www.w3.org/XML/1998/namespace") (Just "xml")
+
+-- Given a pickler and an object, produces an Element.
+pickleElem :: PU [Node] a -> a -> Element
+pickleElem p = pickle $ xpNodeElem p
+
+-- Given a pickler and an element, produces an object.
+unpickleElem :: PU [Node] a -> Element -> Either UnpickleError a
+unpickleElem p x = unpickle (xpNodeElem p) x
+
+xpNodeElem :: PU [Node] a -> PU Element a
+xpNodeElem xp = PU { pickleTree = \x -> Prelude.head $ (pickleTree xp x) >>= \y ->
+                      case y of
+                        NodeElement e -> [e]
+                        _ -> []
+             , unpickleTree = \x -> case unpickleTree xp $ [NodeElement x] of
+                        Left l -> Left l
+                        Right (a,(_,c)) -> Right (a,(Nothing,c))
+                   }
+
+mbl :: Maybe [a] -> [a]
+mbl (Just l) = l
+mbl Nothing = []
+
+lmb :: [t] -> Maybe [t]
+lmb [] = Nothing
+lmb x = Just x
+
+xpStream :: PU [Node] (Text, Maybe Jid, Maybe Jid, Maybe Text, Maybe LangTag)
+xpStream = xpElemAttrs
+    (Name "stream" (Just "http://etherx.jabber.org/streams") (Just "stream"))
+    (xp5Tuple
+         (xpAttr "version" xpId)
+         (xpAttrImplied "from" xpPrim)
+         (xpAttrImplied "to" xpPrim)
+         (xpAttrImplied "id" xpId)
+         xpLangTag
+    )
+
+-- Pickler/Unpickler for the stream features - TLS, SASL, and the rest.
+xpStreamFeatures :: PU [Node] StreamFeatures
+xpStreamFeatures = xpWrap
+    (\(tls, sasl, rest) -> StreamFeatures tls (mbl sasl) rest)
+    (\(StreamFeatures tls sasl rest) -> (tls, lmb sasl, rest))
+    (xpElemNodes
+         (Name
+             "features"
+             (Just "http://etherx.jabber.org/streams")
+             (Just "stream")
+         )
+         (xpTriple
+              (xpOption pickleTlsFeature)
+              (xpOption pickleSaslFeature)
+              (xpAll xpElemVerbatim)
+         )
+    )
+  where
+    pickleTlsFeature :: PU [Node] Bool
+    pickleTlsFeature = xpElemNodes "{urn:ietf:params:xml:ns:xmpp-tls}starttls"
+        (xpElemExists "required")
+    pickleSaslFeature :: PU [Node] [Text]
+    pickleSaslFeature =  xpElemNodes
+        "{urn:ietf:params:xml:ns:xmpp-sasl}mechanisms"
+        (xpAll $ xpElemNodes
+             "{urn:ietf:params:xml:ns:xmpp-sasl}mechanism" (xpContent xpId))

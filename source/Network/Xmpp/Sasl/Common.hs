@@ -22,14 +22,16 @@ import           Data.Word (Word8)
 import           Data.XML.Pickle
 import           Data.XML.Types
 
-import           Network.Xmpp.Connection_
-import           Network.Xmpp.Pickle
+import           Network.Xmpp.Stream
 import           Network.Xmpp.Sasl.StringPrep
 import           Network.Xmpp.Sasl.Types
+import           Network.Xmpp.Marshal
 
 import qualified System.Random as Random
 
---makeNonce :: SaslM BS.ByteString
+import           Control.Monad.State.Strict
+
+--makeNonce :: ErrorT AuthFailure (StateT Stream IO) BS.ByteString
 makeNonce :: IO BS.ByteString
 makeNonce = do
     g <- liftIO Random.newStdGen
@@ -106,7 +108,7 @@ xpSaslElement = xpAlt saslSel
 quote :: BS.ByteString -> BS.ByteString
 quote x = BS.concat ["\"",x,"\""]
 
-saslInit :: Text.Text -> Maybe BS.ByteString -> SaslM Bool
+saslInit :: Text.Text -> Maybe BS.ByteString -> ErrorT AuthFailure (StateT Stream IO) Bool
 saslInit mechanism payload = do
     r <- lift . pushElement . saslInitE mechanism $
         Text.decodeUtf8 . B64.encode <$> payload
@@ -115,7 +117,7 @@ saslInit mechanism payload = do
         Right b -> return b
 
 -- | Pull the next element.
-pullSaslElement :: SaslM SaslElement
+pullSaslElement :: ErrorT AuthFailure (StateT Stream IO) SaslElement
 pullSaslElement = do
     r <- lift $ pullUnpickle (xpEither xpFailure xpSaslElement)
     case r of
@@ -124,7 +126,7 @@ pullSaslElement = do
         Right (Right r) -> return r
 
 -- | Pull the next element, checking that it is a challenge.
-pullChallenge :: SaslM (Maybe BS.ByteString)
+pullChallenge :: ErrorT AuthFailure (StateT Stream IO) (Maybe BS.ByteString)
 pullChallenge = do
   e <- pullSaslElement
   case e of
@@ -135,12 +137,12 @@ pullChallenge = do
       _ -> throwError AuthChallengeFailure
 
 -- | Extract value from Just, failing with AuthChallengeFailure on Nothing.
-saslFromJust :: Maybe a -> SaslM a
+saslFromJust :: Maybe a -> ErrorT AuthFailure (StateT Stream IO) a
 saslFromJust Nothing = throwError $ AuthChallengeFailure
 saslFromJust (Just d) = return d
 
 -- | Pull the next element and check that it is success.
-pullSuccess :: SaslM (Maybe Text.Text)
+pullSuccess :: ErrorT AuthFailure (StateT Stream IO) (Maybe Text.Text)
 pullSuccess = do
     e <- pullSaslElement
     case e of
@@ -149,7 +151,7 @@ pullSuccess = do
 
 -- | Pull the next element. When it's success, return it's payload.
 -- If it's a challenge, send an empty response and pull success.
-pullFinalMessage :: SaslM (Maybe BS.ByteString)
+pullFinalMessage :: ErrorT AuthFailure (StateT Stream IO) (Maybe BS.ByteString)
 pullFinalMessage = do
     challenge2 <- pullSaslElement
     case challenge2 of
@@ -165,13 +167,13 @@ pullFinalMessage = do
         Right x -> return $ Just x
 
 -- | Extract p=q pairs from a challenge.
-toPairs :: BS.ByteString -> SaslM Pairs
+toPairs :: BS.ByteString -> ErrorT AuthFailure (StateT Stream IO) Pairs
 toPairs ctext = case pairs ctext of
     Left _e -> throwError AuthChallengeFailure
     Right r -> return r
 
 -- | Send a SASL response element. The content will be base64-encoded.
-respond :: Maybe BS.ByteString -> SaslM Bool
+respond :: Maybe BS.ByteString -> ErrorT AuthFailure (StateT Stream IO) Bool
 respond m = do
     r <- lift . pushElement . saslResponseE . fmap (Text.decodeUtf8 . B64.encode) $ m
     case r of
@@ -182,7 +184,7 @@ respond m = do
 -- | Run the appropriate stringprep profiles on the credentials.
 -- May fail with 'AuthStringPrepFailure'
 prepCredentials :: Text.Text -> Maybe Text.Text -> Text.Text
-                -> SaslM (Text.Text, Maybe Text.Text, Text.Text)
+                -> ErrorT AuthFailure (StateT Stream IO) (Text.Text, Maybe Text.Text, Text.Text)
 prepCredentials authcid authzid password = case credentials of
     Nothing -> throwError $ AuthStringPrepFailure
     Just creds -> return creds

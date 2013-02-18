@@ -19,11 +19,7 @@ import qualified Data.Text as Text
 import           Data.XML.Pickle
 import qualified Data.XML.Types as XML
 
-import           Network.Xmpp.Connection_
-import           Network.Xmpp.Pickle
-import           Network.Xmpp.Types
-import           Network.Xmpp.Basic
-import           Network.Xmpp
+import           Network.Xmpp.Internal
 import           Network.Xmpp.Xep.ServiceDiscovery
 
 
@@ -34,7 +30,7 @@ ibrns = "jabber:iq:register"
 ibrName x = (XML.Name x (Just ibrns) Nothing)
 
 data IbrError = IbrNotSupported
-              | IbrNoConnection
+              | IbrNoStream
               | IbrIQError IQError
               | IbrTimeout
 
@@ -50,9 +46,33 @@ data Query = Query { instructions :: Maybe Text.Text
 
 emptyQuery = Query Nothing False False []
 
-query :: IQRequestType -> Query -> TMVar Connection -> IO (Either IbrError Query)
+-- supported :: XmppConMonad (Either IbrError Bool)
+-- supported = runErrorT $ fromFeatures <+> fromDisco
+--   where
+--   fromFeatures = do
+--       fs <- other <$> gets sFeatures
+--       let fe = XML.Element
+--                    "{http://jabber.org/features/iq-register}register"
+--                    []
+--                    []
+--       return $ fe `elem` fs
+--   fromDisco = do
+--       hn' <- gets sHostname
+--       hn <- case hn' of
+--           Just h -> return (Jid Nothing h Nothing)
+--           Nothing -> throwError IbrNoStream
+--       qi <- lift $ xmppQueryInfo Nothing Nothing
+--       case qi of
+--           Left e -> return False
+--           Right qir -> return $ "jabber:iq:register" `elem` qiFeatures qir
+--   f <+> g = do
+--             r <- f
+--             if r then return True else g
+
+
+query :: IQRequestType -> Query -> TMVar Stream -> IO (Either IbrError Query)
 query queryType x con = do
-    answer <- pushIQ' "ibr" Nothing queryType Nothing (pickleElem xpQuery x) con
+    answer <- pushIQ "ibr" Nothing queryType Nothing (pickleElem xpQuery x) con
     case answer of
         Right IQResult{iqResultPayload = Just b} ->
             case unpickleElem xpQuery b of
@@ -93,7 +113,7 @@ mapError f = mapErrorT (liftM $ left f)
 -- | Retrieve the necessary fields and fill them in to register an account with
 -- the server.
 registerWith :: [(Field, Text.Text)]
-             -> TMVar Connection
+             -> TMVar Stream
              -> IO  (Either RegisterError Query)
 registerWith givenFields con = runErrorT $ do
     fs <- mapError IbrError . ErrorT $ requestFields con
@@ -125,7 +145,7 @@ deleteAccount host hostname port username password = do
 
 -- | Terminate your account on the server. You have to be logged in for this to
 -- work. You connection will most likely be terminated after unregistering.
-unregister :: TMVar Connection -> IO (Either IbrError Query)
+unregister :: TMVar Stream -> IO (Either IbrError Query)
 unregister = query Set $ emptyQuery {remove = True}
 
 unregister' :: Session -> IO (Either IbrError Query)
@@ -216,3 +236,6 @@ instance Read Field where
 
 -- Registered
 -- Instructions
+
+ppElement :: Element -> String
+ppElement = Text.unpack . Text.decodeUtf8 . renderElement

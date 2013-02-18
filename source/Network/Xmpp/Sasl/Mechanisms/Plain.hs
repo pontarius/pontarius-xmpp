@@ -35,10 +35,8 @@ import qualified Data.ByteString as BS
 
 import           Data.XML.Types
 
-import           Network.Xmpp.Connection_
 import           Network.Xmpp.Stream
 import           Network.Xmpp.Types
-import           Network.Xmpp.Pickle
 
 import qualified System.Random as Random
 
@@ -52,7 +50,7 @@ import           Network.Xmpp.Sasl.Types
 xmppPlain :: Text.Text -- ^ Password
           -> Maybe Text.Text -- ^ Authorization identity (authzid)
           -> Text.Text -- ^ Authentication identity (authcid)
-          -> SaslM ()
+          -> ErrorT AuthFailure (StateT Stream IO) ()
 xmppPlain authcid authzid password  = do
     (ac, az, pw) <- prepCredentials authcid authzid password
     _ <- saslInit "PLAIN" ( Just $ plainMessage ac az pw)

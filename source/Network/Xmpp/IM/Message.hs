@@ -11,8 +11,8 @@ import Data.Text (Text)
 import Data.XML.Pickle
 import Data.XML.Types
 
+import Network.Xmpp.Marshal
 import Network.Xmpp.Types
-import Network.Xmpp.Pickle
 
 data MessageBody = MessageBody { bodyLang :: (Maybe LangTag)
                                , bodyContent :: Text
