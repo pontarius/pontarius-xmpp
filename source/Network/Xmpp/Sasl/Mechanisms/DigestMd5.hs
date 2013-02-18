@@ -42,15 +42,15 @@ import           Network.Xmpp.Sasl.Types
 xmppDigestMd5 ::  Text -- ^ Authentication identity (authzid or username)
                -> Maybe Text -- ^ Authorization identity (authcid)
                -> Text -- ^ Password (authzid)
-               -> SaslM ()
+               -> ErrorT AuthFailure (StateT Stream IO) ()
 xmppDigestMd5 authcid authzid password = do
     (ac, az, pw) <- prepCredentials authcid authzid password
     hn <- gets streamHostname
     xmppDigestMd5' (fromJust hn) ac az pw
   where
-    xmppDigestMd5' :: Text -> Text -> Maybe Text -> Text -> SaslM ()
+    xmppDigestMd5' :: Text -> Text -> Maybe Text -> Text -> ErrorT AuthFailure (StateT Stream IO) ()
     xmppDigestMd5' hostname authcid authzid password = do
-        -- Push element and receive the challenge (in SaslM).
+        -- Push element and receive the challenge.
         _ <- saslInit "DIGEST-MD5" Nothing -- TODO: Check boolean?
         pairs <- toPairs =<< saslFromJust =<< pullChallenge
         cnonce <- liftIO $ makeNonce

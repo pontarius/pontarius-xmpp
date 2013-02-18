@@ -29,6 +29,10 @@ import           Data.Word(Word8)
 import           Network.Xmpp.Sasl.Common
 import           Network.Xmpp.Sasl.StringPrep
 import           Network.Xmpp.Sasl.Types
+import           Network.Xmpp.Types
+
+
+import           Control.Monad.State.Strict
 
 -- | A nicer name for undefined, for use as a dummy token to determin
 -- the hash function to use
@@ -45,7 +49,7 @@ scram :: (Crypto.Hash ctx hash)
       -> Text.Text       -- ^ Authentication ID (user name)
       -> Maybe Text.Text -- ^ Authorization ID
       -> Text.Text       -- ^ Password
-      -> SaslM ()
+      -> ErrorT AuthFailure (StateT Stream IO) ()
 scram hashToken authcid authzid password = do
     (ac, az, pw) <- prepCredentials authcid authzid password
     scramhelper hashToken ac az pw
@@ -94,7 +98,7 @@ scram hashToken authcid authzid password = do
 
         fromPairs :: Pairs
                   -> BS.ByteString
-                  -> SaslM (BS.ByteString, BS.ByteString, Integer)
+                  -> ErrorT AuthFailure (StateT Stream IO) (BS.ByteString, BS.ByteString, Integer)
         fromPairs pairs cnonce | Just nonce <- lookup "r" pairs
                                , cnonce `BS.isPrefixOf` nonce
                                , Just salt' <- lookup "s" pairs

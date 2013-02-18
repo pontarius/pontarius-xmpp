@@ -31,7 +31,6 @@ module Network.Xmpp.Internal
   , pickleElem
   , unpickleElem
   , xpLangTag
-  , SaslM(..)
   , SaslHandler(..)
   , prepCredentials
   , saslInit
