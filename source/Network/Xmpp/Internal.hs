@@ -28,9 +28,6 @@ module Network.Xmpp.Internal
   , pushStanza
   , pullStanza
   , pushIQ
-  , pickleElem
-  , unpickleElem
-  , xpLangTag
   , SaslHandler(..)
   , prepCredentials
   , saslInit
