@@ -33,9 +33,6 @@ module Network.Xmpp.Types
     , Version(..)
     , StreamHandle(..)
     , Stream(..)
-    , withStream
-    , withStream'
-    , mkStream
     , StreamState(..)
     , StreamErrorInfo(..)
     , langTag
@@ -815,27 +812,6 @@ data Stream = Stream
     , includeJidWhenPlain :: !Bool -- ^ Whether or not to also include the Jid when
                              -- the connection is plain.
     }
-
-withStream :: StateT Stream IO (Either XmppFailure c) -> TMVar Stream -> IO (Either XmppFailure c)
-withStream action stream = bracketOnError
-                                         (atomically $ takeTMVar stream)
-                                         (atomically . putTMVar stream)
-                                         (\s -> do
-                                               (r, s') <- runStateT action s
-                                               atomically $ putTMVar stream s'
-                                               return r
-                                         )
-
--- nonblocking version. Changes to the connection are ignored!
-withStream' :: StateT Stream IO (Either XmppFailure b) -> TMVar Stream -> IO (Either XmppFailure b)
-withStream' action stream = do
-    stream_ <- atomically $ readTMVar stream
-    (r, _) <- runStateT action stream_
-    return r
-
-
-mkStream :: Stream -> IO (TMVar Stream)
-mkStream con = {- Stream `fmap` -} (atomically $ newTMVar con)
 
 ---------------
 -- JID
