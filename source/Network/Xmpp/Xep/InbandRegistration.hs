@@ -71,7 +71,7 @@ emptyQuery = Query Nothing False False []
 
 query :: IQRequestType -> Query -> TMVar Stream -> IO (Either IbrError Query)
 query queryType x con = do
-    answer <- pushIQ' "ibr" Nothing queryType Nothing (pickleElem xpQuery x) con
+    answer <- pushIQ "ibr" Nothing queryType Nothing (pickleElem xpQuery x) con
     case answer of
         Right IQResult{iqResultPayload = Just b} ->
             case unpickleElem xpQuery b of

@@ -452,14 +452,14 @@ killStream = withStream $ do
 
 -- Sends an IQ request and waits for the response. If the response ID does not
 -- match the outgoing ID, an error is thrown.
-pushIQ' :: StanzaId
-            -> Maybe Jid
-            -> IQRequestType
-            -> Maybe LangTag
-            -> Element
-            -> TMVar Stream
-            -> IO (Either XmppFailure (Either IQError IQResult))
-pushIQ' iqID to tp lang body stream = do
+pushIQ :: StanzaId
+       -> Maybe Jid
+       -> IQRequestType
+       -> Maybe LangTag
+       -> Element
+       -> TMVar Stream
+       -> IO (Either XmppFailure (Either IQError IQResult))
+pushIQ iqID to tp lang body stream = do
     pushStanza (IQRequestS $ IQRequest iqID Nothing to lang tp body) stream
     res <- pullStanza stream
     case res of

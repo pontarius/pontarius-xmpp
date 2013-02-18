@@ -104,7 +104,7 @@ xmppQueryInfo :: Maybe Jid
      -> TMVar Stream
      -> IO (Either DiscoError QueryInfoResult)
 xmppQueryInfo to node con = do
-    res <- pushIQ' "info" to Get Nothing queryBody con
+    res <- pushIQ "info" to Get Nothing queryBody con
     return $ case res of
         Left e -> Left $ DiscoIQError Nothing
         Right res' -> case res' of

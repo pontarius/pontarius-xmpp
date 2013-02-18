@@ -110,7 +110,7 @@ bindBody = pickleElem $
 -- resource and extract the JID from the non-error response.
 xmppBind  :: Maybe Text -> TMVar Stream -> IO (Either XmppFailure Jid)
 xmppBind rsrc c = runErrorT $ do
-    answer <- ErrorT $ pushIQ' "bind" Nothing Set Nothing (bindBody rsrc) c
+    answer <- ErrorT $ pushIQ "bind" Nothing Set Nothing (bindBody rsrc) c
     case answer of
         Right IQResult{iqResultPayload = Just b} -> do
             let jid = unpickleElem xpJid b
@@ -151,7 +151,7 @@ sessionIQ = IQRequestS $ IQRequest { iqRequestID      = "sess"
 -- if an IQ error stanza is returned from the server.
 startSession :: TMVar Stream -> IO ()
 startSession con = do
-    answer <- pushIQ' "session" Nothing Set Nothing sessionXml con
+    answer <- pushIQ "session" Nothing Set Nothing sessionXml con
     case answer of
         Left e -> error $ show e
         Right _ -> return ()

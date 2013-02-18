@@ -27,7 +27,7 @@ module Network.Xmpp.Internal
   , auth
   , pushStanza
   , pullStanza
-  , pushIQ'
+  , pushIQ
   , pickleElem
   , unpickleElem
   , xpLangTag
