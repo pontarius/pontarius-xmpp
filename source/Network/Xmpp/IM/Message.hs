@@ -80,7 +80,7 @@ body m = bodyContent <$> listToMaybe (bodies m)
 -- | Generate a new instant message
 newIM
   :: Jid
-     -> Maybe StanzaID
+     -> Maybe StanzaId
      -> Maybe LangTag
      -> MessageType
      -> Maybe MessageSubject
