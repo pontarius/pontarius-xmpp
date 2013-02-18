@@ -63,7 +63,7 @@ scram hashToken authcid authzid password = do
         let (cfm, v) = cFinalMessageAndVerifier nonce salt ic sFirstMessage cnonce
         respond $ Just cfm
         finalPairs <- toPairs =<< saslFromJust =<< pullFinalMessage
-        unless (lookup "v" finalPairs == Just v) $ throwError AuthServerAuthFailure
+        unless (lookup "v" finalPairs == Just v) $ throwError AuthOtherFailure -- TODO: Log
         return ()
       where
         -- We need to jump through some hoops to get a polymorphic solution
@@ -106,7 +106,7 @@ scram hashToken authcid authzid password = do
                                , Just ic <- lookup "i" pairs
                                , [(i,"")] <- reads $ BS8.unpack ic
                                = return (nonce, salt, i)
-        fromPairs _ _ = throwError $ AuthChallengeFailure
+        fromPairs _ _ = throwError $ AuthOtherFailure -- TODO: Log
 
         cFinalMessageAndVerifier :: BS.ByteString
                                  -> BS.ByteString

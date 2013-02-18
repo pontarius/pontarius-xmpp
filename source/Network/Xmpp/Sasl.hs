@@ -76,7 +76,7 @@ xmppSasl handlers stream = (flip withStream stream) $ do
         (_name, handler):_ -> do
             cs <- gets streamState
             case cs of
-                Closed -> return . Right $ Just AuthNoStream
+                Closed -> return . Left $ XmppNoStream
                 _ -> lift $ handler stream
 
 -- | Authenticate to the server using the first matching method and bind a

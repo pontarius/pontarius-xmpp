@@ -634,7 +634,7 @@ data StreamErrorInfo = StreamErrorInfo
     } deriving (Show, Eq)
 
 -- | Signals an XMPP stream error or another unpredicted stream-related
--- situation.
+-- situation. This error is fatal, and closes the XMPP stream.
 data XmppFailure = StreamErrorFailure StreamErrorInfo -- ^ An error XML stream
                                                         -- element has been
                                                         -- encountered.
@@ -649,14 +649,19 @@ data XmppFailure = StreamErrorFailure StreamErrorInfo -- ^ An error XML stream
                                               -- constructor wraps the
                                               -- elements collected so
                                               -- far.
-                 | TlsError TLS.TLSError
-                 | TlsNoServerSupport
-                 | XmppNoStream
+                 | TlsError TLS.TLSError -- ^ An error occurred in the
+                                         -- TLS layer
+                 | TlsNoServerSupport -- ^ The server does not support
+                                      -- the use of TLS
+                 | XmppNoStream -- ^ An action that required an active
+                                -- stream were performed when the
+                                -- 'StreamState' was 'Closed'
                  | TlsStreamSecured -- ^ Connection already secured
                  | XmppOtherFailure -- ^ Undefined condition. More
                                     -- information should be available
                                     -- in the log.
-                 | XmppIOException IOException
+                 | XmppIOException IOException -- ^ An 'IOException'
+                                               -- occurred
                  deriving (Show, Eq, Typeable)
 
 instance Exception XmppFailure

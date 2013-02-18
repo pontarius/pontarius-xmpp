@@ -142,13 +142,10 @@ module Network.Xmpp
   , XmppFailure(..)
   , StreamErrorInfo(..)
   , StreamErrorCondition(..)
-  , AuthFailure( AuthXmlFailure -- Does not export AuthStreamFailure
-               , AuthNoAcceptableMechanism
-               , AuthChallengeFailure
-               , AuthNoStream
-               , AuthFailure
+  , AuthFailure( AuthNoAcceptableMechanism
                , AuthSaslFailure
-               , AuthStringPrepFailure )
+               , AuthIllegalCredentials
+               , AuthOtherFailure )
 
   ) where
 
