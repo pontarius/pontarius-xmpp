@@ -81,18 +81,18 @@ import qualified Text.StringPrep as SP
 
 -- |
 -- Wraps a string of random characters that, when using an appropriate
--- @IDGenerator@, is guaranteed to be unique for the Xmpp session.
+-- @IdGenerator@, is guaranteed to be unique for the Xmpp session.
 
-data StanzaId = SI !Text deriving (Eq, Ord)
+data StanzaId = StanzaId !Text deriving (Eq, Ord)
 
 instance Show StanzaId where
-  show (SI s) = Text.unpack s
+  show (StanzaId s) = Text.unpack s
 
 instance Read StanzaId where
-  readsPrec _ x = [(SI $ Text.pack x, "")]
+  readsPrec _ x = [(StanzaId $ Text.pack x, "")]
 
 instance IsString StanzaId where
-  fromString = SI . Text.pack
+  fromString = StanzaId . Text.pack
 
 -- | The Xmpp communication primities (Message, Presence and Info/Query) are
 -- called stanzas.

@@ -43,6 +43,7 @@ module Network.Xmpp.Internal
   , pullFinalMessage
   , Pairs(..)
   , quote
+  , StanzaId(..)
  )
 
        where
