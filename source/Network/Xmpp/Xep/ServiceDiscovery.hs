@@ -26,6 +26,7 @@ import           Data.XML.Types
 
 import           Network.Xmpp
 import           Network.Xmpp.Internal
+import           Network.Xmpp.Marshal
 import           Control.Concurrent.STM.TMVar
 
 data DiscoError = DiscoNoQueryElement
@@ -163,27 +164,3 @@ queryItems to node session = do
                 Right r -> Right r
   where
     queryBody = pickleElem xpQueryItems (node, [])
-
--- Given a pickler and an object, produces an Element.
-pickleElem :: PU [Node] a -> a -> Element
-pickleElem p = pickle $ xpNodeElem p
-
--- Given a pickler and an element, produces an object.
-unpickleElem :: PU [Node] a -> Element -> Either UnpickleError a
-unpickleElem p x = unpickle (xpNodeElem p) x
-
-xpNodeElem :: PU [Node] a -> PU Element a
-xpNodeElem xp = PU { pickleTree = \x -> Prelude.head $ (pickleTree xp x) >>= \y ->
-                      case y of
-                        NodeElement e -> [e]
-                        _ -> []
-             , unpickleTree = \x -> case unpickleTree xp $ [NodeElement x] of
-                        Left l -> Left l
-                        Right (a,(_,c)) -> Right (a,(Nothing,c))
-                   }
-
-xpLangTag :: PU [Attribute] (Maybe LangTag)
-xpLangTag = xpAttrImplied xmlLang xpPrim
-
-xmlLang :: Name
-xmlLang = Name "lang" (Just "http://www.w3.org/XML/1998/namespace") (Just "xml")

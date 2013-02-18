@@ -224,14 +224,7 @@ unpickleElem :: PU [Node] a -> Element -> Either UnpickleError a
 unpickleElem p x = unpickle (xpNodeElem p) x
 
 xpNodeElem :: PU [Node] a -> PU Element a
-xpNodeElem xp = PU { pickleTree = \x -> Prelude.head $ (pickleTree xp x) >>= \y ->
-                      case y of
-                        NodeElement e -> [e]
-                        _ -> []
-             , unpickleTree = \x -> case unpickleTree xp $ [NodeElement x] of
-                        Left l -> Left l
-                        Right (a,(_,c)) -> Right (a,(Nothing,c))
-                   }
+xpNodeElem = xpRoot . xpUnliftElems
 
 mbl :: Maybe [a] -> [a]
 mbl (Just l) = l
