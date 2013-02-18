@@ -461,7 +461,7 @@ killStream = withStream $ do
 
 -- Sends an IQ request and waits for the response. If the response ID does not
 -- match the outgoing ID, an error is thrown.
-pushIQ :: StanzaId
+pushIQ :: StanzaID
        -> Maybe Jid
        -> IQRequestType
        -> Maybe LangTag

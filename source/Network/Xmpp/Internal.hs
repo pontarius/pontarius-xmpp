@@ -29,7 +29,7 @@ module Network.Xmpp.Internal
   , pullStanza
   , pushIQ
   , SaslHandler(..)
-  , StanzaId(..)
+  , StanzaID(..)
  )
 
        where

@@ -41,7 +41,7 @@ data Session = Session
       -- Fields below are from Context.
     , writeRef :: TMVar (BS.ByteString -> IO Bool)
     , readerThread :: ThreadId
-    , idGenerator :: IO StanzaId
+    , idGenerator :: IO StanzaID
       -- | Lock (used by withStream) to make sure that a maximum of one
       -- Stream action is executed at any given time.
     , streamRef :: TMVar (TMVar Stream)
@@ -52,7 +52,7 @@ data Session = Session
 -- | IQHandlers holds the registered channels for incomming IQ requests and
 -- TMVars of and TMVars for expected IQ responses
 type IQHandlers = (Map.Map (IQRequestType, Text) (TChan IQRequestTicket)
-                  , Map.Map StanzaId (TMVar IQResponse)
+                  , Map.Map StanzaID (TMVar IQResponse)
                   )
 
 -- | Contains whether or not a reply has been sent, and the IQ request body to

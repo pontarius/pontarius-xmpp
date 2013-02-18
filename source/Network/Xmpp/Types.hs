@@ -27,7 +27,7 @@ module Network.Xmpp.Types
     , StanzaError(..)
     , StanzaErrorCondition(..)
     , StanzaErrorType(..)
-    , StanzaId(..)
+    , StanzaID(..)
     , XmppFailure(..)
     , StreamErrorCondition(..)
     , Version(..)
@@ -80,16 +80,16 @@ import qualified Text.StringPrep as SP
 -- Wraps a string of random characters that, when using an appropriate
 -- @IdGenerator@, is guaranteed to be unique for the Xmpp session.
 
-data StanzaId = StanzaId !Text deriving (Eq, Ord)
+data StanzaID = StanzaID !Text deriving (Eq, Ord)
 
-instance Show StanzaId where
-  show (StanzaId s) = Text.unpack s
+instance Show StanzaID where
+  show (StanzaID s) = Text.unpack s
 
-instance Read StanzaId where
-  readsPrec _ x = [(StanzaId $ Text.pack x, "")]
+instance Read StanzaID where
+  readsPrec _ x = [(StanzaID $ Text.pack x, "")]
 
-instance IsString StanzaId where
-  fromString = StanzaId . Text.pack
+instance IsString StanzaID where
+  fromString = StanzaID . Text.pack
 
 -- | The Xmpp communication primities (Message, Presence and Info/Query) are
 -- called stanzas.
@@ -104,7 +104,7 @@ data Stanza = IQRequestS     !IQRequest
 
 -- | A "request" Info/Query (IQ) stanza is one with either "get" or "set" as
 -- type. It always contains an xml payload.
-data IQRequest = IQRequest { iqRequestID      :: !StanzaId
+data IQRequest = IQRequest { iqRequestID      :: !StanzaID
                            , iqRequestFrom    :: !(Maybe Jid)
                            , iqRequestTo      :: !(Maybe Jid)
                            , iqRequestLangTag :: !(Maybe LangTag)
@@ -132,7 +132,7 @@ data IQResponse = IQResponseError IQError
                 deriving Show
 
 -- | The (non-error) answer to an IQ request.
-data IQResult = IQResult { iqResultID      :: !StanzaId
+data IQResult = IQResult { iqResultID      :: !StanzaID
                          , iqResultFrom    :: !(Maybe Jid)
                          , iqResultTo      :: !(Maybe Jid)
                          , iqResultLangTag :: !(Maybe LangTag)
@@ -140,7 +140,7 @@ data IQResult = IQResult { iqResultID      :: !StanzaId
                          } deriving Show
 
 -- | The answer to an IQ request that generated an error.
-data IQError = IQError { iqErrorID          :: !StanzaId
+data IQError = IQError { iqErrorID          :: !StanzaID
                        , iqErrorFrom        :: !(Maybe Jid)
                        , iqErrorTo          :: !(Maybe Jid)
                        , iqErrorLangTag     :: !(Maybe LangTag)
@@ -149,7 +149,7 @@ data IQError = IQError { iqErrorID          :: !StanzaId
                        } deriving Show
 
 -- | The message stanza. Used for /push/ type communication.
-data Message = Message { messageID      :: !(Maybe StanzaId)
+data Message = Message { messageID      :: !(Maybe StanzaID)
                        , messageFrom    :: !(Maybe Jid)
                        , messageTo      :: !(Maybe Jid)
                        , messageLangTag :: !(Maybe LangTag)
@@ -158,7 +158,7 @@ data Message = Message { messageID      :: !(Maybe StanzaId)
                        } deriving Show
 
 -- | An error stanza generated in response to a 'Message'.
-data MessageError = MessageError { messageErrorID          :: !(Maybe StanzaId)
+data MessageError = MessageError { messageErrorID          :: !(Maybe StanzaID)
                                  , messageErrorFrom        :: !(Maybe Jid)
                                  , messageErrorTo          :: !(Maybe Jid)
                                  , messageErrorLangTag     :: !(Maybe LangTag)
@@ -218,7 +218,7 @@ instance Read MessageType where
     readsPrec _  _           = [(Normal, "")]
 
 -- | The presence stanza. Used for communicating status updates.
-data Presence = Presence { presenceID      :: !(Maybe StanzaId)
+data Presence = Presence { presenceID      :: !(Maybe StanzaID)
                          , presenceFrom    :: !(Maybe Jid)
                          , presenceTo      :: !(Maybe Jid)
                          , presenceLangTag :: !(Maybe LangTag)
@@ -228,7 +228,7 @@ data Presence = Presence { presenceID      :: !(Maybe StanzaId)
 
 
 -- | An error stanza generated in response to a 'Presence'.
-data PresenceError = PresenceError { presenceErrorID          :: !(Maybe StanzaId)
+data PresenceError = PresenceError { presenceErrorID          :: !(Maybe StanzaID)
                                    , presenceErrorFrom        :: !(Maybe Jid)
                                    , presenceErrorTo          :: !(Maybe Jid)
                                    , presenceErrorLangTag     :: !(Maybe LangTag)
