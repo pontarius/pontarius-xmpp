@@ -29,16 +29,6 @@ module Network.Xmpp.Internal
   , pullStanza
   , pushIQ
   , SaslHandler(..)
-  , prepCredentials
-  , saslInit
-  , toPairs
-  , saslFromJust
-  , pullChallenge
-  , makeNonce
-  , respond
-  , pullFinalMessage
-  , Pairs(..)
-  , quote
   , StanzaId(..)
  )
 
