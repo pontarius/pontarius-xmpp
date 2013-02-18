@@ -43,12 +43,12 @@ session :: HostName                          -- ^ Host to connect to
         -> IO (Either XmppFailure (Session, Maybe AuthFailure))
 session hostname realm port tls sasl = runErrorT $ do
     con <- ErrorT $ connect hostname port realm
-    if isJust tls
-        then ErrorT $ startTls (fromJust tls) con
-        else return ()
-    aut <- if isJust sasl
-               then ErrorT $ auth (fst $ fromJust sasl) (snd $ fromJust sasl) con
-               else return Nothing
+    case tls of
+        Just tls' -> ErrorT $ startTls tls' con
+        Nothing -> return ()
+    aut <- case sasl of
+        Just sasl' -> ErrorT $ auth (fst sasl) (snd sasl) con
+        Nothing -> return Nothing
     ses <- ErrorT $ newSession con
     return (ses, aut)
 
