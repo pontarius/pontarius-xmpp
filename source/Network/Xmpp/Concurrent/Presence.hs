@@ -7,8 +7,8 @@ import Network.Xmpp.Types
 import Network.Xmpp.Concurrent.Types
 import Network.Xmpp.Concurrent.Basic
 
--- | Read an element from the inbound stanza channel, acquiring a copy of the
--- channel as necessary.
+-- | Read an element from the inbound stanza channel, discardes any non-Presence
+-- stanzas from the channel
 pullPresence :: Session -> IO (Either PresenceError Presence)
 pullPresence session = do
     stanza <- atomically . readTChan $ stanzaCh session

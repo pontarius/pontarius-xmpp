@@ -1,10 +1,10 @@
 -- |
 -- Module:      $Header$
--- 
+--
 -- Maintainer:  info@jonkri.com
 -- Stability:   unstable
 -- Portability: portable
--- 
+--
 -- The Extensible Messaging and Presence Protocol (XMPP) is an open technology
 -- for near-real-time communication, which powers a wide range of applications
 -- including instant messaging, presence, multi-party chat, voice and video
@@ -13,11 +13,11 @@
 -- asynchronous, end-to-end exchange of structured data by means of direct,
 -- persistent XML streams among a distributed network of globally addressable,
 -- presence-aware clients and servers.
--- 
+--
 -- Pontarius XMPP is an XMPP client library, implementing the core capabilities
 -- of XMPP (RFC 6120): setup and teardown of XML streams, channel encryption,
 -- authentication, error handling, and communication primitives for messaging.
--- 
+--
 -- For low-level access to Pontarius XMPP, see the "Network.Xmpp.Internal"
 -- module.
 
@@ -29,6 +29,8 @@ module Network.Xmpp
   , session
     -- TODO: Close session, etc.
     -- ** Authentication handlers
+    -- | The use of 'scramSha1' is /recommended/, but 'digestMd5' might be
+    -- useful for interaction with older implementation
   , scramSha1
   , plain
   , digestMd5
@@ -43,27 +45,27 @@ module Network.Xmpp
   -- | The basic protocol data unit in XMPP is the XML stanza. The stanza is
   -- essentially a fragment of XML that is sent over a stream. @Stanzas@ come in
   -- 3 flavors:
-  -- 
+  --
   --  * /Message/, for traditional push-style message passing between peers
-  -- 
+  --
   --  * /Presence/, for communicating status updates
-  -- 
+  --
   --  * /Info/\//Query/ (or /IQ/), for request-response semantics communication
-  -- 
+  --
   -- All stanza types have the following attributes in common:
-  -- 
+  --
   --  * The /id/ attribute is used by the originating entity to track any
   --    response or error stanza that it might receive in relation to the
   --    generated stanza from another entity (such as an intermediate server or
   --    the intended recipient).  It is up to the originating entity whether the
   --    value of the 'id' attribute is unique only within its current stream or
   --    unique globally.
-  -- 
+  --
   --  * The /from/ attribute specifies the JID of the sender.
-  -- 
+  --
   --  * The /to/ attribute specifies the JID of the intended recipient for the
   --    stanza.
-  -- 
+  --
   --  * The /type/ attribute specifies the purpose or context of the message,
   --    presence, or IQ stanza. The particular allowable values for the 'type'
   --    attribute vary depending on whether the stanza is a message, presence,
