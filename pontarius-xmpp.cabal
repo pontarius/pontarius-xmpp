@@ -79,6 +79,7 @@ Library
                , Network.Xmpp.Stream
                , Network.Xmpp.Tls
                , Network.Xmpp.Types
+               , Network.Xmpp.Utilities
                , Network.Xmpp.Xep.ServiceDiscovery
   GHC-Options: -Wall
 
