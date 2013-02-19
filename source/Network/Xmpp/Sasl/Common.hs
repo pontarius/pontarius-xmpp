@@ -134,11 +134,11 @@ pullChallenge = do
       SaslChallenge (Just scb64)
           | Right sc <- B64.decode . Text.encodeUtf8 $ scb64
              -> return $ Just sc
-      _ -> throwError AuthChallengeFailure
+      _ -> throwError AuthOtherFailure -- TODO: Log
 
--- | Extract value from Just, failing with AuthChallengeFailure on Nothing.
+-- | Extract value from Just, failing with AuthOtherFailure on Nothing.
 saslFromJust :: Maybe a -> ErrorT AuthFailure (StateT Stream IO) a
-saslFromJust Nothing = throwError $ AuthChallengeFailure
+saslFromJust Nothing = throwError $ AuthOtherFailure -- TODO: Log
 saslFromJust (Just d) = return d
 
 -- | Pull the next element and check that it is success.
@@ -147,7 +147,7 @@ pullSuccess = do
     e <- pullSaslElement
     case e of
         SaslSuccess x -> return x
-        _ -> throwError $ AuthXmlFailure
+        _ -> throwError $ AuthOtherFailure -- TODO: Log
 
 -- | Pull the next element. When it's success, return it's payload.
 -- If it's a challenge, send an empty response and pull success.
@@ -163,13 +163,13 @@ pullFinalMessage = do
   where
     decode Nothing  = return Nothing
     decode (Just d) = case B64.decode $ Text.encodeUtf8 d of
-        Left _e -> throwError $ AuthChallengeFailure
+        Left _e -> throwError $ AuthOtherFailure -- TODO: Log
         Right x -> return $ Just x
 
 -- | Extract p=q pairs from a challenge.
 toPairs :: BS.ByteString -> ErrorT AuthFailure (StateT Stream IO) Pairs
 toPairs ctext = case pairs ctext of
-    Left _e -> throwError AuthChallengeFailure
+    Left _e -> throwError AuthOtherFailure -- TODO: Log
     Right r -> return r
 
 -- | Send a SASL response element. The content will be base64-encoded.
@@ -186,7 +186,7 @@ respond m = do
 prepCredentials :: Text.Text -> Maybe Text.Text -> Text.Text
                 -> ErrorT AuthFailure (StateT Stream IO) (Text.Text, Maybe Text.Text, Text.Text)
 prepCredentials authcid authzid password = case credentials of
-    Nothing -> throwError $ AuthStringPrepFailure
+    Nothing -> throwError $ AuthIllegalCredentials
     Just creds -> return creds
   where
     credentials = do
