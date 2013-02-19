@@ -35,6 +35,7 @@ module Network.Xmpp.Types
     , Stream(..)
     , StreamState(..)
     , StreamErrorInfo(..)
+    , StreamConfiguration(..)
     , langTag
     , Jid(..)
     , isBare
@@ -76,6 +77,8 @@ import qualified Data.Set as Set
 import           Data.String (IsString(..))
 import qualified Text.NamePrep as SP
 import qualified Text.StringPrep as SP
+
+import Data.Default
 
 -- |
 -- Wraps a string of random characters that, when using an appropriate
@@ -809,14 +812,8 @@ data Stream = Stream
     , streamLang :: !(Maybe LangTag)
       -- | Our JID as assigned by the server
     , streamJid :: !(Maybe Jid)
-      -- TODO: Move the below fields to a configuration record
-    , preferredLang :: !(Maybe LangTag) -- ^ Default language when no explicit
-                                         -- language tag is set
-    , toJid :: !(Maybe Jid) -- ^ JID to include in the stream element's `to'
-                             -- attribute when the connection is secured. See
-                             -- also below.
-    , includeJidWhenPlain :: !Bool -- ^ Whether or not to also include the Jid when
-                             -- the connection is plain.
+      -- | Configuration settings for the stream
+    , streamConfiguration :: StreamConfiguration
     }
 
 ---------------
@@ -1010,3 +1007,19 @@ instance Exception StreamEnd
 data InvalidXmppXml = InvalidXmppXml String deriving (Show, Typeable)
 
 instance Exception InvalidXmppXml
+
+data StreamConfiguration =
+    StreamConfiguration { -- | Default language when no language tag is set
+                          preferredLang :: !(Maybe LangTag)
+                          -- | JID to include in the stream element's `to'
+                          -- attribute when the connection is secured; if the
+                          -- boolean is set to 'True', then the JID is also
+                          -- included when the 'ConnectionState' is 'Plain'
+                        , toJid :: !(Maybe (Jid, Bool))
+                        }
+
+
+instance Default StreamConfiguration where
+    def = StreamConfiguration { preferredLang = Nothing
+                              , toJid = Nothing
+                              }

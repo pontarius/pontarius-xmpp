@@ -45,6 +45,7 @@ import           Network.Xmpp.Stream
 import           Network.Xmpp.Utilities
 
 import           Control.Monad.Error
+import Data.Default
 
 toChans :: TChan Stanza
         -> TVar IQHandlers
@@ -139,7 +140,7 @@ session :: HostName                          -- ^ Host to connect to
                                              -- the server decide)
         -> IO (Either XmppFailure (Session, Maybe AuthFailure))
 session hostname realm port tls sasl = runErrorT $ do
-    con <- ErrorT $ openStream hostname port realm
+    con <- ErrorT $ openStream hostname port realm def
     if isJust tls
         then ErrorT $ startTls (fromJust tls) con
         else return ()

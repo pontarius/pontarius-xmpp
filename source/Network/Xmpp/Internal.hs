@@ -18,6 +18,7 @@
 
 module Network.Xmpp.Internal
   ( Stream(..)
+  , StreamConfiguration(..)
   , StreamState(..)
   , StreamHandle(..)
   , StreamFeatures(..)

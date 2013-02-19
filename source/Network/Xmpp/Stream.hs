@@ -104,10 +104,11 @@ startStream = runErrorT $ do
     stream <- liftIO $ mkStream state
     -- Set the `from' (which is also the expected to) attribute depending on the
     -- state of the stream.
-    let expectedTo = case streamState state of
-                 Plain -> if includeJidWhenPlain state
-                                        then toJid state else Nothing
-                 Secured -> toJid state
+    let expectedTo = case (streamState state, toJid $ streamConfiguration state) of
+          (Plain, (Just (jid, True))) -> Just jid
+          (Secured, (Just (jid, _))) -> Just jid
+          (Plain, Nothing) -> Nothing
+          (Secured, Nothing) -> Nothing
     case streamHostname state of
         Nothing -> throwError XmppOtherFailure -- TODO: When does this happen?
         Just hostname -> lift $ do
@@ -117,7 +118,7 @@ startStream = runErrorT $ do
                                     , expectedTo
                                     , Just (Jid Nothing hostname Nothing)
                                     , Nothing
-                                    , preferredLang state
+                                    , preferredLang $ streamConfiguration state
                                     )
     response <- ErrorT $ runEventsSink $ runErrorT $ streamS expectedTo
     case response of
@@ -243,9 +244,9 @@ streamS expectedTo = do
 
 -- | Connects to the XMPP server and opens the XMPP stream against the given
 -- host name, port, and realm.
-openStream :: HostName -> PortID -> Text -> IO (Either XmppFailure (TMVar Stream))
-openStream address port hostname = do
-    stream <- connectTcp address port hostname
+openStream :: HostName -> PortID -> Text -> StreamConfiguration -> IO (Either XmppFailure (TMVar Stream))
+openStream address port hostname config = do
+    stream <- connectTcp address port hostname config
     case stream of
         Right stream' -> do
             result <- withStream startStream stream'
@@ -389,16 +390,14 @@ xmppNoStream = Stream {
     , streamId = Nothing
     , streamLang = Nothing
     , streamJid = Nothing
-    , preferredLang = Nothing
-    , toJid = Nothing
-    , includeJidWhenPlain = False
+    , streamConfiguration = StreamConfiguration Nothing Nothing
     }
   where
     zeroSource :: Source IO output
     zeroSource = liftIO . ExL.throwIO $ XmppOtherFailure
 
-connectTcp :: HostName -> PortID -> Text -> IO (Either XmppFailure (TMVar Stream))
-connectTcp host port hostname = do
+connectTcp :: HostName -> PortID -> Text -> StreamConfiguration -> IO (Either XmppFailure (TMVar Stream))
+connectTcp host port hostname config = do
     let PortNumber portNumber = port
     debugM "Pontarius.Xmpp" $ "Connecting to " ++ host ++ " on port " ++
         (show portNumber) ++ " through the realm " ++ (T.unpack hostname) ++ "."
@@ -434,9 +433,7 @@ connectTcp host port hostname = do
             , streamId = Nothing
             , streamLang = Nothing
             , streamJid = Nothing
-            , preferredLang = Nothing -- TODO: Allow user to set
-            , toJid = Nothing -- TODO: Allow user to set
-            , includeJidWhenPlain = False -- TODO: Allow user to set
+            , streamConfiguration = config
             }
     stream' <- mkStream stream
     return $ Right stream'
