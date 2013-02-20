@@ -137,6 +137,10 @@ module Network.Xmpp
   , listenIQChan
   , iqRequestPayload
   , iqResultPayload
+  -- * Errors
+  , StanzaError(..)
+  , StanzaErrorType(..)
+  , StanzaErrorCondition(..)
   -- * Threads
   , dupSession
   -- * Miscellaneous
