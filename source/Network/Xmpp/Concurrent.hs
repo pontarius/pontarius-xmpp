@@ -48,10 +48,11 @@ import           Control.Monad.Error
 import Data.Default
 
 toChans :: TChan Stanza
+        -> TChan Stanza
         -> TVar IQHandlers
         -> Stanza
         -> IO ()
-toChans stanzaC iqHands sta = atomically $ do
+toChans stanzaC outC iqHands sta = atomically $ do
         writeTChan stanzaC sta
         case sta of
             IQRequestS     i -> handleIQRequest iqHands i
@@ -65,10 +66,14 @@ toChans stanzaC iqHands sta = atomically $ do
       (byNS, _) <- readTVar handlers
       let iqNS = fromMaybe "" (nameNamespace . elementName $ iqRequestPayload iq)
       case Map.lookup (iqRequestType iq, iqNS) byNS of
-          Nothing -> return () -- TODO: send error stanza
+          Nothing -> writeTChan outC $ serviceUnavailable iq
           Just ch -> do
             sent <- newTVar False
             writeTChan ch $ IQRequestTicket sent iq
+    serviceUnavailable (IQRequest iqid from _to lang _tp bd) =
+        IQErrorS $ IQError iqid Nothing from lang err (Just bd)
+    err = StanzaError Cancel ServiceUnavailable Nothing Nothing
+
     handleIQResponse :: TVar IQHandlers -> Either IQError IQResult -> STM ()
     handleIQResponse handlers iq = do
         (byNS, byID) <- readTVar handlers
@@ -82,7 +87,6 @@ toChans stanzaC iqHands sta = atomically $ do
         iqID (Left err) = iqErrorID err
         iqID (Right iq') = iqResultID iq'
 
-
 -- | Creates and initializes a new Xmpp context.
 newSession :: TMVar Stream -> IO (Either XmppFailure Session)
 newSession stream = runErrorT $ do
@@ -90,7 +94,7 @@ newSession stream = runErrorT $ do
     stanzaChan <- lift newTChanIO
     iqHandlers <- lift $ newTVarIO (Map.empty, Map.empty)
     eh <- lift $ newTVarIO $ EventHandlers { connectionClosedHandler = \_ -> return () }
-    let stanzaHandler = toChans stanzaChan iqHandlers
+    let stanzaHandler = toChans stanzaChan outC iqHandlers
     (kill, wLock, streamState, readerThread) <- ErrorT $ startThreadsWith stanzaHandler eh stream
     writer <- lift $ forkIO $ writeWorker outC wLock
     idRef <- lift $ newTVarIO 1
@@ -123,7 +127,7 @@ writeWorker stCh writeR = forever $ do
         threadDelay 250000 -- Avoid free spinning.
 
 -- | Creates a 'Session' object by setting up a connection with an XMPP server.
--- 
+--
 -- Will connect to the specified host. If the fourth parameters is a 'Just'
 -- value, @session@ will attempt to secure the connection with TLS. If the fifth
 -- parameters is a 'Just' value, @session@ will attempt to authenticate and
