@@ -143,13 +143,13 @@ session :: HostName                          -- ^ Host to connect to
                                              -- JID resource (or Nothing to let
                                              -- the server decide)
         -> IO (Either XmppFailure (Session, Maybe AuthFailure))
-session hostname realm port tls sasl = runErrorT $ do
+session hostname realm port mbTls mbSasl = runErrorT $ do
     con <- ErrorT $ openStream hostname port realm def
-    if isJust tls
-        then ErrorT $ startTls (fromJust tls) con
-        else return ()
-    aut <- if isJust sasl
-               then ErrorT $ auth (fst $ fromJust sasl) (snd $ fromJust sasl) con
-               else return Nothing
+    case mbTls of
+        Nothing -> return ()
+        Just tls -> ErrorT $ startTls tls con
+    aut <- case mbSasl of
+        Nothing -> return Nothing
+        Just (handlers, resource) -> ErrorT $ auth handlers resource con
     ses <- ErrorT $ newSession con
     return (ses, aut)
