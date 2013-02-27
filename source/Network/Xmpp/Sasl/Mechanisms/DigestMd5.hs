@@ -37,7 +37,7 @@ import           Network.Xmpp.Sasl.Common
 import           Network.Xmpp.Sasl.StringPrep
 import           Network.Xmpp.Sasl.Types
 
-import           Control.Concurrent.STM
+
 
 xmppDigestMd5 ::  Text -- ^ Authentication identity (authzid or username)
                -> Maybe Text -- ^ Authorization identity (authcid)
@@ -127,25 +127,6 @@ digestMd5 :: Text -- ^ Authentication identity (authcid or username)
           -> Maybe Text -- ^ Authorization identity (authzid)
           -> Text -- ^ Password
           -> SaslHandler
-digestMd5 authcid authzid password =
-    ( "DIGEST-MD5"
-    , \stream -> do
-        stream_ <- atomically $ readTMVar stream
-        r <- runErrorT $ do
-          -- Alrighty! The problem here is that `scramSha1' runs in the
-          -- `IO (Either XmppFailure (Maybe AuthFailure))' monad, while we need
-          -- to call an `ErrorT AuthFailure (StateT Stream IO) ()' calculation.
-          -- The key is to use `mapErrorT', which is called with the following
-          -- ypes:
-          -- 
-          -- mapErrorT :: (StateT Stream IO (Either AuthError ()) -> IO (Either AuthError ()))
-          --           -> ErrorT AuthError (StateT Stream IO) ()
-          --           -> ErrorT AuthError IO ()
-          mapErrorT
-            (\s -> runStateT s stream_ >>= \(r, _) -> return r)
-            (xmppDigestMd5 authcid authzid password)
-        case r of
-          Left (AuthStreamFailure e) -> return $ Left e
-          Left e -> return $ Right $ Just e
-          Right () -> return $ Right $ Nothing
-    )
+digestMd5 authcid authzid password = ( "DIGEST-MD5"
+                                     , xmppDigestMd5 authcid authzid password
+                                     )

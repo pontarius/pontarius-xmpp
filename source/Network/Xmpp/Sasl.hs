@@ -38,6 +38,7 @@ import qualified Data.Text.Encoding as Text
 import           Network.Xmpp.Stream
 import           Network.Xmpp.Types
 
+import           System.Log.Logger (debugM)
 import qualified System.Random as Random
 
 import           Network.Xmpp.Sasl.Types
@@ -45,19 +46,19 @@ import           Network.Xmpp.Sasl.Mechanisms
 
 import           Control.Concurrent.STM.TMVar
 
-import Control.Exception
+import           Control.Exception
 
-import Data.XML.Pickle
-import Data.XML.Types
+import           Data.XML.Pickle
+import           Data.XML.Types
 
-import Network.Xmpp.Types
-import Network.Xmpp.Marshal
+import           Network.Xmpp.Types
+import           Network.Xmpp.Marshal
 
-import Control.Monad.State(modify)
+import           Control.Monad.State(modify)
 
-import Control.Concurrent.STM.TMVar
+import           Control.Concurrent.STM.TMVar
 
-import Control.Monad.Error
+import           Control.Monad.Error
 
 -- | Uses the first supported mechanism to authenticate, if any. Updates the
 -- state with non-password credentials and restarts the stream upon
@@ -67,7 +68,7 @@ xmppSasl :: [SaslHandler] -- ^ Acceptable authentication mechanisms and their
                        -- corresponding handlers
          -> TMVar Stream
          -> IO (Either XmppFailure (Maybe AuthFailure))
-xmppSasl handlers stream = (flip withStream stream) $ do
+xmppSasl handlers = withStream $ do
     -- Chooses the first mechanism that is acceptable by both the client and the
     -- server.
     mechanisms <- gets $ streamSaslMechanisms . streamFeatures
@@ -77,7 +78,13 @@ xmppSasl handlers stream = (flip withStream stream) $ do
             cs <- gets streamState
             case cs of
                 Closed -> return . Left $ XmppNoStream
-                _ -> lift $ handler stream
+                _ -> do
+                       r <- runErrorT handler
+                       case r of
+                           Left ae -> return $ Right $ Just ae
+                           Right a -> do
+                               _ <- runErrorT $ ErrorT restartStream
+                               return $ Right $ Nothing
 
 -- | Authenticate to the server using the first matching method and bind a
 -- resource.
@@ -86,8 +93,11 @@ auth :: [SaslHandler]
      -> TMVar Stream
      -> IO (Either XmppFailure (Maybe AuthFailure))
 auth mechanisms resource con = runErrorT $ do
+    liftIO $ debugM "Pontarius.Xmpp" "pre-auth"
     ErrorT $ xmppSasl mechanisms con
+    liftIO $ debugM "Pontarius.Xmpp" "auth done"
     jid <- lift $ xmppBind resource con
+    liftIO $ debugM "Pontarius.Xmpp" $ "bound resource" ++ show jid
     lift $ startSession con
     return Nothing
 
