@@ -1,5 +1,6 @@
 {-
 
+
 Copyright © 2010-2012 Jon Kristensen, Philipp Balzarek
 
 This file (EchoClient.hs) illustrates how to connect, authenticate, set a simple
@@ -20,13 +21,14 @@ import           Data.Maybe (fromJust)
 import qualified Data.Text as Text
 import           Text.Printf
 
+import           Network.TLS
 import           Network.Xmpp
 import           Network.Xmpp.IM
+import           System.IO (stderr)
 import           System.Log.Formatter
-import           System.Log.Logger
 import           System.Log.Handler hiding (setLevel)
 import           System.Log.Handler.Simple
-import           System.IO (stderr)
+import           System.Log.Logger
 
 -- Server and authentication details.
 host     = "localhost"
@@ -40,9 +42,12 @@ resource = Just "bot"
 autoAccept :: Session -> IO ()
 autoAccept session = forever $ do
   st <- waitForPresence isPresenceSubscribe session
-  let Just friend = presenceFrom st
-  sendPresence (presenceSubscribed friend) session
-  printf "Hello %s !" (show friend)
+  friend <- case presenceFrom st of
+      Just from -> do
+          sendPresence (presenceSubscribed from) session
+          return $ show from
+      Nothing -> return "anonymous" -- this shouldn't happen
+  printf "Hello %s !" friend
 
 main :: IO ()
 main = do
@@ -50,14 +55,17 @@ main = do
     handler <- streamHandler stderr DEBUG >>= \h ->
         return $ setFormatter h (simpleLogFormatter "$time - $loggername: $prio: $msg")
     updateGlobalLogger "Pontarius.Xmpp" (addHandler handler)
-    
-    sess <- simpleConnect
+
+    sess' <- session
                 host
-                port
                 realm
-                username
-                password
-                resource
+                port
+                Nothing -- (Just defaultParamsClient)
+                (Just ([scramSha1 username Nothing password], resource))
+    sess <- case sess' of
+        Left err -> error $ "Error connection to XMPP server: " ++ show err
+        Right (_, Just err) -> error $ "Error while authenticating: " ++ show err
+        Right (sess, Nothing) -> return sess
     -- We won't be able to receive stanzas before we set out status to online
     sendPresence presenceOnline sess
     putStrLn "Connected."
