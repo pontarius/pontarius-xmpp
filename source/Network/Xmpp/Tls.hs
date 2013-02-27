@@ -11,6 +11,7 @@ import           Control.Monad.State.Strict
 
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BL
+import qualified Data.ByteString.Char8 as BSC8
 import           Data.Conduit
 import qualified Data.Conduit.Binary as CB
 import           Data.Typeable
@@ -18,13 +19,14 @@ import           Data.XML.Types
 
 import           Network.Xmpp.Stream
 import           Network.Xmpp.Types
+import           System.Log.Logger (debugM)
 
 import           Control.Concurrent.STM.TMVar
 
-import Data.IORef
-import Crypto.Random.API
-import Network.TLS
-import Network.TLS.Extra
+import           Data.IORef
+import           Crypto.Random.API
+import           Network.TLS
+import           Network.TLS.Extra
 
 mkBackend con = Backend { backendSend = \bs -> void (streamSend con bs)
                         , backendRecv = streamReceive con
@@ -96,7 +98,7 @@ startTls params con = Ex.handle (return . Left . TlsError)
         Left e -> return $ Left e
         Right (Element "{urn:ietf:params:xml:ns:xmpp-tls}proceed" [] []) -> return $ Right ()
         Right (Element "{urn:ietf:params:xml:ns:xmpp-tls}failure" _ _) -> return $ Left XmppOtherFailure
-    (raw, _snk, psh, read, ctx) <- lift $ tlsinit debug params (mkBackend con)
+    (raw, _snk, psh, read, ctx) <- lift $ tlsinit params (mkBackend con)
     let newHand = StreamHandle { streamSend = catchPush . psh
                                    , streamReceive = read
                                    , streamFlush = contextFlush ctx
@@ -113,8 +115,7 @@ client params gen backend  = do
 defaultParams = defaultParamsClient
 
 tlsinit :: (MonadIO m, MonadIO m1) =>
-        Bool
-     -> TLSParams
+        TLSParams
      -> Backend
      -> m ( Source m1 BS.ByteString
           , Sink BS.ByteString m1 ()
@@ -122,14 +123,14 @@ tlsinit :: (MonadIO m, MonadIO m1) =>
           , Int -> m1 BS.ByteString
           , Context
           )
-tlsinit debug tlsParams backend = do
-    when debug . liftIO $ putStrLn "TLS with debug mode enabled"
+tlsinit tlsParams backend = do
+    liftIO $ debugM "Pontarius.Xmpp" "TLS with debug mode enabled"
     gen <- liftIO $ getSystemRandomGen -- TODO: Find better random source?
     con <- client tlsParams gen backend
     handshake con
     let src = forever $ do
             dt <- liftIO $ recvData con
-            when debug (liftIO $ putStr "in: " >> BS.putStrLn dt)
+            liftIO $ debugM "Pontarius.Xmpp" ("in :" ++ BSC8.unpack dt)
             yield dt
     let snk = do
             d <- await
@@ -137,13 +138,13 @@ tlsinit debug tlsParams backend = do
                 Nothing -> return ()
                 Just x -> do
                        sendData con (BL.fromChunks [x])
-                       when debug (liftIO $ putStr "out: " >>  BS.putStrLn x)
+                       liftIO $ debugM "Pontarius.Xmpp" ("out :" ++ BSC8.unpack x)
                        snk
     read <- liftIO $ mkReadBuffer (recvData con)
     return ( src
            , snk
            , \s -> do
-               when debug (liftIO $ BS.putStrLn s)
+               liftIO $ debugM "Pontarius.Xmpp" ("out :" ++ BSC8.unpack s)
                sendData con $ BL.fromChunks [s]
            , liftIO . read
            , con
