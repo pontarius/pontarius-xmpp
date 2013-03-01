@@ -46,30 +46,6 @@ data Query = Query { instructions :: Maybe Text.Text
 
 emptyQuery = Query Nothing False False []
 
--- supported :: XmppConMonad (Either IbrError Bool)
--- supported = runErrorT $ fromFeatures <+> fromDisco
---   where
---   fromFeatures = do
---       fs <- other <$> gets sFeatures
---       let fe = XML.Element
---                    "{http://jabber.org/features/iq-register}register"
---                    []
---                    []
---       return $ fe `elem` fs
---   fromDisco = do
---       hn' <- gets sHostname
---       hn <- case hn' of
---           Just h -> return (Jid Nothing h Nothing)
---           Nothing -> throwError IbrNoStream
---       qi <- lift $ xmppQueryInfo Nothing Nothing
---       case qi of
---           Left e -> return False
---           Right qir -> return $ "jabber:iq:register" `elem` qiFeatures qir
---   f <+> g = do
---             r <- f
---             if r then return True else g
-
-
 query :: IQRequestType -> Query -> TMVar Stream -> IO (Either IbrError Query)
 query queryType x con = do
     answer <- pushIQ "ibr" Nothing queryType Nothing (pickleElem xpQuery x) con
