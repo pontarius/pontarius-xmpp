@@ -33,36 +33,6 @@ mkBackend con = Backend { backendSend = \bs -> void (streamSend con bs)
                         , backendFlush = streamFlush con
                         , backendClose = streamClose con
                         }
-  where
-    cutBytes n = do
-        liftIO $ putStrLn "awaiting"
-        mbs <- await
-        liftIO $ putStrLn "done awaiting"
-        case mbs of
-            Nothing -> return BS.empty
-            Just bs -> do
-                let (a, b) = BS.splitAt n bs
-                liftIO . putStrLn $
-                    "remaining" ++ (show $ BS.length b) ++ " of " ++ (show n)
-
-                unless (BS.null b) $ leftover b
-                return a
-
-
-cutBytes n = do
-    liftIO $ putStrLn "awaiting"
-    mbs <- await
-    liftIO $ putStrLn "done awaiting"
-    case mbs of
-        Nothing -> return False
-        Just bs -> do
-            let (a, b) = BS.splitAt n bs
-            liftIO . putStrLn $
-                "remaining" ++ (show $ BS.length b) ++ " of " ++ (show n)
-
-            unless (BS.null b) $ leftover b
-            return True
-
 
 starttlsE :: Element
 starttlsE = Element "{urn:ietf:params:xml:ns:xmpp-tls}starttls" [] []
