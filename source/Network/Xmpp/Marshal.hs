@@ -247,7 +247,7 @@ xpStream = xpElemAttrs
 
 -- Pickler/Unpickler for the stream features - TLS, SASL, and the rest.
 xpStreamFeatures :: PU [Node] StreamFeatures
-xpStreamFeatures = xpWrap
+xpStreamFeatures = ("xpStreamFeatures","") <?> xpWrap
     (\(tls, sasl, rest) -> StreamFeatures tls (mbl sasl) rest)
     (\(StreamFeatures tls sasl rest) -> (tls, lmb sasl, rest))
     (xpElemNodes
@@ -264,10 +264,11 @@ xpStreamFeatures = xpWrap
     )
   where
     pickleTlsFeature :: PU [Node] Bool
-    pickleTlsFeature = xpElemNodes "{urn:ietf:params:xml:ns:xmpp-tls}starttls"
-        (xpElemExists "required")
+    pickleTlsFeature = ("pickleTlsFeature", "") <?>
+        xpElemNodes "{urn:ietf:params:xml:ns:xmpp-tls}starttls"
+        (xpElemExists "{urn:ietf:params:xml:ns:xmpp-tls}required")
     pickleSaslFeature :: PU [Node] [Text]
-    pickleSaslFeature =  xpElemNodes
-        "{urn:ietf:params:xml:ns:xmpp-sasl}mechanisms"
+    pickleSaslFeature = ("pickleSaslFeature", "") <?>
+        xpElemNodes "{urn:ietf:params:xml:ns:xmpp-sasl}mechanisms"
         (xpAll $ xpElemNodes
              "{urn:ietf:params:xml:ns:xmpp-sasl}mechanism" (xpContent xpId))
