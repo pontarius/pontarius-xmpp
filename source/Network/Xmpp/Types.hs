@@ -661,15 +661,15 @@ data XmppFailure = StreamErrorFailure StreamErrorInfo -- ^ An error XML stream
                                 -- stream were performed when the
                                 -- 'StreamState' was 'Closed'
                  | TlsStreamSecured -- ^ Connection already secured
-                 | XmppOtherFailure -- ^ Undefined condition. More
-                                    -- information should be available
-                                    -- in the log.
+                 | XmppOtherFailure String -- ^ Undefined condition. More
+                                           -- information should be available in
+                                           -- the log.
                  | XmppIOException IOException -- ^ An 'IOException'
                                                -- occurred
                  deriving (Show, Eq, Typeable)
 
 instance Exception XmppFailure
-instance Error XmppFailure where noMsg = XmppOtherFailure
+instance Error XmppFailure where strMsg = XmppOtherFailure
 
 -- =============================================================================
 --  XML TYPES

@@ -124,9 +124,10 @@ xmppBind rsrc c = runErrorT $ do
                                       modify $ \s -> s{streamJid = Just jid'}
                                       return $ Right jid') c -- not pretty
                     return jid'
-                otherwise -> throwError XmppOtherFailure
+                otherwise -> throwError $ XmppOtherFailure
+                                           "bind: could not parse JID"
                 -- TODO: Log: ("Bind couldn't unpickle JID from " ++ show answer)
-        otherwise -> throwError XmppOtherFailure
+        otherwise -> throwError $ XmppOtherFailure "bind: failed to bind"
   where
     -- Extracts the character data in the `jid' element.
     xpJid :: PU [Node] Jid

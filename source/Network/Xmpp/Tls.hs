@@ -97,7 +97,7 @@ startTls params con = Ex.handle (return . Left . TlsError)
     case answer of
         Left e -> return $ Left e
         Right (Element "{urn:ietf:params:xml:ns:xmpp-tls}proceed" [] []) -> return $ Right ()
-        Right (Element "{urn:ietf:params:xml:ns:xmpp-tls}failure" _ _) -> return $ Left XmppOtherFailure
+        Right (Element "{urn:ietf:params:xml:ns:xmpp-tls}failure" _ _) -> return . Left $ XmppOtherFailure "TLS initiation failed"
     (raw, _snk, psh, read, ctx) <- lift $ tlsinit params (mkBackend con)
     let newHand = StreamHandle { streamSend = catchPush . psh
                                    , streamReceive = read
@@ -124,13 +124,13 @@ tlsinit :: (MonadIO m, MonadIO m1) =>
           , Context
           )
 tlsinit tlsParams backend = do
-    liftIO $ debugM "Pontarius.Xmpp" "TLS with debug mode enabled"
+    liftIO $ debugM "Pontarius.Xmpp.TLS" "TLS with debug mode enabled"
     gen <- liftIO $ getSystemRandomGen -- TODO: Find better random source?
     con <- client tlsParams gen backend
     handshake con
     let src = forever $ do
             dt <- liftIO $ recvData con
-            liftIO $ debugM "Pontarius.Xmpp" ("in :" ++ BSC8.unpack dt)
+            liftIO $ debugM "Pontarius.Xmpp.TLS" ("in :" ++ BSC8.unpack dt)
             yield dt
     let snk = do
             d <- await
@@ -138,13 +138,14 @@ tlsinit tlsParams backend = do
                 Nothing -> return ()
                 Just x -> do
                        sendData con (BL.fromChunks [x])
-                       liftIO $ debugM "Pontarius.Xmpp" ("out :" ++ BSC8.unpack x)
+                       liftIO $ debugM "Pontarius.Xmpp.TLS"
+                                       ("out :" ++ BSC8.unpack x)
                        snk
     read <- liftIO $ mkReadBuffer (recvData con)
     return ( src
            , snk
            , \s -> do
-               liftIO $ debugM "Pontarius.Xmpp" ("out :" ++ BSC8.unpack s)
+               liftIO $ debugM "Pontarius.Xmpp.TLS" ("out :" ++ BSC8.unpack s)
                sendData con $ BL.fromChunks [s]
            , liftIO . read
            , con
