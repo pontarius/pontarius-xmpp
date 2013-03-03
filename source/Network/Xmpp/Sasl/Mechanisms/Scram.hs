@@ -164,6 +164,11 @@ scramSha1 :: Text.Text  -- ^ username
           -> Text.Text   -- ^ password
           -> SaslHandler
 scramSha1 authcid authzid passwd =
-    ("SCRAM-SHA-1"
-    , scram (hashToken :: Crypto.SHA1) authcid authzid passwd
+    ( "SCRAM-SHA-1"
+    , do
+          r <- runErrorT $ scram (hashToken :: Crypto.SHA1) authcid authzid passwd
+          case r of
+              Left (AuthStreamFailure e) -> return $ Left e
+              Left e -> return $ Right $ Just e
+              Right () -> return $ Right Nothing
     )

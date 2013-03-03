@@ -127,6 +127,12 @@ digestMd5 :: Text -- ^ Authentication identity (authcid or username)
           -> Maybe Text -- ^ Authorization identity (authzid)
           -> Text -- ^ Password
           -> SaslHandler
-digestMd5 authcid authzid password = ( "DIGEST-MD5"
-                                     , xmppDigestMd5 authcid authzid password
-                                     )
+digestMd5 authcid authzid password =
+    ( "DIGEST-MD5"
+    , do
+          r <- runErrorT $ xmppDigestMd5 authcid authzid password
+          case r of
+              Left (AuthStreamFailure e) -> return $ Left e
+              Left e -> return $ Right $ Just e
+              Right () -> return $ Right Nothing
+    )

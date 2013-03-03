@@ -78,13 +78,13 @@ xmppSasl handlers = withStream $ do
             cs <- gets streamState
             case cs of
                 Closed -> return . Left $ XmppNoStream
-                _ -> do
-                       r <- runErrorT handler
+                _ -> runErrorT $ do
+                       r <- ErrorT handler
                        case r of
-                           Left ae -> return $ Right $ Just ae
-                           Right a -> do
-                               _ <- runErrorT $ ErrorT restartStream
-                               return $ Right $ Nothing
+                           Just ae -> return $ Just ae
+                           Nothing -> do
+                               _ <- ErrorT restartStream
+                               return Nothing
 
 -- | Authenticate to the server using the first matching method and bind a
 -- resource.

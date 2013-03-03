@@ -34,4 +34,4 @@ type Pairs = [(ByteString, ByteString)]
 -- | Tuple defining the SASL Handler's name, and a SASL mechanism computation.
 -- The SASL mechanism is a stateful @Stream@ computation, which has the
 -- possibility of resulting in an authentication error.
-type SaslHandler = (Text.Text, ErrorT AuthFailure (StateT Stream IO) ())
+type SaslHandler = (Text.Text, StateT Stream IO (Either XmppFailure (Maybe AuthFailure)))

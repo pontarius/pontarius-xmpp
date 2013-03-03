@@ -77,4 +77,12 @@ plain :: Text.Text -- ^ authentication ID (username)
       -> Maybe Text.Text -- ^ authorization ID
       -> Text.Text -- ^ password
       -> SaslHandler
-plain authcid authzid passwd = ("PLAIN", xmppPlain authcid authzid passwd)
+plain authcid authzid passwd =
+    ( "PLAIN"
+    , do
+          r <- runErrorT $ xmppPlain authcid authzid passwd
+          case r of
+              Left (AuthStreamFailure e) -> return $ Left e
+              Left e -> return $ Right $ Just e
+              Right () -> return $ Right Nothing
+    )
