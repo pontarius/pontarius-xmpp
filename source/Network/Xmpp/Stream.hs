@@ -414,17 +414,15 @@ connectTcp host port hostname config = do
                   ((sourceHandle h $= logConduit) $= XP.parseBytes def)
                   (return ())
     let hand = StreamHandle { streamSend = \d -> do
-                                     let d64 = encode d
                                      debugM "Pontarius.Xmpp" $
-                                       "Sending TCP data: " ++ (BSC8.unpack d64)
+                                       "Sending TCP data: " ++ (BSC8.unpack d)
                                        ++ "."
                                      catchPush $ BS.hPut h d
                                 , streamReceive = \n -> do
                                      d <- BS.hGetSome h n
-                                     let d64 = encode d
                                      debugM "Pontarius.Xmpp" $
                                        "Received TCP data: " ++
-                                       (BSC8.unpack d64) ++ "."
+                                       (BSC8.unpack d) ++ "."
                                      return d
                                 , streamFlush = hFlush h
                                 , streamClose = hClose h
