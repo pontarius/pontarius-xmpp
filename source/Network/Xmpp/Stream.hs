@@ -60,7 +60,8 @@ streamUnpickleElem :: PU [Node] a
                    -> StreamSink a
 streamUnpickleElem p x = do
     case unpickleElem p x of
-        Left l -> throwError $ XmppOtherFailure "Unpickle error"
+        Left l -> throwError $ XmppOtherFailure ("Unpickle error"
+                                                 ++ ppUnpickleError l)
                   -- TODO: Log: StreamXmlError (show l)
         Right r -> return r
 
@@ -356,8 +357,9 @@ pullUnpickle p = do
         Right elem' -> do
             let res = unpickleElem p elem'
             case res of
-                Left e -> return . Left $ XmppOtherFailure
-                             "pullUnpickle: unpickle failed" -- TODO: Log
+                Left e -> return . Left . XmppOtherFailure $
+                             "pullUnpickle: unpickle failed" ++ ppUnpickleError e
+                             -- TODO: Log
                 Right r -> return $ Right r
 
 -- | Pulls a stanza (or stream error) from the stream.
