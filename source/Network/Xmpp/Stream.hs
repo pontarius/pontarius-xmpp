@@ -271,8 +271,8 @@ dnsLookup realm resolvConf = ErrorT $ do
 
         -- TODO: Use SRV result. Is list always empty?
 
-        -- TODO: How to connect to IPv6 address? Doesn't seem to work
-        -- with connectTo.
+        -- TODO: Attempt to connect over IPv6 if it is resolvable.
+        -- TODO: Setting field to disable IPv6 lookup.
         
         -- aaaaResult <- lookupAAAA resolver (BSC8.pack $ Text.unpack realm)
         -- debugM "Pontarius.Xmpp" $ "AAAA result: " ++ (show aaaaResult)
