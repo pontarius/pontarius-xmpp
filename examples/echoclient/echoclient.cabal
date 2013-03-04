@@ -1,0 +1,12 @@
+Name:           echoclient
+Version:        0.0.0.0
+Cabal-Version:  >= 1.6
+Build-Type:     Simple
+License:        OtherLicense
+Copyright:      Mahdi Abdinejadi, Jon Kristensen, Philipp Balzarek
+Maintainer:     info@jonkri.com
+Synopsis:       Echo client test program for Pontarius XMPP
+
+Executable echoclient
+  Build-Depends:  base, hslogger, mtl, pontarius-xmpp, text, tls
+  Main-Is:        EchoClient.hs
