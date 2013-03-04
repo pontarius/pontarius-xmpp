@@ -44,6 +44,9 @@ import           Text.XML.Unresolved(InvalidEventStream(..))
 import           Control.Monad.Trans.Resource as R
 import           Network.Xmpp.Utilities
 
+import           Network.DNS hiding (encode, lookup)
+
+
 -- import Text.XML.Stream.Elements
 
 mbl :: Maybe [a] -> [a]
@@ -248,17 +251,43 @@ streamS expectedTo = do
             Just r -> streamUnpickleElem xpStreamFeatures r
 
 -- | Connects to the XMPP server and opens the XMPP stream against the given
--- host name, port, and realm.
-openStream :: HostName -> PortID -> Text -> StreamConfiguration -> IO (Either XmppFailure (TMVar Stream))
-openStream address port hostname config = do
-    stream <- connectTcp address port hostname config
-    case stream of
-        Right stream' -> do
-            result <- withStream startStream stream'
-            liftIO $ print result
-            return $ Right stream'
-        Left e -> do
-            return $ Left e
+-- realm.
+openStream :: Text -> StreamConfiguration -> IO (Either XmppFailure (TMVar Stream))
+openStream realm config = runErrorT $ do
+    (address, port) <- case hardcodedTcpDetails config of
+        Nothing -> dnsLookup realm (resolvConf config)
+        Just (address, port) -> return (address, port)
+    stream' <- connectTcp (Text.unpack address) port realm config
+    result <- liftIO $ withStream startStream stream'
+    return stream'
+
+dnsLookup :: Text -> ResolvConf -> ErrorT XmppFailure IO (Text, PortID)
+dnsLookup realm resolvConf = ErrorT $ do
+    resolvSeed <- makeResolvSeed resolvConf
+    withResolver resolvSeed $ \resolver -> do
+        debugM "Pontarius.Xmpp" "Performing SRV lookup..."
+        srvResult <- lookupSRV resolver (BSC8.pack $ Text.unpack realm)
+        debugM "Pontarius.Xmpp" $ "SRV result: " ++ (show srvResult)
+
+        -- TODO: Use SRV result. Is list always empty?
+
+        -- TODO: How to connect to IPv6 address? Doesn't seem to work
+        -- with connectTo.
+        
+        -- aaaaResult <- lookupAAAA resolver (BSC8.pack $ Text.unpack realm)
+        -- debugM "Pontarius.Xmpp" $ "AAAA result: " ++ (show aaaaResult)
+        -- if isJust aaaaResult && (Prelude.length $ fromJust aaaaResult) > 0
+        --     then return $ Right (Text.pack $ show $ Prelude.head $ fromJust aaaaResult, (PortNumber 5222))
+        --    else
+
+        do
+                aResult <- lookupA resolver (BSC8.pack $ Text.unpack realm)
+                debugM "Pontarius.Xmpp" $ "A result: " ++ (show aResult)
+                case aResult of
+                    Nothing -> return $ Left DnsLookupFailed
+                    Just r | Prelude.length r == 0 -> return $ Left DnsLookupFailed
+                           -- Is it safe to ignore tail of A records?
+                           | otherwise -> return $ Right (Text.pack $ show $ Prelude.head r, (PortNumber 5222))
 
 -- | Send "</stream:stream>" and wait for the server to finish processing and to
 -- close the connection. Any remaining elements from the server are returned.
@@ -396,14 +425,14 @@ xmppNoStream = Stream {
     , streamId = Nothing
     , streamLang = Nothing
     , streamJid = Nothing
-    , streamConfiguration = StreamConfiguration Nothing Nothing
+    , streamConfiguration = def
     }
   where
     zeroSource :: Source IO output
     zeroSource = liftIO . ExL.throwIO $ XmppOtherFailure "zeroSource"
 
-connectTcp :: HostName -> PortID -> Text -> StreamConfiguration -> IO (Either XmppFailure (TMVar Stream))
-connectTcp host port hostname config = do
+connectTcp :: HostName -> PortID -> Text -> StreamConfiguration -> ErrorT XmppFailure IO (TMVar Stream)
+connectTcp host port hostname config = ErrorT $ do
     let PortNumber portNumber = port
     debugM "Pontarius.Xmpp" $ "Connecting to " ++ host ++ " on port " ++
         (show portNumber) ++ " through the realm " ++ (Text.unpack hostname) ++ "."

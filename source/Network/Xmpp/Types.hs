@@ -78,6 +78,9 @@ import           Data.String (IsString(..))
 import qualified Text.NamePrep as SP
 import qualified Text.StringPrep as SP
 
+import           Network
+import           Network.DNS
+
 import Data.Default
 
 -- |
@@ -653,6 +656,8 @@ data XmppFailure = StreamErrorFailure StreamErrorInfo -- ^ An error XML stream
                                               -- constructor wraps the
                                               -- elements collected so
                                               -- far.
+                 | DnsLookupFailed -- ^ An IP address to connect to could not be
+                                   -- resolved.
                  | TlsError TLS.TLSError -- ^ An error occurred in the
                                          -- TLS layer
                  | TlsNoServerSupport -- ^ The server does not support
@@ -1016,10 +1021,18 @@ data StreamConfiguration =
                           -- boolean is set to 'True', then the JID is also
                           -- included when the 'ConnectionState' is 'Plain'
                         , toJid :: !(Maybe (Jid, Bool))
+                          -- | By specifying these details, Pontarius XMPP will
+                          -- connect to the provided address and port, and will
+                          -- not perform a DNS look-up
+                        , hardcodedTcpDetails :: Maybe (Text, PortID)
+                          -- | DNS resolver configuration
+                        , resolvConf :: ResolvConf
                         }
 
 
 instance Default StreamConfiguration where
     def = StreamConfiguration { preferredLang = Nothing
                               , toJid = Nothing
+                              , hardcodedTcpDetails = Nothing
+                              , resolvConf = defaultResolvConf
                               }

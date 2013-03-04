@@ -36,6 +36,7 @@ Library
                , crypto-random-api >=0.2
                , cryptohash        >=0.6.1
                , data-default      >=0.2
+               , dns
                , hslogger          >=1.1.0
                , lifted-base       >=0.1.0.1
                , mtl               >=2.0.0.0
