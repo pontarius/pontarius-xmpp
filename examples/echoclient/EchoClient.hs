@@ -31,8 +31,6 @@ import           System.Log.Handler.Simple
 import           System.Log.Logger
 
 -- Server and authentication details.
-host     = "localhost"
-port     = PortNumber 5222
 realm    = "species64739.dyndns.org"
 username = "echo"
 password = "pwd"
@@ -57,9 +55,7 @@ main = do
     updateGlobalLogger "Pontarius.Xmpp" (addHandler handler)
 
     sess' <- session
-                host
                 realm
-                port
                 Nothing -- (Just defaultParamsClient)
                 (Just ([scramSha1 username Nothing password], resource))
     sess <- case sess' of
