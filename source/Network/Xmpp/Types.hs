@@ -84,6 +84,7 @@ import           Network
 import           Network.DNS
 
 import Data.Default
+import Data.IP
 
 -- |
 -- Wraps a string of random characters that, when using an appropriate
@@ -807,8 +808,8 @@ data Stream = Stream
     , streamEventSource :: ResumableSource IO Event
       -- | Stream features advertised by the server
     , streamFeatures :: !StreamFeatures -- TODO: Maybe?
-      -- | The hostname we specified for the connection
-    , streamHostname :: !(Maybe Hostname)
+      -- | The hostname or IP specified for the connection
+    , streamAddress :: !(Maybe Text)
       -- | The hostname specified in the server's stream element's
       -- `from' attribute
     , streamFrom :: !(Maybe Jid)
@@ -1029,7 +1030,7 @@ data StreamConfiguration =
                           -- | By specifying these details, Pontarius XMPP will
                           -- connect to the provided address and port, and will
                           -- not perform a DNS look-up
-                        , hardcodedTcpDetails :: Maybe (Text, PortNumber)
+                        , srvOverrideDetails :: Maybe (Hostname, PortNumber)
                           -- | DNS resolver configuration
                         , resolvConf :: ResolvConf
                         }
@@ -1038,7 +1039,7 @@ data StreamConfiguration =
 instance Default StreamConfiguration where
     def = StreamConfiguration { preferredLang = Nothing
                               , toJid = Nothing
-                              , hardcodedTcpDetails = Nothing
+                              , srvOverrideDetails = Nothing
                               , resolvConf = defaultResolvConf
                               }
 

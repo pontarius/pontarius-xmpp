@@ -45,8 +45,8 @@ xmppDigestMd5 ::  Text -- ^ Authentication identity (authzid or username)
                -> ErrorT AuthFailure (StateT Stream IO) ()
 xmppDigestMd5 authcid authzid password = do
     (ac, az, pw) <- prepCredentials authcid authzid password
-    Just (Hostname hn) <- gets streamHostname
-    xmppDigestMd5' hn ac az pw
+    Just address <- gets streamAddress
+    xmppDigestMd5' address ac az pw
   where
     xmppDigestMd5' :: Text -> Text -> Maybe Text -> Text -> ErrorT AuthFailure (StateT Stream IO) ()
     xmppDigestMd5' hostname authcid authzid password = do

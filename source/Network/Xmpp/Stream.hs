@@ -110,15 +110,15 @@ startStream = runErrorT $ do
           (Secured, (Just (jid, _))) -> Just jid
           (Plain, Nothing) -> Nothing
           (Secured, Nothing) -> Nothing
-    case streamHostname state of
+    case streamAddress state of
         Nothing -> throwError $ XmppOtherFailure "server sent no hostname"
                    -- TODO: When does this happen?
-        Just (Hostname hostname) -> lift $ do
+        Just address -> lift $ do
             pushXmlDecl
             pushOpenElement $
                 pickleElem xpStream ( "1.0"
                                     , expectedTo
-                                    , Just (Jid Nothing hostname Nothing)
+                                    , Just (Jid Nothing address Nothing)
                                     , Nothing
                                     , preferredLang $ streamConfiguration state
                                     )
@@ -134,7 +134,7 @@ startStream = runErrorT $ do
             closeStreamWithError StreamInvalidXml Nothing
                 "stream has no language tag"
         -- If `from' is set, we verify that it's the correct one. TODO: Should we check against the realm instead?
-        | isJust from && (from /= Just (Jid Nothing (Text.pack $ show $ fromJust $ streamHostname state) Nothing)) ->
+        | isJust from && (from /= Just (Jid Nothing (fromJust $ streamAddress state) Nothing)) ->
             closeStreamWithError StreamInvalidFrom Nothing
                 "stream from is invalid"
         | to /= expectedTo ->
@@ -258,9 +258,9 @@ streamS expectedTo = do
 
 -- | Connects to the XMPP server and opens the XMPP stream against the given
 -- realm.
-openStream :: Hostname -> StreamConfiguration -> IO (Either XmppFailure (TMVar Stream))
-openStream realm config = runErrorT $ do
-    stream' <- createStream realm config
+openStream :: Either (Either IPv4 IPv6, PortNumber) Hostname -> StreamConfiguration -> IO (Either XmppFailure (TMVar Stream))
+openStream destination config = runErrorT $ do
+    stream' <- createStream destination config
     result <- liftIO $ withStream startStream stream'
     return stream'
 
@@ -398,7 +398,7 @@ xmppNoStream = Stream {
                                   }
     , streamEventSource = DCI.ResumableSource zeroSource (return ())
     , streamFeatures = StreamFeatures Nothing [] []
-    , streamHostname = Nothing
+    , streamAddress = Nothing
     , streamFrom = Nothing
     , streamId = Nothing
     , streamLang = Nothing
@@ -409,11 +409,15 @@ xmppNoStream = Stream {
     zeroSource :: Source IO output
     zeroSource = liftIO . ExL.throwIO $ XmppOtherFailure "zeroSource"
 
-createStream :: Hostname -> StreamConfiguration -> ErrorT XmppFailure IO (TMVar Stream)
-createStream (Hostname realm) config = do
-    result <- connect realm config
+createStream :: Either (Either IPv4 IPv6, PortNumber) Hostname -> StreamConfiguration -> ErrorT XmppFailure IO (TMVar Stream)
+createStream destination config = do
+    result <- connect destination config
     case result of
         Just h -> ErrorT $ do
+            let address = case destination of
+                              Left (Left ipv4, _) -> Text.pack $ show ipv4
+                              Left (Right ipv6, _) -> Text.pack $ show ipv6
+                              Right (Hostname hostname) -> hostname
             debugM "Pontarius.Xmpp" "Acquired handle."
             debugM "Pontarius.Xmpp" "Setting NoBuffering mode on handle."
             hSetBuffering h NoBuffering
@@ -439,7 +443,7 @@ createStream (Hostname realm) config = do
                   , streamHandle = hand
                   , streamEventSource = eSource
                   , streamFeatures = StreamFeatures Nothing [] []
-                  , streamHostname = (Just $ Hostname realm)
+                  , streamAddress = (Just address)
                   , streamFrom = Nothing
                   , streamId = Nothing
                   , streamLang = Nothing
@@ -459,15 +463,23 @@ createStream (Hostname realm) config = do
             "."
         return d
 
--- `connect' will perform one or many DNS lookups for the provided
--- realm host (unless `hardcodedTcpDetails' has been specified, in which case
--- those details are used instead). Will return the Handle acquired, if any.
-connect :: Text -> StreamConfiguration -> ErrorT XmppFailure IO (Maybe Handle)
-connect realm config = do
-    case hardcodedTcpDetails config of
-        Just (address, port) -> lift $ do
-            debugM "Pontarius.Xmpp" "Connecting to hardcoded TCP settings..."
-            connectTcp' [(address, port)]
+
+
+-- Connects to the provided hostname or IP address. If a hostname is provided,
+-- one or many DNS lookups are performed, starting with a SRV lookup (unless
+-- `srvOverrideDetails' has been specified, in which case those details are used
+-- instead). Will return the Handle acquired, if any.
+connect :: Either (Either IPv4 IPv6, PortNumber) Hostname -> StreamConfiguration -> ErrorT XmppFailure IO (Maybe Handle)
+connect (Left (ip, portNumber)) config = do
+    let ip' = case ip of
+                  Left ipv4 -> Text.pack $ show ipv4
+                  Right ipv6 -> Text.pack $ show ipv6
+    lift $ connectTcp' [(ip', portNumber)]
+connect (Right (Hostname realm)) config = do
+    case srvOverrideDetails config of
+        Just (Hostname hostname, portNumber) -> lift $ do
+            debugM "Pontarius.Xmpp" "Connecting to hardcoded TCP host and port..."
+            connectTcp' [(hostname, portNumber)]
         Nothing -> do
             resolvSeed <- lift $ makeResolvSeed (resolvConf config)
             lift $ debugM "Pontarius.Xmpp" "Performing SRV lookup..."

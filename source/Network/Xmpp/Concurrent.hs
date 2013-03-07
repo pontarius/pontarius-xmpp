@@ -141,7 +141,7 @@ session :: Hostname                          -- ^ The realm host name
                                              -- the server decide)
         -> IO (Either XmppFailure (Session, Maybe AuthFailure))
 session realm mbTls mbSasl = runErrorT $ do
-    con <- ErrorT $ openStream realm def
+    con <- ErrorT $ openStream (Right realm) def
     case mbTls of
         Nothing -> return ()
         Just tls -> ErrorT $ startTls tls con
