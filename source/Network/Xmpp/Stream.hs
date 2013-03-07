@@ -113,7 +113,7 @@ startStream = runErrorT $ do
     case streamHostname state of
         Nothing -> throwError $ XmppOtherFailure "server sent no hostname"
                    -- TODO: When does this happen?
-        Just hostname -> lift $ do
+        Just (Hostname hostname) -> lift $ do
             pushXmlDecl
             pushOpenElement $
                 pickleElem xpStream ( "1.0"
@@ -134,7 +134,7 @@ startStream = runErrorT $ do
             closeStreamWithError StreamInvalidXml Nothing
                 "stream has no language tag"
         -- If `from' is set, we verify that it's the correct one. TODO: Should we check against the realm instead?
-        | isJust from && (from /= Just (Jid Nothing (fromJust $ streamHostname state) Nothing)) ->
+        | isJust from && (from /= Just (Jid Nothing (Text.pack $ show $ fromJust $ streamHostname state) Nothing)) ->
             closeStreamWithError StreamInvalidFrom Nothing
                 "stream from is invalid"
         | to /= expectedTo ->
@@ -258,7 +258,7 @@ streamS expectedTo = do
 
 -- | Connects to the XMPP server and opens the XMPP stream against the given
 -- realm.
-openStream :: Text -> StreamConfiguration -> IO (Either XmppFailure (TMVar Stream))
+openStream :: Hostname -> StreamConfiguration -> IO (Either XmppFailure (TMVar Stream))
 openStream realm config = runErrorT $ do
     stream' <- createStream realm config
     result <- liftIO $ withStream startStream stream'
@@ -409,8 +409,8 @@ xmppNoStream = Stream {
     zeroSource :: Source IO output
     zeroSource = liftIO . ExL.throwIO $ XmppOtherFailure "zeroSource"
 
-createStream :: Text -> StreamConfiguration -> ErrorT XmppFailure IO (TMVar Stream)
-createStream realm config = do
+createStream :: Hostname -> StreamConfiguration -> ErrorT XmppFailure IO (TMVar Stream)
+createStream (Hostname realm) config = do
     result <- connect realm config
     case result of
         Just h -> ErrorT $ do
@@ -439,7 +439,7 @@ createStream realm config = do
                   , streamHandle = hand
                   , streamEventSource = eSource
                   , streamFeatures = StreamFeatures Nothing [] []
-                  , streamHostname = (Just realm)
+                  , streamHostname = (Just $ Hostname realm)
                   , streamFrom = Nothing
                   , streamId = Nothing
                   , streamLang = Nothing

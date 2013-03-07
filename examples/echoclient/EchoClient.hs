@@ -31,7 +31,7 @@ import           System.Log.Handler.Simple
 import           System.Log.Logger
 
 -- Server and authentication details.
-realm    = "species64739.dyndns.org"
+realm    = fromJust $ hostname "species64739.dyndns.org"
 username = "echo"
 password = "pwd"
 resource = Just "bot"

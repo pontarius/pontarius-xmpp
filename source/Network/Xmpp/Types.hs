@@ -44,6 +44,8 @@ module Network.Xmpp.Types
     , fromTexts
     , StreamEnd(..)
     , InvalidXmppXml(..)
+    , Hostname(..)
+    , hostname
     )
        where
 
@@ -806,7 +808,7 @@ data Stream = Stream
       -- | Stream features advertised by the server
     , streamFeatures :: !StreamFeatures -- TODO: Maybe?
       -- | The hostname we specified for the connection
-    , streamHostname :: !(Maybe Text)
+    , streamHostname :: !(Maybe Hostname)
       -- | The hostname specified in the server's stream element's
       -- `from' attribute
     , streamFrom :: !(Maybe Jid)
@@ -1039,3 +1041,39 @@ instance Default StreamConfiguration where
                               , hardcodedTcpDetails = Nothing
                               , resolvConf = defaultResolvConf
                               }
+
+data Hostname = Hostname Text deriving (Eq, Show)
+
+instance Read Hostname where
+  readsPrec _ x = case hostname (Text.pack x) of
+      Nothing -> []
+      Just h -> [(h,"")]
+
+instance IsString Hostname where
+  fromString = fromJust . hostname . Text.pack
+
+-- | Validates the hostname string in accordance with RFC 1123.
+hostname :: Text -> Maybe Hostname
+hostname t = do
+    eitherToMaybeHostname $ AP.parseOnly hostnameP t
+  where
+    eitherToMaybeHostname = either (const Nothing) (Just . Hostname)
+
+-- Validation of RFC 1123 hostnames.
+hostnameP :: AP.Parser Text
+hostnameP = do
+    -- Hostnames may not begin with a hyphen.
+    h <- AP.satisfy $ AP.inClass $ ['A'..'Z'] ++ ['a'..'z'] ++ ['0'..'9']
+    t <- AP.takeWhile $ AP.inClass $ ['A'..'Z'] ++ ['a'..'z'] ++ ['0'..'9'] ++ ['-']
+    let label = Text.concat [Text.pack [h], t]
+    if Text.length label > 63
+        then fail "Label too long."
+        else do
+            AP.endOfInput
+            return label
+            <|> do
+                _ <- AP.satisfy (== '.')
+                r <- hostnameP
+                if (Text.length label) + 1 + (Text.length r) > 255
+                    then fail "Hostname too long."
+                    else return $ Text.concat [label, Text.pack ".", r]

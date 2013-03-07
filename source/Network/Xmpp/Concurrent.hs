@@ -132,7 +132,7 @@ writeWorker stCh writeR = forever $ do
 -- value, @session@ will attempt to secure the connection with TLS. If the fifth
 -- parameters is a 'Just' value, @session@ will attempt to authenticate and
 -- acquire an XMPP resource.
-session :: Text                              -- ^ The realm host name
+session :: Hostname                          -- ^ The realm host name
         -> Maybe TLS.TLSParams               -- ^ TLS settings, if securing the
                                              -- connection to the server is
                                              -- desired
