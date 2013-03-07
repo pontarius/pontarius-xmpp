@@ -68,7 +68,8 @@ streamUnpickleElem :: PU [Node] a
                    -> StreamSink a
 streamUnpickleElem p x = do
     case unpickleElem p x of
-        Left l -> throwError $ XmppOtherFailure "Unpickle error"
+        Left l -> throwError $ XmppOtherFailure ("Unpickle error"
+                                                 ++ ppUnpickleError l)
                   -- TODO: Log: StreamXmlError (show l)
         Right r -> return r
 
@@ -102,7 +103,6 @@ startStream :: StateT Stream IO (Either XmppFailure ())
 startStream = runErrorT $ do
     liftIO $ debugM "Pontarius.Xmpp" "starting stream"
     state <- lift $ get
-    stream <- liftIO $ mkStream state
     -- Set the `from' (which is also the expected to) attribute depending on the
     -- state of the stream.
     let expectedTo = case (streamState state, toJid $ streamConfiguration state) of
@@ -128,17 +128,17 @@ startStream = runErrorT $ do
       -- Successful unpickling of stream element.
       Right (Right (ver, from, to, id, lt, features))
         | (Text.unpack ver) /= "1.0" ->
-            closeStreamWithError stream StreamUnsupportedVersion Nothing
-                "Unknown stream version"
+            closeStreamWithError StreamUnsupportedVersion Nothing
+                "Unknown version"
         | lt == Nothing ->
-            closeStreamWithError stream StreamInvalidXml Nothing
+            closeStreamWithError StreamInvalidXml Nothing
                 "stream has no language tag"
         -- If `from' is set, we verify that it's the correct one. TODO: Should we check against the realm instead?
         | isJust from && (from /= Just (Jid Nothing (fromJust $ streamHostname state) Nothing)) ->
-            closeStreamWithError stream StreamInvalidFrom Nothing
+            closeStreamWithError StreamInvalidFrom Nothing
                 "stream from is invalid"
         | to /= expectedTo ->
-            closeStreamWithError stream StreamUndefinedCondition (Just $ Element "invalid-to" [] [])
+            closeStreamWithError StreamUndefinedCondition (Just $ Element "invalid-to" [] [])
                 "stream to invalid"-- TODO: Suitable?
         | otherwise -> do
             modify (\s -> s{ streamFeatures = features
@@ -150,42 +150,43 @@ startStream = runErrorT $ do
       -- Unpickling failed - we investigate the element.
       Right (Left (Element name attrs children))
         | (nameLocalName name /= "stream") ->
-            closeStreamWithError stream StreamInvalidXml Nothing
+            closeStreamWithError StreamInvalidXml Nothing
                "Root element is not stream"
         | (nameNamespace name /= Just "http://etherx.jabber.org/streams") ->
-            closeStreamWithError stream StreamInvalidNamespace Nothing
+            closeStreamWithError StreamInvalidNamespace Nothing
                "Wrong root element name space"
         | (isJust $ namePrefix name) && (fromJust (namePrefix name) /= "stream") ->
-            closeStreamWithError stream StreamBadNamespacePrefix Nothing
+            closeStreamWithError StreamBadNamespacePrefix Nothing
                 "Root name prefix set and not stream"
-        | otherwise -> ErrorT $ checkchildren stream (flattenAttrs attrs)
+        | otherwise -> ErrorT $ checkchildren (flattenAttrs attrs)
   where
     -- closeStreamWithError :: MonadIO m => TMVar Stream -> StreamErrorCondition ->
     --                         Maybe Element -> ErrorT XmppFailure m ()
-    closeStreamWithError stream sec el msg = do
-        liftIO $ do
-            withStream (pushElement . pickleElem xpStreamError $
-                                StreamErrorInfo sec Nothing el) stream
-            closeStreams stream
+    closeStreamWithError  :: StreamErrorCondition -> Maybe Element -> String
+                          -> ErrorT XmppFailure (StateT Stream IO) ()
+    closeStreamWithError sec el msg = do
+        lift . pushElement . pickleElem xpStreamError
+            $ StreamErrorInfo sec Nothing el
+        lift $ closeStreams'
         throwError $ XmppOtherFailure msg
-    checkchildren stream children =
+    checkchildren children =
         let to'  = lookup "to"      children
             ver' = lookup "version" children
             xl   = lookup xmlLang   children
           in case () of () | Just (Nothing :: Maybe Jid) == (safeRead <$> to') ->
-                               runErrorT $ closeStreamWithError stream
+                               runErrorT $ closeStreamWithError
                                    StreamBadNamespacePrefix Nothing
                                    "stream to not a valid JID"
                            | Nothing == ver' ->
-                               runErrorT $ closeStreamWithError stream
+                               runErrorT $ closeStreamWithError
                                    StreamUnsupportedVersion Nothing
                                    "stream no version"
                            | Just (Nothing :: Maybe LangTag) == (safeRead <$> xl) ->
-                               runErrorT $ closeStreamWithError stream
+                               runErrorT $ closeStreamWithError
                                    StreamInvalidXml Nothing
                                    "stream no language tag"
                            | otherwise ->
-                               runErrorT $ closeStreamWithError stream
+                               runErrorT $ closeStreamWithError
                                    StreamBadFormat Nothing
                                    ""
     safeRead x = case reads $ Text.unpack x of
@@ -267,7 +268,9 @@ openStream realm config = runErrorT $ do
 -- close the connection. Any remaining elements from the server are returned.
 -- Surpresses StreamEndFailure exceptions, but may throw a StreamCloseError.
 closeStreams :: TMVar Stream -> IO (Either XmppFailure [Element])
-closeStreams = withStream $ do
+closeStreams = withStream closeStreams'
+
+closeStreams' = do
     send <- gets (streamSend . streamHandle)
     cc <- gets (streamClose . streamHandle)
     liftIO $ send "</stream:stream>"
@@ -357,8 +360,9 @@ pullUnpickle p = do
         Right elem' -> do
             let res = unpickleElem p elem'
             case res of
-                Left e -> return . Left $ XmppOtherFailure
-                             "pullUnpickle: unpickle failed" -- TODO: Log
+                Left e -> return . Left . XmppOtherFailure $
+                             "pullUnpickle: unpickle failed" ++ ppUnpickleError e
+                             -- TODO: Log
                 Right r -> return $ Right r
 
 -- | Pulls a stanza (or stream error) from the stream.
