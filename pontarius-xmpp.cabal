@@ -38,6 +38,7 @@ Library
                , data-default      >=0.2
                , dns
                , hslogger          >=1.1.0
+               , iproute
                , lifted-base       >=0.1.0.1
                , mtl               >=2.0.0.0
                , network           >=2.3

@@ -656,6 +656,9 @@ data XmppFailure = StreamErrorFailure StreamErrorInfo -- ^ An error XML stream
                                               -- constructor wraps the
                                               -- elements collected so
                                               -- far.
+                 | TcpConnectionFailure -- ^ All attempts to TCP
+                                        -- connect to the server
+                                        -- failed.
                  | DnsLookupFailed -- ^ An IP address to connect to could not be
                                    -- resolved.
                  | TlsError TLS.TLSError -- ^ An error occurred in the
@@ -1024,7 +1027,7 @@ data StreamConfiguration =
                           -- | By specifying these details, Pontarius XMPP will
                           -- connect to the provided address and port, and will
                           -- not perform a DNS look-up
-                        , hardcodedTcpDetails :: Maybe (Text, PortID)
+                        , hardcodedTcpDetails :: Maybe (Text, PortNumber)
                           -- | DNS resolver configuration
                         , resolvConf :: ResolvConf
                         }
