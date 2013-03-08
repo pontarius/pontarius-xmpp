@@ -1,6 +1,7 @@
 {-# OPTIONS_HADDOCK hide #-}
 
-{-# LANGUAGE NoMonomorphismRestriction, OverloadedStrings #-}
+{-# LANGUAGE NoMonomorphismRestriction #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
@@ -276,7 +277,7 @@ dnsLookup realm resolvConf = ErrorT $ do
 
         -- TODO: Attempt to connect over IPv6 if it is resolvable.
         -- TODO: Setting field to disable IPv6 lookup.
-        
+
         -- aaaaResult <- lookupAAAA resolver (BSC8.pack $ Text.unpack realm)
         -- debugM "Pontarius.Xmpp" $ "AAAA result: " ++ (show aaaaResult)
         -- if isJust aaaaResult && (Prelude.length $ fromJust aaaaResult) > 0
@@ -354,8 +355,8 @@ pushOpenElement e = do
 -- `b' value.
 runEventsSink :: Sink Event IO b -> StateT Stream IO (Either XmppFailure b)
 runEventsSink snk = do -- TODO: Wrap exceptions?
-    source <- gets streamEventSource
-    (src', r) <- lift $ source $$++ snk
+    src <- gets streamEventSource
+    (src', r) <- lift $ src $$++ snk
     modify (\s -> s{streamEventSource = src'})
     return $ Right r
 
@@ -446,22 +447,13 @@ connectTcp host port hostname config = ErrorT $ do
     debugM "Pontarius.Xmpp" "Setting NoBuffering mode on handle."
     hSetBuffering h NoBuffering
     let eSource = DCI.ResumableSource
-                  ((sourceHandle h $= logConduit) $= XP.parseBytes def)
+                  (sourceHandle h $= logConduit $= XP.parseBytes def)
                   (return ())
-    let hand = StreamHandle { streamSend = \d -> do
-                                     debugM "Pontarius.Xmpp" $
-                                       "Sending TCP data: " ++ (BSC8.unpack d)
-                                       ++ "."
-                                     catchPush $ BS.hPut h d
-                                , streamReceive = \n -> do
-                                     d <- BS.hGetSome h n
-                                     debugM "Pontarius.Xmpp" $
-                                       "Received TCP data: " ++
-                                       (BSC8.unpack d) ++ "."
-                                     return d
-                                , streamFlush = hFlush h
-                                , streamClose = hClose h
-                                }
+    let hand = StreamHandle { streamSend = catchPush . BS.hPut h
+                            , streamReceive =  BS.hGetSome h
+                            , streamFlush = hFlush h
+                            , streamClose = hClose h
+                            }
     let stream = Stream
             { streamState = Plain
             , streamHandle = hand
@@ -479,8 +471,7 @@ connectTcp host port hostname config = ErrorT $ do
   where
     logConduit :: Conduit ByteString IO ByteString
     logConduit = CL.mapM $ \d -> do
-        let d64 = encode d
-        debugM "Pontarius.Xmpp" $ "Received TCP data: " ++ (BSC8.unpack d64) ++
+        debugM "Pontarius.Xmpp" $ "Received TCP data: " ++ (BSC8.unpack d) ++
             "."
         return d
 
