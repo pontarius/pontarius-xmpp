@@ -96,7 +96,7 @@ auth mechanisms resource con = runErrorT $ do
     liftIO $ debugM "Pontarius.Xmpp" "pre-auth"
     ErrorT $ xmppSasl mechanisms con
     liftIO $ debugM "Pontarius.Xmpp" "auth done"
-    jid <- lift $ xmppBind resource con
+    jid <- ErrorT $ xmppBind resource con
     liftIO $ debugM "Pontarius.Xmpp" $ "bound resource" ++ show jid
     lift $ startSession con
     return Nothing
