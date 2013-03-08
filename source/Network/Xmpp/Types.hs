@@ -44,6 +44,8 @@ module Network.Xmpp.Types
     , fromTexts
     , StreamEnd(..)
     , InvalidXmppXml(..)
+    , Hostname(..)
+    , hostname
     )
        where
 
@@ -82,6 +84,7 @@ import           Network
 import           Network.DNS
 
 import Data.Default
+import Data.IP
 
 -- |
 -- Wraps a string of random characters that, when using an appropriate
@@ -656,6 +659,9 @@ data XmppFailure = StreamErrorFailure StreamErrorInfo -- ^ An error XML stream
                                               -- constructor wraps the
                                               -- elements collected so
                                               -- far.
+                 | TcpConnectionFailure -- ^ All attempts to TCP
+                                        -- connect to the server
+                                        -- failed.
                  | DnsLookupFailed -- ^ An IP address to connect to could not be
                                    -- resolved.
                  | TlsError TLS.TLSError -- ^ An error occurred in the
@@ -802,8 +808,8 @@ data Stream = Stream
     , streamEventSource :: ResumableSource IO Event
       -- | Stream features advertised by the server
     , streamFeatures :: !StreamFeatures -- TODO: Maybe?
-      -- | The hostname we specified for the connection
-    , streamHostname :: !(Maybe Text)
+      -- | The hostname or IP specified for the connection
+    , streamAddress :: !(Maybe Text)
       -- | The hostname specified in the server's stream element's
       -- `from' attribute
     , streamFrom :: !(Maybe Jid)
@@ -1024,7 +1030,7 @@ data StreamConfiguration =
                           -- | By specifying these details, Pontarius XMPP will
                           -- connect to the provided address and port, and will
                           -- not perform a DNS look-up
-                        , tcpDetails :: Maybe (Text, PortID)
+                        , srvOverrideDetails :: Maybe (Hostname, PortNumber)
                           -- | DNS resolver configuration
                         , resolvConf :: ResolvConf
                         }
@@ -1033,6 +1039,42 @@ data StreamConfiguration =
 instance Default StreamConfiguration where
     def = StreamConfiguration { preferredLang = Nothing
                               , toJid = Nothing
-                              , tcpDetails = Nothing
+                              , srvOverrideDetails = Nothing
                               , resolvConf = defaultResolvConf
                               }
+
+data Hostname = Hostname Text deriving (Eq, Show)
+
+instance Read Hostname where
+  readsPrec _ x = case hostname (Text.pack x) of
+      Nothing -> []
+      Just h -> [(h,"")]
+
+instance IsString Hostname where
+  fromString = fromJust . hostname . Text.pack
+
+-- | Validates the hostname string in accordance with RFC 1123.
+hostname :: Text -> Maybe Hostname
+hostname t = do
+    eitherToMaybeHostname $ AP.parseOnly hostnameP t
+  where
+    eitherToMaybeHostname = either (const Nothing) (Just . Hostname)
+
+-- Validation of RFC 1123 hostnames.
+hostnameP :: AP.Parser Text
+hostnameP = do
+    -- Hostnames may not begin with a hyphen.
+    h <- AP.satisfy $ AP.inClass $ ['A'..'Z'] ++ ['a'..'z'] ++ ['0'..'9']
+    t <- AP.takeWhile $ AP.inClass $ ['A'..'Z'] ++ ['a'..'z'] ++ ['0'..'9'] ++ ['-']
+    let label = Text.concat [Text.pack [h], t]
+    if Text.length label > 63
+        then fail "Label too long."
+        else do
+            AP.endOfInput
+            return label
+            <|> do
+                _ <- AP.satisfy (== '.')
+                r <- hostnameP
+                if (Text.length label) + 1 + (Text.length r) > 255
+                    then fail "Hostname too long."
+                    else return $ Text.concat [label, Text.pack ".", r]

@@ -47,6 +47,11 @@ import           Network.Xmpp.Utilities
 
 import           Network.DNS hiding (encode, lookup)
 
+import           Data.Ord
+import           Data.Maybe
+import           Data.List
+import           Data.IP
+import           System.Random
 
 -- import Text.XML.Stream.Elements
 
@@ -106,15 +111,15 @@ startStream = runErrorT $ do
           (Secured, (Just (jid, _))) -> Just jid
           (Plain, Nothing) -> Nothing
           (Secured, Nothing) -> Nothing
-    case streamHostname state of
+    case streamAddress state of
         Nothing -> throwError $ XmppOtherFailure "server sent no hostname"
                    -- TODO: When does this happen?
-        Just hostname -> lift $ do
+        Just address -> lift $ do
             pushXmlDecl
             pushOpenElement $
                 pickleElem xpStream ( "1.0"
                                     , expectedTo
-                                    , Just (Jid Nothing hostname Nothing)
+                                    , Just (Jid Nothing address Nothing)
                                     , Nothing
                                     , preferredLang $ streamConfiguration state
                                     )
@@ -130,7 +135,7 @@ startStream = runErrorT $ do
             closeStreamWithError StreamInvalidXml Nothing
                 "stream has no language tag"
         -- If `from' is set, we verify that it's the correct one. TODO: Should we check against the realm instead?
-        | isJust from && (from /= Just (Jid Nothing (fromJust $ streamHostname state) Nothing)) ->
+        | isJust from && (from /= Just (Jid Nothing (fromJust $ streamAddress state) Nothing)) ->
             closeStreamWithError StreamInvalidFrom Nothing
                 "stream from is invalid"
         | to /= expectedTo ->
@@ -254,44 +259,11 @@ streamS expectedTo = do
 
 -- | Connects to the XMPP server and opens the XMPP stream against the given
 -- realm.
-openStream :: Text
-           -> StreamConfiguration
-           -> IO (Either XmppFailure (TMVar Stream))
-openStream host config = runErrorT $ do
-    (address, port) <- case tcpDetails config of
-        Nothing -> dnsLookup host (resolvConf config)
-        Just (address, port) -> return (address, port)
-    stream' <- connectTcp (Text.unpack address) port host config
+openStream :: Either (Either IPv4 IPv6, PortNumber) Hostname -> StreamConfiguration -> IO (Either XmppFailure (TMVar Stream))
+openStream destination config = runErrorT $ do
+    stream' <- createStream destination config
     result <- liftIO $ withStream startStream stream'
     return stream'
-
-dnsLookup :: Text -> ResolvConf -> ErrorT XmppFailure IO (Text, PortID)
-dnsLookup realm resolvConf = ErrorT $ do
-    resolvSeed <- makeResolvSeed resolvConf
-    withResolver resolvSeed $ \resolver -> do
-        debugM "Pontarius.Xmpp" "Performing SRV lookup..."
-        srvResult <- lookupSRV resolver (BSC8.pack $ Text.unpack realm)
-        debugM "Pontarius.Xmpp" $ "SRV result: " ++ (show srvResult)
-
-        -- TODO: Use SRV result. Is list always empty?
-
-        -- TODO: Attempt to connect over IPv6 if it is resolvable.
-        -- TODO: Setting field to disable IPv6 lookup.
-
-        -- aaaaResult <- lookupAAAA resolver (BSC8.pack $ Text.unpack realm)
-        -- debugM "Pontarius.Xmpp" $ "AAAA result: " ++ (show aaaaResult)
-        -- if isJust aaaaResult && (Prelude.length $ fromJust aaaaResult) > 0
-        --     then return $ Right (Text.pack $ show $ Prelude.head $ fromJust aaaaResult, (PortNumber 5222))
-        --    else
-
-        do
-                aResult <- lookupA resolver (BSC8.pack $ Text.unpack realm)
-                debugM "Pontarius.Xmpp" $ "A result: " ++ (show aResult)
-                case aResult of
-                    Nothing -> return $ Left DnsLookupFailed
-                    Just r | Prelude.length r == 0 -> return $ Left DnsLookupFailed
-                           -- Is it safe to ignore tail of A records?
-                           | otherwise -> return $ Right (Text.pack $ show $ Prelude.head r, (PortNumber 5222))
 
 -- | Send "</stream:stream>" and wait for the server to finish processing and to
 -- close the connection. Any remaining elements from the server are returned.
@@ -427,7 +399,7 @@ xmppNoStream = Stream {
                                   }
     , streamEventSource = DCI.ResumableSource zeroSource (return ())
     , streamFeatures = StreamFeatures Nothing [] []
-    , streamHostname = Nothing
+    , streamAddress = Nothing
     , streamFrom = Nothing
     , streamId = Nothing
     , streamLang = Nothing
@@ -438,36 +410,43 @@ xmppNoStream = Stream {
     zeroSource :: Source IO output
     zeroSource = liftIO . ExL.throwIO $ XmppOtherFailure "zeroSource"
 
-connectTcp :: HostName -> PortID -> Text -> StreamConfiguration -> ErrorT XmppFailure IO (TMVar Stream)
-connectTcp host port hostname config = ErrorT $ do
-    let PortNumber portNumber = port
-    debugM "Pontarius.Xmpp" $ "Connecting to " ++ host ++ " on port " ++
-        (show portNumber) ++ " through the realm " ++ (Text.unpack hostname) ++ "."
-    h <- connectTo host port
-    debugM "Pontarius.Xmpp" "Setting NoBuffering mode on handle."
-    hSetBuffering h NoBuffering
-    let eSource = DCI.ResumableSource
-                  (sourceHandle h $= logConduit $= XP.parseBytes def)
+createStream :: Either (Either IPv4 IPv6, PortNumber) Hostname -> StreamConfiguration -> ErrorT XmppFailure IO (TMVar Stream)
+createStream destination config = do
+    result <- connect destination config
+    case result of
+        Just h -> ErrorT $ do
+            let address = case destination of
+                              Left (Left ipv4, _) -> Text.pack $ show ipv4
+                              Left (Right ipv6, _) -> Text.pack $ show ipv6
+                              Right (Hostname hostname) -> hostname
+            debugM "Pontarius.Xmpp" "Acquired handle."
+            debugM "Pontarius.Xmpp" "Setting NoBuffering mode on handle."
+            hSetBuffering h NoBuffering
+            let eSource = DCI.ResumableSource
+                  ((sourceHandle h $= logConduit) $= XP.parseBytes def)
                   (return ())
-    let hand = StreamHandle { streamSend = catchPush . BS.hPut h
-                            , streamReceive =  BS.hGetSome h
-                            , streamFlush = hFlush h
-                            , streamClose = hClose h
-                            }
-    let stream = Stream
-            { streamState = Plain
-            , streamHandle = hand
-            , streamEventSource = eSource
-            , streamFeatures = StreamFeatures Nothing [] []
-            , streamHostname = (Just hostname)
-            , streamFrom = Nothing
-            , streamId = Nothing
-            , streamLang = Nothing
-            , streamJid = Nothing
-            , streamConfiguration = config
-            }
-    stream' <- mkStream stream
-    return $ Right stream'
+            let hand = StreamHandle { streamSend = \d -> catchPush $ BS.hPut h d
+                                    , streamReceive = \n -> BS.hGetSome h n
+                                    , streamFlush = hFlush h
+                                    , streamClose = hClose h
+                                    }
+            let stream = Stream
+                  { streamState = Plain
+                  , streamHandle = hand
+                  , streamEventSource = eSource
+                  , streamFeatures = StreamFeatures Nothing [] []
+                  , streamAddress = (Just address)
+                  , streamFrom = Nothing
+                  , streamId = Nothing
+                  , streamLang = Nothing
+                  , streamJid = Nothing
+                  , streamConfiguration = config
+                  }
+            stream' <- mkStream stream
+            return $ Right stream'
+        Nothing -> do
+            lift $ debugM "Pontarius.Xmpp" "Did not acquire handle."
+            throwError TcpConnectionFailure
   where
     logConduit :: Conduit ByteString IO ByteString
     logConduit = CL.mapM $ \d -> do
@@ -475,6 +454,161 @@ connectTcp host port hostname config = ErrorT $ do
             "."
         return d
 
+
+
+-- Connects to the provided hostname or IP address. If a hostname is provided,
+-- one or many DNS lookups are performed, starting with a SRV lookup (unless
+-- `srvOverrideDetails' has been specified, in which case those details are used
+-- instead). Will return the Handle acquired, if any.
+connect :: Either (Either IPv4 IPv6, PortNumber) Hostname -> StreamConfiguration -> ErrorT XmppFailure IO (Maybe Handle)
+connect (Left (ip, portNumber)) config = do
+    let ip' = case ip of
+                  Left ipv4 -> Text.pack $ show ipv4
+                  Right ipv6 -> Text.pack $ show ipv6
+    lift $ connectTcp' [(ip', portNumber)]
+connect (Right (Hostname realm)) config = do
+    case srvOverrideDetails config of
+        Just (Hostname hostname, portNumber) -> lift $ do
+            debugM "Pontarius.Xmpp" "Connecting to hardcoded TCP host and port..."
+            connectTcp' [(hostname, portNumber)]
+        Nothing -> do
+            resolvSeed <- lift $ makeResolvSeed (resolvConf config)
+            lift $ debugM "Pontarius.Xmpp" "Performing SRV lookup..."
+            srvRecords <- srvLookup realm resolvSeed
+            case srvRecords of
+                -- No SRV records. Try fallback lookup.
+                Nothing -> do
+                    lift $ debugM "Pontarius.Xmpp" "No SRV records, using fallback process..."
+                    lift $ resolvAndConnectTcp resolvSeed (BSC8.pack $ Text.unpack realm) (fromIntegral 5222)
+                Just srvRecords' -> do
+                    lift $ debugM "Pontarius.Xmpp" "SRV records found, performing A/AAAA lookups..."
+                    lift $ resolvSrvsAndConnectTcp resolvSeed srvRecords'
+
+-- Connects to a list of addresses and ports. Surpresses any exceptions from
+-- connectTcp.
+connectTcp' :: [(Text, PortNumber)] -> IO (Maybe Handle)
+connectTcp' [] = return Nothing
+connectTcp' ((address, port):remainder) = do
+    result <- try $ connectTcp address port :: IO (Either IOException Handle)
+    case result of
+        Right handle -> do
+            debugM "Pontarius.Xmpp" "Successfully connected."
+            return $ Just handle
+        Left _ -> do
+            debugM "Pontarius.Xmpp" "Connection could not be established."
+            connectTcp' remainder
+
+connectTcp :: Text -> PortNumber -> IO Handle
+connectTcp address port = do
+    debugM "Pontarius.Xmpp" $ "Connecting to " ++ (Text.unpack address) ++
+        " on port " ++ (show port) ++ "."
+    connectTo (Text.unpack address) (PortNumber port)
+
+-- Makes an AAAA query to acquire a IPs, and tries to connect to all of them. If
+-- a handle can not be acquired this way, an analogous A query is performed.
+-- Surpresses all IO exceptions.
+resolvAndConnectTcp :: ResolvSeed -> Domain -> PortNumber -> IO (Maybe Handle)
+resolvAndConnectTcp resolvSeed domain port = do
+    aaaaResults <- (try $ rethrowErrorCall $ withResolver resolvSeed $
+                        \resolver -> lookupAAAA resolver domain) :: IO (Either IOException (Maybe [IPv6]))
+    handle <- case aaaaResults of
+        Right Nothing -> return Nothing
+        Right (Just ipv6s) -> connectTcp' $ Data.List.map (\ipv6 -> (Text.pack $ show ipv6, port)) ipv6s
+        Left e -> return Nothing
+    case handle of
+        Nothing -> do
+            aResults <- (try $ rethrowErrorCall $ withResolver resolvSeed $
+                             \resolver -> lookupA resolver domain) :: IO (Either IOException (Maybe [IPv4]))
+            handle' <- case aResults of
+                Right Nothing -> return Nothing
+                Right (Just ipv4s) -> connectTcp' $ Data.List.map (\ipv4 -> (Text.pack $ show ipv4, port)) ipv4s
+            case handle' of
+                Nothing -> return Nothing
+                Just handle'' -> return $ Just handle''
+        Just handle' -> return $ Just handle'
+
+-- Tries `resolvAndConnectTcp' for every SRV record, stopping if a handle is
+-- acquired.
+resolvSrvsAndConnectTcp :: ResolvSeed -> [(Domain, PortNumber)] -> IO (Maybe Handle)
+resolvSrvsAndConnectTcp _ [] = return Nothing
+resolvSrvsAndConnectTcp resolvSeed ((domain, port):remaining) = do
+    result <- resolvAndConnectTcp resolvSeed domain port
+    case result of
+        Just handle -> return $ Just handle
+        Nothing -> resolvSrvsAndConnectTcp resolvSeed remaining
+
+
+-- The DNS functions may make error calls. This function catches any such
+-- exceptions and rethrows them as IOExceptions.
+rethrowErrorCall :: IO a -> IO a
+rethrowErrorCall action = do
+    result <- try action
+    case result of
+        Right result' -> return result'
+        Left (ErrorCall e) -> ioError $ userError $ "rethrowErrorCall: " ++ e
+        Left e -> throwIO e
+
+-- Provides a list of A(AAA) names and port numbers upon a successful
+-- DNS-SRV request, or `Nothing' if the DNS-SRV request failed.
+srvLookup :: Text -> ResolvSeed -> ErrorT XmppFailure IO (Maybe [(Domain, PortNumber)])
+srvLookup realm resolvSeed = ErrorT $ do
+    result <- try $ rethrowErrorCall $ withResolver resolvSeed $ \resolver -> do
+        srvResult <- lookupSRV resolver $ BSC8.pack $ "_xmpp-client._tcp." ++ (Text.unpack realm) ++ "."
+        case srvResult of
+            Just srvResult -> do
+                debugM "Pontarius.Xmpp" $ "SRV result: " ++ (show srvResult)
+                -- Get [(Domain, PortNumber)] of SRV request, if any.
+                srvResult' <- orderSrvResult srvResult
+                return $ Just $ Prelude.map (\(_, _, port, domain) -> (domain, fromIntegral port)) srvResult'
+            -- The service is not available at this domain.
+            -- Sorts the records based on the priority value.
+            Just [(_, _, _, ".")] -> do
+                debugM "Pontarius.Xmpp" $ "\".\" SRV result returned."
+                return $ Just []
+            Nothing -> do
+                debugM "Pontarius.Xmpp" "No SRV result returned."
+                return Nothing
+    case result of
+        Right result' -> return $ Right result'
+        Left e -> return $ Left $ XmppIOException e
+  where
+    -- This function orders the SRV result in accordance with RFC
+    -- 2782. It sorts the SRV results in order of priority, and then
+    -- uses a random process to order the records with the same
+    -- priority based on their weight.
+    orderSrvResult :: [(Int, Int, Int, Domain)] -> IO [(Int, Int, Int, Domain)]
+    orderSrvResult srvResult = do
+        -- Order the result set by priority.
+        let srvResult' = sortBy (comparing (\(priority, _, _, _) -> priority)) srvResult
+        -- Group elements in sublists based on their priority. The
+        -- type is `[[(Int, Int, Int, Domain)]]'.
+        let srvResult'' = Data.List.groupBy (\(priority, _, _, _) (priority', _, _, _) -> priority == priority') srvResult' :: [[(Int, Int, Int, Domain)]]
+        -- For each sublist, put records with a weight of zero first.
+        let srvResult''' = Data.List.map (\sublist -> let (a, b) = partition (\(_, weight, _, _) -> weight == 0) sublist in Data.List.concat [a, b]) srvResult''
+        -- Order each sublist.
+        srvResult'''' <- mapM orderSublist srvResult'''
+        -- Concatinated the results.
+        return $ Data.List.concat srvResult''''
+      where
+        orderSublist :: [(Int, Int, Int, Domain)] -> IO [(Int, Int, Int, Domain)]
+        orderSublist [] = return []
+        orderSublist sublist = do
+            -- Compute the running sum, as well as the total sum of
+            -- the sublist. Add the running sum to the SRV tuples.
+            let (total, sublist') = Data.List.mapAccumL (\total (priority, weight, port, domain) -> (total + weight, (priority, weight, port, domain, total + weight))) 0 sublist
+            -- Choose a random number between 0 and the total sum
+            -- (inclusive).
+            randomNumber <- randomRIO (0, total)
+            -- Select the first record with its running sum greater
+            -- than or equal to the random number.
+            let (beginning, ((priority, weight, port, domain, _):end)) = Data.List.break (\(_, _, _, _, running) -> randomNumber <= running) sublist'
+            -- Remove the running total number from the remaining
+            -- elements.
+            let sublist'' = Data.List.map (\(priority, weight, port, domain, _) -> (priority, weight, port, domain)) (Data.List.concat [beginning, end])
+            -- Repeat the ordering procedure on the remaining
+            -- elements.
+            tail <- orderSublist sublist''
+            return $ ((priority, weight, port, domain):tail)
 
 -- Closes the connection and updates the XmppConMonad Stream state.
 -- killStream :: TMVar Stream -> IO (Either ExL.SomeException ())
