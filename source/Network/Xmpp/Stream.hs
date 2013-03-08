@@ -253,12 +253,14 @@ streamS expectedTo = do
 
 -- | Connects to the XMPP server and opens the XMPP stream against the given
 -- realm.
-openStream :: Text -> StreamConfiguration -> IO (Either XmppFailure (TMVar Stream))
-openStream realm config = runErrorT $ do
-    (address, port) <- case hardcodedTcpDetails config of
-        Nothing -> dnsLookup realm (resolvConf config)
+openStream :: Text
+           -> StreamConfiguration
+           -> IO (Either XmppFailure (TMVar Stream))
+openStream host config = runErrorT $ do
+    (address, port) <- case tcpDetails config of
+        Nothing -> dnsLookup host (resolvConf config)
         Just (address, port) -> return (address, port)
-    stream' <- connectTcp (Text.unpack address) port realm config
+    stream' <- connectTcp (Text.unpack address) port host config
     result <- liftIO $ withStream startStream stream'
     return stream'
 

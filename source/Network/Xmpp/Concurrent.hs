@@ -132,7 +132,8 @@ writeWorker stCh writeR = forever $ do
 -- value, @session@ will attempt to secure the connection with TLS. If the fifth
 -- parameters is a 'Just' value, @session@ will attempt to authenticate and
 -- acquire an XMPP resource.
-session :: Text                              -- ^ The realm host name
+session :: Text                              -- ^ The hostname / realm
+        -> StreamConfiguration               -- ^ configuration details
         -> Maybe TLS.TLSParams               -- ^ TLS settings, if securing the
                                              -- connection to the server is
                                              -- desired
@@ -140,8 +141,8 @@ session :: Text                              -- ^ The realm host name
                                              -- JID resource (or Nothing to let
                                              -- the server decide)
         -> IO (Either XmppFailure (Session, Maybe AuthFailure))
-session realm mbTls mbSasl = runErrorT $ do
-    con <- ErrorT $ openStream realm def
+session host config mbTls mbSasl = runErrorT $ do
+    con <- ErrorT $ openStream host config
     case mbTls of
         Nothing -> return ()
         Just tls -> ErrorT $ startTls tls con

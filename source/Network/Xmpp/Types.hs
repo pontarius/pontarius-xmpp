@@ -1024,7 +1024,7 @@ data StreamConfiguration =
                           -- | By specifying these details, Pontarius XMPP will
                           -- connect to the provided address and port, and will
                           -- not perform a DNS look-up
-                        , hardcodedTcpDetails :: Maybe (Text, PortID)
+                        , tcpDetails :: Maybe (Text, PortID)
                           -- | DNS resolver configuration
                         , resolvConf :: ResolvConf
                         }
@@ -1033,6 +1033,6 @@ data StreamConfiguration =
 instance Default StreamConfiguration where
     def = StreamConfiguration { preferredLang = Nothing
                               , toJid = Nothing
-                              , hardcodedTcpDetails = Nothing
+                              , tcpDetails = Nothing
                               , resolvConf = defaultResolvConf
                               }

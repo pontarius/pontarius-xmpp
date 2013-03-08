@@ -27,6 +27,7 @@ module Network.Xmpp
   ( -- * Session management
     Session
   , session
+  , StreamConfiguration(..)
     -- TODO: Close session, etc.
     -- ** Authentication handlers
     -- | The use of 'scramSha1' is /recommended/, but 'digestMd5' might be
