@@ -39,13 +39,9 @@ starttlsE = Element "{urn:ietf:params:xml:ns:xmpp-tls}starttls" [] []
 
 exampleParams :: TLSParams
 exampleParams = defaultParamsClient
-    { pConnectVersion    = TLS10
-    , pAllowedVersions   = [SSL3, TLS10, TLS11]
-    , pCiphers           = [cipher_AES128_SHA1]
-    , pCompressions      = [nullCompression]
-    , pUseSecureRenegotiation = False -- No renegotiation
-    , onCertificatesRecv = \_certificate ->
-          return CertificateUsageAccept
+    { pConnectVersion    = TLS12
+    , pAllowedVersions   = [TLS12]
+    , pCiphers           = ciphersuite_strong
     }
 
 -- Pushes "<starttls/>, waits for "<proceed/>", performs the TLS handshake, and
