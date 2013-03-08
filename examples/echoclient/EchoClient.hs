@@ -17,24 +17,28 @@ module Main where
 
 import           Control.Concurrent
 import           Control.Monad
+import           Data.Default
 import           Data.Maybe (fromJust)
 import qualified Data.Text as Text
 import           Text.Printf
 
-import           Network.TLS
 import           Network.Xmpp
 import           Network.Xmpp.IM
-import           System.IO (stderr)
-import           System.Log.Formatter
+-- import           System.Log.Formatter
 import           System.Log.Handler hiding (setLevel)
 import           System.Log.Handler.Simple
 import           System.Log.Logger
 
+-- import           Network.Xmpp.IM.Roster
+
 -- Server and authentication details.
-realm    = fromJust $ hostname "species64739.dyndns.org"
+realm    = "species64739.dyndns.org"
 username = "echo"
 password = "pwd"
 resource = Just "bot"
+
+config = def{srvOverrideDetails = Just ( fromJust $ hostname "127.0.0.1"
+                                       , 5222) }
 
 -- | Automatically accept all subscription requests from other entities
 autoAccept :: Session -> IO ()
@@ -50,13 +54,14 @@ autoAccept session = forever $ do
 main :: IO ()
 main = do
     updateGlobalLogger "Pontarius.Xmpp" $ setLevel DEBUG
-    handler <- streamHandler stderr DEBUG >>= \h ->
-        return $ setFormatter h (simpleLogFormatter "$time - $loggername: $prio: $msg")
-    updateGlobalLogger "Pontarius.Xmpp" (addHandler handler)
+    -- handler <- streamHandler stderr DEBUG >>= \h ->
+    --     return $ setFormatter h (simpleLogFormatter "$loggername: $msg")
+    -- updateGlobalLogger "Pontarius.Xmpp" (addHandler handler)
 
     sess' <- session
                 realm
-                Nothing -- (Just defaultParamsClient)
+                config
+                Nothing -- (Just exampleParams)
                 (Just ([scramSha1 username Nothing password], resource))
     sess <- case sess' of
         Left err -> error $ "Error connection to XMPP server: " ++ show err
