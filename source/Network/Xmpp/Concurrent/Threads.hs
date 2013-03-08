@@ -23,6 +23,7 @@ import           Control.Concurrent.STM.TMVar
 import           GHC.IO (unsafeUnmask)
 
 import           Control.Monad.Error
+import           System.Log.Logger
 
 -- Worker to read stanzas from the stream and concurrently distribute them to
 -- all listener threads.
@@ -49,6 +50,7 @@ readWorker onStanza onConnectionClosed stateRef =
                          return Nothing
                    , Ex.Handler $ \(e :: XmppFailure) -> do
                          onConnectionClosed e
+                         errorM "Pontarius.Xmpp" $  "Read error: " ++ show e
                          return Nothing
                    ]
         case res of
