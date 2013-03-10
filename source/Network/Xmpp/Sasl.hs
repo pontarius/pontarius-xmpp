@@ -107,7 +107,13 @@ auth :: [SaslHandler]
 auth mechanisms resource con = runErrorT $ do
     ErrorT $ xmppSasl mechanisms con
     jid <- ErrorT $ xmppBind resource con
-    _ <- lift $ startSession con
+    ErrorT $ flip withStream con $ do
+        s <- get
+        case establishSession $ streamConfiguration s of
+            False -> return $ Right Nothing
+            True -> do
+                _ <- lift $ startSession con
+                return $ Right Nothing
     return Nothing
 
 -- Produces a `bind' element, optionally wrapping a resource.

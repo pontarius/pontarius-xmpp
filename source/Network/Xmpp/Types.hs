@@ -1036,6 +1036,10 @@ data StreamConfiguration =
                         , socketDetails :: Maybe (Socket, SockAddr)
                           -- | DNS resolver configuration
                         , resolvConf :: ResolvConf
+                          -- | Whether or not to perform the legacy
+                          -- session bind as defined in the (outdated)
+                          -- RFC 3921 specification
+                        , establishSession :: Bool
                         }
 
 
@@ -1044,6 +1048,7 @@ instance Default StreamConfiguration where
                               , toJid = Nothing
                               , socketDetails = Nothing
                               , resolvConf = defaultResolvConf
+                              , establishSession = False
                               }
 
 data Hostname = Hostname Text deriving (Eq, Show)
