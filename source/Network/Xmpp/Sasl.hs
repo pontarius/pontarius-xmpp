@@ -38,7 +38,7 @@ import qualified Data.Text.Encoding as Text
 import           Network.Xmpp.Stream
 import           Network.Xmpp.Types
 
-import           System.Log.Logger (debugM)
+import           System.Log.Logger (debugM, errorM)
 import qualified System.Random as Random
 
 import           Network.Xmpp.Sasl.Types
@@ -68,23 +68,35 @@ xmppSasl :: [SaslHandler] -- ^ Acceptable authentication mechanisms and their
                        -- corresponding handlers
          -> TMVar Stream
          -> IO (Either XmppFailure (Maybe AuthFailure))
-xmppSasl handlers = withStream $ do
-    -- Chooses the first mechanism that is acceptable by both the client and the
-    -- server.
-    mechanisms <- gets $ streamSaslMechanisms . streamFeatures
-    case (filter (\(name, _) -> name `elem` mechanisms)) handlers of
-        [] -> return $ Right $ Just $ AuthNoAcceptableMechanism mechanisms
-        (_name, handler):_ -> do
-            cs <- gets streamState
-            case cs of
-                Closed -> return . Left $ XmppNoStream
-                _ -> runErrorT $ do
-                       r <- ErrorT handler
-                       case r of
-                           Just ae -> return $ Just ae
-                           Nothing -> do
-                               _ <- ErrorT restartStream
-                               return Nothing
+xmppSasl handlers stream = do
+    debugM "Pontarius.Xmpp" "xmppSasl: Attempts to authenticate..."
+    flip withStream stream $ do
+        -- Chooses the first mechanism that is acceptable by both the client and the
+        -- server.
+        mechanisms <- gets $ streamSaslMechanisms . streamFeatures
+        case (filter (\(name, _) -> name `elem` mechanisms)) handlers of
+            [] -> return $ Right $ Just $ AuthNoAcceptableMechanism mechanisms
+            (_name, handler):_ -> do
+                cs <- gets streamState
+                case cs of
+                    Closed -> do
+                        lift $ errorM "Pontarius.Xmpp" "xmppSasl: Stream state closed."
+                        return . Left $ XmppNoStream
+                    _ -> runErrorT $ do
+                           -- TODO: Log details about handler? SaslHandler "show" instance?
+                           lift $ lift $ debugM "Pontarius.Xmpp" "xmppSasl: Performing handler..."
+                           r <- ErrorT handler
+                           case r of
+                               Just ae -> do
+                                   lift $ lift $ errorM "Pontarius.Xmpp" $
+                                       "xmppSasl: AuthFailure encountered: " ++
+                                           show ae
+                                   return $ Just ae
+                               Nothing -> do
+                                   lift $ lift $ debugM "Pontarius.Xmpp" "xmppSasl: Authentication successful, restarting stream."
+                                   _ <- ErrorT restartStream
+                                   lift $ lift $ debugM "Pontarius.Xmpp" "xmppSasl: Stream restarted."
+                                   return Nothing
 
 -- | Authenticate to the server using the first matching method and bind a
 -- resource.
@@ -93,12 +105,9 @@ auth :: [SaslHandler]
      -> TMVar Stream
      -> IO (Either XmppFailure (Maybe AuthFailure))
 auth mechanisms resource con = runErrorT $ do
-    liftIO $ debugM "Pontarius.Xmpp" "pre-auth"
     ErrorT $ xmppSasl mechanisms con
-    liftIO $ debugM "Pontarius.Xmpp" "auth done"
     jid <- ErrorT $ xmppBind resource con
-    liftIO $ debugM "Pontarius.Xmpp" $ "bound resource" ++ show jid
-    lift $ startSession con
+    _ <- lift $ startSession con
     return Nothing
 
 -- Produces a `bind' element, optionally wrapping a resource.
@@ -114,20 +123,26 @@ bindBody = pickleElem $
 -- resource and extract the JID from the non-error response.
 xmppBind  :: Maybe Text -> TMVar Stream -> IO (Either XmppFailure Jid)
 xmppBind rsrc c = runErrorT $ do
+    lift $ debugM "Pontarius.Xmpp" "Attempts to bind..."
     answer <- ErrorT $ pushIQ "bind" Nothing Set Nothing (bindBody rsrc) c
     case answer of
         Right IQResult{iqResultPayload = Just b} -> do
+            lift $ debugM "Pontarius.XMPP" "xmppBind: IQ result received; unpickling JID..."
             let jid = unpickleElem xpJid b
             case jid of
                 Right jid' -> do
+                    lift $ debugM "Pontarius.XMPP" $ "xmppBind: JID unpickled: " ++ show jid'
                     ErrorT $ withStream (do
                                       modify $ \s -> s{streamJid = Just jid'}
                                       return $ Right jid') c -- not pretty
                     return jid'
-                otherwise -> throwError $ XmppOtherFailure
-                                           "bind: could not parse JID"
-                -- TODO: Log: ("Bind couldn't unpickle JID from " ++ show answer)
-        otherwise -> throwError $ XmppOtherFailure "bind: failed to bind"
+                otherwise -> do
+                    lift $ errorM "Pontarius.XMPP" $ "xmppBind: JID could not be unpickled from: "
+                        ++ show b
+                    throwError $ XmppOtherFailure $ "xmppBind: JID could not be unpickled from: " ++ show b
+        otherwise -> do
+            lift $ errorM "Pontarius.XMPP" "xmppBind: IQ error received."
+            throwError $ XmppOtherFailure "bind: failed to bind"
   where
     -- Extracts the character data in the `jid' element.
     xpJid :: PU [Node] Jid
@@ -154,9 +169,14 @@ sessionIQ = IQRequestS $ IQRequest { iqRequestID      = "sess"
 
 -- Sends the session IQ set element and waits for an answer. Throws an error if
 -- if an IQ error stanza is returned from the server.
-startSession :: TMVar Stream -> IO ()
+startSession :: TMVar Stream -> IO Bool
 startSession con = do
+    debugM "Pontarius.XMPP" "startSession: Pushing `session' IQ set stanza..."
     answer <- pushIQ "session" Nothing Set Nothing sessionXml con
     case answer of
-        Left e -> error $ show e
-        Right _ -> return ()
+        Left e -> do
+            errorM "Pontarius.XMPP" $ "startSession: Error stanza received (" ++ (show e) ++ ")"
+            return False
+        Right _ -> do
+            debugM "Pontarius.XMPP" "startSession: Result stanza received."
+            return True
