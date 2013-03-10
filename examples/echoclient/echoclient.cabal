@@ -8,5 +8,5 @@ Maintainer:     info@jonkri.com
 Synopsis:       Echo client test program for Pontarius XMPP
 
 Executable echoclient
-  Build-Depends:  base, hslogger, mtl, pontarius-xmpp, text, tls
+  Build-Depends:  base, data-default, hslogger, mtl, pontarius-xmpp, text, tls
   Main-Is:        EchoClient.hs

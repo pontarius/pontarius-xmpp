@@ -82,6 +82,7 @@ import qualified Text.StringPrep as SP
 
 import           Network
 import           Network.DNS
+import           Network.Socket
 
 import Data.Default
 import Data.IP
@@ -662,8 +663,8 @@ data XmppFailure = StreamErrorFailure StreamErrorInfo -- ^ An error XML stream
                  | TcpConnectionFailure -- ^ All attempts to TCP
                                         -- connect to the server
                                         -- failed.
-                 | DnsLookupFailed -- ^ An IP address to connect to could not be
-                                   -- resolved.
+                 | XmppIllegalTcpDetails -- ^ The TCP details provided did not
+                                         -- validate.
                  | TlsError TLS.TLSError -- ^ An error occurred in the
                                          -- TLS layer
                  | TlsNoServerSupport -- ^ The server does not support
@@ -1027,10 +1028,12 @@ data StreamConfiguration =
                           -- boolean is set to 'True', then the JID is also
                           -- included when the 'ConnectionState' is 'Plain'
                         , toJid :: !(Maybe (Jid, Bool))
-                          -- | By specifying these details, Pontarius XMPP will
-                          -- connect to the provided address and port, and will
-                          -- not perform a DNS look-up
-                        , srvOverrideDetails :: Maybe (Hostname, PortNumber)
+                          -- | By settings this field, clients can specify the
+                          -- network interface to use, override the SRV lookup
+                          -- of the realm, as well as specify the use of a
+                          -- non-standard port when connecting by IP or
+                          -- connecting to a domain without SRV records.
+                        , socketDetails :: Maybe (Socket, SockAddr)
                           -- | DNS resolver configuration
                         , resolvConf :: ResolvConf
                         }
@@ -1039,7 +1042,7 @@ data StreamConfiguration =
 instance Default StreamConfiguration where
     def = StreamConfiguration { preferredLang = Nothing
                               , toJid = Nothing
-                              , srvOverrideDetails = Nothing
+                              , socketDetails = Nothing
                               , resolvConf = defaultResolvConf
                               }
 

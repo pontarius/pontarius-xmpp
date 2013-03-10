@@ -155,8 +155,6 @@ module Network.Xmpp
                , AuthSaslFailure
                , AuthIllegalCredentials
                , AuthOtherFailure )
-  , Hostname
-  , hostname
   ) where
 
 import Network

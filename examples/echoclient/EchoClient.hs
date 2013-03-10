@@ -37,9 +37,6 @@ username = "echo"
 password = "pwd"
 resource = Just "bot"
 
-config = def{srvOverrideDetails = Just ( fromJust $ hostname "127.0.0.1"
-                                       , 5222) }
-
 -- | Automatically accept all subscription requests from other entities
 autoAccept :: Session -> IO ()
 autoAccept session = forever $ do
@@ -60,7 +57,7 @@ main = do
 
     sess' <- session
                 realm
-                config
+                def
                 Nothing -- (Just exampleParams)
                 (Just ([scramSha1 username Nothing password], resource))
     sess <- case sess' of
