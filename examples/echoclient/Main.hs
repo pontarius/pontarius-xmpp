@@ -1,15 +1,10 @@
 {-
 
-
-Copyright © 2010-2012 Jon Kristensen, Philipp Balzarek
-
-This file (EchoClient.hs) illustrates how to connect, authenticate, set a simple
-presence, receive message stanzas, and echo them back to whoever is sending
-them, using Pontarius. The contents of this file may be used freely, as if it is
-in the public domain.
+This directory defines a project that illustrates how to connect, authenticate,
+set a simple presence, receive message stanzas, and echo them back to whoever is
+sending them, using Pontarius XMPP. This file is in the public domain.
 
 -}
-
 
 {-# LANGUAGE OverloadedStrings #-}
 
