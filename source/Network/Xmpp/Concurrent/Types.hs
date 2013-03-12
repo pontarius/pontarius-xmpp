@@ -47,6 +47,7 @@ data Session = Session
     , streamRef :: TMVar (TMVar Stream)
     , eventHandlers :: TVar EventHandlers
     , stopThreads :: IO ()
+    , conf :: SessionConfiguration
     }
 
 -- | IQHandlers holds the registered channels for incomming IQ requests and

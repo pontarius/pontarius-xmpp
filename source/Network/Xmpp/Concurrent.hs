@@ -88,8 +88,8 @@ toChans stanzaC outC iqHands sta = atomically $ do
         iqID (Right iq') = iqResultID iq'
 
 -- | Creates and initializes a new Xmpp context.
-newSession :: TMVar Stream -> IO (Either XmppFailure Session)
-newSession stream = runErrorT $ do
+newSession :: TMVar Stream -> SessionConfiguration -> IO (Either XmppFailure Session)
+newSession stream config = runErrorT $ do
     outC <- lift newTChanIO
     stanzaChan <- lift newTChanIO
     iqHandlers <- lift $ newTVarIO (Map.empty, Map.empty)
@@ -111,6 +111,7 @@ newSession stream = runErrorT $ do
                      , streamRef = streamState
                      , eventHandlers = eh
                      , stopThreads = kill >> killThread writer
+                     , conf = config
                      }
 
 -- Worker to write stanzas to the stream concurrently.
@@ -133,7 +134,7 @@ writeWorker stCh writeR = forever $ do
 -- parameters is a 'Just' value, @session@ will attempt to authenticate and
 -- acquire an XMPP resource.
 session :: HostName                          -- ^ The hostname / realm
-        -> StreamConfiguration               -- ^ configuration details
+        -> SessionConfiguration              -- ^ configuration details
         -> Maybe TLS.TLSParams               -- ^ TLS settings, if securing the
                                              -- connection to the server is
                                              -- desired
@@ -142,12 +143,12 @@ session :: HostName                          -- ^ The hostname / realm
                                              -- the server decide)
         -> IO (Either XmppFailure (Session, Maybe AuthFailure))
 session realm config mbTls mbSasl = runErrorT $ do
-    con <- ErrorT $ openStream realm config
+    stream <- ErrorT $ openStream realm (sessionStreamConfiguration config)
     case mbTls of
         Nothing -> return ()
-        Just tls -> ErrorT $ startTls tls con
+        Just tls -> ErrorT $ startTls tls stream
     aut <- case mbSasl of
         Nothing -> return Nothing
-        Just (handlers, resource) -> ErrorT $ auth handlers resource con
-    ses <- ErrorT $ newSession con
+        Just (handlers, resource) -> ErrorT $ auth handlers resource stream
+    ses <- ErrorT $ newSession stream config
     return (ses, aut)

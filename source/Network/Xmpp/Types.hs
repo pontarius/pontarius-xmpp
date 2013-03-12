@@ -46,6 +46,7 @@ module Network.Xmpp.Types
     , InvalidXmppXml(..)
     , Hostname(..)
     , hostname
+    , SessionConfiguration(..)
     )
        where
 
@@ -1020,6 +1021,7 @@ data InvalidXmppXml = InvalidXmppXml String deriving (Show, Typeable)
 
 instance Exception InvalidXmppXml
 
+-- | Configuration settings related to the stream.
 data StreamConfiguration =
     StreamConfiguration { -- | Default language when no language tag is set
                           preferredLang :: !(Maybe LangTag)
@@ -1086,3 +1088,12 @@ hostnameP = do
                 if (Text.length label) + 1 + (Text.length r) > 255
                     then fail "Hostname too long."
                     else return $ Text.concat [label, Text.pack ".", r]
+
+-- | Configuration for the @Session@ object.
+data SessionConfiguration = SessionConfiguration
+    { -- | Configuration for the @Stream@ object.
+      sessionStreamConfiguration :: StreamConfiguration
+    }
+
+instance Default SessionConfiguration where
+    def = SessionConfiguration { sessionStreamConfiguration = def }
