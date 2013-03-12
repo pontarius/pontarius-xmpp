@@ -1,26 +1,22 @@
-Name: pontarius-xmpp
-Version: 0.1.0.2
+Name:          pontarius-xmpp
+Version:       0.2.0.0
 Cabal-Version: >= 1.6
-Build-Type: Simple
-License: OtherLicense
-License-File: LICENSE
-Copyright: Dmitry Astapov, Pierre Kovalev, Mahdi Abdinejadi, Jon Kristensen,
-           IETF Trust, Philipp Balzarek
-Author: Jon Kristensen, Mahdi Abdinejadi, Philipp Balzarek
-Maintainer: info@jonkri.com
-Stability: alpha
-Homepage: https://github.com/jonkri/pontarius-xmpp/
-Bug-Reports: mailto:info@jonkri.com
-Package-URL: http://hackage.haskell.org/packages/archive/pontarius-xmpp/0.1.0.2/pontarius-xmpp-0.1.0.2.tar.gz
-Synopsis: An incomplete implementation of RFC 6120 (XMPP: Core)
-Description: Pontarius is a work in progress implementation of
-             RFC 6120 (XMPP: Core).
-Category: Network
-Tested-With: GHC ==7.0.4, GHC ==7.4.1
--- Data-Files:
--- Data-Dir:
--- Extra-Source-Files:
--- Extra-Tmp-Files:
+Build-Type:    Simple
+License:       OtherLicense
+License-File:  LICENSE.md
+Copyright:     Dmitry Astapov, Pierre Kovalev, Mahdi Abdinejadi, Jon Kristensen,
+               IETF Trust, Philipp Balzarek
+Author:        Jon Kristensen, Mahdi Abdinejadi, Philipp Balzarek
+Maintainer:    info@jonkri.com
+Stability:     alpha
+Homepage:      https://github.com/jonkri/pontarius-xmpp/
+Bug-Reports:   mailto:info@jonkri.com
+Package-URL:   http://www.jonkri.com/releases/pontarius-xmpp-0.2.0.0.tar.gz
+Synopsis:      An incomplete implementation of RFC 6120 (XMPP: Core)
+Description:   Pontarius XMPP is a work in progress implementation of
+               RFC 6120 (XMPP: Core).
+Category:      Network
+Tested-With:   GHC ==7.0.4, GHC ==7.4.1
 
 Library
   hs-source-dirs: source
@@ -58,7 +54,6 @@ Library
                , xml-picklers      >=0.3
   Exposed-modules: Network.Xmpp
                  , Network.Xmpp.Internal
-                 , Network.Xmpp.IM
   Other-modules: Network.Xmpp.Concurrent
                , Network.Xmpp.Concurrent.Types
                , Network.Xmpp.Concurrent.Basic
@@ -67,8 +62,6 @@ Library
                , Network.Xmpp.Concurrent.Presence
                , Network.Xmpp.Concurrent.Threads
                , Network.Xmpp.Concurrent.Monad
-               , Network.Xmpp.IM.Message
-               , Network.Xmpp.IM.Presence
                , Network.Xmpp.Marshal
                , Network.Xmpp.Sasl
                , Network.Xmpp.Sasl.Common
@@ -82,7 +75,6 @@ Library
                , Network.Xmpp.Tls
                , Network.Xmpp.Types
                , Network.Xmpp.Utilities
-               , Network.Xmpp.Xep.ServiceDiscovery
   GHC-Options: -Wall
 
 Source-Repository head
@@ -91,7 +83,5 @@ Source-Repository head
 
 Source-Repository this
   Type: git
-  -- Module:
   Location: git://github.com/jonkri/pontarius-xmpp.git
-  Tag: 0.1.0.2
-  -- Subdir:
+  Tag: 0.2.0.0
