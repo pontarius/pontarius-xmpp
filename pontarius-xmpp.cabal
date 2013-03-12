@@ -9,7 +9,7 @@ Copyright: Dmitry Astapov, Pierre Kovalev, Mahdi Abdinejadi, Jon Kristensen,
 Author: Jon Kristensen, Mahdi Abdinejadi, Philipp Balzarek
 Maintainer: info@jonkri.com
 Stability: alpha
-Homepage: http://www.pontarius.org/
+Homepage: https://github.com/jonkri/pontarius-xmpp/
 Bug-Reports: mailto:info@jonkri.com
 Package-URL: http://hackage.haskell.org/packages/archive/pontarius-xmpp/0.1.0.2/pontarius-xmpp-0.1.0.2.tar.gz
 Synopsis: An incomplete implementation of RFC 6120 (XMPP: Core)
