@@ -15,9 +15,18 @@ page](http://hackage.haskell.org/package/pontarius-xmpp/).
 _Note:_ Pontarius XMPP is still in its Alpha phase. Pontarius XMPP is not yet
 feature-complete, it may contain bugs, and its API may change between versions.
 
-The first thing to do is to import the <code>Network.Xmpp</code> module.
+The first thing to do is to import the modules that we are going to use.
 
     import Network.Xmpp
+
+    import Control.Monad
+    import Data.Default
+    import System.Log.Logger
+
+Pontarius XMPP supports [hslogger](http://hackage.haskell.org/package/hslogger)
+logging. Start by enabling console logging.
+
+    updateGlobalLogger "Pontarius.Xmpp" $ setLevel DEBUG
 
 When this is done, a <code>Session</code> object can be acquired by calling
 <code>session</code>. This object will be used for interacting with the library.
@@ -44,23 +53,22 @@ The return type of <code>session</code> is <code>IO (Either XmppFailure
 doing it could be doing something like this:
 
     sess <- case result of
-                Right (sess, Nothing) -> sess
-                Right (_sess, e) -> error "AuthFailure: " ++ (show e)
-                Left e -> error "XmppFailure: " ++ (show e)
+                Right (s, Nothing) -> return s
+                Right (_s, e) -> error $ "AuthFailure: " ++ (show e)
+                Left e -> error $ "XmppFailure: " ++ (show e)
 
 Next, let us set our status to Online.
 
-    sendPresence presenceOnline sess
+    sendPresence (Presence Nothing Nothing Nothing Nothing Nothing []) sess
 
 Now, let's say that we want to receive all message stanzas, and echo the stanzas
 back to the recipient. This can be done like so:
 
     forever $ do
         msg <- getMessage sess
-        sendMessage (answerIM (bodies msg) [] msg) sess
-        let sender = show . fromJust $ messageFrom msg
-        let contents = maybe "nothing" Text.unpack $ body msg
-        printf "%s says \"%s\"\n" sender contents
+        case answerMessage msg (messagePayload msg) of
+            Just answer -> sendMessage answer sess
+            Nothing -> putStrLn "Received message with no sender."
 
 Additional XMPP threads can be created using <code>dupSession</code> and
 <code>forkIO</code>.

@@ -10,66 +10,25 @@ sending them, using Pontarius XMPP. This file is in the public domain.
 
 module Main where
 
-import           Control.Concurrent
-import           Control.Monad
-import           Data.Default
-import           Data.Maybe (fromJust)
-import qualified Data.Text as Text
-import           Text.Printf
-
-import           Network.Xmpp
-import           Network.Xmpp.IM
--- import           System.Log.Formatter
-import           System.Log.Handler hiding (setLevel)
-import           System.Log.Handler.Simple
-import           System.Log.Logger
-
--- import           Network.Xmpp.IM.Roster
-
--- Server and authentication details.
-realm    = "species64739.dyndns.org"
-username = "echo"
-password = "pwd"
-resource = Just "bot"
-
--- | Automatically accept all subscription requests from other entities
-autoAccept :: Session -> IO ()
-autoAccept session = forever $ do
-  st <- waitForPresence isPresenceSubscribe session
-  friend <- case presenceFrom st of
-      Just from -> do
-          sendPresence (presenceSubscribed from) session
-          return $ show from
-      Nothing -> return "anonymous" -- this shouldn't happen
-  printf "Hello %s !" friend
+import Control.Monad
+import Data.Default
+import Network.Xmpp
+import System.Log.Logger
 
 main :: IO ()
 main = do
     updateGlobalLogger "Pontarius.Xmpp" $ setLevel DEBUG
-    -- handler <- streamHandler stderr DEBUG >>= \h ->
-    --     return $ setFormatter h (simpleLogFormatter "$loggername: $msg")
-    -- updateGlobalLogger "Pontarius.Xmpp" (addHandler handler)
-
-    sess' <- session
-                realm
-                def
-                (Just ([scramSha1 username Nothing password], resource))
-    sess <- case sess' of
-        Left err -> error $ "Error connection to XMPP server: " ++ show err
-        Right (_, Just err) -> error $ "Error while authenticating: " ++ show err
-        Right (sess, Nothing) -> return sess
-    -- We won't be able to receive stanzas before we set out status to online
-    sendPresence presenceOnline sess
-    putStrLn "Connected."
-    -- We want to see all incoming stanzas in the auto-accept thread as well.
-    sess' <- dupSession sess
-    _thread <- forkIO $ autoAccept sess'
+    result <- session
+                 "example.com"
+                  def
+                  (Just ([scramSha1 "user" Nothing "Password"], Nothing))
+    sess <- case result of
+                Right (s, Nothing) -> return s
+                Right (_s, e) -> error $ "AuthFailure: " ++ (show e)
+                Left e -> error $ "XmppFailure: " ++ (show e)
+    sendPresence (Presence Nothing Nothing Nothing Nothing Nothing []) sess
     forever $ do
-        -- Echo all messages back to the user.
         msg <- getMessage sess
-        sendMessage (answerIM (bodies msg) [] msg) sess
-        -- Print the received message to the screen.
-        let sender = show . fromJust $ messageFrom msg
-        let contents = maybe "nothing" Text.unpack $ body msg
-        printf "%s says \"%s\"\n" sender contents
-    return ()
+        case answerMessage msg (messagePayload msg) of
+            Just answer -> sendMessage answer sess
+            Nothing -> putStrLn "Received message with no sender."
