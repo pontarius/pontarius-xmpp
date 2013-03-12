@@ -72,7 +72,7 @@ startTls params con = Ex.handle (return . Left . TlsError)
         Right (Element "{urn:ietf:params:xml:ns:xmpp-tls}proceed" [] []) -> return $ Right ()
         Right (Element "{urn:ietf:params:xml:ns:xmpp-tls}failure" _ _) -> do
             lift $ lift $ errorM "Pontarius.XMPP" "startTls: TLS initiation failed."
-            return . Left $ XmppOtherFailure "TLS initiation failed"
+            return . Left $ XmppOtherFailure
     (raw, _snk, psh, read, ctx) <- lift $ tlsinit params (mkBackend con)
     let newHand = StreamHandle { streamSend = catchPush . psh
                                    , streamReceive = read

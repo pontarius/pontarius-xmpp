@@ -80,8 +80,7 @@ streamUnpickleElem p x = do
     case unpickleElem p x of
         Left l -> do
             liftIO $ warningM "Pontarius.Xmpp" $ "streamUnpickleElem: Unpickle error: " ++ ppUnpickleError l
-            throwError $ XmppOtherFailure ("Unpickle error"
-                                                 ++ ppUnpickleError l)
+            throwError $ XmppOtherFailure
         Right r -> return r
 
 -- This is the conduit sink that handles the stream XML events. We extend it
@@ -106,7 +105,7 @@ openElementFromEvents = do
         Just (EventBeginElement name attrs) -> return $ Element name attrs []
         _ -> do
             liftIO $ warningM "Pontarius.Xmpp" "openElementFromEvents: Stream ended."
-            throwError $ XmppOtherFailure "Stream ended"
+            throwError XmppOtherFailure
 
 -- Sends the initial stream:stream element and pulls the server features. If the
 -- server responds in a way that is invalid, an appropriate stream error will be
@@ -126,7 +125,7 @@ startStream = runErrorT $ do
     case streamAddress state of
         Nothing -> do
             lift $ lift $ errorM "Pontarius.XMPP" "Server sent no hostname."
-            throwError $ XmppOtherFailure "server sent no hostname"
+            throwError XmppOtherFailure
         Just address -> lift $ do
             pushXmlDecl
             pushOpenElement $
@@ -183,7 +182,7 @@ startStream = runErrorT $ do
             $ StreamErrorInfo sec Nothing el
         lift $ closeStreams'
         lift $ lift $ errorM "Pontarius.XMPP" $ "closeStreamWithError: " ++ msg
-        throwError $ XmppOtherFailure msg
+        throwError XmppOtherFailure
     checkchildren children =
         let to'  = lookup "to"      children
             ver' = lookup "version" children
@@ -271,7 +270,7 @@ streamS expectedTo = do
         case e of
             Nothing -> do
                 lift $ lift $ errorM "Pontarius.XMPP" "streamS: Stream ended."
-                throwError $ XmppOtherFailure "stream ended"
+                throwError XmppOtherFailure
             Just r -> streamUnpickleElem xpStreamFeatures r
 
 -- | Connects to the XMPP server and opens the XMPP stream against the given
@@ -361,18 +360,18 @@ pullElement = do
             Left f -> return $ Left f
             Right Nothing -> do
                 lift $ errorM "Pontarius.XMPP" "pullElement: No element."
-                return . Left $ XmppOtherFailure "pullElement: no element"
+                return . Left $ XmppOtherFailure
             Right (Just r) -> return $ Right r
         )
         [ ExL.Handler (\StreamEnd -> return $ Left StreamEndFailure)
         , ExL.Handler (\(InvalidXmppXml s) -- Invalid XML `Event' encountered, or missing element close tag
                      -> do
                             lift $ errorM "Pontarius.XMPP" $ "pullElement: Invalid XML: " ++ (show s)
-                            return . Left $ XmppOtherFailure "invalid xml")
+                            return . Left $ XmppOtherFailure)
         , ExL.Handler $ \(e :: InvalidEventStream)
                      -> do
                             lift $ errorM "Pontarius.XMPP" $ "pullElement: Invalid event stream: " ++ (show e)
-                            return . Left $ XmppOtherFailure "invalid event stream"
+                            return . Left $ XmppOtherFailure
         ]
 
 -- Pulls an element and unpickles it.
@@ -386,8 +385,7 @@ pullUnpickle p = do
             case res of
                 Left e -> do
                     lift $ errorM "Pontarius.XMPP" $ "pullUnpickle: Unpickle failed: " ++ (ppUnpickleError e)
-                    return . Left . XmppOtherFailure $
-                             "pullUnpickle: unpickle failed" ++ ppUnpickleError e
+                    return . Left $ XmppOtherFailure
                 Right r -> return $ Right r
 
 -- | Pulls a stanza (or stream error) from the stream.
@@ -419,7 +417,6 @@ xmppNoStream = Stream {
                                                             errorM "Pontarius.XMPP" "xmppNoStream: No stream on receive."
                                                             ExL.throwIO $
                                                               XmppOtherFailure
-                                                              "no Stream"
                                   , streamFlush = return ()
                                   , streamClose = return ()
                                   }
@@ -436,7 +433,7 @@ xmppNoStream = Stream {
     zeroSource :: Source IO output
     zeroSource = liftIO $ do
         errorM "Pontarius.XMPP" "zeroSource utilized."
-        ExL.throwIO $ XmppOtherFailure "zeroSource"
+        ExL.throwIO XmppOtherFailure
 
 createStream :: HostName -> StreamConfiguration -> ErrorT XmppFailure IO (TMVar Stream)
 createStream realm config = do
@@ -675,13 +672,13 @@ pushIQ iqID to tp lang body stream = do
             unless
                 (iqID == iqResultID r) $ liftIO $ do
                     errorM "Pontarius.XMPP" $ "pushIQ: ID mismatch (" ++ (show iqID) ++ " /= " ++ (show $ iqResultID r) ++ ")."
-                    ExL.throwIO $ XmppOtherFailure "pushIQ: id mismatch"
+                    ExL.throwIO XmppOtherFailure
                 -- TODO: Log: ("In sendIQ' IDs don't match: " ++ show iqID ++
                 -- " /= " ++ show (iqResultID r) ++ " .")
             return $ Right $ Right r
         _ -> do
                  errorM "Pontarius.XMPP" $ "pushIQ: Unexpected stanza type."
-                 return . Left $ XmppOtherFailure "pushIQ: unexpected stanza type "
+                 return . Left $ XmppOtherFailure
 
 debugConduit :: Pipe l ByteString ByteString u IO b
 debugConduit = forever $ do

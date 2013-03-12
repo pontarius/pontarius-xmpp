@@ -145,10 +145,10 @@ xmppBind rsrc c = runErrorT $ do
                 otherwise -> do
                     lift $ errorM "Pontarius.XMPP" $ "xmppBind: JID could not be unpickled from: "
                         ++ show b
-                    throwError $ XmppOtherFailure $ "xmppBind: JID could not be unpickled from: " ++ show b
+                    throwError $ XmppOtherFailure
         otherwise -> do
             lift $ errorM "Pontarius.XMPP" "xmppBind: IQ error received."
-            throwError $ XmppOtherFailure "bind: failed to bind"
+            throwError XmppOtherFailure
   where
     -- Extracts the character data in the `jid' element.
     xpJid :: PU [Node] Jid
