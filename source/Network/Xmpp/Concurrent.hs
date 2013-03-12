@@ -46,6 +46,8 @@ import           Network.Xmpp.Utilities
 
 import           Control.Monad.Error
 import Data.Default
+import System.Log.Logger
+import Control.Monad.State.Strict
 
 toChans :: TChan Stanza
         -> TChan Stanza
@@ -136,10 +138,24 @@ session :: HostName                          -- ^ The hostname / realm
         -> IO (Either XmppFailure (Session, Maybe AuthFailure))
 session realm config mbSasl = runErrorT $ do
     stream <- ErrorT $ openStream realm (sessionStreamConfiguration config)
+    tlsFeat <- ErrorT $ withStream' (get >>= \stream' -> return $ Right $ streamTls $ streamFeatures stream') stream
     case sessionTlsBehaviour config of
-        RequireTls -> ErrorT $ startTls stream -- TODO: Check if server feature available
-        PreferTls -> ErrorT $ startTls stream -- TODO: Check if server feature available
-        RefuseTls -> return ()
+        RequireTls -> do
+            case tlsFeat of
+                Nothing -> do
+                    lift $ errorM "Pontarius.XMPP" "TLS is required by the client but not offered by the server." >> return ()
+                    throwError TlsNoServerSupport
+                Just _ -> ErrorT $ startTls stream
+        PreferTls -> do
+            case tlsFeat of
+                Nothing -> return ()
+                Just _ -> ErrorT $ startTls stream
+        RefuseTls -> do
+            case tlsFeat of
+                Just True -> do
+                    lift $ errorM "Pontarius.XMPP" "TLS is refused by the client but required by the server."
+                    throwError XmppOtherFailure
+                _ -> return ()
     aut <- case mbSasl of
         Nothing -> return Nothing
         Just (handlers, resource) -> ErrorT $ auth handlers resource stream
