@@ -1093,7 +1093,10 @@ hostnameP = do
 data SessionConfiguration = SessionConfiguration
     { -- | Configuration for the @Stream@ object.
       sessionStreamConfiguration :: StreamConfiguration
+      -- | Handler to be run when the session ends (for whatever reason).
+    , sessionClosedHandler :: XmppFailure -> IO ()
     }
 
 instance Default SessionConfiguration where
-    def = SessionConfiguration { sessionStreamConfiguration = def }
+    def = SessionConfiguration { sessionStreamConfiguration = def
+                               , sessionClosedHandler = \_ -> return () }

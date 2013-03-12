@@ -93,7 +93,7 @@ newSession stream config = runErrorT $ do
     outC <- lift newTChanIO
     stanzaChan <- lift newTChanIO
     iqHandlers <- lift $ newTVarIO (Map.empty, Map.empty)
-    eh <- lift $ newTVarIO $ EventHandlers { connectionClosedHandler = \_ -> return () }
+    eh <- lift $ newTVarIO $ EventHandlers { connectionClosedHandler = sessionClosedHandler config }
     let stanzaHandler = toChans stanzaChan outC iqHandlers
     (kill, wLock, streamState, readerThread) <- ErrorT $ startThreadsWith stanzaHandler eh stream
     writer <- lift $ forkIO $ writeWorker outC wLock
