@@ -147,8 +147,6 @@ module Network.Xmpp
   , dupSession
   -- * Miscellaneous
   , LangTag(..)
-  , exampleParams
-  , PortID(..)
   , XmppFailure(..)
   , StreamErrorInfo(..)
   , StreamErrorCondition(..)

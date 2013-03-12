@@ -130,18 +130,16 @@ writeWorker stCh writeR = forever $ do
 -- acquire an XMPP resource.
 session :: HostName                          -- ^ The hostname / realm
         -> SessionConfiguration              -- ^ configuration details
-        -> Maybe TLS.TLSParams               -- ^ TLS settings, if securing the
-                                             -- connection to the server is
-                                             -- desired
         -> Maybe ([SaslHandler], Maybe Text) -- ^ SASL handlers and the desired
                                              -- JID resource (or Nothing to let
                                              -- the server decide)
         -> IO (Either XmppFailure (Session, Maybe AuthFailure))
-session realm config mbTls mbSasl = runErrorT $ do
+session realm config mbSasl = runErrorT $ do
     stream <- ErrorT $ openStream realm (sessionStreamConfiguration config)
-    case mbTls of
-        Nothing -> return ()
-        Just tls -> ErrorT $ startTls tls stream
+    case sessionTlsBehaviour config of
+        RequireTls -> ErrorT $ startTls stream -- TODO: Check if server feature available
+        PreferTls -> ErrorT $ startTls stream -- TODO: Check if server feature available
+        RefuseTls -> return ()
     aut <- case mbSasl of
         Nothing -> return Nothing
         Just (handlers, resource) -> ErrorT $ auth handlers resource stream

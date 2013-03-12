@@ -37,21 +37,16 @@ mkBackend con = Backend { backendSend = \bs -> void (streamSend con bs)
 starttlsE :: Element
 starttlsE = Element "{urn:ietf:params:xml:ns:xmpp-tls}starttls" [] []
 
-exampleParams :: TLSParams
-exampleParams = defaultParamsClient
-    { pConnectVersion    = TLS12
-    , pAllowedVersions   = [TLS12]
-    , pCiphers           = ciphersuite_strong
-    }
-
 -- Pushes "<starttls/>, waits for "<proceed/>", performs the TLS handshake, and
 -- restarts the stream.
-startTls :: TLSParams -> TMVar Stream -> IO (Either XmppFailure ())
-startTls params con = Ex.handle (return . Left . TlsError)
+startTls :: TMVar Stream -> IO (Either XmppFailure ())
+startTls con = Ex.handle (return . Left . TlsError)
                       . flip withStream con
                       . runErrorT $ do
     lift $ lift $ debugM "Pontarius.XMPP" "startTls: Securing stream..."
     features <- lift $ gets streamFeatures
+    config <- lift $ gets streamConfiguration
+    let params = tlsParams config
     state <- gets streamState
     case state of
         Plain -> return ()

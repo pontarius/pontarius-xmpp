@@ -53,7 +53,6 @@ main = do
     sess' <- session
                 realm
                 def
-                Nothing -- (Just exampleParams)
                 (Just ([scramSha1 username Nothing password], resource))
     sess <- case sess' of
         Left err -> error $ "Error connection to XMPP server: " ++ show err

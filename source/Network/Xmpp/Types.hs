@@ -47,6 +47,7 @@ module Network.Xmpp.Types
     , Hostname(..)
     , hostname
     , SessionConfiguration(..)
+    , TlsBehaviour(..)
     )
        where
 
@@ -67,7 +68,8 @@ import qualified Data.Text as Text
 import           Data.Typeable(Typeable)
 import           Data.XML.Types
 
-import qualified Network.TLS as TLS
+import           Network.TLS hiding (Version)
+import           Network.TLS.Extra
 
 import qualified Network as N
 
@@ -666,8 +668,8 @@ data XmppFailure = StreamErrorFailure StreamErrorInfo -- ^ An error XML stream
                                         -- failed.
                  | XmppIllegalTcpDetails -- ^ The TCP details provided did not
                                          -- validate.
-                 | TlsError TLS.TLSError -- ^ An error occurred in the
-                                         -- TLS layer
+                 | TlsError TLSError -- ^ An error occurred in the
+                                     -- TLS layer
                  | TlsNoServerSupport -- ^ The server does not support
                                       -- the use of TLS
                  | XmppNoStream -- ^ An action that required an active
@@ -1042,6 +1044,8 @@ data StreamConfiguration =
                           -- session bind as defined in the (outdated)
                           -- RFC 3921 specification
                         , establishSession :: Bool
+                          -- | Settings to be used for TLS negotitation
+                        , tlsParams :: TLSParams
                         }
 
 
@@ -1051,6 +1055,10 @@ instance Default StreamConfiguration where
                               , socketDetails = Nothing
                               , resolvConf = defaultResolvConf
                               , establishSession = False
+                              , tlsParams = defaultParamsClient { pConnectVersion = TLS12
+                                                                , pAllowedVersions = [TLS12]
+                                                                , pCiphers = ciphersuite_strong
+                                                                }
                               }
 
 data Hostname = Hostname Text deriving (Eq, Show)
@@ -1095,7 +1103,10 @@ data SessionConfiguration = SessionConfiguration
       sessionStreamConfiguration :: StreamConfiguration
       -- | Handler to be run when the session ends (for whatever reason).
     , sessionClosedHandler :: XmppFailure -> IO ()
+      -- | Function to generate the stream of stanza identifiers.
     , sessionStanzaIDs :: IO StanzaID
+      -- | How the client should behave in regards to TLS.
+    , sessionTlsBehaviour :: TlsBehaviour
     }
 
 instance Default SessionConfiguration where
@@ -1106,4 +1117,11 @@ instance Default SessionConfiguration where
                                      atomically $ do
                                          curId <- readTVar idRef
                                          writeTVar idRef (curId + 1 :: Integer)
-                                         return . read. show $ curId}
+                                         return . read. show $ curId
+                               , sessionTlsBehaviour = PreferTls }
+
+-- | How the client should behave in regards to TLS.
+data TlsBehaviour = RequireTls -- ^ Require the use of TLS; disconnect if it's
+                               -- not offered.
+                  | PreferTls  -- ^ Negotitate TLS if it's available.
+                  | RefuseTls  -- ^ Never secure the stream with TLS.
