@@ -126,9 +126,8 @@ writeWorker stCh writeR = forever $ do
 
 -- | Creates a 'Session' object by setting up a connection with an XMPP server.
 --
--- Will connect to the specified host. If the fourth parameters is a 'Just'
--- value, @session@ will attempt to secure the connection with TLS. If the fifth
--- parameters is a 'Just' value, @session@ will attempt to authenticate and
+-- Will connect to the specified host with the provided configuration. If the
+-- third parameter is a 'Just' value, @session@ will attempt to authenticate and
 -- acquire an XMPP resource.
 session :: HostName                          -- ^ The hostname / realm
         -> SessionConfiguration              -- ^ configuration details

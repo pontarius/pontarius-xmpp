@@ -87,8 +87,9 @@ message = Message { messageID      = Nothing
                   , messagePayload = []
                   }
 
--- Produce an answer message with the given payload, switching the "from" and
--- "to" attributes in the original message.
+-- | Produce an answer message with the given payload, switching the "from" and
+-- "to" attributes in the original message. Produces a 'Nothing' value of the
+-- provided message message has no from attribute.
 answerMessage :: Message -> [Element] -> Maybe Message
 answerMessage Message{messageFrom = Just frm, ..} payload =
     Just Message{ messageFrom    = messageTo

@@ -32,7 +32,7 @@ module Network.Xmpp
     -- TODO: Close session, etc.
     -- ** Authentication handlers
     -- | The use of 'scramSha1' is /recommended/, but 'digestMd5' might be
-    -- useful for interaction with older implementation
+    -- useful for interaction with older implementations.
   , scramSha1
   , plain
   , digestMd5
