@@ -40,8 +40,8 @@ module Network.Xmpp.Types
     , Jid(..)
     , isBare
     , isFull
-    , fromText
-    , fromTexts
+    , jidFromText
+    , jidFromTexts
     , StreamEnd(..)
     , InvalidXmppXml(..)
     , Hostname(..)
@@ -877,25 +877,25 @@ instance Show Jid where
           maybe "" (('/' :) . Text.unpack) res
 
 instance Read Jid where
-  readsPrec _ x = case fromText (Text.pack x) of
+  readsPrec _ x = case jidFromText (Text.pack x) of
       Nothing -> []
       Just j -> [(j,"")]
 
 instance IsString Jid where
-  fromString = fromJust . fromText . Text.pack
+  fromString = fromJust . jidFromText . Text.pack
 
 -- | Converts a Text to a JID.
-fromText :: Text -> Maybe Jid
-fromText t = do
+jidFromText :: Text -> Maybe Jid
+jidFromText t = do
     (l, d, r) <- eitherToMaybe $ AP.parseOnly jidParts t
-    fromTexts l d r
+    jidFromTexts l d r
   where
     eitherToMaybe = either (const Nothing) Just
 
 -- | Converts localpart, domainpart, and resourcepart strings to a JID. Runs the
 -- appropriate stringprep profiles and validates the parts.
-fromTexts :: Maybe Text -> Text -> Maybe Text -> Maybe Jid
-fromTexts l d r = do
+jidFromTexts :: Maybe Text -> Text -> Maybe Text -> Maybe Jid
+jidFromTexts l d r = do
     localPart <- case l of
         Nothing -> return Nothing
         Just l'-> do
