@@ -1095,8 +1095,15 @@ data SessionConfiguration = SessionConfiguration
       sessionStreamConfiguration :: StreamConfiguration
       -- | Handler to be run when the session ends (for whatever reason).
     , sessionClosedHandler :: XmppFailure -> IO ()
+    , sessionStanzaIDs :: IO StanzaID
     }
 
 instance Default SessionConfiguration where
     def = SessionConfiguration { sessionStreamConfiguration = def
-                               , sessionClosedHandler = \_ -> return () }
+                               , sessionClosedHandler = \_ -> return ()
+                               , sessionStanzaIDs = do
+                                     idRef <- newTVarIO 1
+                                     atomically $ do
+                                         curId <- readTVar idRef
+                                         writeTVar idRef (curId + 1 :: Integer)
+                                         return . read. show $ curId}

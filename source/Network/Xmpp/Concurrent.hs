@@ -97,17 +97,12 @@ newSession stream config = runErrorT $ do
     let stanzaHandler = toChans stanzaChan outC iqHandlers
     (kill, wLock, streamState, readerThread) <- ErrorT $ startThreadsWith stanzaHandler eh stream
     writer <- lift $ forkIO $ writeWorker outC wLock
-    idRef <- lift $ newTVarIO 1
-    let getId = atomically $ do
-            curId <- readTVar idRef
-            writeTVar idRef (curId + 1 :: Integer)
-            return . read. show $ curId
     return $ Session { stanzaCh = stanzaChan
                      , outCh = outC
                      , iqHandlers = iqHandlers
                      , writeRef = wLock
                      , readerThread = readerThread
-                     , idGenerator = getId
+                     , idGenerator = sessionStanzaIDs config
                      , streamRef = streamState
                      , eventHandlers = eh
                      , stopThreads = kill >> killThread writer
