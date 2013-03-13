@@ -1044,6 +1044,8 @@ data StreamConfiguration =
                           -- session bind as defined in the (outdated)
                           -- RFC 3921 specification
                         , establishSession :: Bool
+                          -- | How the client should behave in regards to TLS.
+                        , tlsBehaviour :: TlsBehaviour
                           -- | Settings to be used for TLS negotitation
                         , tlsParams :: TLSParams
                         }
@@ -1055,6 +1057,7 @@ instance Default StreamConfiguration where
                               , socketDetails = Nothing
                               , resolvConf = defaultResolvConf
                               , establishSession = False
+                              , tlsBehaviour = PreferTls
                               , tlsParams = defaultParamsClient { pConnectVersion = TLS12
                                                                 , pAllowedVersions = [TLS12]
                                                                 , pCiphers = ciphersuite_strong
@@ -1105,8 +1108,6 @@ data SessionConfiguration = SessionConfiguration
     , sessionClosedHandler :: XmppFailure -> IO ()
       -- | Function to generate the stream of stanza identifiers.
     , sessionStanzaIDs :: IO StanzaID
-      -- | How the client should behave in regards to TLS.
-    , sessionTlsBehaviour :: TlsBehaviour
     }
 
 instance Default SessionConfiguration where
@@ -1118,10 +1119,12 @@ instance Default SessionConfiguration where
                                          curId <- readTVar idRef
                                          writeTVar idRef (curId + 1 :: Integer)
                                          return . read. show $ curId
-                               , sessionTlsBehaviour = PreferTls }
+                               }
 
 -- | How the client should behave in regards to TLS.
 data TlsBehaviour = RequireTls -- ^ Require the use of TLS; disconnect if it's
                                -- not offered.
                   | PreferTls  -- ^ Negotitate TLS if it's available.
+                  | PreferPlain  -- ^ Negotitate TLS only if the server requires
+                                 -- it
                   | RefuseTls  -- ^ Never secure the stream with TLS.

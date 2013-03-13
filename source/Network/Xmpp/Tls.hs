@@ -4,29 +4,25 @@
 
 module Network.Xmpp.Tls where
 
+import           Control.Concurrent.STM.TMVar
 import qualified Control.Exception.Lifted as Ex
 import           Control.Monad
 import           Control.Monad.Error
 import           Control.Monad.State.Strict
-
+import           Crypto.Random.API
 import qualified Data.ByteString as BS
-import qualified Data.ByteString.Lazy as BL
 import qualified Data.ByteString.Char8 as BSC8
+import qualified Data.ByteString.Lazy as BL
 import           Data.Conduit
 import qualified Data.Conduit.Binary as CB
+import           Data.IORef
 import           Data.Typeable
 import           Data.XML.Types
-
-import           Network.Xmpp.Stream
-import           Network.Xmpp.Types
-import           System.Log.Logger
-
-import           Control.Concurrent.STM.TMVar
-
-import           Data.IORef
-import           Crypto.Random.API
 import           Network.TLS
 import           Network.TLS.Extra
+import           Network.Xmpp.Stream
+import           Network.Xmpp.Types
+import           System.Log.Logger (debugM, errorM)
 
 mkBackend con = Backend { backendSend = \bs -> void (streamSend con bs)
                         , backendRecv = streamReceive con
@@ -37,48 +33,54 @@ mkBackend con = Backend { backendSend = \bs -> void (streamSend con bs)
 starttlsE :: Element
 starttlsE = Element "{urn:ietf:params:xml:ns:xmpp-tls}starttls" [] []
 
--- Pushes "<starttls/>, waits for "<proceed/>", performs the TLS handshake, and
--- restarts the stream.
-startTls :: TMVar Stream -> IO (Either XmppFailure ())
-startTls con = Ex.handle (return . Left . TlsError)
+-- | Checks for TLS support and run starttls procedure if applicable
+tls :: TMVar Stream -> IO (Either XmppFailure ())
+tls con = Ex.handle (return . Left . TlsError)
                       . flip withStream con
                       . runErrorT $ do
-    lift $ lift $ debugM "Pontarius.XMPP" "startTls: Securing stream..."
-    features <- lift $ gets streamFeatures
-    config <- lift $ gets streamConfiguration
-    let params = tlsParams config
-    state <- gets streamState
-    case state of
+    conf <- gets $ streamConfiguration
+    sState <- gets streamState
+    case sState of
         Plain -> return ()
         Closed -> do
-            lift $ lift $ errorM "Pontarius.XMPP" "startTls: The stream is closed."
+            liftIO $ errorM "Pontarius.XMPP" "startTls: The stream is closed."
             throwError XmppNoStream
         Secured -> do
-            lift $ lift $ errorM "Pontarius.XMPP" "startTls: The stream is already secured."
+            liftIO $ errorM "Pontarius.XMPP" "startTls: The stream is already secured."
             throwError TlsStreamSecured
-    con <- lift $ gets streamHandle
-    when (streamTls features == Nothing) $ do 
-        lift $ lift $ errorM "Pontarius.XMPP" "The server does not support TLS."
-        throwError TlsNoServerSupport
-    lift $ pushElement starttlsE
-    answer <- lift $ pullElement
-    case answer of
-        Left e -> return $ Left e
-        Right (Element "{urn:ietf:params:xml:ns:xmpp-tls}proceed" [] []) -> return $ Right ()
-        Right (Element "{urn:ietf:params:xml:ns:xmpp-tls}failure" _ _) -> do
-            lift $ lift $ errorM "Pontarius.XMPP" "startTls: TLS initiation failed."
-            return . Left $ XmppOtherFailure
-    (raw, _snk, psh, read, ctx) <- lift $ tlsinit params (mkBackend con)
-    let newHand = StreamHandle { streamSend = catchPush . psh
-                                   , streamReceive = read
-                                   , streamFlush = contextFlush ctx
-                                   , streamClose = bye ctx >> streamClose con
-                                   }
-    lift $ modify ( \x -> x {streamHandle = newHand})
-    either (lift . Ex.throwIO) return =<< lift restartStream
-    modify (\s -> s{streamState = Secured})
-    lift $ lift $ debugM "Pontarius.XMPP" "startTls: Stream secured."
-    return ()
+    features <- lift $ gets streamFeatures
+    case (tlsBehaviour conf, streamTls features) of
+        (RequireTls  , Just _   ) -> startTls
+        (RequireTls  , Nothing  ) -> throwError TlsNoServerSupport
+        (PreferTls   , Just _   ) -> startTls
+        (PreferTls   , Nothing  ) -> return ()
+        (PreferPlain , Just True) -> startTls
+        (PreferPlain , _        ) -> return ()
+        (RefuseTls   , Just True) -> throwError XmppOtherFailure
+        (RefuseTls   , _        ) -> return ()
+  where
+    startTls = do
+        params <- gets $ tlsParams . streamConfiguration
+        lift $ pushElement starttlsE
+        answer <- lift $ pullElement
+        case answer of
+            Left e -> return $ Left e
+            Right (Element "{urn:ietf:params:xml:ns:xmpp-tls}proceed" [] []) ->
+                return $ Right ()
+            Right (Element "{urn:ietf:params:xml:ns:xmpp-tls}failure" _ _) -> do
+                liftIO $ errorM "Pontarius.XMPP" "startTls: TLS initiation failed."
+                return . Left $ XmppOtherFailure
+        hand <- gets streamHandle
+        (raw, _snk, psh, read, ctx) <- lift $ tlsinit params (mkBackend hand)
+        let newHand = StreamHandle { streamSend = catchPush . psh
+                                       , streamReceive = read
+                                       , streamFlush = contextFlush ctx
+                                       , streamClose = bye ctx >> streamClose hand
+                                       }
+        lift $ modify ( \x -> x {streamHandle = newHand})
+        either (lift . Ex.throwIO) return =<< lift restartStream
+        modify (\s -> s{streamState = Secured})
+        return ()
 
 client params gen backend  = do
     contextNew backend params gen
