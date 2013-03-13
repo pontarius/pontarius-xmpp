@@ -1061,7 +1061,7 @@ instance Default StreamConfiguration where
                               , toJid = Nothing
                               , socketDetails = Nothing
                               , resolvConf = defaultResolvConf
-                              , establishSession = False
+                              , establishSession = True
                               , tlsBehaviour = PreferTls
                               , tlsParams = defaultParamsClient { pConnectVersion = TLS12
                                                                 , pAllowedVersions = [TLS12]
