@@ -134,12 +134,15 @@ session :: HostName                          -- ^ The hostname / realm
         -> Maybe ([SaslHandler], Maybe Text) -- ^ SASL handlers and the desired
                                              -- JID resource (or Nothing to let
                                              -- the server decide)
-        -> IO (Either XmppFailure (Session, Maybe AuthFailure))
+        -> IO (Either XmppFailure Session)
 session realm config mbSasl = runErrorT $ do
     stream <- ErrorT $ openStream realm (sessionStreamConfiguration config)
     ErrorT $ tls stream
-    aut <- case mbSasl of
+    mbAuthError <- case mbSasl of
         Nothing -> return Nothing
         Just (handlers, resource) -> ErrorT $ auth handlers resource stream
+    case mbAuthError of
+        Nothing -> return ()
+        Just _  -> throwError XmppAuthFailure
     ses <- ErrorT $ newSession stream config
-    return (ses, aut)
+    return ses

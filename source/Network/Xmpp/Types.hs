@@ -676,6 +676,8 @@ data XmppFailure = StreamErrorFailure StreamErrorInfo -- ^ An error XML stream
                  | XmppNoStream -- ^ An action that required an active
                                 -- stream were performed when the
                                 -- 'StreamState' was 'Closed'
+                 | XmppAuthFailure -- ^ Authentication with the server failed
+                                   -- unrecoverably
                  | TlsStreamSecured -- ^ Connection already secured
                  | XmppOtherFailure -- ^ Undefined condition. More
                                     -- information should be available in
