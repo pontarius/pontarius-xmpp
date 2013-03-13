@@ -21,10 +21,9 @@ main = do
     result <- session
                  "example.com"
                   def
-                  (Just ([scramSha1 "user" Nothing "Password"], Nothing))
+                  (Just ([scramSha1 "username" Nothing "password"], Nothing))
     sess <- case result of
-                Right (s, Nothing) -> return s
-                Right (_s, e) -> error $ "AuthFailure: " ++ (show e)
+                Right s -> return s
                 Left e -> error $ "XmppFailure: " ++ (show e)
     sendPresence (Presence Nothing Nothing Nothing Nothing Nothing []) sess
     forever $ do

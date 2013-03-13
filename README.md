@@ -2,8 +2,7 @@ Welcome to Pontarius XMPP!
 ==========================
 
 Pontarius XMPP is an active work in progress to build a Haskell XMPP library
-that implements the client capabilities of [RFC 6120 ("XMPP
-Core")](http://tools.ietf.org/html/rfc6120).
+that implements the client capabilities of [RFC 6120](http://tools.ietf.org/html/rfc6120).
 
 Getting started
 ---------------
@@ -34,7 +33,7 @@ When this is done, a <code>Session</code> object can be acquired by calling
     result <- session
                  "example.com"
                   def
-                  (Just ([scramSha1 "user" Nothing "Password"], Nothing))
+                  (Just ([scramSha1 "username" Nothing "password"], Nothing))
 
 _Tip:_ Note that the first parameter actually is a Text value. Import
 <code>Data.Text</code> and use the OverloadedStrings LANGUAGE pragma.
@@ -47,14 +46,13 @@ with TLS, authenticate, establish a concurrent interface for interacting with
 the stream, and return the <code>Session</code> object.
 
 The return type of <code>session</code> is <code>IO (Either XmppFailure
-(Session, Maybe AuthFailure))</code>. As <code>XmppFailure</code> is an
+Session)</code>. As <code>XmppFailure</code> is an
 <code>Control.Monad.Error</code> instance, you can utilize the
 <code>ErrorT</code> monad transformer for error handling. A more simple way of
 doing it could be doing something like this:
 
     sess <- case result of
-                Right (s, Nothing) -> return s
-                Right (_s, e) -> error $ "AuthFailure: " ++ (show e)
+                Right s -> return s
                 Left e -> error $ "XmppFailure: " ++ (show e)
 
 Next, let us set our status to Online.
