@@ -50,7 +50,7 @@ import           Network.Xmpp.Sasl.Types
 xmppPlain :: Text.Text -- ^ Password
           -> Maybe Text.Text -- ^ Authorization identity (authzid)
           -> Text.Text -- ^ Authentication identity (authcid)
-          -> ErrorT AuthFailure (StateT Stream IO) ()
+          -> ErrorT AuthFailure (StateT StreamState IO) ()
 xmppPlain authcid authzid password  = do
     (ac, az, pw) <- prepCredentials authcid authzid password
     _ <- saslInit "PLAIN" ( Just $ plainMessage ac az pw)

@@ -111,13 +111,14 @@ openElementFromEvents = do
 -- server responds in a way that is invalid, an appropriate stream error will be
 -- generated, the connection to the server will be closed, and a XmppFailure
 -- will be produced.
-startStream :: StateT Stream IO (Either XmppFailure ())
+startStream :: StateT StreamState IO (Either XmppFailure ())
 startStream = runErrorT $ do
     lift $ lift $ debugM "Pontarius.Xmpp" "Starting stream..."
     state <- lift $ get
     -- Set the `from' (which is also the expected to) attribute depending on the
     -- state of the stream.
-    let expectedTo = case (streamState state, toJid $ streamConfiguration state) of
+    let expectedTo = case ( streamConnectionState state
+                          , toJid $ streamConfiguration state) of
           (Plain, (Just (jid, True))) -> Just jid
           (Secured, (Just (jid, _))) -> Just jid
           (Plain, Nothing) -> Nothing
@@ -173,10 +174,10 @@ startStream = runErrorT $ do
                 "Root name prefix set and not stream"
         | otherwise -> ErrorT $ checkchildren (flattenAttrs attrs)
   where
-    -- closeStreamWithError :: MonadIO m => TMVar Stream -> StreamErrorCondition ->
+    -- closeStreamWithError :: MonadIO m => Stream -> StreamErrorCondition ->
     --                         Maybe Element -> ErrorT XmppFailure m ()
     closeStreamWithError  :: StreamErrorCondition -> Maybe Element -> String
-                          -> ErrorT XmppFailure (StateT Stream IO) ()
+                          -> ErrorT XmppFailure (StateT StreamState IO) ()
     closeStreamWithError sec el msg = do
         lift . pushElement . pickleElem xpStreamError
             $ StreamErrorInfo sec Nothing el
@@ -219,7 +220,7 @@ flattenAttrs attrs = Prelude.map (\(name, content) ->
 
 -- Sets a new Event source using the raw source (of bytes)
 -- and calls xmppStartStream.
-restartStream :: StateT Stream IO (Either XmppFailure ())
+restartStream :: StateT StreamState IO (Either XmppFailure ())
 restartStream = do
     lift $ debugM "Pontarius.XMPP" "Restarting stream..."
     raw <- gets (streamReceive . streamHandle)
@@ -275,7 +276,7 @@ streamS expectedTo = do
 
 -- | Connects to the XMPP server and opens the XMPP stream against the given
 -- realm.
-openStream :: HostName -> StreamConfiguration -> IO (Either XmppFailure (TMVar Stream))
+openStream :: HostName -> StreamConfiguration -> IO (Either XmppFailure (Stream))
 openStream realm config = runErrorT $ do
     lift $ debugM "Pontarius.XMPP" "Opening stream..."
     stream' <- createStream realm config
@@ -285,7 +286,7 @@ openStream realm config = runErrorT $ do
 -- | Send "</stream:stream>" and wait for the server to finish processing and to
 -- close the connection. Any remaining elements from the server are returned.
 -- Surpresses StreamEndFailure exceptions, but may throw a StreamCloseError.
-closeStreams :: TMVar Stream -> IO (Either XmppFailure [Element])
+closeStreams :: Stream -> IO (Either XmppFailure [Element])
 closeStreams = withStream closeStreams'
 
 closeStreams' = do
@@ -301,7 +302,7 @@ closeStreams' = do
   where
     -- Pulls elements from the stream until the stream ends, or an error is
     -- raised.
-    collectElems :: [Element] -> StateT Stream IO (Either XmppFailure [Element])
+    collectElems :: [Element] -> StateT StreamState IO (Either XmppFailure [Element])
     collectElems es = do
         result <- pullElement
         case result of
@@ -311,7 +312,7 @@ closeStreams' = do
 
 -- TODO: Can the TLS send/recv functions throw something other than an IO error?
 
-wrapIOException :: IO a -> StateT Stream IO (Either XmppFailure a)
+wrapIOException :: IO a -> StateT StreamState IO (Either XmppFailure a)
 wrapIOException action = do
     r <- liftIO $ tryIOError action
     case r of
@@ -320,39 +321,39 @@ wrapIOException action = do
             lift $ warningM "Pontarius.XMPP" $ "wrapIOException: Exception wrapped: " ++ (show e)
             return $ Left $ XmppIOException e
 
-pushElement :: Element -> StateT Stream IO (Either XmppFailure Bool)
+pushElement :: Element -> StateT StreamState IO (Either XmppFailure Bool)
 pushElement x = do
     send <- gets (streamSend . streamHandle)
     wrapIOException $ send $ renderElement x
 
 -- | Encode and send stanza
-pushStanza :: Stanza -> TMVar Stream -> IO (Either XmppFailure Bool)
+pushStanza :: Stanza -> Stream -> IO (Either XmppFailure Bool)
 pushStanza s = withStream' . pushElement $ pickleElem xpStanza s
 
 -- XML documents and XMPP streams SHOULD be preceeded by an XML declaration.
 -- UTF-8 is the only supported XMPP encoding. The standalone document
 -- declaration (matching "SDDecl" in the XML standard) MUST NOT be included in
 -- XMPP streams. RFC 6120 defines XMPP only in terms of XML 1.0.
-pushXmlDecl :: StateT Stream IO (Either XmppFailure Bool)
+pushXmlDecl :: StateT StreamState IO (Either XmppFailure Bool)
 pushXmlDecl = do
     con <- gets streamHandle
     wrapIOException $ (streamSend con) "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>"
 
-pushOpenElement :: Element -> StateT Stream IO (Either XmppFailure Bool)
+pushOpenElement :: Element -> StateT StreamState IO (Either XmppFailure Bool)
 pushOpenElement e = do
     sink <- gets (streamSend . streamHandle)
     wrapIOException $ sink $ renderOpenElement e
 
 -- `Connect-and-resumes' the given sink to the stream source, and pulls a
 -- `b' value.
-runEventsSink :: Sink Event IO b -> StateT Stream IO (Either XmppFailure b)
+runEventsSink :: Sink Event IO b -> StateT StreamState IO (Either XmppFailure b)
 runEventsSink snk = do -- TODO: Wrap exceptions?
     src <- gets streamEventSource
     (src', r) <- lift $ src $$++ snk
     modify (\s -> s{streamEventSource = src'})
     return $ Right r
 
-pullElement :: StateT Stream IO (Either XmppFailure Element)
+pullElement :: StateT StreamState IO (Either XmppFailure Element)
 pullElement = do
     ExL.catches (do
         e <- runEventsSink (elements =$ await)
@@ -375,7 +376,7 @@ pullElement = do
         ]
 
 -- Pulls an element and unpickles it.
-pullUnpickle :: PU [Node] a -> StateT Stream IO (Either XmppFailure a)
+pullUnpickle :: PU [Node] a -> StateT StreamState IO (Either XmppFailure a)
 pullUnpickle p = do
     elem <- pullElement
     case elem of
@@ -389,7 +390,7 @@ pullUnpickle p = do
                 Right r -> return $ Right r
 
 -- | Pulls a stanza (or stream error) from the stream.
-pullStanza :: TMVar Stream -> IO (Either XmppFailure Stanza)
+pullStanza :: Stream -> IO (Either XmppFailure Stanza)
 pullStanza = withStream $ do
     res <- pullUnpickle xpStreamStanza
     case res of
@@ -409,9 +410,9 @@ catchPush p = ExL.catch
     )
 
 -- Stream state used when there is no connection.
-xmppNoStream :: Stream
-xmppNoStream = Stream {
-      streamState = Closed
+xmppNoStream :: StreamState
+xmppNoStream = StreamState {
+      streamConnectionState = Closed
     , streamHandle = StreamHandle { streamSend = \_ -> return False
                                   , streamReceive = \_ -> do
                                                             errorM "Pontarius.XMPP" "xmppNoStream: No stream on receive."
@@ -435,7 +436,7 @@ xmppNoStream = Stream {
         errorM "Pontarius.XMPP" "zeroSource utilized."
         ExL.throwIO XmppOtherFailure
 
-createStream :: HostName -> StreamConfiguration -> ErrorT XmppFailure IO (TMVar Stream)
+createStream :: HostName -> StreamConfiguration -> ErrorT XmppFailure IO (Stream)
 createStream realm config = do
     result <- connect realm config
     case result of
@@ -451,8 +452,8 @@ createStream realm config = do
                                     , streamFlush = hFlush h
                                     , streamClose = hClose h
                                     }
-            let stream = Stream
-                  { streamState = Plain
+            let stream = StreamState
+                  { streamConnectionState = Plain
                   , streamHandle = hand
                   , streamEventSource = eSource
                   , streamFeatures = StreamFeatures Nothing [] []
@@ -644,8 +645,8 @@ srvLookup realm resolvSeed = ErrorT $ do
             return $ ((priority, weight, port, domain):tail)
 
 -- Closes the connection and updates the XmppConMonad Stream state.
--- killStream :: TMVar Stream -> IO (Either ExL.SomeException ())
-killStream :: TMVar Stream -> IO (Either XmppFailure ())
+-- killStream :: Stream -> IO (Either ExL.SomeException ())
+killStream :: Stream -> IO (Either XmppFailure ())
 killStream = withStream $ do
     cc <- gets (streamClose . streamHandle)
     err <- wrapIOException cc
@@ -660,7 +661,7 @@ pushIQ :: StanzaID
        -> IQRequestType
        -> Maybe LangTag
        -> Element
-       -> TMVar Stream
+       -> Stream
        -> IO (Either XmppFailure (Either IQError IQResult))
 pushIQ iqID to tp lang body stream = do
     pushStanza (IQRequestS $ IQRequest iqID Nothing to lang tp body) stream
@@ -734,8 +735,8 @@ elements = do
     streamName :: Name
     streamName = (Name "stream" (Just "http://etherx.jabber.org/streams") (Just "stream"))
 
-withStream :: StateT Stream IO (Either XmppFailure c) -> TMVar Stream -> IO (Either XmppFailure c)
-withStream action stream = bracketOnError
+withStream :: StateT StreamState IO (Either XmppFailure c) -> Stream -> IO (Either XmppFailure c)
+withStream action (Stream stream) = bracketOnError
                                          (atomically $ takeTMVar stream )
                                          (atomically . putTMVar stream)
                                          (\s -> do
@@ -745,12 +746,12 @@ withStream action stream = bracketOnError
                                          )
 
 -- nonblocking version. Changes to the connection are ignored!
-withStream' :: StateT Stream IO (Either XmppFailure b) -> TMVar Stream -> IO (Either XmppFailure b)
-withStream' action stream = do
+withStream' :: StateT StreamState IO (Either XmppFailure b) -> Stream -> IO (Either XmppFailure b)
+withStream' action (Stream stream) = do
     stream_ <- atomically $ readTMVar stream
     (r, _) <- runStateT action stream_
     return r
 
 
-mkStream :: Stream -> IO (TMVar Stream)
-mkStream con = {- Stream `fmap` -} (atomically $ newTMVar con)
+mkStream :: StreamState -> IO (Stream)
+mkStream con = Stream `fmap` (atomically $ newTMVar con)

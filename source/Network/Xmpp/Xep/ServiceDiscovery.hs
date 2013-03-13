@@ -102,7 +102,7 @@ queryInfo to node context = do
 
 xmppQueryInfo :: Maybe Jid
      -> Maybe Text.Text
-     -> TMVar Stream
+     -> Stream
      -> IO (Either DiscoError QueryInfoResult)
 xmppQueryInfo to node con = do
     res <- pushIQ "info" to Get Nothing queryBody con

@@ -46,7 +46,7 @@ data Query = Query { instructions :: Maybe Text.Text
 
 emptyQuery = Query Nothing False False []
 
-query :: IQRequestType -> Query -> TMVar Stream -> IO (Either IbrError Query)
+query :: IQRequestType -> Query -> Stream -> IO (Either IbrError Query)
 query queryType x con = do
     answer <- pushIQ "ibr" Nothing queryType Nothing (pickleElem xpQuery x) con
     case answer of
@@ -89,7 +89,7 @@ mapError f = mapErrorT (liftM $ left f)
 -- | Retrieve the necessary fields and fill them in to register an account with
 -- the server.
 registerWith :: [(Field, Text.Text)]
-             -> TMVar Stream
+             -> Stream
              -> IO  (Either RegisterError Query)
 registerWith givenFields con = runErrorT $ do
     fs <- mapError IbrError . ErrorT $ requestFields con
@@ -121,7 +121,7 @@ deleteAccount host hostname port username password = do
 
 -- | Terminate your account on the server. You have to be logged in for this to
 -- work. You connection will most likely be terminated after unregistering.
-unregister :: TMVar Stream -> IO (Either IbrError Query)
+unregister :: Stream -> IO (Either IbrError Query)
 unregister = query Set $ emptyQuery {remove = True}
 
 unregister' :: Session -> IO (Either IbrError Query)

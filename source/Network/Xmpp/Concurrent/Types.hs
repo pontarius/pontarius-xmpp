@@ -44,7 +44,7 @@ data Session = Session
     , idGenerator :: IO StanzaID
       -- | Lock (used by withStream) to make sure that a maximum of one
       -- Stream action is executed at any given time.
-    , streamRef :: TMVar (TMVar Stream)
+    , streamRef :: TMVar (Stream)
     , eventHandlers :: TVar EventHandlers
     , stopThreads :: IO ()
     , conf :: SessionConfiguration

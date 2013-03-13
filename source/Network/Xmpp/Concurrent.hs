@@ -90,7 +90,7 @@ toChans stanzaC outC iqHands sta = atomically $ do
         iqID (Right iq') = iqResultID iq'
 
 -- | Creates and initializes a new Xmpp context.
-newSession :: TMVar Stream -> SessionConfiguration -> IO (Either XmppFailure Session)
+newSession :: Stream -> SessionConfiguration -> IO (Either XmppFailure Session)
 newSession stream config = runErrorT $ do
     outC <- lift newTChanIO
     stanzaChan <- lift newTChanIO

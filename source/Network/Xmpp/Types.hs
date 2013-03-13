@@ -34,6 +34,7 @@ module Network.Xmpp.Types
     , StreamHandle(..)
     , Stream(..)
     , StreamState(..)
+    , ConnectionState(..)
     , StreamErrorInfo(..)
     , StreamConfiguration(..)
     , langTag
@@ -785,7 +786,7 @@ data StreamFeatures = StreamFeatures
     } deriving Show
 
 -- | Signals the state of the stream connection.
-data StreamState
+data ConnectionState
     = Closed  -- ^ No stream has been established
     | Plain   -- ^ Stream established, but not secured via TLS
     | Secured -- ^ Stream established and secured via TLS
@@ -803,9 +804,9 @@ data StreamHandle =
                  , streamClose :: IO ()
                  }
 
-data Stream = Stream
+data StreamState = StreamState
     { -- | State of the stream - 'Closed', 'Plain', or 'Secured'
-      streamState :: !StreamState -- ^ State of connection
+      streamConnectionState :: !ConnectionState -- ^ State of connection
       -- | Functions to send, receive, flush, and close on the stream
     , streamHandle :: StreamHandle
       -- | Event conduit source, and its associated finalizer
@@ -830,6 +831,8 @@ data Stream = Stream
       -- | Configuration settings for the stream
     , streamConfiguration :: StreamConfiguration
     }
+
+newtype Stream = Stream { unStream :: TMVar StreamState }
 
 ---------------
 -- JID

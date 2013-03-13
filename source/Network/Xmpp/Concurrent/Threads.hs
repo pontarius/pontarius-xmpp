@@ -29,7 +29,7 @@ import           System.Log.Logger
 -- all listener threads.
 readWorker :: (Stanza -> IO ())
            -> (XmppFailure -> IO ())
-           -> TMVar (TMVar Stream)
+           -> TMVar Stream
            -> IO a
 readWorker onStanza onConnectionClosed stateRef =
     Ex.mask_ . forever $ do
@@ -37,11 +37,11 @@ readWorker onStanza onConnectionClosed stateRef =
                        -- we don't know whether pull will
                        -- necessarily be interruptible
                        s <- atomically $ do
-                            con <- readTMVar stateRef
-                            state <- streamState <$> readTMVar con
+                            s@(Stream con) <- readTMVar stateRef
+                            state <- streamConnectionState <$> readTMVar con
                             when (state == Closed)
                                  retry
-                            return con
+                            return s
                        allowInterrupt
                        Just <$> pullStanza s
                        )
@@ -79,10 +79,10 @@ readWorker onStanza onConnectionClosed stateRef =
 -- connection.
 startThreadsWith :: (Stanza -> IO ())
                  -> TVar EventHandlers
-                 -> TMVar Stream
+                 -> Stream
                  -> IO (Either XmppFailure (IO (),
                   TMVar (BS.ByteString -> IO Bool),
-                  TMVar (TMVar Stream),
+                  TMVar Stream,
                   ThreadId))
 startThreadsWith stanzaHandler eh con = do
     read <- withStream' (gets $ streamSend . streamHandle >>= \d -> return $ Right d) con

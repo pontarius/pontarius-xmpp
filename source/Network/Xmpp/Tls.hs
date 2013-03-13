@@ -34,12 +34,12 @@ starttlsE :: Element
 starttlsE = Element "{urn:ietf:params:xml:ns:xmpp-tls}starttls" [] []
 
 -- | Checks for TLS support and run starttls procedure if applicable
-tls :: TMVar Stream -> IO (Either XmppFailure ())
+tls :: Stream -> IO (Either XmppFailure ())
 tls con = Ex.handle (return . Left . TlsError)
                       . flip withStream con
                       . runErrorT $ do
     conf <- gets $ streamConfiguration
-    sState <- gets streamState
+    sState <- gets streamConnectionState
     case sState of
         Plain -> return ()
         Closed -> do
@@ -79,7 +79,7 @@ tls con = Ex.handle (return . Left . TlsError)
                                        }
         lift $ modify ( \x -> x {streamHandle = newHand})
         either (lift . Ex.throwIO) return =<< lift restartStream
-        modify (\s -> s{streamState = Secured})
+        modify (\s -> s{streamConnectionState = Secured})
         return ()
 
 client params gen backend  = do

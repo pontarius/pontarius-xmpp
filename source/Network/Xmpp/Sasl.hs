@@ -66,7 +66,7 @@ import           Control.Monad.Error
 -- authentication fails, or an `XmppFailure' if anything else fails.
 xmppSasl :: [SaslHandler] -- ^ Acceptable authentication mechanisms and their
                        -- corresponding handlers
-         -> TMVar Stream
+         -> Stream
          -> IO (Either XmppFailure (Maybe AuthFailure))
 xmppSasl handlers stream = do
     debugM "Pontarius.Xmpp" "xmppSasl: Attempts to authenticate..."
@@ -77,7 +77,7 @@ xmppSasl handlers stream = do
         case (filter (\(name, _) -> name `elem` mechanisms)) handlers of
             [] -> return $ Right $ Just $ AuthNoAcceptableMechanism mechanisms
             (_name, handler):_ -> do
-                cs <- gets streamState
+                cs <- gets streamConnectionState
                 case cs of
                     Closed -> do
                         lift $ errorM "Pontarius.Xmpp" "xmppSasl: Stream state closed."
@@ -102,7 +102,7 @@ xmppSasl handlers stream = do
 -- resource.
 auth :: [SaslHandler]
      -> Maybe Text
-     -> TMVar Stream
+     -> Stream
      -> IO (Either XmppFailure (Maybe AuthFailure))
 auth mechanisms resource con = runErrorT $ do
     ErrorT $ xmppSasl mechanisms con
@@ -127,7 +127,7 @@ bindBody = pickleElem $
 
 -- Sends a (synchronous) IQ set request for a (`Just') given or server-generated
 -- resource and extract the JID from the non-error response.
-xmppBind  :: Maybe Text -> TMVar Stream -> IO (Either XmppFailure Jid)
+xmppBind  :: Maybe Text -> Stream -> IO (Either XmppFailure Jid)
 xmppBind rsrc c = runErrorT $ do
     lift $ debugM "Pontarius.Xmpp" "Attempts to bind..."
     answer <- ErrorT $ pushIQ "bind" Nothing Set Nothing (bindBody rsrc) c
@@ -175,7 +175,7 @@ sessionIQ = IQRequestS $ IQRequest { iqRequestID      = "sess"
 
 -- Sends the session IQ set element and waits for an answer. Throws an error if
 -- if an IQ error stanza is returned from the server.
-startSession :: TMVar Stream -> IO Bool
+startSession :: Stream -> IO Bool
 startSession con = do
     debugM "Pontarius.XMPP" "startSession: Pushing `session' IQ set stanza..."
     answer <- pushIQ "session" Nothing Set Nothing sessionXml con
