@@ -53,44 +53,28 @@ module Network.Xmpp.Types
     )
        where
 
+import           Control.Applicative ((<$>), (<|>), many)
 import           Control.Concurrent.STM
 import           Control.Exception
 import           Control.Monad.Error
-import           Control.Monad.IO.Class
-import           Control.Monad.State.Strict
-
 import qualified Data.Attoparsec.Text as AP
 import qualified Data.ByteString as BS
 import           Data.Conduit
-import           Data.IORef
-import           Data.Maybe (fromJust, fromMaybe, maybeToList)
-import           Data.String(IsString(..))
+import           Data.Default
+import           Data.Maybe (fromJust, maybeToList)
+import qualified Data.Set as Set
+import           Data.String (IsString(..))
 import           Data.Text (Text)
 import qualified Data.Text as Text
 import           Data.Typeable(Typeable)
 import           Data.XML.Types
-
-import           Network.TLS hiding (Version)
-import           Network.TLS.Extra
-
-import qualified Network as N
-
-import           System.IO
-
-import           Control.Applicative ((<$>), (<|>), many)
-import           Control.Monad(guard)
-
-import qualified Data.Set as Set
-import           Data.String (IsString(..))
-import qualified Text.NamePrep as SP
-import qualified Text.StringPrep as SP
-
 import           Network
 import           Network.DNS
 import           Network.Socket
-
-import Data.Default
-import Data.IP
+import           Network.TLS hiding (Version)
+import           Network.TLS.Extra
+import qualified Text.NamePrep as SP
+import qualified Text.StringPrep as SP
 
 -- |
 -- Wraps a string of random characters that, when using an appropriate
@@ -777,8 +761,7 @@ langTagParser = do
     subtag :: AP.Parser Text.Text
     subtag = do
         AP.skip (== '-')
-        subtag <- tag
-        return subtag
+        tag
     tagChars :: [Char]
     tagChars = ['a'..'z'] ++ ['A'..'Z']
 
@@ -875,7 +858,7 @@ data Jid = Jid { -- | The @localpart@ of a JID is an optional identifier placed
                  -- the entity associated with an XMPP localpart at a domain
                  -- (i.e., @localpart\@domainpart/resourcepart@).
                , resourcepart :: !(Maybe Text)
-               } deriving Eq
+               } deriving (Eq, Ord)
 
 instance Show Jid where
   show (Jid nd dmn res) =
@@ -958,9 +941,9 @@ jidParts = do
           -- Case 2: We found a '/'; the JID is in the form
           -- domainpart/resourcepart.
           <|> do
-              b <- resourcePartP
+              b' <- resourcePartP
               AP.endOfInput
-              return (Nothing, a, Just b)
+              return (Nothing, a, Just b')
           -- Case 3: We have reached EOF; we have an JID consisting of only a
           -- domainpart.
         <|> do
