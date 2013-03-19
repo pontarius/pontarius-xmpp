@@ -36,6 +36,7 @@ module Network.Xmpp.Types
     , StreamState(..)
     , ConnectionState(..)
     , StreamErrorInfo(..)
+    , StanzaHandler
     , StreamConfiguration(..)
     , langTag
     , Jid(..)
@@ -1105,6 +1106,10 @@ hostnameP = do
                     then fail "Hostname too long."
                     else return $ Text.concat [label, Text.pack ".", r]
 
+type StanzaHandler =  TChan Stanza -- ^ outgoing stanza
+                   -> Stanza       -- ^ stanza to handle
+                   -> IO Bool      -- ^ True when processing should continue
+
 -- | Configuration for the @Session@ object.
 data SessionConfiguration = SessionConfiguration
     { -- | Configuration for the @Stream@ object.
@@ -1113,6 +1118,7 @@ data SessionConfiguration = SessionConfiguration
     , sessionClosedHandler :: XmppFailure -> IO ()
       -- | Function to generate the stream of stanza identifiers.
     , sessionStanzaIDs :: IO StanzaID
+    , extraStanzaHandlers   :: [StanzaHandler]
     }
 
 instance Default SessionConfiguration where
@@ -1124,6 +1130,7 @@ instance Default SessionConfiguration where
                                          curId <- readTVar idRef
                                          writeTVar idRef (curId + 1 :: Integer)
                                          return . read. show $ curId
+                               , extraStanzaHandlers = []
                                }
 
 -- | How the client should behave in regards to TLS.

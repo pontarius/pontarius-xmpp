@@ -8,14 +8,12 @@ module Network.Xmpp.Concurrent
   , module Network.Xmpp.Concurrent.Message
   , module Network.Xmpp.Concurrent.Presence
   , module Network.Xmpp.Concurrent.IQ
-  , toChans
+  , StanzaHandler
   , newSession
   , writeWorker
   , session
   ) where
 
-import           Network.Xmpp.Concurrent.Monad
-import           Network.Xmpp.Concurrent.Threads
 import           Control.Applicative((<$>),(<*>))
 import           Control.Concurrent
 import           Control.Concurrent.STM
@@ -23,44 +21,56 @@ import           Control.Monad
 import qualified Data.ByteString as BS
 import           Data.IORef
 import qualified Data.Map as Map
+import           Data.Maybe
 import           Data.Maybe (fromMaybe)
+import           Data.Text as Text
 import           Data.XML.Types
+import           Network
+import qualified Network.TLS as TLS
 import           Network.Xmpp.Concurrent.Basic
 import           Network.Xmpp.Concurrent.IQ
 import           Network.Xmpp.Concurrent.Message
+import           Network.Xmpp.Concurrent.Monad
 import           Network.Xmpp.Concurrent.Presence
-import           Network.Xmpp.Concurrent.Types
 import           Network.Xmpp.Concurrent.Threads
+import           Network.Xmpp.Concurrent.Threads
+import           Network.Xmpp.Concurrent.Types
 import           Network.Xmpp.Marshal
-import           Network.Xmpp.Types
-import           Network
-import           Data.Text as Text
-import           Network.Xmpp.Tls
-import qualified Network.TLS as TLS
 import           Network.Xmpp.Sasl
 import           Network.Xmpp.Sasl.Mechanisms
 import           Network.Xmpp.Sasl.Types
-import           Data.Maybe
 import           Network.Xmpp.Stream
+import           Network.Xmpp.Tls
+import           Network.Xmpp.Types
 import           Network.Xmpp.Utilities
 
 import           Control.Monad.Error
-import Data.Default
-import System.Log.Logger
-import Control.Monad.State.Strict
+import           Data.Default
+import           System.Log.Logger
+import           Control.Monad.State.Strict
 
-toChans :: TChan Stanza
-        -> TChan Stanza
-        -> TVar IQHandlers
-        -> Stanza
-        -> IO ()
-toChans stanzaC outC iqHands sta = atomically $ do
-        writeTChan stanzaC sta
+runHandlers :: (TChan Stanza) -> [StanzaHandler] -> Stanza -> IO ()
+runHandlers _    []        _   = return ()
+runHandlers outC (h:hands) sta = do
+    res <- h outC sta
+    case res of
+        True -> runHandlers outC hands sta
+        False -> return ()
+
+toChan :: TChan Stanza -> StanzaHandler
+toChan stanzaC _ sta = do
+    atomically $ writeTChan stanzaC sta
+    return True
+
+
+handleIQ :: TVar IQHandlers
+         -> StanzaHandler
+handleIQ iqHands outC sta = atomically $ do
         case sta of
-            IQRequestS     i -> handleIQRequest iqHands i
-            IQResultS      i -> handleIQResponse iqHands (Right i)
-            IQErrorS       i -> handleIQResponse iqHands (Left i)
-            _                -> return ()
+            IQRequestS     i -> handleIQRequest iqHands i >> return False
+            IQResultS      i -> handleIQResponse iqHands (Right i) >> return False
+            IQErrorS       i -> handleIQResponse iqHands (Left i) >> return False
+            _                -> return True
   where
     -- If the IQ request has a namespace, send it through the appropriate channel.
     handleIQRequest :: TVar IQHandlers -> IQRequest -> STM ()
@@ -96,7 +106,11 @@ newSession stream config = runErrorT $ do
     stanzaChan <- lift newTChanIO
     iqHandlers <- lift $ newTVarIO (Map.empty, Map.empty)
     eh <- lift $ newTVarIO $ EventHandlers { connectionClosedHandler = sessionClosedHandler config }
-    let stanzaHandler = toChans stanzaChan outC iqHandlers
+    let stanzaHandler = runHandlers outC $ Prelude.concat [ [toChan stanzaChan]
+                                                          , extraStanzaHandlers
+                                                                config
+                                                          , [handleIQ iqHandlers]
+                                                          ]
     (kill, wLock, streamState, readerThread) <- ErrorT $ startThreadsWith stanzaHandler eh stream
     writer <- lift $ forkIO $ writeWorker outC wLock
     return $ Session { stanzaCh = stanzaChan
