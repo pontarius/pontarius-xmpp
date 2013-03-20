@@ -4,25 +4,18 @@
 
 module Network.Xmpp.Concurrent.Threads where
 
-import           Network.Xmpp.Types
-
 import           Control.Applicative((<$>))
 import           Control.Concurrent
 import           Control.Concurrent.STM
 import qualified Control.Exception.Lifted as Ex
 import           Control.Monad
-import           Control.Monad.IO.Class
+import           Control.Monad.Error
 import           Control.Monad.State.Strict
-
 import qualified Data.ByteString as BS
+import           GHC.IO (unsafeUnmask)
 import           Network.Xmpp.Concurrent.Types
 import           Network.Xmpp.Stream
-
-import           Control.Concurrent.STM.TMVar
-
-import           GHC.IO (unsafeUnmask)
-
-import           Control.Monad.Error
+import           Network.Xmpp.Types
 import           System.Log.Logger
 
 -- Worker to read stanzas from the stream and concurrently distribute them to
@@ -38,8 +31,8 @@ readWorker onStanza onConnectionClosed stateRef =
                        -- necessarily be interruptible
                        s <- atomically $ do
                             s@(Stream con) <- readTMVar stateRef
-                            state <- streamConnectionState <$> readTMVar con
-                            when (state == Closed)
+                            scs <- streamConnectionState <$> readTMVar con
+                            when (scs == Closed)
                                  retry
                             return s
                        allowInterrupt
@@ -55,7 +48,7 @@ readWorker onStanza onConnectionClosed stateRef =
                    ]
         case res of
               Nothing -> return () -- Caught an exception, nothing to do. TODO: Can this happen?
-              Just (Left e) -> return ()
+              Just (Left _) -> return ()
               Just (Right sta) -> onStanza sta
   where
     -- Defining an Control.Exception.allowInterrupt equivalent for GHC 7
@@ -85,19 +78,19 @@ startThreadsWith :: (Stanza -> IO ())
                   TMVar Stream,
                   ThreadId))
 startThreadsWith stanzaHandler eh con = do
-    read <- withStream' (gets $ streamSend . streamHandle >>= \d -> return $ Right d) con
-    case read of
+    rd <- withStream' (gets $ streamSend . streamHandle >>= \d -> return $ Right d) con
+    case rd of
         Left e -> return $ Left e
         Right read' -> do
           writeLock <- newTMVarIO read'
           conS <- newTMVarIO con
           --    lw <- forkIO $ writeWorker outC writeLock
           cp <- forkIO $ connPersist writeLock
-          rd <- forkIO $ readWorker stanzaHandler (noCon eh) conS
-          return $ Right ( killConnection writeLock [rd, cp]
+          rdw <- forkIO $ readWorker stanzaHandler (noCon eh) conS
+          return $ Right ( killConnection writeLock [rdw, cp]
                          , writeLock
                          , conS
-                         , rd
+                         , rdw
                          )
   where
     killConnection writeLock threads = liftIO $ do

@@ -138,8 +138,6 @@ module Network.Xmpp
   , sendIQ'
   , answerIQ
   , listenIQChan
-  , iqRequestPayload
-  , iqResultPayload
   -- * Errors
   , StanzaError(..)
   , StanzaErrorType(..)
@@ -157,10 +155,8 @@ module Network.Xmpp
                , AuthOtherFailure )
   ) where
 
-import Network
 import Network.Xmpp.Concurrent
 import Network.Xmpp.Utilities
 import Network.Xmpp.Sasl
 import Network.Xmpp.Sasl.Types
-import Network.Xmpp.Tls
 import Network.Xmpp.Types

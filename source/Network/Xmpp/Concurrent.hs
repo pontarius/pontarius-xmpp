@@ -18,36 +18,28 @@ import           Control.Applicative((<$>),(<*>))
 import           Control.Concurrent
 import           Control.Concurrent.STM
 import           Control.Monad
+import           Control.Monad.Error
 import qualified Data.ByteString as BS
-import           Data.IORef
 import qualified Data.Map as Map
 import           Data.Maybe
-import           Data.Maybe (fromMaybe)
 import           Data.Text as Text
 import           Data.XML.Types
 import           Network
-import qualified Network.TLS as TLS
 import           Network.Xmpp.Concurrent.Basic
 import           Network.Xmpp.Concurrent.IQ
 import           Network.Xmpp.Concurrent.Message
 import           Network.Xmpp.Concurrent.Monad
 import           Network.Xmpp.Concurrent.Presence
 import           Network.Xmpp.Concurrent.Threads
-import           Network.Xmpp.Concurrent.Threads
 import           Network.Xmpp.Concurrent.Types
 import           Network.Xmpp.Marshal
 import           Network.Xmpp.Sasl
-import           Network.Xmpp.Sasl.Mechanisms
 import           Network.Xmpp.Sasl.Types
 import           Network.Xmpp.Stream
 import           Network.Xmpp.Tls
 import           Network.Xmpp.Types
 import           Network.Xmpp.Utilities
 
-import           Control.Monad.Error
-import           Data.Default
-import           System.Log.Logger
-import           Control.Monad.State.Strict
 
 runHandlers :: (TChan Stanza) -> [StanzaHandler] -> Stanza -> IO ()
 runHandlers _    []        _   = return ()
@@ -96,7 +88,7 @@ handleIQ iqHands outC sta = atomically $ do
                 _ <- tryPutTMVar tmvar answer -- Don't block.
                 writeTVar handlers (byNS, byID')
       where
-        iqID (Left err) = iqErrorID err
+        iqID (Left err') = iqErrorID err'
         iqID (Right iq') = iqResultID iq'
 
 -- | Creates and initializes a new Xmpp context.
@@ -104,21 +96,21 @@ newSession :: Stream -> SessionConfiguration -> IO (Either XmppFailure Session)
 newSession stream config = runErrorT $ do
     outC <- lift newTChanIO
     stanzaChan <- lift newTChanIO
-    iqHandlers <- lift $ newTVarIO (Map.empty, Map.empty)
+    iqHands  <- lift $ newTVarIO (Map.empty, Map.empty)
     eh <- lift $ newTVarIO $ EventHandlers { connectionClosedHandler = sessionClosedHandler config }
     let stanzaHandler = runHandlers outC $ Prelude.concat [ [toChan stanzaChan]
                                                           , extraStanzaHandlers
                                                                 config
-                                                          , [handleIQ iqHandlers]
+                                                          , [handleIQ iqHands]
                                                           ]
-    (kill, wLock, streamState, readerThread) <- ErrorT $ startThreadsWith stanzaHandler eh stream
+    (kill, wLock, streamState, reader) <- ErrorT $ startThreadsWith stanzaHandler eh stream
     writer <- lift $ forkIO $ writeWorker outC wLock
     idGen <- liftIO $ sessionStanzaIDs config
     return $ Session { stanzaCh = stanzaChan
                      , outCh = outC
-                     , iqHandlers = iqHandlers
+                     , iqHandlers = iqHands
                      , writeRef = wLock
-                     , readerThread = readerThread
+                     , readerThread = reader
                      , idGenerator = idGen
                      , streamRef = streamState
                      , eventHandlers = eh

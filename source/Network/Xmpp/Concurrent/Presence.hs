@@ -2,7 +2,6 @@
 module Network.Xmpp.Concurrent.Presence where
 
 import Control.Concurrent.STM
-import Data.IORef
 import Network.Xmpp.Types
 import Network.Xmpp.Concurrent.Types
 import Network.Xmpp.Concurrent.Basic

@@ -7,12 +7,9 @@
 module Network.Xmpp.Xep.DataForms where
 
 import qualified Data.Text as Text
+import           Data.XML.Pickle
 import qualified Data.XML.Types as XML
 
-import Data.XML.Pickle
-import qualified Data.Text as Text
-
-import qualified Text.XML.Stream.Parse as Parse
 
 dataFormNs :: Text.Text
 dataFormNs = "jabber:x:data"
@@ -95,12 +92,12 @@ instance Read FieldType where
 
 
 xpForm :: PU [XML.Node] Form
-xpForm = xpWrap (\(tp , (title, instructions, fields, reported, items)) ->
-                  Form tp title (map snd instructions) fields reported (map snd items))
-                 (\(Form tp title instructions fields reported items) ->
+xpForm = xpWrap (\(tp , (ttl, ins, flds, rpd, its)) ->
+                  Form tp ttl (map snd ins) flds rpd (map snd its))
+                 (\(Form tp ttl ins flds rpd its) ->
                      (tp ,
-                     (title, map ((),) instructions
-                     , fields, reported, map ((),) items)))
+                     (ttl, map ((),) ins
+                     , flds, rpd, map ((),) its)))
 
           $
     xpElem (dataFormName "x")
@@ -113,10 +110,10 @@ xpForm = xpWrap (\(tp , (title, instructions, fields, reported, items)) ->
       (xpElems (dataFormName "item") xpUnit xpFields))
 
 xpFields :: PU [XML.Node] [Field]
-xpFields = xpWrap (map $ \((var, tp, label),(desc, req, vals, opts))
-                     -> Field var label tp desc req vals opts)
-                  (map $ \(Field var label tp desc req vals opts)
-                        -> ((var, tp, label),(desc, req, vals, opts))) $
+xpFields = xpWrap (map $ \((var, tp, lbl),(desc, req, vals, opts))
+                     -> Field var lbl tp desc req vals opts)
+                  (map $ \(Field var lbl tp desc req vals opts)
+                        -> ((var, tp, lbl),(desc, req, vals, opts))) $
     xpElems (dataFormName "field")
      (xp3Tuple
        (xpAttrImplied "var"  xpId )

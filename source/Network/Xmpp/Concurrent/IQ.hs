@@ -4,8 +4,6 @@ module Network.Xmpp.Concurrent.IQ where
 import           Control.Concurrent (forkIO, threadDelay)
 import           Control.Concurrent.STM
 import           Control.Monad
-import           Control.Monad.IO.Class
-import           Control.Monad.Trans.Reader
 
 import qualified Data.Map as Map
 import           Data.Text (Text)
@@ -90,17 +88,17 @@ answerIQ :: IQRequestTicket
          -> Session
          -> IO Bool
 answerIQ (IQRequestTicket
-              sentRef
+              sRef
               (IQRequest iqid from _to lang _tp bd))
            answer session = do
   let response = case answer of
         Left err  -> IQErrorS $ IQError iqid Nothing from lang err (Just bd)
         Right res -> IQResultS $ IQResult iqid Nothing from lang res
   atomically $ do
-       sent <- readTVar sentRef
+       sent <- readTVar sRef
        case sent of
          False -> do
-             writeTVar sentRef True
+             writeTVar sRef True
 
              writeTChan (outCh  session) response
              return True

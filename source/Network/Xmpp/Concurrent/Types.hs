@@ -3,19 +3,13 @@
 
 module Network.Xmpp.Concurrent.Types where
 
-import qualified Control.Exception.Lifted as Ex
 import           Control.Concurrent
 import           Control.Concurrent.STM
-
+import qualified Control.Exception.Lifted as Ex
 import qualified Data.ByteString as BS
-import           Data.Typeable
-
-import           Network.Xmpp.Types
-
-import           Data.IORef
 import qualified Data.Map as Map
 import           Data.Text (Text)
-
+import           Data.Typeable
 import           Network.Xmpp.Types
 
 -- | Handlers to be run when the Xmpp session ends and when the Xmpp connection is

@@ -7,27 +7,26 @@
 
 module Network.Xmpp.Stream where
 
-import           Control.Applicative ((<$>), (<*>))
+import           Control.Applicative ((<$>))
 import           Control.Concurrent (forkIO, threadDelay)
 import           Control.Concurrent.STM
 import qualified Control.Exception as Ex
-import           Control.Exception.Base
 import qualified Control.Exception.Lifted as ExL
 import           Control.Monad
 import           Control.Monad.Error
-import           Control.Monad.IO.Class
-import           Control.Monad.Reader
 import           Control.Monad.State.Strict
-import           Control.Monad.Trans.Class
+import           Control.Monad.Trans.Resource as R
 import           Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
-import           Data.ByteString.Base64
 import qualified Data.ByteString.Char8 as BSC8
 import           Data.Conduit
 import           Data.Conduit.Binary as CB
 import qualified Data.Conduit.Internal as DCI
 import qualified Data.Conduit.List as CL
-import           Data.Maybe (fromJust, isJust, isNothing)
+import           Data.IP
+import           Data.List
+import           Data.Maybe
+import           Data.Ord
 import           Data.Text (Text)
 import qualified Data.Text as Text
 import           Data.Void (Void)
@@ -35,26 +34,17 @@ import           Data.XML.Pickle
 import           Data.XML.Types
 import qualified GHC.IO.Exception as GIE
 import           Network
+import           Network.DNS hiding (encode, lookup)
 import           Network.Xmpp.Marshal
 import           Network.Xmpp.Types
 import           System.IO
 import           System.IO.Error (tryIOError)
 import           System.Log.Logger
+import           System.Random (randomRIO)
 import           Text.XML.Stream.Parse as XP
 import           Text.XML.Unresolved(InvalidEventStream(..))
 
-import           Control.Monad.Trans.Resource as R
 import           Network.Xmpp.Utilities
-
-import           Network.DNS hiding (encode, lookup)
-
-import           Data.Ord
-import           Data.Maybe
-import           Data.List
-import           Data.IP
-import           System.Random
-
-import qualified Network.Socket as NS
 
 -- "readMaybe" definition, as readMaybe is not introduced in the `base' package
 -- until version 4.6.
@@ -72,6 +62,17 @@ mbl Nothing = []
 lmb :: [t] -> Maybe [t]
 lmb [] = Nothing
 lmb x = Just x
+
+pushing  :: MonadIO m =>
+               m (Either XmppFailure Bool)
+            -> ErrorT XmppFailure m ()
+pushing m = do
+    res <- ErrorT m
+    case res of
+        True -> return ()
+        False -> do
+            liftIO $ debugM "Pontarius.Xmpp" "Failed to send data."
+            throwError XmppOtherFailure
 
 -- Unpickles and returns a stream element.
 streamUnpickleElem :: PU [Node] a
@@ -115,33 +116,34 @@ openElementFromEvents = do
 startStream :: StateT StreamState IO (Either XmppFailure ())
 startStream = runErrorT $ do
     lift $ lift $ debugM "Pontarius.Xmpp" "Starting stream..."
-    state <- lift $ get
+    st <- lift $ get
     -- Set the `from' (which is also the expected to) attribute depending on the
     -- state of the stream.
-    let expectedTo = case ( streamConnectionState state
-                          , toJid $ streamConfiguration state) of
-          (Plain, (Just (jid, True))) -> Just jid
-          (Secured, (Just (jid, _))) -> Just jid
-          (Plain, Nothing) -> Nothing
-          (Secured, Nothing) -> Nothing
-    case streamAddress state of
+    let expectedTo = case ( streamConnectionState st
+                          , toJid $ streamConfiguration st) of
+          (Plain  , (Just (jid, True)))  -> Just jid
+          (Plain  , _                 )  -> Nothing
+          (Secured, (Just (jid, _   )))  -> Just jid
+          (Secured, Nothing           )  -> Nothing
+          (Closed , _                 )  -> Nothing
+    case streamAddress st of
         Nothing -> do
             lift $ lift $ errorM "Pontarius.XMPP" "Server sent no hostname."
             throwError XmppOtherFailure
-        Just address -> lift $ do
-            pushXmlDecl
-            pushOpenElement $
+        Just address -> do
+            pushing pushXmlDecl
+            pushing . pushOpenElement $
                 pickleElem xpStream ( "1.0"
                                     , expectedTo
                                     , Just (Jid Nothing address Nothing)
                                     , Nothing
-                                    , preferredLang $ streamConfiguration state
+                                    , preferredLang $ streamConfiguration st
                                     )
     response <- ErrorT $ runEventsSink $ runErrorT $ streamS expectedTo
     case response of
       Left e -> throwError e
       -- Successful unpickling of stream element.
-      Right (Right (ver, from, to, id, lt, features))
+      Right (Right (ver, from, to, sid, lt, features))
         | (Text.unpack ver) /= "1.0" ->
             closeStreamWithError StreamUnsupportedVersion Nothing
                 "Unknown version"
@@ -149,7 +151,7 @@ startStream = runErrorT $ do
             closeStreamWithError StreamInvalidXml Nothing
                 "Stream has no language tag"
         -- If `from' is set, we verify that it's the correct one. TODO: Should we check against the realm instead?
-        | isJust from && (from /= Just (Jid Nothing (fromJust $ streamAddress state) Nothing)) ->
+        | isJust from && (from /= Just (Jid Nothing (fromJust $ streamAddress st) Nothing)) ->
             closeStreamWithError StreamInvalidFrom Nothing
                 "Stream from is invalid"
         | to /= expectedTo ->
@@ -158,12 +160,12 @@ startStream = runErrorT $ do
         | otherwise -> do
             modify (\s -> s{ streamFeatures = features
                            , streamLang = lt
-                           , streamId = id
+                           , streamId = sid
                            , streamFrom = from
                          } )
             return ()
       -- Unpickling failed - we investigate the element.
-      Right (Left (Element name attrs children))
+      Right (Left (Element name attrs _children))
         | (nameLocalName name /= "stream") ->
             closeStreamWithError StreamInvalidXml Nothing
                "Root element is not stream"
@@ -180,10 +182,10 @@ startStream = runErrorT $ do
     closeStreamWithError  :: StreamErrorCondition -> Maybe Element -> String
                           -> ErrorT XmppFailure (StateT StreamState IO) ()
     closeStreamWithError sec el msg = do
-        lift . pushElement . pickleElem xpStreamError
+        void . lift . pushElement . pickleElem xpStreamError
             $ StreamErrorInfo sec Nothing el
-        lift $ closeStreams'
-        lift $ lift $ errorM "Pontarius.XMPP" $ "closeStreamWithError: " ++ msg
+        void . lift $ closeStreams'
+        liftIO $ errorM "Pontarius.XMPP" $ "closeStreamWithError: " ++ msg
         throwError XmppOtherFailure
     checkchildren children =
         let to'  = lookup "to"      children
@@ -207,12 +209,12 @@ startStream = runErrorT $ do
                                    ""
     safeRead x = case reads $ Text.unpack x of
         [] -> Nothing
-        [(y,_),_] -> Just y
+        ((y,_):_) -> Just y
 
 flattenAttrs :: [(Name, [Content])] -> [(Name, Text.Text)]
-flattenAttrs attrs = Prelude.map (\(name, content) ->
+flattenAttrs attrs = Prelude.map (\(name, cont) ->
                              ( name
-                             , Text.concat $ Prelude.map uncontentify content)
+                             , Text.concat $ Prelude.map uncontentify cont)
                              )
                          attrs
   where
@@ -230,11 +232,11 @@ restartStream = do
     modify (\s -> s{streamEventSource = newSource })
     startStream
   where
-    loopRead read = do
-        bs <- liftIO (read 4096)
+    loopRead rd = do
+        bs <- liftIO (rd 4096)
         if BS.null bs
             then return ()
-            else yield bs >> loopRead read
+            else yield bs >> loopRead rd
 
 -- Reads the (partial) stream:stream and the server features from the stream.
 -- Returns the (unvalidated) stream attributes, the unparsed element, or
@@ -248,12 +250,12 @@ streamS :: Maybe Jid -> StreamSink (Either Element ( Text
                                                    , Maybe Text
                                                    , Maybe LangTag
                                                    , StreamFeatures ))
-streamS expectedTo = do
-    header <- xmppStreamHeader
-    case header of
-      Right (version, from, to, id, langTag) -> do
+streamS _expectedTo = do -- TODO: check expectedTo
+    streamHeader <- xmppStreamHeader
+    case streamHeader of
+      Right (version, from, to, sid, lTag) -> do
         features <- xmppStreamFeatures
-        return $ Right (version, from, to, id, langTag, features)
+        return $ Right (version, from, to, sid, lTag, features)
       Left el -> return $ Left el
   where
     xmppStreamHeader :: StreamSink (Either Element (Text, Maybe Jid, Maybe Jid, Maybe Text.Text, Maybe LangTag))
@@ -281,7 +283,7 @@ openStream :: HostName -> StreamConfiguration -> IO (Either XmppFailure (Stream)
 openStream realm config = runErrorT $ do
     lift $ debugM "Pontarius.XMPP" "Opening stream..."
     stream' <- createStream realm config
-    result <- liftIO $ withStream startStream stream'
+    ErrorT . liftIO $ withStream startStream stream'
     return stream'
 
 -- | Send "</stream:stream>" and wait for the server to finish processing and to
@@ -290,14 +292,15 @@ openStream realm config = runErrorT $ do
 closeStreams :: Stream -> IO (Either XmppFailure [Element])
 closeStreams = withStream closeStreams'
 
+closeStreams' :: StateT StreamState IO (Either XmppFailure [Element])
 closeStreams' = do
     lift $ debugM "Pontarius.XMPP" "Closing stream..."
     send <- gets (streamSend . streamHandle)
     cc <- gets (streamClose . streamHandle)
-    liftIO $ send "</stream:stream>"
+    void . liftIO $ send "</stream:stream>"
     void $ liftIO $ forkIO $ do
         threadDelay 3000000 -- TODO: Configurable value
-        (Ex.try cc) :: IO (Either Ex.SomeException ())
+        void ((Ex.try cc) :: IO (Either Ex.SomeException ()))
         return ()
     collectElems []
   where
@@ -379,8 +382,8 @@ pullElement = do
 -- Pulls an element and unpickles it.
 pullUnpickle :: PU [Node] a -> StateT StreamState IO (Either XmppFailure a)
 pullUnpickle p = do
-    elem <- pullElement
-    case elem of
+    el <- pullElement
+    case el of
         Left e -> return $ Left e
         Right elem' -> do
             let res = unpickleElem p elem'
@@ -491,17 +494,17 @@ connect realm config = do
         UseSrv host -> connectSrv host
         UseRealm -> connectSrv realm
   where
-    connectSrv realm = do
-        case checkHostName (Text.pack realm) of
-            Just realm' -> do
+    connectSrv host = do
+        case checkHostName (Text.pack host) of
+            Just host' -> do
                 resolvSeed <- lift $ makeResolvSeed (resolvConf config)
                 lift $ debugM "Pontarius.Xmpp" "Performing SRV lookup..."
-                srvRecords <- srvLookup realm' resolvSeed
+                srvRecords <- srvLookup host' resolvSeed
                 case srvRecords of
                     Nothing -> do
                         lift $ debugM "Pontarius.Xmpp"
                             "No SRV records, using fallback process."
-                        lift $ resolvAndConnectTcp resolvSeed (BSC8.pack $ realm)
+                        lift $ resolvAndConnectTcp resolvSeed (BSC8.pack $ host)
                                                    5222
                     Just srvRecords' -> do
                         lift $ debugM "Pontarius.Xmpp"
@@ -517,10 +520,10 @@ connect realm config = do
 connectTcp :: [(HostName, PortID)] -> IO (Maybe Handle)
 connectTcp [] = return Nothing
 connectTcp ((address, port):remainder) = do
-    result <- try $ (do
+    result <- Ex.try $ (do
         debugM "Pontarius.Xmpp" $ "Connecting to " ++ address ++ " on port " ++
             (show port) ++ "."
-        connectTo address port) :: IO (Either IOException Handle)
+        connectTo address port) :: IO (Either Ex.IOException Handle)
     case result of
         Right handle -> do
             debugM "Pontarius.Xmpp" "Successfully connected to HostName."
@@ -534,23 +537,25 @@ connectTcp ((address, port):remainder) = do
 -- Surpresses all IO exceptions.
 resolvAndConnectTcp :: ResolvSeed -> Domain -> Int -> IO (Maybe Handle)
 resolvAndConnectTcp resolvSeed domain port = do
-    aaaaResults <- (try $ rethrowErrorCall $ withResolver resolvSeed $
-                        \resolver -> lookupAAAA resolver domain) :: IO (Either IOException (Maybe [IPv6]))
+    aaaaResults <- (Ex.try $ rethrowErrorCall $ withResolver resolvSeed $
+                        \resolver -> lookupAAAA resolver domain) :: IO (Either Ex.IOException (Maybe [IPv6]))
     handle <- case aaaaResults of
         Right Nothing -> return Nothing
         Right (Just ipv6s) -> connectTcp $
-                                  map (\ipv6 -> ( show ipv6
+                                  map (\ip -> ( show ip
                                                 , PortNumber $ fromIntegral port))
                                       ipv6s
-        Left e -> return Nothing
+        Left _e -> return Nothing
     case handle of
         Nothing -> do
-            aResults <- (try $ rethrowErrorCall $ withResolver resolvSeed $
-                             \resolver -> lookupA resolver domain) :: IO (Either IOException (Maybe [IPv4]))
+            aResults <- (Ex.try $ rethrowErrorCall $ withResolver resolvSeed $
+                             \resolver -> lookupA resolver domain) :: IO (Either Ex.IOException (Maybe [IPv4]))
             handle' <- case aResults of
+                Left  _       -> return Nothing
                 Right Nothing -> return Nothing
+
                 Right (Just ipv4s) -> connectTcp $
-                                          map (\ipv4 -> (show ipv4
+                                          map (\ip -> (show ip
                                                         , PortNumber
                                                           $ fromIntegral port))
                                               ipv4s
@@ -574,29 +579,30 @@ resolvSrvsAndConnectTcp resolvSeed ((domain, port):remaining) = do
 -- exceptions and rethrows them as IOExceptions.
 rethrowErrorCall :: IO a -> IO a
 rethrowErrorCall action = do
-    result <- try action
+    result <- Ex.try action
     case result of
         Right result' -> return result'
-        Left (ErrorCall e) -> ioError $ userError $ "rethrowErrorCall: " ++ e
-        Left e -> throwIO e
+        Left (Ex.ErrorCall e) -> Ex.ioError $ userError
+                                 $ "rethrowErrorCall: " ++ e
 
 -- Provides a list of A(AAA) names and port numbers upon a successful
 -- DNS-SRV request, or `Nothing' if the DNS-SRV request failed.
 srvLookup :: Text -> ResolvSeed -> ErrorT XmppFailure IO (Maybe [(Domain, Int)])
 srvLookup realm resolvSeed = ErrorT $ do
-    result <- try $ rethrowErrorCall $ withResolver resolvSeed $ \resolver -> do
+    result <- Ex.try $ rethrowErrorCall $ withResolver resolvSeed
+              $ \resolver -> do
         srvResult <- lookupSRV resolver $ BSC8.pack $ "_xmpp-client._tcp." ++ (Text.unpack realm) ++ "."
         case srvResult of
-            Just srvResult -> do
-                debugM "Pontarius.Xmpp" $ "SRV result: " ++ (show srvResult)
-                -- Get [(Domain, PortNumber)] of SRV request, if any.
-                srvResult' <- orderSrvResult srvResult
-                return $ Just $ Prelude.map (\(_, _, port, domain) -> (domain, port)) srvResult'
-            -- The service is not available at this domain.
-            -- Sorts the records based on the priority value.
             Just [(_, _, _, ".")] -> do
                 debugM "Pontarius.Xmpp" $ "\".\" SRV result returned."
                 return $ Just []
+            Just srvResult' -> do
+                debugM "Pontarius.Xmpp" $ "SRV result: " ++ (show srvResult')
+                -- Get [(Domain, PortNumber)] of SRV request, if any.
+                orderedSrvResult <- orderSrvResult srvResult'
+                return $ Just $ Prelude.map (\(_, _, port, domain) -> (domain, port)) orderedSrvResult
+            -- The service is not available at this domain.
+            -- Sorts the records based on the priority value.
             Nothing -> do
                 debugM "Pontarius.Xmpp" "No SRV result returned."
                 return Nothing
@@ -627,7 +633,7 @@ srvLookup realm resolvSeed = ErrorT $ do
         orderSublist sublist = do
             -- Compute the running sum, as well as the total sum of
             -- the sublist. Add the running sum to the SRV tuples.
-            let (total, sublist') = Data.List.mapAccumL (\total (priority, weight, port, domain) -> (total + weight, (priority, weight, port, domain, total + weight))) 0 sublist
+            let (total, sublist') = Data.List.mapAccumL (\total' (priority, weight, port, domain) -> (total' + weight, (priority, weight, port, domain, total' + weight))) 0 sublist
             -- Choose a random number between 0 and the total sum
             -- (inclusive).
             randomNumber <- randomRIO (0, total)
@@ -636,11 +642,11 @@ srvLookup realm resolvSeed = ErrorT $ do
             let (beginning, ((priority, weight, port, domain, _):end)) = Data.List.break (\(_, _, _, _, running) -> randomNumber <= running) sublist'
             -- Remove the running total number from the remaining
             -- elements.
-            let sublist'' = Data.List.map (\(priority, weight, port, domain, _) -> (priority, weight, port, domain)) (Data.List.concat [beginning, end])
+            let sublist'' = Data.List.map (\(priority', weight', port', domain', _) -> (priority', weight', port', domain')) (Data.List.concat [beginning, end])
             -- Repeat the ordering procedure on the remaining
             -- elements.
-            tail <- orderSublist sublist''
-            return $ ((priority, weight, port, domain):tail)
+            rest <- orderSublist sublist''
+            return $ ((priority, weight, port, domain):rest)
 
 -- Closes the connection and updates the XmppConMonad Stream state.
 -- killStream :: Stream -> IO (Either ExL.SomeException ())
@@ -661,23 +667,24 @@ pushIQ :: StanzaID
        -> Element
        -> Stream
        -> IO (Either XmppFailure (Either IQError IQResult))
-pushIQ iqID to tp lang body stream = do
-    pushStanza (IQRequestS $ IQRequest iqID Nothing to lang tp body) stream
-    res <- pullStanza stream
+pushIQ iqID to tp lang body stream = runErrorT $ do
+    pushing $ pushStanza
+        (IQRequestS $ IQRequest iqID Nothing to lang tp body) stream
+    res <- lift $ pullStanza stream
     case res of
-        Left e -> return $ Left e
-        Right (IQErrorS e) -> return $ Right $ Left e
+        Left e -> throwError e
+        Right (IQErrorS e) -> return $ Left e
         Right (IQResultS r) -> do
             unless
                 (iqID == iqResultID r) $ liftIO $ do
-                    errorM "Pontarius.XMPP" $ "pushIQ: ID mismatch (" ++ (show iqID) ++ " /= " ++ (show $ iqResultID r) ++ ")."
-                    ExL.throwIO XmppOtherFailure
+                    liftIO $ errorM "Pontarius.XMPP" $ "pushIQ: ID mismatch (" ++ (show iqID) ++ " /= " ++ (show $ iqResultID r) ++ ")."
+                    liftIO $ ExL.throwIO XmppOtherFailure
                 -- TODO: Log: ("In sendIQ' IDs don't match: " ++ show iqID ++
                 -- " /= " ++ show (iqResultID r) ++ " .")
-            return $ Right $ Right r
+            return $ Right r
         _ -> do
-                 errorM "Pontarius.XMPP" $ "pushIQ: Unexpected stanza type."
-                 return . Left $ XmppOtherFailure
+                 liftIO $ errorM "Pontarius.XMPP" $ "pushIQ: Unexpected stanza type."
+                 throwError XmppOtherFailure
 
 debugConduit :: Pipe l ByteString ByteString u IO b
 debugConduit = forever $ do
@@ -695,7 +702,9 @@ elements = do
             Just (EventBeginElement n as) -> do
                                                  goE n as >>= yield
                                                  elements
-            Just (EventEndElement streamName) -> lift $ R.monadThrow StreamEnd
+            -- This might be an XML error if the end element tag is not
+            -- "</stream>". TODO: We might want to check this at a later time
+            Just (EventEndElement _) -> lift $ R.monadThrow StreamEnd
             Nothing -> return ()
             _ -> lift $ R.monadThrow $ InvalidXmppXml $ "not an element: " ++ show x
   where
@@ -705,8 +714,8 @@ elements = do
         go front = do
             x <- f
             case x of
-                Left x -> return $ (x, front [])
-                Right y -> go (front . (:) y)
+                Left l -> return $ (l, front [])
+                Right r -> go (front . (:) r)
     goE n as = do
         (y, ns) <- many' goN
         if y == Just (EventEndElement n)
@@ -730,11 +739,8 @@ elements = do
         compressNodes $ NodeContent (ContentText $ x `Text.append` y) : z
     compressNodes (x:xs) = x : compressNodes xs
 
-    streamName :: Name
-    streamName = (Name "stream" (Just "http://etherx.jabber.org/streams") (Just "stream"))
-
 withStream :: StateT StreamState IO (Either XmppFailure c) -> Stream -> IO (Either XmppFailure c)
-withStream action (Stream stream) = bracketOnError
+withStream action (Stream stream) = Ex.bracketOnError
                                          (atomically $ takeTMVar stream )
                                          (atomically . putTMVar stream)
                                          (\s -> do

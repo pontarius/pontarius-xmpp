@@ -5,37 +5,21 @@ module Network.Xmpp.Sasl.Mechanisms.DigestMd5
     ( digestMd5
     ) where
 
-import           Control.Applicative
-import           Control.Arrow (left)
-import           Control.Monad
 import           Control.Monad.Error
 import           Control.Monad.State.Strict
-import           Data.Maybe (fromJust, isJust)
-
 import qualified Crypto.Classes as CC
-
 import qualified Data.Binary as Binary
+import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base64 as B64
 import qualified Data.ByteString.Char8 as BS8
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.Digest.Pure.MD5 as MD5
 import qualified Data.List as L
-
-import qualified Data.Text as Text
 import           Data.Text (Text)
 import qualified Data.Text.Encoding as Text
-
-import           Data.XML.Pickle
-
-import qualified Data.ByteString as BS
-
-import           Data.XML.Types
-
-import           Network.Xmpp.Stream
-import           Network.Xmpp.Types
 import           Network.Xmpp.Sasl.Common
-import           Network.Xmpp.Sasl.StringPrep
 import           Network.Xmpp.Sasl.Types
+import           Network.Xmpp.Types
 
 
 
@@ -43,19 +27,19 @@ xmppDigestMd5 ::  Text -- ^ Authentication identity (authzid or username)
                -> Maybe Text -- ^ Authorization identity (authcid)
                -> Text -- ^ Password (authzid)
                -> ErrorT AuthFailure (StateT StreamState IO) ()
-xmppDigestMd5 authcid authzid password = do
-    (ac, az, pw) <- prepCredentials authcid authzid password
+xmppDigestMd5 authcid' authzid' password' = do
+    (ac, az, pw) <- prepCredentials authcid' authzid' password'
     Just address <- gets streamAddress
     xmppDigestMd5' address ac az pw
   where
     xmppDigestMd5' :: Text -> Text -> Maybe Text -> Text -> ErrorT AuthFailure (StateT StreamState IO) ()
-    xmppDigestMd5' hostname authcid authzid password = do
+    xmppDigestMd5' hostname authcid _authzid password = do -- TODO: use authzid?
         -- Push element and receive the challenge.
         _ <- saslInit "DIGEST-MD5" Nothing -- TODO: Check boolean?
-        pairs <- toPairs =<< saslFromJust =<< pullChallenge
+        prs <- toPairs =<< saslFromJust =<< pullChallenge
         cnonce <- liftIO $ makeNonce
-        _b <- respond . Just $ createResponse hostname pairs cnonce
-        challenge2 <- pullFinalMessage
+        _b <- respond . Just $ createResponse hostname prs cnonce
+        _challenge2 <- pullFinalMessage
         return ()
       where
         -- Produce the response to the challenge.
@@ -63,19 +47,19 @@ xmppDigestMd5 authcid authzid password = do
                        -> Pairs
                        -> BS.ByteString -- nonce
                        -> BS.ByteString
-        createResponse hostname pairs cnonce = let
-            Just qop   = L.lookup "qop" pairs -- TODO: proper handling
-            Just nonce = L.lookup "nonce" pairs
+        createResponse hname prs cnonce = let
+            Just qop   = L.lookup "qop" prs -- TODO: proper handling
+            Just nonce = L.lookup "nonce" prs
             uname_     = Text.encodeUtf8 authcid
             passwd_    = Text.encodeUtf8 password
             -- Using Int instead of Word8 for random 1.0.0.0 (GHC 7)
             -- compatibility.
 
             nc         = "00000001"
-            digestURI  = "xmpp/" `BS.append` Text.encodeUtf8 hostname
+            digestURI  = "xmpp/" `BS.append` Text.encodeUtf8 hname
             digest     = md5Digest
                 uname_
-                (lookup "realm" pairs)
+                (lookup "realm" prs)
                 passwd_
                 digestURI
                 nc
@@ -84,7 +68,7 @@ xmppDigestMd5 authcid authzid password = do
                 cnonce
             response = BS.intercalate "," . map (BS.intercalate "=") $
                 [["username", quote uname_]] ++
-                    case L.lookup "realm" pairs of
+                    case L.lookup "realm" prs of
                         Just realm -> [["realm" , quote realm ]]
                         Nothing -> [] ++
                             [ ["nonce"     , quote nonce    ]
@@ -115,8 +99,8 @@ xmppDigestMd5 authcid authzid password = do
                   -> BS8.ByteString
                   -> BS8.ByteString
                   -> BS8.ByteString
-        md5Digest uname realm password digestURI nc qop nonce cnonce =
-          let ha1 = hash [ hashRaw [uname, maybe "" id realm, password]
+        md5Digest uname realm pwd digestURI nc qop nonce cnonce =
+          let ha1 = hash [ hashRaw [uname, maybe "" id realm, pwd]
                          , nonce
                          , cnonce
                          ]
