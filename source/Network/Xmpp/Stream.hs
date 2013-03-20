@@ -19,9 +19,10 @@ import           Control.Monad.IO.Class
 import           Control.Monad.Reader
 import           Control.Monad.State.Strict
 import           Control.Monad.Trans.Class
+import           Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 import           Data.ByteString.Base64
-import           Data.ByteString.Char8 as BSC8
+import qualified Data.ByteString.Char8 as BSC8
 import           Data.Conduit
 import           Data.Conduit.Binary as CB
 import qualified Data.Conduit.Internal as DCI
@@ -483,60 +484,50 @@ createStream realm config = do
 -- attempt has been made. Will return the Handle acquired, if any.
 connect :: HostName -> StreamConfiguration -> ErrorT XmppFailure IO (Maybe Handle)
 connect realm config = do
-    case socketDetails config of
-        -- Just (_, NS.SockAddrUnix _) -> do
-        --     lift $ errorM "Pontarius.Xmpp" "SockAddrUnix address provided."
-        --     throwError XmppIllegalTcpDetails
-        Just socketDetails' -> lift $ do
-            debugM "Pontarius.Xmpp" "Connecting to configured SockAddr address..."
-            connectTcp $ Left socketDetails'
-        Nothing -> do
-            case (readMaybe_ realm :: Maybe IPv6, readMaybe_ realm :: Maybe IPv4, hostname (Text.pack realm) :: Maybe Hostname) of
-                (Just ipv6, Nothing, _) -> lift $ connectTcp $ Right [(show ipv6, 5222)]
-                (Nothing, Just ipv4, _) -> lift $ connectTcp $ Right [(show ipv4, 5222)]
-                (Nothing, Nothing, Just (Hostname realm')) -> do
-                    resolvSeed <- lift $ makeResolvSeed (resolvConf config)
-                    lift $ debugM "Pontarius.Xmpp" "Performing SRV lookup..."
-                    srvRecords <- srvLookup realm' resolvSeed
-                    case srvRecords of
-                        -- No SRV records. Try fallback lookup.
-                        Nothing -> do
-                            lift $ debugM "Pontarius.Xmpp" "No SRV records, using fallback process..."
-                            lift $ resolvAndConnectTcp resolvSeed (BSC8.pack $ realm) 5222
-                        Just srvRecords' -> do
-                            lift $ debugM "Pontarius.Xmpp" "SRV records found, performing A/AAAA lookups..."
-                            lift $ resolvSrvsAndConnectTcp resolvSeed srvRecords'
-                (Nothing, Nothing, Nothing) -> do
-                    lift $ errorM "Pontarius.Xmpp" "The hostname could not be validated."
+    case connectionDetails config of
+        UseHost host port -> lift $ do
+            debugM "Pontarius.Xmpp" "Connecting to configured address."
+            connectTcp $ [(host, port)]
+        UseSrv host -> connectSrv host
+        UseRealm -> connectSrv realm
+  where
+    connectSrv realm = do
+        case checkHostName (Text.pack realm) of
+            Just realm' -> do
+                resolvSeed <- lift $ makeResolvSeed (resolvConf config)
+                lift $ debugM "Pontarius.Xmpp" "Performing SRV lookup..."
+                srvRecords <- srvLookup realm' resolvSeed
+                case srvRecords of
+                    Nothing -> do
+                        lift $ debugM "Pontarius.Xmpp"
+                            "No SRV records, using fallback process."
+                        lift $ resolvAndConnectTcp resolvSeed (BSC8.pack $ realm)
+                                                   5222
+                    Just srvRecords' -> do
+                        lift $ debugM "Pontarius.Xmpp"
+                            "SRV records found, performing A/AAAA lookups."
+                        lift $ resolvSrvsAndConnectTcp resolvSeed srvRecords'
+            Nothing -> do
+                    lift $ errorM "Pontarius.Xmpp"
+                        "The hostname could not be validated."
                     throwError XmppIllegalTcpDetails
 
 -- Connects to a list of addresses and ports. Surpresses any exceptions from
 -- connectTcp.
-connectTcp :: Either (NS.Socket, NS.SockAddr) [(HostName, Int)] -> IO (Maybe Handle)
-connectTcp (Right []) = return Nothing
-connectTcp (Right ((address, port):remainder)) = do
+connectTcp :: [(HostName, PortID)] -> IO (Maybe Handle)
+connectTcp [] = return Nothing
+connectTcp ((address, port):remainder) = do
     result <- try $ (do
-        debugM "Pontarius.Xmpp" $ "Connecting to " ++ (address) ++ " on port " ++
+        debugM "Pontarius.Xmpp" $ "Connecting to " ++ address ++ " on port " ++
             (show port) ++ "."
-        connectTo address (PortNumber $ fromIntegral port)) :: IO (Either IOException Handle)
+        connectTo address port) :: IO (Either IOException Handle)
     case result of
         Right handle -> do
             debugM "Pontarius.Xmpp" "Successfully connected to HostName."
             return $ Just handle
         Left _ -> do
             debugM "Pontarius.Xmpp" "Connection to HostName could not be established."
-            connectTcp $ Right remainder
-connectTcp (Left (sock, sockAddr)) = do
-    result <- try $ (do
-        NS.connect sock sockAddr
-        NS.socketToHandle sock ReadWriteMode) :: IO (Either IOException Handle)
-    case result of
-        Right handle -> do
-            debugM "Pontarius.Xmpp" "Successfully connected to SockAddr."
-            return $ Just handle
-        Left _ -> do
-            debugM "Pontarius.Xmpp" "Connection to SockAddr could not be established."
-            return Nothing
+            connectTcp remainder
 
 -- Makes an AAAA query to acquire a IPs, and tries to connect to all of them. If
 -- a handle can not be acquired this way, an analogous A query is performed.
@@ -547,7 +538,10 @@ resolvAndConnectTcp resolvSeed domain port = do
                         \resolver -> lookupAAAA resolver domain) :: IO (Either IOException (Maybe [IPv6]))
     handle <- case aaaaResults of
         Right Nothing -> return Nothing
-        Right (Just ipv6s) -> connectTcp $ Right $ Data.List.map (\ipv6 -> (show ipv6, port)) ipv6s
+        Right (Just ipv6s) -> connectTcp $
+                                  map (\ipv6 -> ( show ipv6
+                                                , PortNumber $ fromIntegral port))
+                                      ipv6s
         Left e -> return Nothing
     case handle of
         Nothing -> do
@@ -555,7 +549,11 @@ resolvAndConnectTcp resolvSeed domain port = do
                              \resolver -> lookupA resolver domain) :: IO (Either IOException (Maybe [IPv4]))
             handle' <- case aResults of
                 Right Nothing -> return Nothing
-                Right (Just ipv4s) -> connectTcp $ Right $ Data.List.map (\ipv4 -> (show ipv4, port)) ipv4s
+                Right (Just ipv4s) -> connectTcp $
+                                          map (\ipv4 -> (show ipv4
+                                                        , PortNumber
+                                                          $ fromIntegral port))
+                                              ipv4s
             case handle' of
                 Nothing -> return Nothing
                 Just handle'' -> return $ Just handle''

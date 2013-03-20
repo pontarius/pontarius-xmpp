@@ -37,6 +37,7 @@ module Network.Xmpp.Types
     , ConnectionState(..)
     , StreamErrorInfo(..)
     , StanzaHandler
+    , ConnectionDetails(..)
     , StreamConfiguration(..)
     , langTag
     , Jid(..)
@@ -46,8 +47,7 @@ module Network.Xmpp.Types
     , jidFromTexts
     , StreamEnd(..)
     , InvalidXmppXml(..)
-    , Hostname(..)
-    , hostname
+    , checkHostName
     , SessionConfiguration(..)
     , TlsBehaviour(..)
     )
@@ -70,7 +70,6 @@ import           Data.Typeable(Typeable)
 import           Data.XML.Types
 import           Network
 import           Network.DNS
-import           Network.Socket
 import           Network.TLS hiding (Version)
 import           Network.TLS.Extra
 import qualified Text.NamePrep as SP
@@ -1012,6 +1011,10 @@ data InvalidXmppXml = InvalidXmppXml String deriving (Show, Typeable)
 
 instance Exception InvalidXmppXml
 
+data ConnectionDetails = UseRealm -- ^ Use realm to resolv host
+                       | UseSrv HostName -- ^ Use this hostname for a SRC lookup
+                       | UseHost HostName PortID -- ^ Use specified host
+
 -- | Configuration settings related to the stream.
 data StreamConfiguration =
     StreamConfiguration { -- | Default language when no language tag is set
@@ -1026,7 +1029,7 @@ data StreamConfiguration =
                           -- of the realm, as well as specify the use of a
                           -- non-standard port when connecting by IP or
                           -- connecting to a domain without SRV records.
-                        , socketDetails :: Maybe (Socket, SockAddr)
+                        , connectionDetails :: ConnectionDetails
                           -- | DNS resolver configuration
                         , resolvConf :: ResolvConf
                           -- | Whether or not to perform the legacy
@@ -1039,11 +1042,10 @@ data StreamConfiguration =
                         , tlsParams :: TLSParams
                         }
 
-
 instance Default StreamConfiguration where
     def = StreamConfiguration { preferredLang = Nothing
                               , toJid = Nothing
-                              , socketDetails = Nothing
+                              , connectionDetails = UseRealm
                               , resolvConf = defaultResolvConf
                               , establishSession = True
                               , tlsBehaviour = PreferTls
@@ -1053,22 +1055,12 @@ instance Default StreamConfiguration where
                                                                 }
                               }
 
-data Hostname = Hostname Text deriving (Eq, Show)
-
-instance Read Hostname where
-  readsPrec _ x = case hostname (Text.pack x) of
-      Nothing -> []
-      Just h -> [(h,"")]
-
-instance IsString Hostname where
-  fromString = fromJust . hostname . Text.pack
-
 -- | Validates the hostname string in accordance with RFC 1123.
-hostname :: Text -> Maybe Hostname
-hostname t = do
-    eitherToMaybeHostname $ AP.parseOnly hostnameP t
+checkHostName :: Text -> Maybe Text
+checkHostName t = do
+    eitherToMaybeHostName $ AP.parseOnly hostnameP t
   where
-    eitherToMaybeHostname = either (const Nothing) (Just . Hostname)
+    eitherToMaybeHostName = either (const Nothing) Just
 
 -- Validation of RFC 1123 hostnames.
 hostnameP :: AP.Parser Text
