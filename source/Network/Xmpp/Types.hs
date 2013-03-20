@@ -1100,7 +1100,7 @@ data SessionConfiguration = SessionConfiguration
       -- | Handler to be run when the session ends (for whatever reason).
     , sessionClosedHandler :: XmppFailure -> IO ()
       -- | Function to generate the stream of stanza identifiers.
-    , sessionStanzaIDs :: IO StanzaID
+    , sessionStanzaIDs :: IO (IO StanzaID)
     , extraStanzaHandlers   :: [StanzaHandler]
     }
 
@@ -1109,10 +1109,10 @@ instance Default SessionConfiguration where
                                , sessionClosedHandler = \_ -> return ()
                                , sessionStanzaIDs = do
                                      idRef <- newTVarIO 1
-                                     atomically $ do
+                                     return . atomically $ do
                                          curId <- readTVar idRef
                                          writeTVar idRef (curId + 1 :: Integer)
-                                         return . read. show $ curId
+                                         return . StanzaID . Text.pack . show $ curId
                                , extraStanzaHandlers = []
                                }
 
