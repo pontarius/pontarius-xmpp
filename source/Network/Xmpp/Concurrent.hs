@@ -113,12 +113,13 @@ newSession stream config = runErrorT $ do
                                                           ]
     (kill, wLock, streamState, readerThread) <- ErrorT $ startThreadsWith stanzaHandler eh stream
     writer <- lift $ forkIO $ writeWorker outC wLock
+    idGen <- liftIO $ sessionStanzaIDs config
     return $ Session { stanzaCh = stanzaChan
                      , outCh = outC
                      , iqHandlers = iqHandlers
                      , writeRef = wLock
                      , readerThread = readerThread
-                     , idGenerator = sessionStanzaIDs config
+                     , idGenerator = idGen
                      , streamRef = streamState
                      , eventHandlers = eh
                      , stopThreads = kill >> killThread writer
