@@ -14,7 +14,11 @@ page](http://hackage.haskell.org/package/pontarius-xmpp/).
 _Note:_ Pontarius XMPP is still in its Alpha phase. Pontarius XMPP is not yet
 feature-complete, it may contain bugs, and its API may change between versions.
 
-The first thing to do is to import the modules that we are going to use.
+The first thing to do is to import the modules that we are going to use. We are
+also using the OverloadedStrings LANGUAGE pragma in order to be able to type
+<code>Text</code> values like strings.
+
+    {-# LANGUAGE OverloadedStrings #-}
 
     import Network.Xmpp
 
@@ -34,9 +38,6 @@ When this is done, a <code>Session</code> object can be acquired by calling
                  "example.com"
                   def
                   (Just ([scramSha1 "username" Nothing "password"], Nothing))
-
-_Tip:_ Note that the first parameter actually is a Text value. Import
-<code>Data.Text</code> and use the OverloadedStrings LANGUAGE pragma.
 
 The three parameters above are the XMPP server realm, the session configuration
 settings (set to the default settings), and a SASL handler (for authentication).
