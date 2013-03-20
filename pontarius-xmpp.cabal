@@ -18,6 +18,13 @@ Description:   Pontarius XMPP is a work in progress implementation of
 Category:      Network
 Tested-With:   GHC ==7.0.4, GHC ==7.4.1
 
+Extra-Source-Files: README.md
+                  , examples/echoclient/echoclient.cabal
+                  , examples/echoclient/LICENSE.md
+                  , examples/echoclient/Main.hs
+                  , examples/echoclient/README.md
+                  , examples/echoclient/Setup.hs
+
 Library
   hs-source-dirs: source
   Exposed: True
