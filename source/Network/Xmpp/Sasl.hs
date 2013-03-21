@@ -75,7 +75,7 @@ auth mechanisms resource con = runErrorT $ do
     case mbAuthFail of
         Nothing -> do
             _jid <- ErrorT $ xmppBind resource con
-            ErrorT $ flip withStream con $ do
+            ErrorT $ flip withStream' con $ do
                 s <- get
                 case establishSession $ streamConfiguration s of
                     False -> return $ Right Nothing
