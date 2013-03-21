@@ -101,19 +101,17 @@ xmppBind rsrc c = runErrorT $ do
     answer <- ErrorT $ pushIQ "bind" Nothing Set Nothing (bindBody rsrc) c
     case answer of
         Right IQResult{iqResultPayload = Just b} -> do
-            lift $ debugM "Pontarius.XMPP" "xmppBind: IQ result received; unpickling JID..."
+            lift $ debugM "Pontarius.Xmpp" "xmppBind: IQ result received; unpickling JID..."
             let jid = unpickleElem xpJid b
             case jid of
                 Right jid' -> do
-                    lift $ infoM "Pontarius.XMPP" $ "Bound JID: " ++ show jid'
-                    _ <- lift $ withStream ( do
-                                                  modify $ \s ->
-                                                      s{streamJid = Just jid'}
-                                                  return $ Right ())
+                    lift $ infoM "Pontarius.Xmpp" $ "Bound JID: " ++ show jid'
+                    _ <- lift $ withStream ( do modify $ \s ->
+                                                    s{streamJid = Just jid'})
                                            c
                     return jid'
                 _ -> do
-                    lift $ errorM "Pontarius.XMPP"
+                    lift $ errorM "Pontarius.Xmpp"
                         $ "xmppBind: JID could not be unpickled from: "
                           ++ show b
                     throwError $ XmppOtherFailure

@@ -29,6 +29,7 @@ import           Data.Maybe
 import           Data.Ord
 import           Data.Text (Text)
 import qualified Data.Text as Text
+import qualified Data.Text.Encoding as Text
 import           Data.Void (Void)
 import           Data.XML.Pickle
 import           Data.XML.Types
@@ -236,7 +237,11 @@ restartStream = do
         bs <- liftIO (rd 4096)
         if BS.null bs
             then return ()
-            else yield bs >> loopRead rd
+            else do
+               liftIO $ debugM "Pontarius.Xmpp" $ "in: " ++
+                              (Text.unpack . Text.decodeUtf8 $ bs)
+               yield bs
+               loopRead rd
 
 -- Reads the (partial) stream:stream and the server features from the stream.
 -- Returns the (unvalidated) stream attributes, the unparsed element, or
@@ -739,7 +744,7 @@ elements = do
         compressNodes $ NodeContent (ContentText $ x `Text.append` y) : z
     compressNodes (x:xs) = x : compressNodes xs
 
-withStream :: StateT StreamState IO (Either XmppFailure c) -> Stream -> IO (Either XmppFailure c)
+withStream :: StateT StreamState IO a -> Stream -> IO a
 withStream action (Stream stream) = Ex.bracketOnError
                                          (atomically $ takeTMVar stream )
                                          (atomically . putTMVar stream)
