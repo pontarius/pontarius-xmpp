@@ -47,7 +47,6 @@ module Network.Xmpp.Types
     , jidFromTexts
     , StreamEnd(..)
     , InvalidXmppXml(..)
-    , checkHostName
     , SessionConfiguration(..)
     , TlsBehaviour(..)
     )
@@ -1055,32 +1054,6 @@ instance Default StreamConfiguration where
                                                                 }
                               }
 
--- | Validates the hostname string in accordance with RFC 1123.
-checkHostName :: Text -> Maybe Text
-checkHostName t = do
-    eitherToMaybeHostName $ AP.parseOnly hostnameP t
-  where
-    eitherToMaybeHostName = either (const Nothing) Just
-
--- Validation of RFC 1123 hostnames.
-hostnameP :: AP.Parser Text
-hostnameP = do
-    -- Hostnames may not begin with a hyphen.
-    h <- AP.satisfy $ AP.inClass $ ['A'..'Z'] ++ ['a'..'z'] ++ ['0'..'9']
-    t <- AP.takeWhile $ AP.inClass $ ['A'..'Z'] ++ ['a'..'z'] ++ ['0'..'9'] ++ ['-']
-    let label = Text.concat [Text.pack [h], t]
-    if Text.length label > 63
-        then fail "Label too long."
-        else do
-            AP.endOfInput
-            return label
-            <|> do
-                _ <- AP.satisfy (== '.')
-                r <- hostnameP
-                if (Text.length label) + 1 + (Text.length r) > 255
-                    then fail "Hostname too long."
-                    else return $ Text.concat [label, Text.pack ".", r]
-
 type StanzaHandler =  TChan Stanza -- ^ outgoing stanza
                    -> Stanza       -- ^ stanza to handle
                    -> IO Bool      -- ^ True when processing should continue
@@ -1090,10 +1063,11 @@ data SessionConfiguration = SessionConfiguration
     { -- | Configuration for the @Stream@ object.
       sessionStreamConfiguration :: StreamConfiguration
       -- | Handler to be run when the session ends (for whatever reason).
-    , sessionClosedHandler :: XmppFailure -> IO ()
+    , sessionClosedHandler       :: XmppFailure -> IO ()
       -- | Function to generate the stream of stanza identifiers.
-    , sessionStanzaIDs :: IO (IO StanzaID)
-    , extraStanzaHandlers   :: [StanzaHandler]
+    , sessionStanzaIDs           :: IO (IO StanzaID)
+    , extraStanzaHandlers        :: [StanzaHandler]
+    , enableRoster               :: Bool
     }
 
 instance Default SessionConfiguration where

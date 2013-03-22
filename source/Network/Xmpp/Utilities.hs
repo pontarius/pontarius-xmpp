@@ -9,17 +9,22 @@ module Network.Xmpp.Utilities
     , answerMessage
     , openElementToEvents
     , renderOpenElement
-    , renderElement)
+    , renderElement
+    , checkHostName
+    )
     where
 
-import           Network.Xmpp.Types
-import           Prelude
-import           Data.XML.Types
+import           Control.Applicative ((<|>))
+import qualified Data.Attoparsec.Text as AP
 import qualified Data.ByteString as BS
 import           Data.Conduit as C
 import           Data.Conduit.List as CL
 import qualified Data.Text as Text
+import           Data.Text(Text)
 import qualified Data.Text.Encoding as Text
+import           Data.XML.Types
+import           Network.Xmpp.Types
+import           Prelude
 import           System.IO.Unsafe(unsafePerformIO)
 import qualified Text.XML.Stream.Render as TXSR
 import           Text.XML.Unresolved as TXU
@@ -77,3 +82,29 @@ renderElement e = Text.encodeUtf8 . Text.concat . unsafePerformIO
     elementToEvents :: Element -> [Event]
     elementToEvents el@(Element name _ _) = openElementToEvents el
                                               ++ [EventEndElement name]
+
+-- | Validates the hostname string in accordance with RFC 1123.
+checkHostName :: Text -> Maybe Text
+checkHostName t = do
+    eitherToMaybeHostName $ AP.parseOnly hostnameP t
+  where
+    eitherToMaybeHostName = either (const Nothing) Just
+
+-- Validation of RFC 1123 hostnames.
+hostnameP :: AP.Parser Text
+hostnameP = do
+    -- Hostnames may not begin with a hyphen.
+    h <- AP.satisfy $ AP.inClass $ ['A'..'Z'] ++ ['a'..'z'] ++ ['0'..'9']
+    t <- AP.takeWhile $ AP.inClass $ ['A'..'Z'] ++ ['a'..'z'] ++ ['0'..'9'] ++ ['-']
+    let label = Text.concat [Text.pack [h], t]
+    if Text.length label > 63
+        then fail "Label too long."
+        else do
+            AP.endOfInput
+            return label
+            <|> do
+                _ <- AP.satisfy (== '.')
+                r <- hostnameP
+                if (Text.length label) + 1 + (Text.length r) > 255
+                    then fail "Hostname too long."
+                    else return $ Text.concat [label, Text.pack ".", r]
