@@ -7,9 +7,15 @@ module Network.Xmpp.IM
   , newIM
   , simpleIM
   , answerIM
-  -- * Presence
+    -- * Presence
   , module Network.Xmpp.IM.Presence
+  -- * Roster
+  , Roster(..)
+  , Item(..)
+  , getRoster
   ) where
 
 import Network.Xmpp.IM.Message
 import Network.Xmpp.IM.Presence
+import Network.Xmpp.IM.Roster
+import Network.Xmpp.IM.Roster.Types

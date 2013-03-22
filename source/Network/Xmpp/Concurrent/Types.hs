@@ -10,6 +10,8 @@ import qualified Data.ByteString as BS
 import qualified Data.Map as Map
 import           Data.Text (Text)
 import           Data.Typeable
+
+import           Network.Xmpp.IM.Roster.Types
 import           Network.Xmpp.Types
 
 -- | Handlers to be run when the Xmpp session ends and when the Xmpp connection is
@@ -41,6 +43,7 @@ data Session = Session
     , streamRef :: TMVar (Stream)
     , eventHandlers :: TVar EventHandlers
     , stopThreads :: IO ()
+    , rosterRef :: TVar Roster
     , conf :: SessionConfiguration
     }
 

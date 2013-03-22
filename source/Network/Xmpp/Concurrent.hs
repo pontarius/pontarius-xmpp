@@ -32,6 +32,8 @@ import           Network.Xmpp.Concurrent.Monad
 import           Network.Xmpp.Concurrent.Presence
 import           Network.Xmpp.Concurrent.Threads
 import           Network.Xmpp.Concurrent.Types
+import           Network.Xmpp.IM.Roster.Types
+import           Network.Xmpp.IM.Roster
 import           Network.Xmpp.Marshal
 import           Network.Xmpp.Sasl
 import           Network.Xmpp.Sasl.Types
@@ -98,10 +100,15 @@ newSession stream config = runErrorT $ do
     stanzaChan <- lift newTChanIO
     iqHands  <- lift $ newTVarIO (Map.empty, Map.empty)
     eh <- lift $ newTVarIO $ EventHandlers { connectionClosedHandler = sessionClosedHandler config }
-    let stanzaHandler = runHandlers outC $ Prelude.concat [ [toChan stanzaChan]
+    ros <- liftIO . newTVarIO $ Roster Nothing Map.empty
+    let rosterH = if (enableRoster config) then handleRoster ros
+                                           else \ _ _ -> return True
+    let stanzaHandler = runHandlers outC $ Prelude.concat [ [ toChan stanzaChan ]
                                                           , extraStanzaHandlers
                                                                 config
-                                                          , [handleIQ iqHands]
+                                                          , [ handleIQ iqHands
+                                                            , rosterH
+                                                            ]
                                                           ]
     (kill, wLock, streamState, reader) <- ErrorT $ startThreadsWith stanzaHandler eh stream
     writer <- lift $ forkIO $ writeWorker outC wLock
@@ -116,6 +123,7 @@ newSession stream config = runErrorT $ do
                      , eventHandlers = eh
                      , stopThreads = kill >> killThread writer
                      , conf = config
+                     , rosterRef = ros
                      }
 
 -- Worker to write stanzas to the stream concurrently.
@@ -137,12 +145,12 @@ writeWorker stCh writeR = forever $ do
 -- third parameter is a 'Just' value, @session@ will attempt to authenticate and
 -- acquire an XMPP resource.
 session :: HostName                          -- ^ The hostname / realm
-        -> SessionConfiguration              -- ^ configuration details
         -> Maybe ([SaslHandler], Maybe Text) -- ^ SASL handlers and the desired
                                              -- JID resource (or Nothing to let
                                              -- the server decide)
+        -> SessionConfiguration              -- ^ configuration details
         -> IO (Either XmppFailure Session)
-session realm config mbSasl = runErrorT $ do
+session realm mbSasl config = runErrorT $ do
     stream <- ErrorT $ openStream realm (sessionStreamConfiguration config)
     ErrorT $ tls stream
     mbAuthError <- case mbSasl of
@@ -152,4 +160,5 @@ session realm config mbSasl = runErrorT $ do
         Nothing -> return ()
         Just _  -> throwError XmppAuthFailure
     ses <- ErrorT $ newSession stream config
+    liftIO $ when (enableRoster config) $ initRoster ses
     return ses

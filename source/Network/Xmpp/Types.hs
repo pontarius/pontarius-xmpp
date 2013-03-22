@@ -1106,6 +1106,7 @@ instance Default SessionConfiguration where
                                          writeTVar idRef (curId + 1 :: Integer)
                                          return . StanzaID . Text.pack . show $ curId
                                , extraStanzaHandlers = []
+                               , enableRoster = True
                                }
 
 -- | How the client should behave in regards to TLS.

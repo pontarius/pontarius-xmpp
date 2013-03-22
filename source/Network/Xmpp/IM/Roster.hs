@@ -1,83 +1,39 @@
+{-# OPTIONS_HADDOCK hide #-}
 {-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Network.Xmpp.IM.Roster
-where
+module Network.Xmpp.IM.Roster where
 
-import Control.Concurrent.STM
-import Control.Monad
-import Data.Text (Text)
-import Data.XML.Pickle
-import Data.XML.Types
-import Network.Xmpp
-import Network.Xmpp.Marshal
-import System.Log.Logger
+import           Control.Concurrent.STM
+import           Control.Monad
 import qualified Data.Map.Strict as Map
+import           Data.Maybe (isJust)
+import           Data.XML.Pickle
+import           Data.XML.Types
+import           System.Log.Logger
 
-import Network.Xmpp.Types
+import           Network.Xmpp.IM.Roster.Types
+import           Network.Xmpp.Marshal
+import           Network.Xmpp.Concurrent.Types
+import           Network.Xmpp.Types
+import           Network.Xmpp.Concurrent.IQ
 
-data Subscription = None | To | From | Both | Remove deriving Eq
+getRoster :: Session -> IO Roster
+getRoster session = atomically $ readTVar (rosterRef session)
 
-instance Show Subscription where
-    show None = "none"
-    show To   = "to"
-    show From = "from"
-    show Both = "both"
-    show Remove = "remove"
-
-instance Read Subscription where
-    readsPrec _ "none" = [(None ,"")]
-    readsPrec _ "to"   = [(To   ,"")]
-    readsPrec _ "from" = [(From ,"")]
-    readsPrec _ "both" = [(Both ,"")]
-    readsPrec _ "remove" = [(Remove ,"")]
-    readsPrec _ _ = []
-
-data Roster = Roster { ver :: Maybe Text
-                     , items :: Map.Map Jid Item }
-
-
-data Item = Item { approved :: Bool
-                 , ask :: Bool
-                 , jid :: Jid
-                 , name :: Maybe Text
-                 , subscription :: Subscription
-                 , groups :: [Text]
-                 } deriving Show
-
-data QueryItem = QueryItem { qiApproved :: Maybe Bool
-                           , qiAsk :: Bool
-                           , qiJid :: Jid
-                           , qiName :: Maybe Text
-                           , qiSubscription :: Maybe Subscription
-                           , qiGroups :: [Text]
-                           } deriving Show
-
-data Query = Query { queryVer :: Maybe Text
-                   , queryItems :: [QueryItem]
-                   } deriving Show
-
-
-withRoster :: Maybe Roster
-           -> SessionConfiguration
-           -> (SessionConfiguration -> IO (Either XmppFailure Session))
-           -> IO (Either XmppFailure (TVar Roster, Session))
-withRoster oldRoster conf startSession = do
-    rosterRef <- newTVarIO $ Roster Nothing Map.empty
-    mbSess <- startSession conf{extraStanzaHandlers = handleRoster rosterRef :
-                                                   extraStanzaHandlers conf}
-    case mbSess of
-        Left e -> return $ Left e
-        Right sess -> do
-            mbRoster <- getRoster oldRoster sess
-            case mbRoster of
-                Nothing -> errorM "Pontarius.Xmpp" "Server did not return a roster"
-                Just roster -> atomically $ writeTVar rosterRef roster
-            return $ Right (rosterRef, sess)
+initRoster :: Session -> IO ()
+initRoster session = do
+    oldRoster <- getRoster session
+    mbRoster <- retrieveRoster (if isJust (ver oldRoster) then Just oldRoster
+                                                          else Nothing ) session
+    case mbRoster of
+        Nothing -> errorM "Pontarius.Xmpp"
+                          "Server did not return a roster"
+        Just roster -> atomically $ writeTVar (rosterRef session) roster
 
 handleRoster :: TVar Roster -> TChan Stanza -> Stanza -> IO Bool
-handleRoster rosterRef outC sta = do
+handleRoster ref outC sta = do
     case sta of
         IQRequestS (iqr@IQRequest{iqRequestPayload =
                                        iqb@Element{elementName = en}})
@@ -98,7 +54,7 @@ handleRoster rosterRef outC sta = do
                             return False
         _ -> return True
   where
-    handleUpdate v' update = atomically $ modifyTVar rosterRef $ \(Roster v is) ->
+    handleUpdate v' update = atomically $ modifyTVar ref $ \(Roster v is) ->
         Roster (v' `mplus` v) $ case qiSubscription update of
             Just Remove -> Map.delete (qiJid update) is
             _ -> Map.insert (qiJid update) (toItem update) is
@@ -109,8 +65,8 @@ handleRoster rosterRef outC sta = do
     result (IQRequest iqid from _to lang _tp _bd) =
         IQResultS $ IQResult iqid Nothing from lang Nothing
 
-getRoster :: Maybe Roster -> Session -> IO (Maybe Roster)
-getRoster oldRoster sess = do
+retrieveRoster :: Maybe Roster -> Session -> IO (Maybe Roster)
+retrieveRoster oldRoster sess = do
     res <- sendIQ' Nothing Get Nothing
         (pickleElem xpQuery (Query (ver =<< oldRoster) []))
         sess
@@ -120,7 +76,7 @@ getRoster oldRoster sess = do
             Left _e -> do
                 errorM "Pontarius.Xmpp.Roster" "getRoster: invalid query element"
                 return Nothing
-            Right roster -> return . Just $ toRoster roster
+            Right ros' -> return . Just $ toRoster ros'
         IQResponseResult (IQResult{iqResultPayload = Nothing}) -> do
             return $ oldRoster
                 -- sever indicated that no roster updates are necessary
