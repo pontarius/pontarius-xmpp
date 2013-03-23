@@ -72,9 +72,9 @@ scram hToken authcid authzid password = do
 
         gs2Header :: BS.ByteString
         gs2Header            = merge $ [ gs2CbindFlag
-                                        , maybe "" id authzid''
-                                        , ""
-                                        ]
+                                       , maybe "" id authzid''
+                                       , ""
+                                       ]
         -- cbindData :: BS.ByteString
         -- cbindData            = "" -- we don't support channel binding yet
 

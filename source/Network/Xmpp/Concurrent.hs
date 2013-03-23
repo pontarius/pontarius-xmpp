@@ -42,7 +42,6 @@ import           Network.Xmpp.Tls
 import           Network.Xmpp.Types
 import           Network.Xmpp.Utilities
 
-
 runHandlers :: (TChan Stanza) -> [StanzaHandler] -> Stanza -> IO ()
 runHandlers _    []        _   = return ()
 runHandlers outC (h:hands) sta = do

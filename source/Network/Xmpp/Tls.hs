@@ -18,7 +18,7 @@ import           Data.XML.Types
 import           Network.TLS
 import           Network.Xmpp.Stream
 import           Network.Xmpp.Types
-import           System.Log.Logger (debugM, errorM)
+import           System.Log.Logger (debugM, errorM, infoM)
 
 mkBackend :: StreamHandle -> Backend
 mkBackend con = Backend { backendSend = \bs -> void (streamSend con bs)
@@ -51,27 +51,29 @@ tls con = Ex.handle (return . Left . TlsError)
     case sState of
         Plain -> return ()
         Closed -> do
-            liftIO $ errorM "Pontarius.XMPP" "startTls: The stream is closed."
+            liftIO $ errorM "Pontarius.Xmpp" "startTls: The stream is closed."
             throwError XmppNoStream
         Secured -> do
-            liftIO $ errorM "Pontarius.XMPP" "startTls: The stream is already secured."
+            liftIO $ errorM "Pontarius.Xmpp" "startTls: The stream is already secured."
             throwError TlsStreamSecured
     features <- lift $ gets streamFeatures
     case (tlsBehaviour conf, streamTls features) of
         (RequireTls  , Just _   ) -> startTls
         (RequireTls  , Nothing  ) -> throwError TlsNoServerSupport
         (PreferTls   , Just _   ) -> startTls
-        (PreferTls   , Nothing  ) -> return ()
+        (PreferTls   , Nothing  ) -> skipTls
         (PreferPlain , Just True) -> startTls
-        (PreferPlain , _        ) -> return ()
+        (PreferPlain , _        ) -> skipTls
         (RefuseTls   , Just True) -> throwError XmppOtherFailure
-        (RefuseTls   , _        ) -> return ()
+        (RefuseTls   , _        ) -> skipTls
   where
+    skipTls = liftIO $ infoM "Pontarius.Xmpp" "Skipping TLS negotiation"
     startTls = do
+        liftIO $ infoM "Pontarius.Xmpp" "Running StartTLS"
         params <- gets $ tlsParams . streamConfiguration
         sent <- ErrorT $ pushElement starttlsE
         unless sent $ do
-            liftIO $ errorM "Pontarius.XMPP" "startTls: Could not sent stanza."
+            liftIO $ errorM "Pontarius.Xmpp" "startTls: Could not sent stanza."
             throwError XmppOtherFailure
         answer <- lift $ pullElement
         case answer of
@@ -79,10 +81,10 @@ tls con = Ex.handle (return . Left . TlsError)
             Right (Element "{urn:ietf:params:xml:ns:xmpp-tls}proceed" [] []) ->
                 return ()
             Right (Element "{urn:ietf:params:xml:ns:xmpp-tls}failure" _ _) -> do
-                liftIO $ errorM "Pontarius.XMPP" "startTls: TLS initiation failed."
+                liftIO $ errorM "Pontarius.Xmpp" "startTls: TLS initiation failed."
                 throwError XmppOtherFailure
             Right r ->
-                liftIO $ errorM "Pontarius.XMPP" $
+                liftIO $ errorM "Pontarius.Xmpp" $
                             "startTls: Unexpected element: " ++ show r
         hand <- gets streamHandle
         (_raw, _snk, psh, recv, ctx) <- lift $ tlsinit params (mkBackend hand)
@@ -92,6 +94,7 @@ tls con = Ex.handle (return . Left . TlsError)
                                    , streamClose = bye ctx >> streamClose hand
                                    }
         lift $ modify ( \x -> x {streamHandle = newHand})
+        liftIO $ infoM "Pontarius.Xmpp" "Stream Secured."
         either (lift . Ex.throwIO) return =<< lift restartStream
         modify (\s -> s{streamConnectionState = Secured})
         return ()
@@ -127,15 +130,11 @@ tlsinit params backend = do
                 Nothing -> return ()
                 Just x -> do
                        sendData con (BL.fromChunks [x])
-                       liftIO $ debugM "Pontarius.Xmpp.TLS"
-                                       ("out :" ++ BSC8.unpack x)
                        snk
     readWithBuffer <- liftIO $ mkReadBuffer (recvData con)
     return ( src
            , snk
-           , \s -> do
-               liftIO $ debugM "Pontarius.Xmpp.TLS" ("out :" ++ BSC8.unpack s)
-               sendData con $ BL.fromChunks [s]
+           , \s -> sendData con $ BL.fromChunks [s]
            , liftIO . readWithBuffer
            , con
            )

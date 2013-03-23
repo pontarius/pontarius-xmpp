@@ -186,12 +186,12 @@ prepCredentials authcid authzid password = case credentials of
     Just creds -> return creds
   where
     credentials = do
-    ac <- normalizeUsername authcid
-    az <- case authzid of
-      Nothing -> Just Nothing
-      Just az' -> Just <$> normalizeUsername az'
-    pw <- normalizePassword password
-    return (ac, az, pw)
+        ac <- normalizeUsername authcid
+        az <- case authzid of
+          Nothing -> Just Nothing
+          Just az' -> Just <$> normalizeUsername az'
+        pw <- normalizePassword password
+        return (ac, az, pw)
 
 -- | Bit-wise xor of byte strings
 xorBS :: BS.ByteString -> BS.ByteString -> BS.ByteString
