@@ -13,6 +13,8 @@ module Network.Xmpp.IM
   , Roster(..)
   , Item(..)
   , getRoster
+  , rosterAdd
+  , rosterRemove
   ) where
 
 import Network.Xmpp.IM.Message

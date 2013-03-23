@@ -7,8 +7,10 @@ module Network.Xmpp.IM.Roster where
 
 import           Control.Concurrent.STM
 import           Control.Monad
+import           Data.List (nub)
 import qualified Data.Map.Strict as Map
 import           Data.Maybe (isJust)
+import           Data.Text (Text)
 import           Data.XML.Pickle
 import           Data.XML.Types
 import           System.Log.Logger
@@ -18,6 +20,45 @@ import           Network.Xmpp.Marshal
 import           Network.Xmpp.Concurrent.Types
 import           Network.Xmpp.Types
 import           Network.Xmpp.Concurrent.IQ
+
+-- | Push a roster item to the server. The values for approved and ask are
+-- ignored and all values for subsciption except "remove" are ignored
+rosterPush :: Item -> Session -> IO IQResponse
+rosterPush item session = do
+    let el = pickleElem xpQuery (Query Nothing [fromItem item])
+    sendIQ'  Nothing Set Nothing el session
+
+-- | Add or update an item to the roster.
+--
+-- To update the item just send the complete set of new data
+rosterAdd :: Jid -- ^ JID of the item
+          -> Maybe Text -- ^ Name alias
+          -> [Text] -- ^ Groups (duplicates will be removed)
+          -> Session
+          -> IO IQResponse
+rosterAdd j n gs session = do
+    let el = pickleElem xpQuery (Query Nothing
+                                 [QueryItem { qiApproved = Nothing
+                                            , qiAsk = False
+                                            , qiJid = j
+                                            , qiName = n
+                                            , qiSubscription = Nothing
+                                            , qiGroups = nub gs
+                                            }])
+    sendIQ'  Nothing Set Nothing el session
+
+-- | Remove an item from the roster. Return True when the item is sucessfully
+-- removed or if it wasn't in the roster to begin with.
+rosterRemove :: Jid -> Session -> IO Bool
+rosterRemove j sess = do
+    roster <- getRoster sess
+    case Map.lookup j (items roster) of
+        Nothing -> return True -- jid is not on the Roster
+        Just _ -> do
+            res <- rosterPush (Item False False j Nothing Remove []) sess
+            case res of
+                IQResponseResult IQResult{} -> return True
+                _ -> return False
 
 getRoster :: Session -> IO Roster
 getRoster session = atomically $ readTVar (rosterRef session)
@@ -98,8 +139,19 @@ toItem qi = Item { approved = maybe False id (qiApproved qi)
                  , jid = qiJid qi
                  , name = qiName qi
                  , subscription = maybe None id (qiSubscription qi)
-                 , groups = qiGroups qi
+                 , groups = nub $ qiGroups qi
                  }
+
+fromItem :: Item -> QueryItem
+fromItem i = QueryItem { qiApproved = Nothing
+                       , qiAsk = False
+                       , qiJid = jid i
+                       , qiName = name i
+                       , qiSubscription = case subscription i of
+                           Remove -> Just Remove
+                           _ -> Nothing
+                       , qiGroups = nub $ groups i
+                       }
 
 xpItems :: PU [Node] [QueryItem]
 xpItems = xpWrap (map (\((app_, ask_, jid_, name_, sub_), groups_) ->
