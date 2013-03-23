@@ -30,12 +30,12 @@ mkBackend con = Backend { backendSend = \bs -> void (streamSend con bs)
     bufferReceive _ 0 = return BS.empty
     bufferReceive recv n = BS.concat `liftM` (go n)
       where
-        go n = do
-            bs <- recv n
+        go m = do
+            bs <- recv m
             case BS.length bs of
                 0 -> return []
-                l -> if l < n
-                     then (bs :) `liftM` go (n - l)
+                l -> if l < m
+                     then (bs :) `liftM` go (m - l)
                      else return [bs]
 
 starttlsE :: Element
