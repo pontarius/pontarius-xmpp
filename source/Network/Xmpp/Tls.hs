@@ -22,10 +22,21 @@ import           System.Log.Logger (debugM, errorM)
 
 mkBackend :: StreamHandle -> Backend
 mkBackend con = Backend { backendSend = \bs -> void (streamSend con bs)
-                        , backendRecv = streamReceive con
+                        , backendRecv = bufferReceive (streamReceive con)
                         , backendFlush = streamFlush con
                         , backendClose = streamClose con
                         }
+  where
+    bufferReceive _ 0 = return BS.empty
+    bufferReceive recv n = BS.concat `liftM` (go n)
+      where
+        go n = do
+            bs <- recv n
+            case BS.length bs of
+                0 -> return []
+                l -> if l < n
+                     then (bs :) `liftM` go (n - l)
+                     else return [bs]
 
 starttlsE :: Element
 starttlsE = Element "{urn:ietf:params:xml:ns:xmpp-tls}starttls" [] []

@@ -133,7 +133,7 @@ startStream = runErrorT $ do
             throwError XmppOtherFailure
         Just address -> do
             pushing pushXmlDecl
-            pushing . pushOpenElement $
+            pushing . pushOpenElement . streamNSHack $
                 pickleElem xpStream ( "1.0"
                                     , expectedTo
                                     , Just (Jid Nothing address Nothing)
@@ -148,10 +148,15 @@ startStream = runErrorT $ do
         | (Text.unpack ver) /= "1.0" ->
             closeStreamWithError StreamUnsupportedVersion Nothing
                 "Unknown version"
-        | lt == Nothing ->
-            closeStreamWithError StreamInvalidXml Nothing
-                "Stream has no language tag"
-        -- If `from' is set, we verify that it's the correct one. TODO: Should we check against the realm instead?
+
+    -- HACK: We ignore MUST-strength requirement (section 4.7.4. of RFC
+    -- 6120) for the sake of compatibility with jabber.org
+        -- | lt == Nothing ->
+        --     closeStreamWithError StreamInvalidXml Nothing
+        --         "Stream has no language tag"
+
+    -- If `from' is set, we verify that it's the correct one. TODO: Should we
+    -- check against the realm instead?
         | isJust from && (from /= Just (Jid Nothing (fromJust $ streamAddress st) Nothing)) ->
             closeStreamWithError StreamInvalidFrom Nothing
                 "Stream from is invalid"
@@ -159,6 +164,9 @@ startStream = runErrorT $ do
             closeStreamWithError StreamUndefinedCondition (Just $ Element "invalid-to" [] [])
                 "Stream to invalid"-- TODO: Suitable?
         | otherwise -> do
+            -- HACK: (ignore section 4.7.4. of RFC 6120), see above
+            unless (isJust lt) $ liftIO $ warningM "Pontariusm.Xmpp"
+                "Stream has no language tag"
             modify (\s -> s{ streamFeatures = features
                            , streamLang = lt
                            , streamId = sid
@@ -178,8 +186,10 @@ startStream = runErrorT $ do
                 "Root name prefix set and not stream"
         | otherwise -> ErrorT $ checkchildren (flattenAttrs attrs)
   where
-    -- closeStreamWithError :: MonadIO m => Stream -> StreamErrorCondition ->
-    --                         Maybe Element -> ErrorT XmppFailure m ()
+    -- HACK: We include the default namespace to make isode's M-LINK server happy.
+    streamNSHack e = e{elementAttributes = elementAttributes e
+                                           ++ [( "xmlns"
+                                               , [ContentText "jabber:client"])]}
     closeStreamWithError  :: StreamErrorCondition -> Maybe Element -> String
                           -> ErrorT XmppFailure (StateT StreamState IO) ()
     closeStreamWithError sec el msg = do
@@ -320,6 +330,9 @@ closeStreams' = do
             Right e -> collectElems (e:es)
 
 -- TODO: Can the TLS send/recv functions throw something other than an IO error?
+debugOut :: MonadIO m => ByteString -> m ()
+debugOut outData = liftIO $ debugM "Pontarius.Xmpp"
+             ("Out: " ++ (Text.unpack . Text.decodeUtf8 $ outData))
 
 wrapIOException :: IO a -> StateT StreamState IO (Either XmppFailure a)
 wrapIOException action = do
@@ -333,7 +346,21 @@ wrapIOException action = do
 pushElement :: Element -> StateT StreamState IO (Either XmppFailure Bool)
 pushElement x = do
     send <- gets (streamSend . streamHandle)
-    wrapIOException $ send $ renderElement x
+    let outData = renderElement $ nsHack x
+    debugOut outData
+    wrapIOException $ send  outData
+  where
+    -- HACK: We remove the "jabber:client" namespace because it is set as
+    -- default in the stream. This is to make isode's M-LINK server happy and
+    -- should be removed once jabber.org accepts prefix-free canonicalization
+    nsHack e@(Element{elementName = n})
+        | nameNamespace n == Just "jabber:client" =
+            e{ elementName = Name (nameLocalName n) Nothing Nothing
+             , elementNodes = map mapNSHack $ elementNodes e
+             }
+        | otherwise = e
+    mapNSHack (NodeElement e) = NodeElement $ nsHack e
+    mapNSHack n = n
 
 -- | Encode and send stanza
 pushStanza :: Stanza -> Stream -> IO (Either XmppFailure Bool)
@@ -350,8 +377,10 @@ pushXmlDecl = do
 
 pushOpenElement :: Element -> StateT StreamState IO (Either XmppFailure Bool)
 pushOpenElement e = do
-    sink <- gets (streamSend . streamHandle)
-    wrapIOException $ sink $ renderOpenElement e
+    send <- gets (streamSend . streamHandle)
+    let outData = renderOpenElement e
+    debugOut outData
+    wrapIOException $ send outData
 
 -- `Connect-and-resumes' the given sink to the stream source, and pulls a
 -- `b' value.
@@ -442,7 +471,7 @@ xmppNoStream = StreamState {
   where
     zeroSource :: Source IO output
     zeroSource = liftIO $ do
-        errorM "Pontarius.XMPP" "zeroSource utilized."
+        errorM "Pontarius.Xmpp" "zeroSource utilized."
         ExL.throwIO XmppOtherFailure
 
 createStream :: HostName -> StreamConfiguration -> ErrorT XmppFailure IO (Stream)
@@ -481,7 +510,7 @@ createStream realm config = do
   where
     logConduit :: Conduit ByteString IO ByteString
     logConduit = CL.mapM $ \d -> do
-        debugM "Pontarius.Xmpp" $ "Received TCP data: " ++ (BSC8.unpack d) ++
+        debugM "Pontarius.Xmpp" $ "In: " ++ (BSC8.unpack d) ++
             "."
         return d
 
@@ -755,7 +784,7 @@ withStream action (Stream stream) = Ex.bracketOnError
                                          )
 
 -- nonblocking version. Changes to the connection are ignored!
-withStream' :: StateT StreamState IO (Either XmppFailure b) -> Stream -> IO (Either XmppFailure b)
+withStream' :: StateT StreamState IO a -> Stream -> IO a
 withStream' action (Stream stream) = do
     stream_ <- atomically $ readTMVar stream
     (r, _) <- runStateT action stream_

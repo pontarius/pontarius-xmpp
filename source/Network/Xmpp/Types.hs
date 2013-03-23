@@ -1048,8 +1048,8 @@ instance Default StreamConfiguration where
                               , resolvConf = defaultResolvConf
                               , establishSession = True
                               , tlsBehaviour = PreferTls
-                              , tlsParams = defaultParamsClient { pConnectVersion = TLS12
-                                                                , pAllowedVersions = [TLS12]
+                              , tlsParams = defaultParamsClient { pConnectVersion = TLS10
+                                                                , pAllowedVersions = [TLS10, TLS11, TLS12]
                                                                 , pCiphers = ciphersuite_strong
                                                                 }
                               }
