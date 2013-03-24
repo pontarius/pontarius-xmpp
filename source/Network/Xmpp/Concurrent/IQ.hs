@@ -62,9 +62,14 @@ sendIQ' to tp lang body session = do
 -- | Retrieves an IQ listener channel. If the namespace/'IQRequestType' is not
 -- already handled, a new 'TChan' is created and returned as a 'Right' value.
 -- Otherwise, the already existing channel will be returned wrapped in a 'Left'
--- value. Note that the 'Left' channel might need to be duplicated in order not
+-- value. The 'Left' channel might need to be duplicated in order not
 -- to interfere with existing consumers.
-listenIQChan :: IQRequestType  -- ^ Type of IQs to receive (@Get@ or @Set@)
+--
+-- Note thet every 'IQRequest' must be answered exactly once. To insure this,
+-- the incoming requests are wrapped in an 'IQRequestTicket' that prevents
+-- multiple responses. Use 'iqRequestBody' to extract the corresponding request
+-- and 'answerIQ' to send the response
+listenIQChan :: IQRequestType  -- ^ Type of IQs to receive ('Get' or 'Set')
              -> Text -- ^ Namespace of the child element
              -> Session
              -> IO (Either (TChan IQRequestTicket) (TChan IQRequestTicket))

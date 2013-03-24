@@ -151,7 +151,7 @@ startStream = runErrorT $ do
 
     -- HACK: We ignore MUST-strength requirement (section 4.7.4. of RFC
     -- 6120) for the sake of compatibility with jabber.org
-        -- | lt == Nothing ->
+        --  | lt == Nothing ->
         --     closeStreamWithError StreamInvalidXml Nothing
         --         "Stream has no language tag"
 
