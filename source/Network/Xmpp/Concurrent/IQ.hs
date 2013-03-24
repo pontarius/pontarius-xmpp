@@ -83,6 +83,21 @@ listenIQChan tp ns session = do
             Nothing -> Right iqCh
             Just iqCh' -> Left iqCh'
 
+-- | Unregister a previously acquired IQ channel. Please make sure that you
+-- where the one who acquired it in the first place as no check for ownership
+-- can be made
+dropIQChan :: IQRequestType  -- ^ Type of IQ ('Get' or 'Set')
+             -> Text -- ^ Namespace of the child element
+             -> Session
+             -> IO ()
+dropIQChan tp ns session = do
+    let handlers = (iqHandlers session)
+    atomically $ do
+        (byNS, byID) <- readTVar handlers
+        let byNS' = Map.delete (tp, ns) byNS
+        writeTVar handlers (byNS', byID)
+        return ()
+
 answerIQ :: IQRequestTicket
          -> Either StanzaError (Maybe Element)
          -> Session

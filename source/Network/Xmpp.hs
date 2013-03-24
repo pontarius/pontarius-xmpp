@@ -138,6 +138,7 @@ module Network.Xmpp
   , sendIQ'
   , answerIQ
   , listenIQChan
+  , dropIQChan
   -- * Errors
   , StanzaError(..)
   , StanzaErrorType(..)
