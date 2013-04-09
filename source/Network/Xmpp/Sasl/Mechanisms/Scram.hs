@@ -9,15 +9,15 @@ module Network.Xmpp.Sasl.Mechanisms.Scram
 import           Control.Applicative ((<$>))
 import           Control.Monad.Error
 import           Control.Monad.State.Strict
-import qualified Crypto.Classes as Crypto
-import qualified Crypto.HMAC as Crypto
-import qualified Crypto.Hash.SHA1 as Crypto
-import qualified Data.ByteString as BS
-import qualified Data.ByteString.Base64 as B64
-import           Data.ByteString.Char8  as BS8 (unpack)
+import qualified Crypto.Classes          as Crypto
+import qualified Crypto.HMAC             as Crypto
+import qualified Crypto.Hash.CryptoAPI   as Crypto
+import qualified Data.ByteString         as BS
+import qualified Data.ByteString.Base64  as B64
+import           Data.ByteString.Char8   as BS8 (unpack)
 import           Data.List (foldl1', genericTake)
-import qualified Data.Text as Text
-import qualified Data.Text.Encoding as Text
+import qualified Data.Text               as Text
+import qualified Data.Text.Encoding      as Text
 import           Network.Xmpp.Sasl.Common
 import           Network.Xmpp.Sasl.Types
 import           Network.Xmpp.Types
