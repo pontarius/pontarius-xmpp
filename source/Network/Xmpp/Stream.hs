@@ -88,7 +88,7 @@ streamUnpickleElem p x = do
 
 -- This is the conduit sink that handles the stream XML events. We extend it
 -- with ErrorT capabilities.
-type StreamSink a = ErrorT XmppFailure (Pipe Event Event Void () IO) a
+type StreamSink a = ErrorT XmppFailure (ConduitM Event Void IO) a
 
 -- Discards all events before the first EventBeginElement.
 throwOutJunk :: Monad m => Sink Event m ()
@@ -720,7 +720,7 @@ pushIQ iqID to tp lang body stream = runErrorT $ do
                  liftIO $ errorM "Pontarius.XMPP" $ "pushIQ: Unexpected stanza type."
                  throwError XmppOtherFailure
 
-debugConduit :: Pipe l ByteString ByteString u IO b
+debugConduit :: (Show o, MonadIO m) => ConduitM o o m b
 debugConduit = forever $ do
     s' <- await
     case s' of
