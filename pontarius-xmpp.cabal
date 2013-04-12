@@ -33,11 +33,12 @@ Library
                , base64-bytestring >=0.1.0.0
                , binary            >=0.4.1
                , bytestring        >=0.9.1.9
-               , conduit           >=0.5 && <1.0
+               , conduit           >=0.5
                , containers        >=0.4.0.0
                , crypto-api        >=0.9
                , crypto-random-api >=0.2
                , cryptohash        >=0.6.1
+               , cryptohash-cryptoapi >=0.1
                , data-default      >=0.2
                , dns               >=0.3.0
                , hslogger          >=1.1.0
@@ -58,7 +59,7 @@ Library
                , void              >=0.5.5
                , xml-types         >=0.3.1
                , xml-conduit       >=1.0
-               , xml-picklers      >=0.3
+               , xml-picklers      >=0.3.2
   Exposed-modules: Network.Xmpp
                  , Network.Xmpp.Internal
   Other-modules: Network.Xmpp.Concurrent
