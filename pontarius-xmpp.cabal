@@ -61,15 +61,20 @@ Library
                , xml-conduit       >=1.0
                , xml-picklers      >=0.3.2
   Exposed-modules: Network.Xmpp
+                 , Network.Xmpp.IM
                  , Network.Xmpp.Internal
   Other-modules: Network.Xmpp.Concurrent
-               , Network.Xmpp.Concurrent.Types
                , Network.Xmpp.Concurrent.Basic
                , Network.Xmpp.Concurrent.IQ
                , Network.Xmpp.Concurrent.Message
+               , Network.Xmpp.Concurrent.Monad
                , Network.Xmpp.Concurrent.Presence
                , Network.Xmpp.Concurrent.Threads
-               , Network.Xmpp.Concurrent.Monad
+               , Network.Xmpp.Concurrent.Types
+               , Network.Xmpp.IM.Message
+               , Network.Xmpp.IM.Presence
+               , Network.Xmpp.IM.Roster
+               , Network.Xmpp.IM.Roster.Types
                , Network.Xmpp.Marshal
                , Network.Xmpp.Sasl
                , Network.Xmpp.Sasl.Common
@@ -79,12 +84,11 @@ Library
                , Network.Xmpp.Sasl.Mechanisms.Scram
                , Network.Xmpp.Sasl.StringPrep
                , Network.Xmpp.Sasl.Types
+               , Network.Xmpp.Stanza
                , Network.Xmpp.Stream
                , Network.Xmpp.Tls
                , Network.Xmpp.Types
                , Network.Xmpp.Utilities
-               , Network.Xmpp.IM.Roster
-               , Network.Xmpp.IM.Roster.Types
   GHC-Options: -Wall
 
 Source-Repository head

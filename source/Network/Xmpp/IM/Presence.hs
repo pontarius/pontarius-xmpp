@@ -1,75 +1,66 @@
 {-# OPTIONS_HADDOCK hide #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE NoMonomorphismRestriction #-}
 
 module Network.Xmpp.IM.Presence where
 
-import Network.Xmpp.Types
+import           Data.Text (Text)
+import           Data.XML.Pickle
+import           Data.XML.Types
+import           Network.Xmpp.Types
 
--- | An empty presence.
-presence :: Presence
-presence = Presence { presenceID       = Nothing
-                    , presenceFrom     = Nothing
-                    , presenceTo       = Nothing
-                    , presenceLangTag  = Nothing
-                    , presenceType     = Nothing
-                    , presencePayload  = []
-                    }
+data ShowStatus = StatusAway
+                | StatusChat
+                | StatusDnd
+                | StatusXa
 
--- | Request subscription with an entity.
-presenceSubscribe :: Jid -> Presence
-presenceSubscribe to = presence { presenceTo = Just to
-                                , presenceType = Just Subscribe
-                                }
+instance Show ShowStatus where
+    show StatusAway = "away"
+    show StatusChat = "chat"
+    show StatusDnd  = "dnd"
+    show StatusXa   = "xa"
 
--- | Is presence a subscription request?
-isPresenceSubscribe :: Presence -> Bool
-isPresenceSubscribe pres = presenceType pres == (Just Subscribe)
+instance Read ShowStatus where
+    readsPrec _ "away" = [(StatusAway, "")]
+    readsPrec _ "chat" = [(StatusChat, "")]
+    readsPrec _ "dnd"  = [(StatusDnd , "")]
+    readsPrec _ "xa"   = [(StatusXa  , "")]
+    readsPrec _ _      = []
 
--- | Approve a subscripton of an entity.
-presenceSubscribed :: Jid -> Presence
-presenceSubscribed to = presence { presenceTo = Just to
-                                 , presenceType = Just Subscribed
-                                 }
+data IMPresence = IMP { showStatus :: Maybe ShowStatus
+                      , status     :: Maybe Text
+                      , priority   :: Maybe Int
+                      }
 
--- | Is presence a subscription approval?
-isPresenceSubscribed :: Presence -> Bool
-isPresenceSubscribed pres = presenceType pres == (Just Subscribed)
+imPresence :: IMPresence
+imPresence = IMP { showStatus = Nothing
+                 , status     = Nothing
+                 , priority   = Nothing
+                 }
 
--- | End a subscription with an entity.
-presenceUnsubscribe :: Jid -> Presence
-presenceUnsubscribe to = presence { presenceTo = Just to
-                                  , presenceType = Just Unsubscribed
-                                  }
 
--- | Is presence an unsubscription request?
-isPresenceUnsubscribe :: Presence -> Bool
-isPresenceUnsubscribe pres = presenceType pres == (Just Unsubscribe)
+getIMPresence :: Presence -> Maybe IMPresence
+getIMPresence pres = case unpickle xpIMPresence (presencePayload pres) of
+    Left _ -> Nothing
+    Right r -> Just r
 
--- | Signal to the server that the client is available for communication.
-presenceOnline :: Presence
-presenceOnline = presence
+withIMPresence :: IMPresence -> Presence -> Presence
+withIMPresence imPres pres = pres{presencePayload = presencePayload pres
+                                                   ++ pickleTree xpIMPresence
+                                                                 imPres}
 
--- | Signal to the server that the client is no longer available for
--- communication.
-presenceOffline :: Presence
-presenceOffline = presence {presenceType = Just Unavailable}
+--
+-- Picklers
+--
 
----- Change your status
---status
---  :: Maybe Text     -- ^ Status message
---  -> Maybe ShowType -- ^ Status Type
---  -> Maybe Int      -- ^ Priority
---  -> Presence
---status txt showType prio = presence { presenceShowType = showType
---                                    , presencePriority = prio
---                                    , presenceStatus   = txt
---                                    }
-
--- | Set the current availability status. This implicitly sets the client's
--- status online.
---presenceAvail :: ShowType -> Presence
---presenceAvail showType = status Nothing (Just showType) Nothing
-
--- | Set the current status message. This implicitly sets the client's status
--- online.
---presenceMessage :: Text -> Presence
---presenceMessage txt = status (Just txt) Nothing Nothing
+xpIMPresence :: PU [Element] IMPresence
+xpIMPresence = xpUnliftElems $
+               xpWrap (\(s, st, p) -> IMP s st p)
+                      (\(IMP s st p) -> (s, st, p)) $
+               xp3Tuple
+                  (xpOption $ xpElemNodes "{jabber:client}show"
+                     (xpContent xpPrim))
+                  (xpOption $ xpElemNodes "{jabber:client}status"
+                     (xpContent xpText))
+                  (xpOption $ xpElemNodes "{jabber:client}priority"
+                     (xpContent xpPrim))

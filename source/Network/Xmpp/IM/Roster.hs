@@ -1,5 +1,4 @@
 {-# OPTIONS_HADDOCK hide #-}
-{-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE OverloadedStrings #-}
 
@@ -9,7 +8,7 @@ import           Control.Concurrent.STM
 import           Control.Monad
 import           Data.List (nub)
 import qualified Data.Map.Strict as Map
-import           Data.Maybe (isJust)
+import           Data.Maybe (isJust, fromMaybe)
 import           Data.Text (Text)
 import           Data.XML.Pickle
 import           Data.XML.Types
@@ -60,9 +59,11 @@ rosterRemove j sess = do
                 IQResponseResult IQResult{} -> return True
                 _ -> return False
 
+-- | Retrieve the current Roster state
 getRoster :: Session -> IO Roster
 getRoster session = atomically $ readTVar (rosterRef session)
 
+-- | Get the initial roster / refresh the roster. You don't need to call this on your own
 initRoster :: Session -> IO ()
 initRoster session = do
     oldRoster <- getRoster session
@@ -74,26 +75,25 @@ initRoster session = do
         Just roster -> atomically $ writeTVar (rosterRef session) roster
 
 handleRoster :: TVar Roster -> TChan Stanza -> Stanza -> IO Bool
-handleRoster ref outC sta = do
-    case sta of
-        IQRequestS (iqr@IQRequest{iqRequestPayload =
-                                       iqb@Element{elementName = en}})
-            | nameNamespace en == Just "jabber:iq:roster" -> do
-                case iqRequestFrom iqr of
-                    Just _from -> return True -- Don't handle roster pushes from
-                                              -- unauthorized sources
-                    Nothing -> case unpickleElem xpQuery iqb of
-                        Right Query{ queryVer = v
-                                   , queryItems = [update]
-                                   } -> do
-                            handleUpdate v update
-                            atomically . writeTChan outC $ result iqr
-                            return False
-                        _ -> do
-                            errorM "Pontarius.Xmpp" "Invalid roster query"
-                            atomically . writeTChan outC $ badRequest iqr
-                            return False
-        _ -> return True
+handleRoster ref outC sta = case sta of
+    IQRequestS (iqr@IQRequest{iqRequestPayload =
+                                   iqb@Element{elementName = en}})
+        | nameNamespace en == Just "jabber:iq:roster" -> do
+            case iqRequestFrom iqr of
+                Just _from -> return True -- Don't handle roster pushes from
+                                          -- unauthorized sources
+                Nothing -> case unpickleElem xpQuery iqb of
+                    Right Query{ queryVer = v
+                               , queryItems = [update]
+                               } -> do
+                        handleUpdate v update
+                        atomically . writeTChan outC $ result iqr
+                        return False
+                    _ -> do
+                        errorM "Pontarius.Xmpp" "Invalid roster query"
+                        atomically . writeTChan outC $ badRequest iqr
+                        return False
+    _ -> return True
   where
     handleUpdate v' update = atomically $ modifyTVar ref $ \(Roster v is) ->
         Roster (v' `mplus` v) $ case qiSubscription update of
@@ -119,7 +119,7 @@ retrieveRoster oldRoster sess = do
                 return Nothing
             Right ros' -> return . Just $ toRoster ros'
         IQResponseResult (IQResult{iqResultPayload = Nothing}) -> do
-            return $ oldRoster
+            return oldRoster
                 -- sever indicated that no roster updates are necessary
         IQResponseTimeout -> do
             errorM "Pontarius.Xmpp.Roster" "getRoster: request timed out"
@@ -134,11 +134,11 @@ retrieveRoster oldRoster sess = do
                                                is)
 
 toItem :: QueryItem -> Item
-toItem qi = Item { approved = maybe False id (qiApproved qi)
+toItem qi = Item { approved = fromMaybe False (qiApproved qi)
                  , ask = qiAsk qi
                  , jid = qiJid qi
                  , name = qiName qi
-                 , subscription = maybe None id (qiSubscription qi)
+                 , subscription = fromMaybe None (qiSubscription qi)
                  , groups = nub $ qiGroups qi
                  }
 
@@ -161,7 +161,7 @@ xpItems = xpWrap (map (\((app_, ask_, jid_, name_, sub_), groups_) ->
           xpElems "{jabber:iq:roster}item"
           (xp5Tuple
             (xpAttribute' "approved" xpBool)
-            (xpWrap (maybe False (const True))
+            (xpWrap isJust
                     (\p -> if p then Just () else Nothing) $
                      xpOption $ xpAttribute_ "ask" "subscribe")
             (xpAttribute  "jid" xpPrim)

@@ -1,13 +1,10 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
-{-# OPTIONS_HADDOCK hide #-}
+
 
 module Network.Xmpp.Utilities
-    ( presTo
-    , message
-    , answerMessage
-    , openElementToEvents
+    ( openElementToEvents
     , renderOpenElement
     , renderElement
     , checkHostName
@@ -23,38 +20,10 @@ import qualified Data.Text as Text
 import           Data.Text(Text)
 import qualified Data.Text.Encoding as Text
 import           Data.XML.Types
-import           Network.Xmpp.Types
 import           Prelude
 import           System.IO.Unsafe(unsafePerformIO)
 import qualified Text.XML.Stream.Render as TXSR
 import           Text.XML.Unresolved as TXU
-
--- | Add a recipient to a presence notification.
-presTo :: Presence -> Jid -> Presence
-presTo pres to = pres{presenceTo = Just to}
-
--- | An empty message.
-message :: Message
-message = Message { messageID      = Nothing
-                  , messageFrom    = Nothing
-                  , messageTo      = Nothing
-                  , messageLangTag = Nothing
-                  , messageType    = Normal
-                  , messagePayload = []
-                  }
-
--- | Produce an answer message with the given payload, switching the "from" and
--- "to" attributes in the original message. Produces a 'Nothing' value of the
--- provided message message has no from attribute.
-answerMessage :: Message -> [Element] -> Maybe Message
-answerMessage Message{messageFrom = Just frm, ..} payload =
-    Just Message{ messageFrom    = messageTo
-                , messageID      = Nothing
-                , messageTo      = Just frm
-                , messagePayload = payload
-                , ..
-                }
-answerMessage _ _ = Nothing
 
 openElementToEvents :: Element -> [Event]
 openElementToEvents (Element name as ns) = EventBeginElement name as : goN ns []
@@ -85,7 +54,7 @@ renderElement e = Text.encodeUtf8 . Text.concat . unsafePerformIO
 
 -- | Validates the hostname string in accordance with RFC 1123.
 checkHostName :: Text -> Maybe Text
-checkHostName t = do
+checkHostName t =
     eitherToMaybeHostName $ AP.parseOnly hostnameP t
   where
     eitherToMaybeHostName = either (const Nothing) Just
@@ -105,6 +74,6 @@ hostnameP = do
             <|> do
                 _ <- AP.satisfy (== '.')
                 r <- hostnameP
-                if (Text.length label) + 1 + (Text.length r) > 255
+                if Text.length label + 1 + Text.length r > 255
                     then fail "Hostname too long."
                     else return $ Text.concat [label, Text.pack ".", r]

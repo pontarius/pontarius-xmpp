@@ -82,6 +82,7 @@ module Network.Xmpp
   -- occur in a system such as email. It is not to be confused with
   -- /instant messaging/ which is handled in the 'Network.Xmpp.IM' module
   , Message(..)
+  , message
   , MessageError(..)
   , MessageType(..)
   -- *** Creating
@@ -103,6 +104,12 @@ module Network.Xmpp
   , PresenceType(..)
   , PresenceError(..)
   -- *** Creating
+  , presence
+  , presenceOffline
+  , presenceOnline
+  , presenceSubscribe
+  , presenceSubscribed
+  , presenceUnsubscribe
   , presTo
   -- *** Sending
   -- | Sends a presence stanza. In general, the presence stanza should have no
@@ -157,7 +164,8 @@ module Network.Xmpp
   ) where
 
 import Network.Xmpp.Concurrent
-import Network.Xmpp.Utilities
 import Network.Xmpp.Sasl
 import Network.Xmpp.Sasl.Types
+import Network.Xmpp.Stanza
 import Network.Xmpp.Types
+import Network.Xmpp.Utilities
