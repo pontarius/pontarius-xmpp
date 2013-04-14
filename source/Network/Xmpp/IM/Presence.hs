@@ -54,9 +54,10 @@ withIMPresence imPres pres = pres{presencePayload = presencePayload pres
 --
 
 xpIMPresence :: PU [Element] IMPresence
-xpIMPresence = xpUnliftElems $
+xpIMPresence = xpUnliftElems .
                xpWrap (\(s, st, p) -> IMP s st p)
-                      (\(IMP s st p) -> (s, st, p)) $
+                      (\(IMP s st p) -> (s, st, p)) .
+               xpClean $
                xp3Tuple
                   (xpOption $ xpElemNodes "{jabber:client}show"
                      (xpContent xpPrim))

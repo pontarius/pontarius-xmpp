@@ -83,8 +83,9 @@ answerIM bd msg = case getIM msg of
 --------------------------
 xpIM :: PU [Element] InstantMessage
 xpIM = xpWrap (\(t, s, b) -> InstantMessage t s b)
-              (\(InstantMessage t s b) -> (t, s, b)) $
-       xp3Tuple
+              (\(InstantMessage t s b) -> (t, s, b))
+       . xpClean
+       $ xp3Tuple
            xpMessageThread
            xpMessageSubject
            xpMessageBody
