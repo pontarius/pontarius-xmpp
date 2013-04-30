@@ -73,8 +73,24 @@ handleIQ iqHands outC sta = atomically $ do
       case Map.lookup (iqRequestType iq, iqNS) byNS of
           Nothing -> writeTChan outC $ serviceUnavailable iq
           Just ch -> do
-            sent <- newTVar False
-            writeTChan ch $ IQRequestTicket sent iq
+            sentRef <- newTVar False
+            let answerT answer = do
+                    let IQRequest iqid from _to lang _tp bd = iq
+                        response = case answer of
+                            Left er  -> IQErrorS $ IQError iqid Nothing
+                                                            from lang er
+                                                            (Just bd)
+                            Right res -> IQResultS $ IQResult iqid Nothing
+                                                              from lang res
+                    atomically $ do
+                    sent <- readTVar sentRef
+                    case sent of
+                        False -> do
+                            writeTVar sentRef True
+                            writeTChan outC response
+                            return True
+                        True -> return False
+            writeTChan ch $ IQRequestTicket answerT iq
     serviceUnavailable (IQRequest iqid from _to lang _tp bd) =
         IQErrorS $ IQError iqid Nothing from lang err (Just bd)
     err = StanzaError Cancel ServiceUnavailable Nothing Nothing

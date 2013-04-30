@@ -10,6 +10,7 @@ import qualified Data.ByteString as BS
 import qualified Data.Map as Map
 import           Data.Text (Text)
 import           Data.Typeable
+import           Data.XML.Types (Element)
 
 import           Network.Xmpp.IM.Roster.Types
 import           Network.Xmpp.Types
@@ -56,6 +57,6 @@ type IQHandlers = (Map.Map (IQRequestType, Text) (TChan IQRequestTicket)
 -- | Contains whether or not a reply has been sent, and the IQ request body to
 -- reply to.
 data IQRequestTicket = IQRequestTicket
-    { sentRef     :: (TVar Bool)
+    { answerTicket :: Either StanzaError (Maybe Element) -> IO Bool
     , iqRequestBody :: IQRequest
     }

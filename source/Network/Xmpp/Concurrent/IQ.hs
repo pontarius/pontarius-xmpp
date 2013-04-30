@@ -103,23 +103,7 @@ dropIQChan tp ns session = do
         writeTVar handlers (byNS', byID)
         return ()
 
-answerIQ :: IQRequestTicket
-         -> Either StanzaError (Maybe Element)
-         -> Session
-         -> IO Bool
-answerIQ (IQRequestTicket
-              sRef
-              (IQRequest iqid from _to lang _tp bd))
-           answer session = do
-  let response = case answer of
-        Left err  -> IQErrorS $ IQError iqid Nothing from lang err (Just bd)
-        Right res -> IQResultS $ IQResult iqid Nothing from lang res
-  atomically $ do
-       sent <- readTVar sRef
-       case sent of
-         False -> do
-             writeTVar sRef True
-
-             writeTChan (outCh  session) response
-             return True
-         True -> return False
+-- | Answer an IQ request. Only the first answer ist sent and then True is
+-- returned. Subsequent answers are dropped and (False is returned in that case)
+answerIQ :: IQRequestTicket -> Either StanzaError (Maybe Element) -> IO Bool
+answerIQ ticket = answerTicket ticket
