@@ -134,7 +134,9 @@ tlsinit params backend = do
     readWithBuffer <- liftIO $ mkReadBuffer (recvData con)
     return ( src
            , snk
-           , \s -> sendData con $ BL.fromChunks [s]
+           , \s -> do
+               liftIO $ debugM "Pontarius.Xmpp.TLS" ("out :" ++ BSC8.unpack s)
+               sendData con $ BL.fromChunks [s]
            , liftIO . readWithBuffer
            , con
            )

@@ -429,7 +429,7 @@ pullUnpickle p = do
 
 -- | Pulls a stanza (or stream error) from the stream.
 pullStanza :: Stream -> IO (Either XmppFailure Stanza)
-pullStanza = withStream $ do
+pullStanza = withStream' $ do
     res <- pullUnpickle xpStreamStanza
     case res of
         Left e -> return $ Left e
