@@ -2,12 +2,15 @@
 --
 module Network.Xmpp.IM
   ( -- * Instant Messages
-    MessageBody(..)
+    InstantMessage(..)
+  , MessageBody(..)
   , MessageThread(..)
   , MessageSubject(..)
   , instantMessage
+  , simpleIM
   , getIM
   , withIM
+  , answerIM
      -- * Presence
   , ShowStatus(..)
   , IMPresence(..)
