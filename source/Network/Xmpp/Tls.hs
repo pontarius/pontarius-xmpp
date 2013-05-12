@@ -122,7 +122,7 @@ tlsinit params backend = do
     handshake con
     let src = forever $ do
             dt <- liftIO $ recvData con
-            liftIO $ debugM "Pontarius.Xmpp.TLS" ("in :" ++ BSC8.unpack dt)
+            liftIO $ debugM "Pontarius.Xmpp.TLS" ("In :" ++ BSC8.unpack dt)
             yield dt
     let snk = do
             d <- await
@@ -134,9 +134,8 @@ tlsinit params backend = do
     readWithBuffer <- liftIO $ mkReadBuffer (recvData con)
     return ( src
            , snk
-           , \s -> do
-               liftIO $ debugM "Pontarius.Xmpp.TLS" ("out :" ++ BSC8.unpack s)
-               sendData con $ BL.fromChunks [s]
+             -- Note: sendData already sends the data to the debug output
+           , \s -> sendData con $ BL.fromChunks [s]
            , liftIO . readWithBuffer
            , con
            )
