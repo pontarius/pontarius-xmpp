@@ -353,14 +353,18 @@ pushElement x = do
     -- HACK: We remove the "jabber:client" namespace because it is set as
     -- default in the stream. This is to make isode's M-LINK server happy and
     -- should be removed once jabber.org accepts prefix-free canonicalization
-    nsHack e@(Element{elementName = n})
-        | nameNamespace n == Just "jabber:client" =
-            e{ elementName = Name (nameLocalName n) Nothing Nothing
-             , elementNodes = map mapNSHack $ elementNodes e
-             }
-        | otherwise = e
-    mapNSHack (NodeElement e) = NodeElement $ nsHack e
-    mapNSHack n = n
+
+nsHack :: Element -> Element
+nsHack e@(Element{elementName = n})
+    | nameNamespace n == Just "jabber:client" =
+        e{ elementName = Name (nameLocalName n) Nothing Nothing
+         , elementNodes = map mapNSHack $ elementNodes e
+         }
+    | otherwise = e
+  where
+    mapNSHack :: Node -> Node
+    mapNSHack (NodeElement el) = NodeElement $ nsHack el
+    mapNSHack nd = nd
 
 -- | Encode and send stanza
 pushStanza :: Stanza -> Stream -> IO (Either XmppFailure Bool)
