@@ -29,6 +29,7 @@ module Network.Xmpp
   , session
   , StreamConfiguration(..)
   , SessionConfiguration(..)
+  , ConnectionDetails(..)
     -- TODO: Close session, etc.
     -- ** Authentication handlers
     -- | The use of 'scramSha1' is /recommended/, but 'digestMd5' might be
@@ -45,6 +46,7 @@ module Network.Xmpp
   , isFull
   , jidFromText
   , jidFromTexts
+  , getJid
   -- * Stanzas
   -- | The basic protocol data unit in XMPP is the XML stanza. The stanza is
   -- essentially a fragment of XML that is sent over a stream. @Stanzas@ come in
@@ -81,6 +83,7 @@ module Network.Xmpp
   -- occur in a system such as email. It is not to be confused with
   -- /instant messaging/ which is handled in the 'Network.Xmpp.IM' module
   , Message(..)
+  , message
   , MessageError(..)
   , MessageType(..)
   -- *** Creating
@@ -102,6 +105,12 @@ module Network.Xmpp
   , PresenceType(..)
   , PresenceError(..)
   -- *** Creating
+  , presence
+  , presenceOffline
+  , presenceOnline
+  , presenceSubscribe
+  , presenceSubscribed
+  , presenceUnsubscribe
   , presTo
   -- *** Sending
   -- | Sends a presence stanza. In general, the presence stanza should have no
@@ -137,8 +146,7 @@ module Network.Xmpp
   , sendIQ'
   , answerIQ
   , listenIQChan
-  , iqRequestPayload
-  , iqResultPayload
+  , dropIQChan
   -- * Errors
   , StanzaError(..)
   , StanzaErrorType(..)
@@ -156,10 +164,9 @@ module Network.Xmpp
                , AuthOtherFailure )
   ) where
 
-import Network
 import Network.Xmpp.Concurrent
-import Network.Xmpp.Utilities
 import Network.Xmpp.Sasl
 import Network.Xmpp.Sasl.Types
-import Network.Xmpp.Tls
+import Network.Xmpp.Stanza
 import Network.Xmpp.Types
+import Network.Xmpp.Utilities

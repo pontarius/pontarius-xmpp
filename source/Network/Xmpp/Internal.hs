@@ -29,7 +29,7 @@ module Network.Xmpp.Internal
   , pushStanza
   , pullStanza
   , pushIQ
-  , SaslHandler(..)
+  , SaslHandler
   , StanzaID(..)
  )
 
@@ -37,9 +37,6 @@ module Network.Xmpp.Internal
 
 import Network.Xmpp.Stream
 import Network.Xmpp.Sasl
-import Network.Xmpp.Sasl.Common
 import Network.Xmpp.Sasl.Types
 import Network.Xmpp.Tls
 import Network.Xmpp.Types
-import Network.Xmpp.Stream
-import Network.Xmpp.Marshal

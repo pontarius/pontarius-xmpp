@@ -3,9 +3,7 @@ module Network.Xmpp.Concurrent.Message where
 
 import Network.Xmpp.Concurrent.Types
 import Control.Concurrent.STM
-import Data.IORef
 import Network.Xmpp.Types
-import Network.Xmpp.Concurrent.Types
 import Network.Xmpp.Concurrent.Basic
 
 -- | Read an element from the inbound stanza channel, discardes any

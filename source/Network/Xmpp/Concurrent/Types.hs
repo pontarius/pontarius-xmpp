@@ -3,19 +3,16 @@
 
 module Network.Xmpp.Concurrent.Types where
 
-import qualified Control.Exception.Lifted as Ex
 import           Control.Concurrent
 import           Control.Concurrent.STM
-
+import qualified Control.Exception.Lifted as Ex
 import qualified Data.ByteString as BS
-import           Data.Typeable
-
-import           Network.Xmpp.Types
-
-import           Data.IORef
 import qualified Data.Map as Map
 import           Data.Text (Text)
+import           Data.Typeable
+import           Data.XML.Types (Element)
 
+import           Network.Xmpp.IM.Roster.Types
 import           Network.Xmpp.Types
 
 -- | Handlers to be run when the Xmpp session ends and when the Xmpp connection is
@@ -47,6 +44,7 @@ data Session = Session
     , streamRef :: TMVar (Stream)
     , eventHandlers :: TVar EventHandlers
     , stopThreads :: IO ()
+    , rosterRef :: TVar Roster
     , conf :: SessionConfiguration
     }
 
@@ -59,6 +57,6 @@ type IQHandlers = (Map.Map (IQRequestType, Text) (TChan IQRequestTicket)
 -- | Contains whether or not a reply has been sent, and the IQ request body to
 -- reply to.
 data IQRequestTicket = IQRequestTicket
-    { sentRef     :: (TVar Bool)
+    { answerTicket :: Either StanzaError (Maybe Element) -> IO Bool
     , iqRequestBody :: IQRequest
     }

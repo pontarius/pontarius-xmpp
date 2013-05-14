@@ -37,6 +37,7 @@ module Network.Xmpp.Types
     , ConnectionState(..)
     , StreamErrorInfo(..)
     , StanzaHandler
+    , ConnectionDetails(..)
     , StreamConfiguration(..)
     , langTag
     , Jid(..)
@@ -46,8 +47,6 @@ module Network.Xmpp.Types
     , jidFromTexts
     , StreamEnd(..)
     , InvalidXmppXml(..)
-    , Hostname(..)
-    , hostname
     , SessionConfiguration(..)
     , TlsBehaviour(..)
     )
@@ -70,7 +69,6 @@ import           Data.Typeable(Typeable)
 import           Data.XML.Types
 import           Network
 import           Network.DNS
-import           Network.Socket
 import           Network.TLS hiding (Version)
 import           Network.TLS.Extra
 import qualified Text.NamePrep as SP
@@ -1012,6 +1010,10 @@ data InvalidXmppXml = InvalidXmppXml String deriving (Show, Typeable)
 
 instance Exception InvalidXmppXml
 
+data ConnectionDetails = UseRealm -- ^ Use realm to resolv host
+                       | UseSrv HostName -- ^ Use this hostname for a SRC lookup
+                       | UseHost HostName PortID -- ^ Use specified host
+
 -- | Configuration settings related to the stream.
 data StreamConfiguration =
     StreamConfiguration { -- | Default language when no language tag is set
@@ -1026,7 +1028,7 @@ data StreamConfiguration =
                           -- of the realm, as well as specify the use of a
                           -- non-standard port when connecting by IP or
                           -- connecting to a domain without SRV records.
-                        , socketDetails :: Maybe (Socket, SockAddr)
+                        , connectionDetails :: ConnectionDetails
                           -- | DNS resolver configuration
                         , resolvConf :: ResolvConf
                           -- | Whether or not to perform the legacy
@@ -1039,55 +1041,18 @@ data StreamConfiguration =
                         , tlsParams :: TLSParams
                         }
 
-
 instance Default StreamConfiguration where
     def = StreamConfiguration { preferredLang = Nothing
                               , toJid = Nothing
-                              , socketDetails = Nothing
+                              , connectionDetails = UseRealm
                               , resolvConf = defaultResolvConf
                               , establishSession = True
                               , tlsBehaviour = PreferTls
-                              , tlsParams = defaultParamsClient { pConnectVersion = TLS12
-                                                                , pAllowedVersions = [TLS12]
+                              , tlsParams = defaultParamsClient { pConnectVersion = TLS10
+                                                                , pAllowedVersions = [TLS10, TLS11, TLS12]
                                                                 , pCiphers = ciphersuite_strong
                                                                 }
                               }
-
-data Hostname = Hostname Text deriving (Eq, Show)
-
-instance Read Hostname where
-  readsPrec _ x = case hostname (Text.pack x) of
-      Nothing -> []
-      Just h -> [(h,"")]
-
-instance IsString Hostname where
-  fromString = fromJust . hostname . Text.pack
-
--- | Validates the hostname string in accordance with RFC 1123.
-hostname :: Text -> Maybe Hostname
-hostname t = do
-    eitherToMaybeHostname $ AP.parseOnly hostnameP t
-  where
-    eitherToMaybeHostname = either (const Nothing) (Just . Hostname)
-
--- Validation of RFC 1123 hostnames.
-hostnameP :: AP.Parser Text
-hostnameP = do
-    -- Hostnames may not begin with a hyphen.
-    h <- AP.satisfy $ AP.inClass $ ['A'..'Z'] ++ ['a'..'z'] ++ ['0'..'9']
-    t <- AP.takeWhile $ AP.inClass $ ['A'..'Z'] ++ ['a'..'z'] ++ ['0'..'9'] ++ ['-']
-    let label = Text.concat [Text.pack [h], t]
-    if Text.length label > 63
-        then fail "Label too long."
-        else do
-            AP.endOfInput
-            return label
-            <|> do
-                _ <- AP.satisfy (== '.')
-                r <- hostnameP
-                if (Text.length label) + 1 + (Text.length r) > 255
-                    then fail "Hostname too long."
-                    else return $ Text.concat [label, Text.pack ".", r]
 
 type StanzaHandler =  TChan Stanza -- ^ outgoing stanza
                    -> Stanza       -- ^ stanza to handle
@@ -1098,10 +1063,11 @@ data SessionConfiguration = SessionConfiguration
     { -- | Configuration for the @Stream@ object.
       sessionStreamConfiguration :: StreamConfiguration
       -- | Handler to be run when the session ends (for whatever reason).
-    , sessionClosedHandler :: XmppFailure -> IO ()
+    , sessionClosedHandler       :: XmppFailure -> IO ()
       -- | Function to generate the stream of stanza identifiers.
-    , sessionStanzaIDs :: IO (IO StanzaID)
-    , extraStanzaHandlers   :: [StanzaHandler]
+    , sessionStanzaIDs           :: IO (IO StanzaID)
+    , extraStanzaHandlers        :: [StanzaHandler]
+    , enableRoster               :: Bool
     }
 
 instance Default SessionConfiguration where
@@ -1114,6 +1080,7 @@ instance Default SessionConfiguration where
                                          writeTVar idRef (curId + 1 :: Integer)
                                          return . StanzaID . Text.pack . show $ curId
                                , extraStanzaHandlers = []
+                               , enableRoster = True
                                }
 
 -- | How the client should behave in regards to TLS.

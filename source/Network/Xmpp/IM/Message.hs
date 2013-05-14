@@ -1,119 +1,64 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_HADDOCK hide #-}
 
-module Network.Xmpp.IM.Message
-     where
+module Network.Xmpp.IM.Message where
 
-import Control.Applicative ((<$>))
-
-import Data.Maybe (maybeToList, listToMaybe)
 import Data.Text (Text)
 import Data.XML.Pickle
 import Data.XML.Types
-
 import Network.Xmpp.Marshal
 import Network.Xmpp.Types
+import Network.Xmpp.Stanza
+import Data.List
+import Data.Function
 
-data MessageBody = MessageBody { bodyLang :: (Maybe LangTag)
+
+data MessageBody = MessageBody { bodyLang    :: Maybe LangTag
                                , bodyContent :: Text
                                }
 
-data MessageThread = MessageThread { theadID :: Text
-                                   , threadParent :: (Maybe Text)
+data MessageThread = MessageThread { theadID      :: Text
+                                   , threadParent :: Maybe Text
                                    }
 
-data MessageSubject = MessageSubject { subjectLang :: (Maybe LangTag)
+data MessageSubject = MessageSubject { subjectLang    :: Maybe LangTag
                                      , subjectContent :: Text
                                      }
 
-xpMessageSubject :: PU [Element] MessageSubject
-xpMessageSubject = xpUnliftElems .
-                   xpWrap (\(l, s) ->  MessageSubject l s)
-                          (\(MessageSubject l s) -> (l,s))
-                   $ xpElem "{jabber:client}subject" xpLangTag $ xpContent xpId
+-- | The instant message (IM) specific part of a message.
+data InstantMessage = InstantMessage { imThread  :: Maybe MessageThread
+                                     , imSubject :: [MessageSubject]
+                                     , imBody    :: [MessageBody]
+                                     }
 
-xpMessageBody :: PU [Element] MessageBody
-xpMessageBody = xpUnliftElems .
-                xpWrap (\(l, s) ->  MessageBody l s)
-                          (\(MessageBody l s) -> (l,s))
-                   $ xpElem "{jabber:client}body" xpLangTag $ xpContent xpId
+instantMessage :: InstantMessage
+instantMessage = InstantMessage { imThread  = Nothing
+                                , imSubject = []
+                                , imBody    = []
+                                }
 
-xpMessageThread :: PU [Element] MessageThread
-xpMessageThread = xpUnliftElems
-                  . xpWrap (\(t, p) ->  MessageThread p t)
-                          (\(MessageThread p t) -> (t,p))
-                   $ xpElem "{jabber:client}thread"
-                      (xpAttrImplied "parent" xpId)
-                      (xpContent xpId)
+-- | Get the IM specific parts of a message. Returns 'Nothing' when the received
+-- payload is not valid IM data.
+getIM :: Message -> Maybe InstantMessage
+getIM im = either (const Nothing) Just . unpickle xpIM $ messagePayload im
 
--- | Get the subject elements of a message (if any). Messages may
--- contain multiple subjects if each of them has a distinct xml:lang
--- attribute
-subject :: Message -> [MessageSubject]
-subject m = ms
-  where
-    -- xpFindMatches will _always_ return Right
-    Right ms = unpickle (xpFindMatches xpMessageSubject) $ messagePayload m
+sanitizeIM :: InstantMessage -> InstantMessage
+sanitizeIM im = im{imBody = nubBy ((==) `on` bodyLang) $ imBody im}
 
--- | Get the thread elements of a message (if any). The thread of a
--- message is considered opaque, that is, no meaning, other than it's
--- literal identity, may be derived from it and it is not human
--- readable
-thread :: Message -> Maybe MessageThread
-thread m = ms
-  where
-    -- xpFindMatches will _always_ return Right
-    Right ms = unpickle (xpOption xpMessageThread) $ messagePayload m
+-- | Append IM data to a message
+withIM :: Message -> InstantMessage -> Message
+withIM m im = m{ messagePayload = messagePayload m
+                                 ++ pickleTree xpIM (sanitizeIM im) }
 
--- | Get the body elements of a message (if any). Messages may contain
--- multiple bodies if each of them has a distinct xml:lang attribute
-bodies :: Message -> [MessageBody]
-bodies m = ms
-  where
-    -- xpFindMatches will _always_ return Right
-    Right ms = unpickle (xpFindMatches xpMessageBody) $ messagePayload m
-
--- | Return the first body element, regardless of it's language.
-body :: Message -> Maybe Text
-body m = bodyContent <$> listToMaybe (bodies m)
-
--- | Generate a new instant message
-newIM
-  :: Jid
-     -> Maybe StanzaID
-     -> Maybe LangTag
-     -> MessageType
-     -> Maybe MessageSubject
-     -> Maybe MessageThread
-     -> Maybe MessageBody
-     -> [Element]
-     -> Message
-newIM t i lang tp sbj thrd bdy payload = Message
-    { messageID      = i
-    , messageFrom    = Nothing
-    , messageTo      = Just t
-    , messageLangTag = lang
-    , messageType    = tp
-    , messagePayload =  concat $
-                        maybeToList (pickle xpMessageSubject <$> sbj)
-                        ++ maybeToList (pickle xpMessageThread <$> thrd)
-                        ++ maybeToList (pickle xpMessageBody <$> bdy)
-                        ++ [payload]
-    }
+imToElements :: InstantMessage -> [Element]
+imToElements im = pickle xpIM (sanitizeIM im)
 
 -- | Generate a simple message
 simpleIM :: Jid -- ^ recipient
          -> Text -- ^ body
          -> Message
-simpleIM t bd = newIM
-                  t
-                  Nothing
-                  Nothing
-                  Normal
-                  Nothing
-                  Nothing
-                  (Just $ MessageBody Nothing bd)
-                  []
+simpleIM to bd = withIM message{messageTo = Just to}
+                       instantMessage{imBody = [MessageBody Nothing bd]}
 
 -- | Generate an answer from a received message. The recepient is
 -- taken from the original sender, the sender is set to Nothing,
@@ -121,17 +66,48 @@ simpleIM t bd = newIM
 -- thread are inherited, the remaining payload is replaced by the
 -- given one.
 --
--- If multiple message bodies are given they must have different language tags
-answerIM :: [MessageBody] -> [Element] -> Message -> Message
-answerIM bd payload msg = Message
-    { messageID      = messageID msg
-    , messageFrom    = Nothing
-    , messageTo      = messageFrom msg
-    , messageLangTag = messageLangTag msg
-    , messageType    = messageType msg
-    , messagePayload =  concat $
-                        (pickle xpMessageSubject <$> subject msg)
-                        ++ maybeToList (pickle xpMessageThread <$> thread msg)
-                        ++ (pickle xpMessageBody <$> bd)
-                        ++ [payload]
-    }
+-- If multiple message bodies are given they MUST have different language tags
+answerIM :: [MessageBody] -> Message -> Maybe Message
+answerIM bd msg = case getIM msg of
+    Nothing -> Nothing
+    Just im -> Just $ flip withIM (im{imBody = bd}) $
+        message { messageID      = messageID msg
+                , messageFrom    = Nothing
+                , messageTo      = messageFrom msg
+                , messageLangTag = messageLangTag msg
+                , messageType    = messageType msg
+                }
+
+--------------------------
+-- Picklers --------------
+--------------------------
+xpIM :: PU [Element] InstantMessage
+xpIM = xpWrap (\(t, s, b) -> InstantMessage t s b)
+              (\(InstantMessage t s b) -> (t, s, b))
+       . xpClean
+       $ xp3Tuple
+           xpMessageThread
+           xpMessageSubject
+           xpMessageBody
+
+
+xpMessageSubject :: PU [Element] [MessageSubject]
+xpMessageSubject = xpUnliftElems .
+                   xpWrap (map $ \(l, s) -> MessageSubject l s)
+                          (map $ \(MessageSubject l s) -> (l,s))
+                   $ xpElems "{jabber:client}subject" xpLangTag $ xpContent xpId
+
+xpMessageBody :: PU [Element] [MessageBody]
+xpMessageBody = xpUnliftElems .
+                xpWrap (map $ \(l, s) ->  MessageBody l s)
+                       (map $ \(MessageBody l s) -> (l,s))
+                   $ xpElems "{jabber:client}body" xpLangTag $ xpContent xpId
+
+xpMessageThread :: PU [Element] (Maybe MessageThread)
+xpMessageThread = xpUnliftElems
+                  . xpOption
+                  . xpWrap (\(t, p) ->  MessageThread p t)
+                          (\(MessageThread p t) -> (t,p))
+                   $ xpElem "{jabber:client}thread"
+                      (xpAttrImplied "parent" xpId)
+                      (xpContent xpId)

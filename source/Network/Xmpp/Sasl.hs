@@ -1,6 +1,6 @@
 {-# OPTIONS_HADDOCK hide #-}
 {-# LANGUAGE NoMonomorphismRestriction, OverloadedStrings #-}
-
+--
 -- Submodule for functionality related to SASL negotation:
 -- authentication functions, SASL functionality, bind functionality,
 -- and the legacy `{urn:ietf:params:xml:ns:xmpp-session}session'
@@ -14,51 +14,17 @@ module Network.Xmpp.Sasl
     , auth
     ) where
 
-import           Control.Applicative
-import           Control.Arrow (left)
-import           Control.Monad
 import           Control.Monad.Error
 import           Control.Monad.State.Strict
-import           Data.Maybe (fromJust, isJust)
-
-import qualified Crypto.Classes as CC
-
-import qualified Data.Binary as Binary
-import qualified Data.ByteString.Base64 as B64
-import qualified Data.ByteString.Char8 as BS8
-import qualified Data.ByteString.Lazy as BL
-import qualified Data.Digest.Pure.MD5 as MD5
-import qualified Data.List as L
-import           Data.Word (Word8)
-
-import qualified Data.Text as Text
 import           Data.Text (Text)
-import qualified Data.Text.Encoding as Text
-
-import           Network.Xmpp.Stream
-import           Network.Xmpp.Types
-
-import           System.Log.Logger (debugM, errorM)
-import qualified System.Random as Random
-
-import           Network.Xmpp.Sasl.Types
-import           Network.Xmpp.Sasl.Mechanisms
-
-import           Control.Concurrent.STM.TMVar
-
-import           Control.Exception
-
 import           Data.XML.Pickle
 import           Data.XML.Types
-
-import           Network.Xmpp.Types
 import           Network.Xmpp.Marshal
-
-import           Control.Monad.State(modify)
-
-import           Control.Concurrent.STM.TMVar
-
-import           Control.Monad.Error
+import           Network.Xmpp.Sasl.Mechanisms
+import           Network.Xmpp.Sasl.Types
+import           Network.Xmpp.Stream
+import           Network.Xmpp.Types
+import           System.Log.Logger (debugM, errorM, infoM)
 
 -- | Uses the first supported mechanism to authenticate, if any. Updates the
 -- state with non-password credentials and restarts the stream upon
@@ -105,16 +71,18 @@ auth :: [SaslHandler]
      -> Stream
      -> IO (Either XmppFailure (Maybe AuthFailure))
 auth mechanisms resource con = runErrorT $ do
-    ErrorT $ xmppSasl mechanisms con
-    jid <- ErrorT $ xmppBind resource con
-    ErrorT $ flip withStream con $ do
-        s <- get
-        case establishSession $ streamConfiguration s of
-            False -> return $ Right Nothing
-            True -> do
-                _ <- lift $ startSession con
-                return $ Right Nothing
-    return Nothing
+    mbAuthFail <- ErrorT $ xmppSasl mechanisms con
+    case mbAuthFail of
+        Nothing -> do
+            _jid <- ErrorT $ xmppBind resource con
+            ErrorT $ flip withStream' con $ do
+                s <- get
+                case establishSession $ streamConfiguration s of
+                    False -> return $ Right Nothing
+                    True -> do
+                        _ <-liftIO $ startSession con
+                        return $ Right Nothing
+        f -> return f
 
 -- Produces a `bind' element, optionally wrapping a resource.
 bindBody :: Maybe Text -> Element
@@ -133,20 +101,21 @@ xmppBind rsrc c = runErrorT $ do
     answer <- ErrorT $ pushIQ "bind" Nothing Set Nothing (bindBody rsrc) c
     case answer of
         Right IQResult{iqResultPayload = Just b} -> do
-            lift $ debugM "Pontarius.XMPP" "xmppBind: IQ result received; unpickling JID..."
+            lift $ debugM "Pontarius.Xmpp" "xmppBind: IQ result received; unpickling JID..."
             let jid = unpickleElem xpJid b
             case jid of
                 Right jid' -> do
-                    lift $ debugM "Pontarius.XMPP" $ "xmppBind: JID unpickled: " ++ show jid'
-                    ErrorT $ withStream (do
-                                      modify $ \s -> s{streamJid = Just jid'}
-                                      return $ Right jid') c -- not pretty
+                    lift $ infoM "Pontarius.Xmpp" $ "Bound JID: " ++ show jid'
+                    _ <- lift $ withStream ( do modify $ \s ->
+                                                    s{streamJid = Just jid'})
+                                           c
                     return jid'
-                otherwise -> do
-                    lift $ errorM "Pontarius.XMPP" $ "xmppBind: JID could not be unpickled from: "
-                        ++ show b
+                _ -> do
+                    lift $ errorM "Pontarius.Xmpp"
+                        $ "xmppBind: JID could not be unpickled from: "
+                          ++ show b
                     throwError $ XmppOtherFailure
-        otherwise -> do
+        _ -> do
             lift $ errorM "Pontarius.XMPP" "xmppBind: IQ error received."
             throwError XmppOtherFailure
   where
@@ -163,15 +132,6 @@ sessionXml :: Element
 sessionXml = pickleElem
     (xpElemBlank "{urn:ietf:params:xml:ns:xmpp-session}session")
     ()
-
-sessionIQ :: Stanza
-sessionIQ = IQRequestS $ IQRequest { iqRequestID      = "sess"
-                                   , iqRequestFrom    = Nothing
-                                   , iqRequestTo      = Nothing
-                                   , iqRequestLangTag = Nothing
-                                   , iqRequestType    = Set
-                                   , iqRequestPayload = sessionXml
-                                   }
 
 -- Sends the session IQ set element and waits for an answer. Throws an error if
 -- if an IQ error stanza is returned from the server.

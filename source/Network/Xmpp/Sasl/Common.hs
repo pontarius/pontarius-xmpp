@@ -4,28 +4,23 @@
 
 module Network.Xmpp.Sasl.Common where
 
-import           Network.Xmpp.Types
-
 import           Control.Applicative ((<$>))
 import           Control.Monad.Error
-import           Control.Monad.State.Class
-
 import qualified Data.Attoparsec.ByteString.Char8 as AP
 import           Data.Bits
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base64 as B64
-import           Data.Maybe (fromMaybe)
 import           Data.Maybe (maybeToList)
 import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text
 import           Data.Word (Word8)
 import           Data.XML.Pickle
 import           Data.XML.Types
-
-import           Network.Xmpp.Stream
+import           Network.Xmpp.Marshal
 import           Network.Xmpp.Sasl.StringPrep
 import           Network.Xmpp.Sasl.Types
-import           Network.Xmpp.Marshal
+import           Network.Xmpp.Stream
+import           Network.Xmpp.Types
 
 import qualified System.Random as Random
 
@@ -66,9 +61,9 @@ pairs = AP.parseOnly . flip AP.sepBy1 (void $ AP.char ',') $ do
     AP.skipSpace
     name <- AP.takeWhile1 (/= '=')
     _ <- AP.char '='
-    quote <- ((AP.char '"' >> return True) `mplus` return False)
+    qt <- ((AP.char '"' >> return True) `mplus` return False)
     content <- AP.takeWhile1 (AP.notInClass [',', '"'])
-    when quote . void $ AP.char '"'
+    when qt . void $ AP.char '"'
     return (name, content)
 
 -- Failure element pickler.
@@ -108,19 +103,20 @@ xpSaslElement = xpAlt saslSel
 quote :: BS.ByteString -> BS.ByteString
 quote x = BS.concat ["\"",x,"\""]
 
-saslInit :: Text.Text -> Maybe BS.ByteString -> ErrorT AuthFailure (StateT StreamState IO) Bool
+saslInit :: Text.Text -> Maybe BS.ByteString -> ErrorT AuthFailure (StateT StreamState IO) ()
 saslInit mechanism payload = do
     r <- lift . pushElement . saslInitE mechanism $
         Text.decodeUtf8 . B64.encode <$> payload
     case r of
-        Left e -> throwError $ AuthStreamFailure e
-        Right b -> return b
+        Right True -> return ()
+        Right False -> throwError $ AuthStreamFailure XmppNoStream
+        Left e  -> throwError $ AuthStreamFailure e
 
 -- | Pull the next element.
 pullSaslElement :: ErrorT AuthFailure (StateT StreamState IO) SaslElement
 pullSaslElement = do
-    r <- lift $ pullUnpickle (xpEither xpFailure xpSaslElement)
-    case r of
+    mbse <- lift $ pullUnpickle (xpEither xpFailure xpSaslElement)
+    case mbse of
         Left e -> throwError $ AuthStreamFailure e
         Right (Left e) -> throwError $ AuthSaslFailure e
         Right (Right r) -> return r
@@ -173,13 +169,13 @@ toPairs ctext = case pairs ctext of
     Right r -> return r
 
 -- | Send a SASL response element. The content will be base64-encoded.
-respond :: Maybe BS.ByteString -> ErrorT AuthFailure (StateT StreamState IO) Bool
+respond :: Maybe BS.ByteString -> ErrorT AuthFailure (StateT StreamState IO) ()
 respond m = do
     r <- lift . pushElement . saslResponseE . fmap (Text.decodeUtf8 . B64.encode) $ m
     case r of
         Left e -> throwError $ AuthStreamFailure e
-        Right b -> return b
-
+        Right False -> throwError $ AuthStreamFailure XmppNoStream
+        Right True -> return ()
 
 -- | Run the appropriate stringprep profiles on the credentials.
 -- May fail with 'AuthStringPrepFailure'
@@ -190,12 +186,12 @@ prepCredentials authcid authzid password = case credentials of
     Just creds -> return creds
   where
     credentials = do
-    ac <- normalizeUsername authcid
-    az <- case authzid of
-      Nothing -> Just Nothing
-      Just az' -> Just <$> normalizeUsername az'
-    pw <- normalizePassword password
-    return (ac, az, pw)
+        ac <- normalizeUsername authcid
+        az <- case authzid of
+          Nothing -> Just Nothing
+          Just az' -> Just <$> normalizeUsername az'
+        pw <- normalizePassword password
+        return (ac, az, pw)
 
 -- | Bit-wise xor of byte strings
 xorBS :: BS.ByteString -> BS.ByteString -> BS.ByteString

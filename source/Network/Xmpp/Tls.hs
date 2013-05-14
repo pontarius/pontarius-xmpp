@@ -4,7 +4,6 @@
 
 module Network.Xmpp.Tls where
 
-import           Control.Concurrent.STM.TMVar
 import qualified Control.Exception.Lifted as Ex
 import           Control.Monad
 import           Control.Monad.Error
@@ -14,21 +13,30 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BSC8
 import qualified Data.ByteString.Lazy as BL
 import           Data.Conduit
-import qualified Data.Conduit.Binary as CB
 import           Data.IORef
-import           Data.Typeable
 import           Data.XML.Types
 import           Network.TLS
-import           Network.TLS.Extra
 import           Network.Xmpp.Stream
 import           Network.Xmpp.Types
-import           System.Log.Logger (debugM, errorM)
+import           System.Log.Logger (debugM, errorM, infoM)
 
+mkBackend :: StreamHandle -> Backend
 mkBackend con = Backend { backendSend = \bs -> void (streamSend con bs)
-                        , backendRecv = streamReceive con
+                        , backendRecv = bufferReceive (streamReceive con)
                         , backendFlush = streamFlush con
                         , backendClose = streamClose con
                         }
+  where
+    bufferReceive _ 0 = return BS.empty
+    bufferReceive recv n = BS.concat `liftM` (go n)
+      where
+        go m = do
+            bs <- recv m
+            case BS.length bs of
+                0 -> return []
+                l -> if l < m
+                     then (bs :) `liftM` go (m - l)
+                     else return [bs]
 
 starttlsE :: Element
 starttlsE = Element "{urn:ietf:params:xml:ns:xmpp-tls}starttls" [] []
@@ -43,49 +51,60 @@ tls con = Ex.handle (return . Left . TlsError)
     case sState of
         Plain -> return ()
         Closed -> do
-            liftIO $ errorM "Pontarius.XMPP" "startTls: The stream is closed."
+            liftIO $ errorM "Pontarius.Xmpp" "startTls: The stream is closed."
             throwError XmppNoStream
         Secured -> do
-            liftIO $ errorM "Pontarius.XMPP" "startTls: The stream is already secured."
+            liftIO $ errorM "Pontarius.Xmpp" "startTls: The stream is already secured."
             throwError TlsStreamSecured
     features <- lift $ gets streamFeatures
     case (tlsBehaviour conf, streamTls features) of
         (RequireTls  , Just _   ) -> startTls
         (RequireTls  , Nothing  ) -> throwError TlsNoServerSupport
         (PreferTls   , Just _   ) -> startTls
-        (PreferTls   , Nothing  ) -> return ()
+        (PreferTls   , Nothing  ) -> skipTls
         (PreferPlain , Just True) -> startTls
-        (PreferPlain , _        ) -> return ()
+        (PreferPlain , _        ) -> skipTls
         (RefuseTls   , Just True) -> throwError XmppOtherFailure
-        (RefuseTls   , _        ) -> return ()
+        (RefuseTls   , _        ) -> skipTls
   where
+    skipTls = liftIO $ infoM "Pontarius.Xmpp" "Skipping TLS negotiation"
     startTls = do
+        liftIO $ infoM "Pontarius.Xmpp" "Running StartTLS"
         params <- gets $ tlsParams . streamConfiguration
-        lift $ pushElement starttlsE
+        sent <- ErrorT $ pushElement starttlsE
+        unless sent $ do
+            liftIO $ errorM "Pontarius.Xmpp" "startTls: Could not sent stanza."
+            throwError XmppOtherFailure
         answer <- lift $ pullElement
         case answer of
-            Left e -> return $ Left e
+            Left e -> throwError e
             Right (Element "{urn:ietf:params:xml:ns:xmpp-tls}proceed" [] []) ->
-                return $ Right ()
+                return ()
             Right (Element "{urn:ietf:params:xml:ns:xmpp-tls}failure" _ _) -> do
-                liftIO $ errorM "Pontarius.XMPP" "startTls: TLS initiation failed."
-                return . Left $ XmppOtherFailure
+                liftIO $ errorM "Pontarius.Xmpp" "startTls: TLS initiation failed."
+                throwError XmppOtherFailure
+            Right r ->
+                liftIO $ errorM "Pontarius.Xmpp" $
+                            "startTls: Unexpected element: " ++ show r
         hand <- gets streamHandle
-        (raw, _snk, psh, read, ctx) <- lift $ tlsinit params (mkBackend hand)
+        (_raw, _snk, psh, recv, ctx) <- lift $ tlsinit params (mkBackend hand)
         let newHand = StreamHandle { streamSend = catchPush . psh
-                                       , streamReceive = read
-                                       , streamFlush = contextFlush ctx
-                                       , streamClose = bye ctx >> streamClose hand
-                                       }
+                                   , streamReceive = recv
+                                   , streamFlush = contextFlush ctx
+                                   , streamClose = bye ctx >> streamClose hand
+                                   }
         lift $ modify ( \x -> x {streamHandle = newHand})
+        liftIO $ infoM "Pontarius.Xmpp" "Stream Secured."
         either (lift . Ex.throwIO) return =<< lift restartStream
         modify (\s -> s{streamConnectionState = Secured})
         return ()
 
+client :: (MonadIO m, CPRG rng) => Params -> rng -> Backend -> m Context
 client params gen backend  = do
     contextNew backend params gen
 
-defaultParams = defaultParamsClient
+xmppDefaultParams :: Params
+xmppDefaultParams = defaultParamsClient
 
 tlsinit :: (MonadIO m, MonadIO m1) =>
         TLSParams
@@ -96,10 +115,10 @@ tlsinit :: (MonadIO m, MonadIO m1) =>
           , Int -> m1 BS.ByteString
           , Context
           )
-tlsinit tlsParams backend = do
+tlsinit params backend = do
     liftIO $ debugM "Pontarius.Xmpp.TLS" "TLS with debug mode enabled."
     gen <- liftIO $ getSystemRandomGen -- TODO: Find better random source?
-    con <- client tlsParams gen backend
+    con <- client params gen backend
     handshake con
     let src = forever $ do
             dt <- liftIO $ recvData con
@@ -111,25 +130,21 @@ tlsinit tlsParams backend = do
                 Nothing -> return ()
                 Just x -> do
                        sendData con (BL.fromChunks [x])
-                       liftIO $ debugM "Pontarius.Xmpp.TLS"
-                                       ("out :" ++ BSC8.unpack x)
                        snk
-    read <- liftIO $ mkReadBuffer (recvData con)
+    readWithBuffer <- liftIO $ mkReadBuffer (recvData con)
     return ( src
            , snk
-           , \s -> do
-               liftIO $ debugM "Pontarius.Xmpp.TLS" ("out :" ++ BSC8.unpack s)
-               sendData con $ BL.fromChunks [s]
-           , liftIO . read
+           , \s -> sendData con $ BL.fromChunks [s]
+           , liftIO . readWithBuffer
            , con
            )
 
 mkReadBuffer :: IO BS.ByteString -> IO (Int -> IO BS.ByteString)
-mkReadBuffer read = do
+mkReadBuffer recv = do
     buffer <- newIORef BS.empty
     let read' n = do
             nc <- readIORef buffer
-            bs <- if BS.null nc then read
+            bs <- if BS.null nc then recv
                                 else return nc
             let (result, rest) = BS.splitAt n bs
             writeIORef buffer rest

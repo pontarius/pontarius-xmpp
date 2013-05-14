@@ -18,36 +18,29 @@ import           Control.Applicative((<$>),(<*>))
 import           Control.Concurrent
 import           Control.Concurrent.STM
 import           Control.Monad
+import           Control.Monad.Error
 import qualified Data.ByteString as BS
-import           Data.IORef
 import qualified Data.Map as Map
 import           Data.Maybe
-import           Data.Maybe (fromMaybe)
 import           Data.Text as Text
 import           Data.XML.Types
 import           Network
-import qualified Network.TLS as TLS
 import           Network.Xmpp.Concurrent.Basic
 import           Network.Xmpp.Concurrent.IQ
 import           Network.Xmpp.Concurrent.Message
 import           Network.Xmpp.Concurrent.Monad
 import           Network.Xmpp.Concurrent.Presence
 import           Network.Xmpp.Concurrent.Threads
-import           Network.Xmpp.Concurrent.Threads
 import           Network.Xmpp.Concurrent.Types
+import           Network.Xmpp.IM.Roster.Types
+import           Network.Xmpp.IM.Roster
 import           Network.Xmpp.Marshal
 import           Network.Xmpp.Sasl
-import           Network.Xmpp.Sasl.Mechanisms
 import           Network.Xmpp.Sasl.Types
 import           Network.Xmpp.Stream
 import           Network.Xmpp.Tls
 import           Network.Xmpp.Types
 import           Network.Xmpp.Utilities
-
-import           Control.Monad.Error
-import           Data.Default
-import           System.Log.Logger
-import           Control.Monad.State.Strict
 
 runHandlers :: (TChan Stanza) -> [StanzaHandler] -> Stanza -> IO ()
 runHandlers _    []        _   = return ()
@@ -80,8 +73,24 @@ handleIQ iqHands outC sta = atomically $ do
       case Map.lookup (iqRequestType iq, iqNS) byNS of
           Nothing -> writeTChan outC $ serviceUnavailable iq
           Just ch -> do
-            sent <- newTVar False
-            writeTChan ch $ IQRequestTicket sent iq
+            sentRef <- newTVar False
+            let answerT answer = do
+                    let IQRequest iqid from _to lang _tp bd = iq
+                        response = case answer of
+                            Left er  -> IQErrorS $ IQError iqid Nothing
+                                                            from lang er
+                                                            (Just bd)
+                            Right res -> IQResultS $ IQResult iqid Nothing
+                                                              from lang res
+                    atomically $ do
+                    sent <- readTVar sentRef
+                    case sent of
+                        False -> do
+                            writeTVar sentRef True
+                            writeTChan outC response
+                            return True
+                        True -> return False
+            writeTChan ch $ IQRequestTicket answerT iq
     serviceUnavailable (IQRequest iqid from _to lang _tp bd) =
         IQErrorS $ IQError iqid Nothing from lang err (Just bd)
     err = StanzaError Cancel ServiceUnavailable Nothing Nothing
@@ -96,7 +105,7 @@ handleIQ iqHands outC sta = atomically $ do
                 _ <- tryPutTMVar tmvar answer -- Don't block.
                 writeTVar handlers (byNS, byID')
       where
-        iqID (Left err) = iqErrorID err
+        iqID (Left err') = iqErrorID err'
         iqID (Right iq') = iqResultID iq'
 
 -- | Creates and initializes a new Xmpp context.
@@ -104,26 +113,32 @@ newSession :: Stream -> SessionConfiguration -> IO (Either XmppFailure Session)
 newSession stream config = runErrorT $ do
     outC <- lift newTChanIO
     stanzaChan <- lift newTChanIO
-    iqHandlers <- lift $ newTVarIO (Map.empty, Map.empty)
+    iqHands  <- lift $ newTVarIO (Map.empty, Map.empty)
     eh <- lift $ newTVarIO $ EventHandlers { connectionClosedHandler = sessionClosedHandler config }
-    let stanzaHandler = runHandlers outC $ Prelude.concat [ [toChan stanzaChan]
+    ros <- liftIO . newTVarIO $ Roster Nothing Map.empty
+    let rosterH = if (enableRoster config) then handleRoster ros
+                                           else \ _ _ -> return True
+    let stanzaHandler = runHandlers outC $ Prelude.concat [ [ toChan stanzaChan ]
                                                           , extraStanzaHandlers
                                                                 config
-                                                          , [handleIQ iqHandlers]
+                                                          , [ handleIQ iqHands
+                                                            , rosterH
+                                                            ]
                                                           ]
-    (kill, wLock, streamState, readerThread) <- ErrorT $ startThreadsWith stanzaHandler eh stream
+    (kill, wLock, streamState, reader) <- ErrorT $ startThreadsWith stanzaHandler eh stream
     writer <- lift $ forkIO $ writeWorker outC wLock
     idGen <- liftIO $ sessionStanzaIDs config
     return $ Session { stanzaCh = stanzaChan
                      , outCh = outC
-                     , iqHandlers = iqHandlers
+                     , iqHandlers = iqHands
                      , writeRef = wLock
-                     , readerThread = readerThread
+                     , readerThread = reader
                      , idGenerator = idGen
                      , streamRef = streamState
                      , eventHandlers = eh
                      , stopThreads = kill >> killThread writer
                      , conf = config
+                     , rosterRef = ros
                      }
 
 -- Worker to write stanzas to the stream concurrently.
@@ -145,12 +160,12 @@ writeWorker stCh writeR = forever $ do
 -- third parameter is a 'Just' value, @session@ will attempt to authenticate and
 -- acquire an XMPP resource.
 session :: HostName                          -- ^ The hostname / realm
-        -> SessionConfiguration              -- ^ configuration details
         -> Maybe ([SaslHandler], Maybe Text) -- ^ SASL handlers and the desired
                                              -- JID resource (or Nothing to let
                                              -- the server decide)
+        -> SessionConfiguration              -- ^ configuration details
         -> IO (Either XmppFailure Session)
-session realm config mbSasl = runErrorT $ do
+session realm mbSasl config = runErrorT $ do
     stream <- ErrorT $ openStream realm (sessionStreamConfiguration config)
     ErrorT $ tls stream
     mbAuthError <- case mbSasl of
@@ -160,4 +175,5 @@ session realm config mbSasl = runErrorT $ do
         Nothing -> return ()
         Just _  -> throwError XmppAuthFailure
     ses <- ErrorT $ newSession stream config
+    liftIO $ when (enableRoster config) $ initRoster ses
     return ses

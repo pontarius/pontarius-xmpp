@@ -4,8 +4,6 @@ module Network.Xmpp.Concurrent.IQ where
 import           Control.Concurrent (forkIO, threadDelay)
 import           Control.Concurrent.STM
 import           Control.Monad
-import           Control.Monad.IO.Class
-import           Control.Monad.Trans.Reader
 
 import qualified Data.Map as Map
 import           Data.Text (Text)
@@ -64,9 +62,14 @@ sendIQ' to tp lang body session = do
 -- | Retrieves an IQ listener channel. If the namespace/'IQRequestType' is not
 -- already handled, a new 'TChan' is created and returned as a 'Right' value.
 -- Otherwise, the already existing channel will be returned wrapped in a 'Left'
--- value. Note that the 'Left' channel might need to be duplicated in order not
+-- value. The 'Left' channel might need to be duplicated in order not
 -- to interfere with existing consumers.
-listenIQChan :: IQRequestType  -- ^ Type of IQs to receive (@Get@ or @Set@)
+--
+-- Note thet every 'IQRequest' must be answered exactly once. To insure this,
+-- the incoming requests are wrapped in an 'IQRequestTicket' that prevents
+-- multiple responses. Use 'iqRequestBody' to extract the corresponding request
+-- and 'answerIQ' to send the response
+listenIQChan :: IQRequestType  -- ^ Type of IQs to receive ('Get' or 'Set')
              -> Text -- ^ Namespace of the child element
              -> Session
              -> IO (Either (TChan IQRequestTicket) (TChan IQRequestTicket))
@@ -85,23 +88,22 @@ listenIQChan tp ns session = do
             Nothing -> Right iqCh
             Just iqCh' -> Left iqCh'
 
-answerIQ :: IQRequestTicket
-         -> Either StanzaError (Maybe Element)
-         -> Session
-         -> IO Bool
-answerIQ (IQRequestTicket
-              sentRef
-              (IQRequest iqid from _to lang _tp bd))
-           answer session = do
-  let response = case answer of
-        Left err  -> IQErrorS $ IQError iqid Nothing from lang err (Just bd)
-        Right res -> IQResultS $ IQResult iqid Nothing from lang res
-  atomically $ do
-       sent <- readTVar sentRef
-       case sent of
-         False -> do
-             writeTVar sentRef True
+-- | Unregister a previously acquired IQ channel. Please make sure that you
+-- where the one who acquired it in the first place as no check for ownership
+-- can be made
+dropIQChan :: IQRequestType  -- ^ Type of IQ ('Get' or 'Set')
+             -> Text -- ^ Namespace of the child element
+             -> Session
+             -> IO ()
+dropIQChan tp ns session = do
+    let handlers = (iqHandlers session)
+    atomically $ do
+        (byNS, byID) <- readTVar handlers
+        let byNS' = Map.delete (tp, ns) byNS
+        writeTVar handlers (byNS', byID)
+        return ()
 
-             writeTChan (outCh  session) response
-             return True
-         True -> return False
+-- | Answer an IQ request. Only the first answer ist sent and then True is
+-- returned. Subsequent answers are dropped and (False is returned in that case)
+answerIQ :: IQRequestTicket -> Either StanzaError (Maybe Element) -> IO Bool
+answerIQ ticket = answerTicket ticket
