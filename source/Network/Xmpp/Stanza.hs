@@ -58,12 +58,13 @@ presenceOnline = presence
 presenceOffline :: Presence
 presenceOffline = presence {presenceType = Just Unavailable}
 
--- | Produce an answer message with the given payload, switching the "from" and
+-- | Produce an answer message with the given payload, setting "from" to the
 -- "to" attributes in the original message. Produces a 'Nothing' value of the
--- provided message message has no from attribute.
+-- provided message message has no "from" attribute. Sets the "from" attribute
+-- to 'Nothing' to let the server assign one.
 answerMessage :: Message -> [Element] -> Maybe Message
 answerMessage Message{messageFrom = Just frm, ..} payload =
-    Just Message{ messageFrom    = messageTo
+    Just Message{ messageFrom    = Nothing
                 , messageID      = Nothing
                 , messageTo      = Just frm
                 , messagePayload = payload
