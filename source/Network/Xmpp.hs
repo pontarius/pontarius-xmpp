@@ -37,6 +37,8 @@ module Network.Xmpp
   , scramSha1
   , plain
   , digestMd5
+  , closeConnection
+  , endSession
   -- * Addressing
   -- | A JID (historically: Jabber ID) is XMPPs native format
   -- for addressing entities in the network. It is somewhat similar to an e-mail
@@ -164,7 +166,7 @@ module Network.Xmpp
                , AuthSaslFailure
                , AuthIllegalCredentials
                , AuthOtherFailure )
-  , SaslHandler(..)
+  , SaslHandler
   ) where
 
 import Network.Xmpp.Concurrent

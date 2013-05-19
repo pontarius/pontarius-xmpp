@@ -82,8 +82,8 @@ runHandler h session = h =<< atomically (readTVar $ eventHandlers session)
 
 
 -- | End the current Xmpp session.
-endContext :: Session -> IO ()
-endContext session =  do -- TODO: This has to be idempotent (is it?)
+endSession :: Session -> IO ()
+endSession session =  do -- TODO: This has to be idempotent (is it?)
     closeConnection session
     stopThreads session
 
