@@ -80,8 +80,13 @@ iqResponder context = do
 
 autoAccept :: Xmpp ()
 autoAccept context = forever $ do
-  st <- waitForPresence (\p -> presenceType p == Just Subscribe) context
-  sendPresence (presenceSubscribed (fromJust $ presenceFrom st)) context
+    st <- waitForPresence (\p -> presenceType p == Subscribe) context
+    sendPresence (presenceSubscribed (fromJust $ presenceFrom st)) context
+
+showPresence context = forever $ do
+    pr <- waitForPresence (const True) context
+    print $ getIMPresence pr
+
 
 simpleMessage :: Jid -> Text -> Message
 simpleMessage to txt = message
@@ -169,12 +174,12 @@ runMain debug number multi = do
                 config
   sendPresence presenceOnline context
   thread1 <- forkIO $ autoAccept =<< dupSession context
-  sendPresence (presenceSubscribe them) context
   thread2 <- forkIO $ iqResponder =<< dupSession context
+  thread2 <- forkIO $ showPresence =<< dupSession context
   when active $ do
     liftIO $ threadDelay 1000000 -- Wait for the other thread to go online
 --    discoTest debug'
-    when multi $ iqTest debug' we them context
+--    when multi $ iqTest debug' we them context
     killThread thread1
     killThread thread2
   return ()
