@@ -27,26 +27,26 @@ presence = Presence { presenceID       = Nothing
                     , presenceFrom     = Nothing
                     , presenceTo       = Nothing
                     , presenceLangTag  = Nothing
-                    , presenceType     = Nothing
+                    , presenceType     = Available
                     , presencePayload  = []
                     }
 
 -- | Request subscription with an entity.
 presenceSubscribe :: Jid -> Presence
 presenceSubscribe to = presence { presenceTo = Just to
-                                , presenceType = Just Subscribe
+                                , presenceType = Subscribe
                                 }
 
 -- | Approve a subscripton of an entity.
 presenceSubscribed :: Jid -> Presence
 presenceSubscribed to = presence { presenceTo = Just to
-                                 , presenceType = Just Subscribed
+                                 , presenceType = Subscribed
                                  }
 
 -- | End a subscription with an entity.
 presenceUnsubscribe :: Jid -> Presence
 presenceUnsubscribe to = presence { presenceTo = Just to
-                                  , presenceType = Just Unsubscribed
+                                  , presenceType = Unsubscribed
                                   }
 
 -- | Signal to the server that the client is available for communication.
@@ -56,7 +56,7 @@ presenceOnline = presence
 -- | Signal to the server that the client is no longer available for
 -- communication.
 presenceOffline :: Presence
-presenceOffline = presence {presenceType = Just Unavailable}
+presenceOffline = presence {presenceType = Unavailable}
 
 -- | Produce an answer message with the given payload, setting "from" to the
 -- "to" attributes in the original message. Produces a 'Nothing' value of the
