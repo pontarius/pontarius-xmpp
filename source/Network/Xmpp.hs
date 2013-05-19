@@ -76,7 +76,8 @@ module Network.Xmpp
   --    presence, or IQ stanza. The particular allowable values for the 'type'
   --    attribute vary depending on whether the stanza is a message, presence,
   --    or IQ stanza.
-
+  , getStanza
+  , getStanzaChan
   -- ** Messages
   -- | The /message/ stanza is a /push/ mechanism whereby one entity
   -- pushes information to another entity, similar to the communications that
@@ -169,4 +170,3 @@ import Network.Xmpp.Sasl
 import Network.Xmpp.Sasl.Types
 import Network.Xmpp.Stanza
 import Network.Xmpp.Types
-import Network.Xmpp.Utilities
