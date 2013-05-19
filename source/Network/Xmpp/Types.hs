@@ -220,7 +220,7 @@ data Presence = Presence { presenceID      :: !(Maybe StanzaID)
                          , presenceFrom    :: !(Maybe Jid)
                          , presenceTo      :: !(Maybe Jid)
                          , presenceLangTag :: !(Maybe LangTag)
-                         , presenceType    :: !(Maybe PresenceType)
+                         , presenceType    :: !PresenceType
                          , presencePayload :: ![Element]
                          } deriving Show
 
@@ -243,7 +243,8 @@ data PresenceType = Subscribe    | -- ^ Sender wants to subscribe to presence
                                    --   subscription
                     Probe        | -- ^ Sender requests current presence;
                                    --   should only be used by servers
-                    Default      |
+                    Available    | -- ^ Sender wants to express availability
+                                   --   (no type attribute is defined)
                     Unavailable deriving (Eq)
 
 instance Show PresenceType where
@@ -252,12 +253,12 @@ instance Show PresenceType where
     show Unsubscribe  = "unsubscribe"
     show Unsubscribed = "unsubscribed"
     show Probe        = "probe"
-    show Default      = ""
+    show Available    = ""
     show Unavailable  = "unavailable"
 
 instance Read PresenceType where
-    readsPrec _  ""             = [(Default, "")]
-    readsPrec _  "available"    = [(Default, "")]
+    readsPrec _  ""             = [(Available, "")]
+    readsPrec _  "available"    = [(Available, "")]
     readsPrec _  "unavailable"  = [(Unavailable, "")]
     readsPrec _  "subscribe"    = [(Subscribe, "")]
     readsPrec _  "subscribed"   = [(Subscribed, "")]

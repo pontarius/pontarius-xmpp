@@ -152,6 +152,7 @@ module Network.Xmpp
   , StanzaError(..)
   , StanzaErrorType(..)
   , StanzaErrorCondition(..)
+  , SaslFailure(..)
   -- * Threads
   , dupSession
   -- * Miscellaneous
@@ -163,6 +164,7 @@ module Network.Xmpp
                , AuthSaslFailure
                , AuthIllegalCredentials
                , AuthOtherFailure )
+  , SaslHandler(..)
   ) where
 
 import Network.Xmpp.Concurrent

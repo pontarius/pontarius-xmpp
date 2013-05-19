@@ -31,6 +31,9 @@ module Network.Xmpp.Internal
   , pushIQ
   , SaslHandler
   , StanzaID(..)
+  , ConnectionState(..)
+  , Stanza(..)
+  , TlsBehaviour(..)
  )
 
        where

@@ -65,7 +65,7 @@ xpPresence = ("xpPresence" , "") <?+> xpWrap
               (xpAttrImplied "from" xpPrim)
               (xpAttrImplied "to"   xpPrim)
               xpLangTag
-              (xpAttrImplied "type" xpPrim)
+              (xpAttr "type" $ xpWithDefault Available xpPrim)
          )
          (xpAll xpElemVerbatim)
     )

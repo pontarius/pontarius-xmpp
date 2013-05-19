@@ -6,6 +6,8 @@ module Network.Xmpp.IM
   , MessageBody(..)
   , MessageThread(..)
   , MessageSubject(..)
+  , InstantMessage (..)
+  , Subscription(..)
   , instantMessage
   , simpleIM
   , getIM
