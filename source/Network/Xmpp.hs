@@ -37,6 +37,8 @@ module Network.Xmpp
   , scramSha1
   , plain
   , digestMd5
+  , closeConnection
+  , endSession
   -- * Addressing
   -- | A JID (historically: Jabber ID) is XMPPs native format
   -- for addressing entities in the network. It is somewhat similar to an e-mail
@@ -76,7 +78,8 @@ module Network.Xmpp
   --    presence, or IQ stanza. The particular allowable values for the 'type'
   --    attribute vary depending on whether the stanza is a message, presence,
   --    or IQ stanza.
-
+  , getStanza
+  , getStanzaChan
   -- ** Messages
   -- | The /message/ stanza is a /push/ mechanism whereby one entity
   -- pushes information to another entity, similar to the communications that
@@ -163,7 +166,7 @@ module Network.Xmpp
                , AuthSaslFailure
                , AuthIllegalCredentials
                , AuthOtherFailure )
-  , SaslHandler(..)
+  , SaslHandler
   ) where
 
 import Network.Xmpp.Concurrent
@@ -171,4 +174,3 @@ import Network.Xmpp.Sasl
 import Network.Xmpp.Sasl.Types
 import Network.Xmpp.Stanza
 import Network.Xmpp.Types
-import Network.Xmpp.Utilities

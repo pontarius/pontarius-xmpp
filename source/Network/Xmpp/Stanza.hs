@@ -10,27 +10,6 @@ module Network.Xmpp.Stanza where
 import Data.XML.Types
 import Network.Xmpp.Types
 
-
--- | An empty message
-message :: Message
-message = Message { messageID      = Nothing
-                  , messageFrom    = Nothing
-                  , messageTo      = Nothing
-                  , messageLangTag = Nothing
-                  , messageType    = Normal
-                  , messagePayload = []
-                  }
-
--- | An empty presence.
-presence :: Presence
-presence = Presence { presenceID       = Nothing
-                    , presenceFrom     = Nothing
-                    , presenceTo       = Nothing
-                    , presenceLangTag  = Nothing
-                    , presenceType     = Available
-                    , presencePayload  = []
-                    }
-
 -- | Request subscription with an entity.
 presenceSubscribe :: Jid -> Presence
 presenceSubscribe to = presence { presenceTo = Just to

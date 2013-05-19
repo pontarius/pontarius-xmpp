@@ -142,9 +142,7 @@ startStream = runErrorT $ do
                                     )
     response <- ErrorT $ runEventsSink $ runErrorT $ streamS expectedTo
     case response of
-      Left e -> throwError e
-      -- Successful unpickling of stream element.
-      Right (Right (ver, from, to, sid, lt, features))
+      Right (ver, from, to, sid, lt, features)
         | (Text.unpack ver) /= "1.0" ->
             closeStreamWithError StreamUnsupportedVersion Nothing
                 "Unknown version"
@@ -174,7 +172,7 @@ startStream = runErrorT $ do
                          } )
             return ()
       -- Unpickling failed - we investigate the element.
-      Right (Left (Element name attrs _children))
+      Left (Element name attrs _children)
         | (nameLocalName name /= "stream") ->
             closeStreamWithError StreamInvalidXml Nothing
                "Root element is not stream"
@@ -236,11 +234,11 @@ flattenAttrs attrs = Prelude.map (\(name, cont) ->
 -- and calls xmppStartStream.
 restartStream :: StateT StreamState IO (Either XmppFailure ())
 restartStream = do
-    lift $ debugM "Pontarius.XMPP" "Restarting stream..."
+    liftIO $ debugM "Pontarius.XMPP" "Restarting stream..."
     raw <- gets (streamReceive . streamHandle)
-    let newSource = DCI.ResumableSource (loopRead raw $= XP.parseBytes def)
-                                        (return ())
-    modify (\s -> s{streamEventSource = newSource })
+    let newSource =loopRead raw $= XP.parseBytes def
+    buffered <- liftIO . bufferSrc $ newSource
+    modify (\s -> s{streamEventSource = buffered })
     startStream
   where
     loopRead rd = do
@@ -252,6 +250,29 @@ restartStream = do
                               (Text.unpack . Text.decodeUtf8 $ bs)
                yield bs
                loopRead rd
+
+-- We buffer sources because we don't want to lose data when multiple
+-- xml-entities are sent with the same packet and we don't want to eternally
+-- block the StreamState while waiting for data to arrive
+bufferSrc :: MonadIO m => Source IO o -> IO (ConduitM i o m ())
+bufferSrc src = do
+    ref <- newTMVarIO $ DCI.ResumableSource src (return ())
+    let go = do
+            dt <- liftIO $ Ex.bracketOnError (atomically $ takeTMVar ref)
+                                          (\_ -> atomically . putTMVar ref $
+                                                 DCI.ResumableSource zeroSource
+                                                                     (return ())
+                                          )
+                                          (\s -> do
+                                                (s', dt) <- s $$++ CL.head
+                                                atomically $ putTMVar ref s'
+                                                return dt
+                                          )
+            case dt of
+                Nothing -> return ()
+                Just d -> yield d >> go
+    return go
+
 
 -- Reads the (partial) stream:stream and the server features from the stream.
 -- Returns the (unvalidated) stream attributes, the unparsed element, or
@@ -353,14 +374,18 @@ pushElement x = do
     -- HACK: We remove the "jabber:client" namespace because it is set as
     -- default in the stream. This is to make isode's M-LINK server happy and
     -- should be removed once jabber.org accepts prefix-free canonicalization
-    nsHack e@(Element{elementName = n})
-        | nameNamespace n == Just "jabber:client" =
-            e{ elementName = Name (nameLocalName n) Nothing Nothing
-             , elementNodes = map mapNSHack $ elementNodes e
-             }
-        | otherwise = e
-    mapNSHack (NodeElement e) = NodeElement $ nsHack e
-    mapNSHack n = n
+
+nsHack :: Element -> Element
+nsHack e@(Element{elementName = n})
+    | nameNamespace n == Just "jabber:client" =
+        e{ elementName = Name (nameLocalName n) Nothing Nothing
+         , elementNodes = map mapNSHack $ elementNodes e
+         }
+    | otherwise = e
+  where
+    mapNSHack :: Node -> Node
+    mapNSHack (NodeElement el) = NodeElement $ nsHack el
+    mapNSHack nd = nd
 
 -- | Encode and send stanza
 pushStanza :: Stanza -> Stream -> IO (Either XmppFailure Bool)
@@ -384,23 +409,21 @@ pushOpenElement e = do
 
 -- `Connect-and-resumes' the given sink to the stream source, and pulls a
 -- `b' value.
-runEventsSink :: Sink Event IO b -> StateT StreamState IO (Either XmppFailure b)
+runEventsSink :: Sink Event IO b -> StateT StreamState IO b
 runEventsSink snk = do -- TODO: Wrap exceptions?
     src <- gets streamEventSource
-    (src', r) <- lift $ src $$++ snk
-    modify (\s -> s{streamEventSource = src'})
-    return $ Right r
+    r <- liftIO $ src $$ snk
+    return  r
 
 pullElement :: StateT StreamState IO (Either XmppFailure Element)
 pullElement = do
     ExL.catches (do
         e <- runEventsSink (elements =$ await)
         case e of
-            Left f -> return $ Left f
-            Right Nothing -> do
-                lift $ errorM "Pontarius.XMPP" "pullElement: No element."
+            Nothing -> do
+                lift $ errorM "Pontarius.XMPP" "pullElement: Stream ended."
                 return . Left $ XmppOtherFailure
-            Right (Just r) -> return $ Right r
+            Just r -> return $ Right r
         )
         [ ExL.Handler (\StreamEnd -> return $ Left StreamEndFailure)
         , ExL.Handler (\(InvalidXmppXml s) -- Invalid XML `Event' encountered, or missing element close tag
@@ -429,7 +452,7 @@ pullUnpickle p = do
 
 -- | Pulls a stanza (or stream error) from the stream.
 pullStanza :: Stream -> IO (Either XmppFailure Stanza)
-pullStanza = withStream $ do
+pullStanza = withStream' $ do
     res <- pullUnpickle xpStreamStanza
     case res of
         Left e -> return $ Left e
@@ -459,7 +482,7 @@ xmppNoStream = StreamState {
                                   , streamFlush = return ()
                                   , streamClose = return ()
                                   }
-    , streamEventSource = DCI.ResumableSource zeroSource (return ())
+    , streamEventSource = zeroSource
     , streamFeatures = StreamFeatures Nothing [] []
     , streamAddress = Nothing
     , streamFrom = Nothing
@@ -468,11 +491,11 @@ xmppNoStream = StreamState {
     , streamJid = Nothing
     , streamConfiguration = def
     }
-  where
-    zeroSource :: Source IO output
-    zeroSource = liftIO $ do
-        errorM "Pontarius.Xmpp" "zeroSource utilized."
-        ExL.throwIO XmppOtherFailure
+
+zeroSource :: Source IO output
+zeroSource = liftIO $ do
+    errorM "Pontarius.Xmpp" "zeroSource"
+    ExL.throwIO XmppOtherFailure
 
 createStream :: HostName -> StreamConfiguration -> ErrorT XmppFailure IO (Stream)
 createStream realm config = do
@@ -482,9 +505,9 @@ createStream realm config = do
             debugM "Pontarius.Xmpp" "Acquired handle."
             debugM "Pontarius.Xmpp" "Setting NoBuffering mode on handle."
             hSetBuffering h NoBuffering
-            let eSource = DCI.ResumableSource
-                  ((sourceHandle h $= logConduit) $= XP.parseBytes def)
-                  (return ())
+            eSource <- liftIO . bufferSrc $
+                         (sourceHandle h $= logConduit) $= XP.parseBytes def
+
             let hand = StreamHandle { streamSend = \d -> catchPush $ BS.hPut h d
                                     , streamReceive = \n -> BS.hGetSome h n
                                     , streamFlush = hFlush h
@@ -791,5 +814,5 @@ withStream' action (Stream stream) = do
     return r
 
 
-mkStream :: StreamState -> IO (Stream)
-mkStream con = Stream `fmap` (atomically $ newTMVar con)
+mkStream :: StreamState -> IO Stream
+mkStream con = Stream `fmap` atomically (newTMVar con)
