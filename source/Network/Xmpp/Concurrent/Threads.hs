@@ -23,9 +23,10 @@ import           System.Log.Logger
 readWorker :: (Stanza -> IO ())
            -> (XmppFailure -> IO ())
            -> TMVar Stream
-           -> IO a
-readWorker onStanza onConnectionClosed stateRef =
-    Ex.mask_ . forever $ do
+           -> IO ()
+readWorker onStanza onConnectionClosed stateRef = Ex.mask_ go
+  where
+    go = do
         res <- Ex.catches ( do
                        -- we don't know whether pull will
                        -- necessarily be interruptible
@@ -47,10 +48,12 @@ readWorker onStanza onConnectionClosed stateRef =
                          return Nothing
                    ]
         case res of
-              Nothing -> return () -- Caught an exception, nothing to do. TODO: Can this happen?
-              Just (Left _) -> return ()
-              Just (Right sta) -> onStanza sta
-  where
+              Nothing -> go -- Caught an exception, nothing to do. TODO: Can this happen?
+              Just (Left e) -> do
+                  infoM "Pontarius.Xmpp.Reader" $
+                          "Connection died: " ++ show e
+                  onConnectionClosed e
+              Just (Right sta) -> onStanza sta >> go
     -- Defining an Control.Exception.allowInterrupt equivalent for GHC 7
     -- compatibility.
     allowInterrupt :: IO ()

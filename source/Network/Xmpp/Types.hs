@@ -794,7 +794,7 @@ data StreamState = StreamState
       -- | Functions to send, receive, flush, and close on the stream
     , streamHandle :: StreamHandle
       -- | Event conduit source, and its associated finalizer
-    , streamEventSource :: ResumableSource IO Event
+    , streamEventSource :: Source IO Event
       -- | Stream features advertised by the server
     , streamFeatures :: !StreamFeatures -- TODO: Maybe?
       -- | The hostname or IP specified for the connection

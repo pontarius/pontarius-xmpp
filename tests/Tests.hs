@@ -1,4 +1,4 @@
-{-# LANGUAGE PackageImports, OverloadedStrings, NoMonomorphismRestriction #-}
+{-# LANGUAGE OverloadedStrings, NoMonomorphismRestriction #-}
 module Example where
 
 import           Control.Concurrent
@@ -17,24 +17,27 @@ import           Data.XML.Types
 
 import           Network
 import           Network.Xmpp
-import           Network.Xmpp.Concurrent.Channels
 import           Network.Xmpp.IM.Presence
-import           Network.Xmpp.Pickle
+import           Network.Xmpp.Internal
+import           Network.Xmpp.Marshal
 import           Network.Xmpp.Types
-import qualified Network.Xmpp.Xep.InbandRegistration as IBR
+-- import qualified Network.Xmpp.Xep.InbandRegistration as IBR
+import           Data.Default (def)
 import qualified Network.Xmpp.Xep.ServiceDiscovery as Disco
-
 import           System.Environment
-import           Text.XML.Stream.Elements
+import           System.Log.Logger
 
 testUser1 :: Jid
-testUser1 = read "testuser1@species64739.dyndns.org/bot1"
+testUser1 = "echo1@species64739.dyndns.org/bot"
 
 testUser2 :: Jid
-testUser2 = read "testuser2@species64739.dyndns.org/bot2"
+testUser2 = "echo2@species64739.dyndns.org/bot"
 
 supervisor :: Jid
-supervisor = read "uart14@species64739.dyndns.org"
+supervisor = "uart14@species64739.dyndns.org"
+
+config = def{sessionStreamConfiguration
+              = def{connectionDetails = UseHost "localhost" (PortNumber 5222)}}
 
 testNS :: Text
 testNS = "xmpp:library:test"
@@ -60,7 +63,7 @@ payloadP = xpWrap (\((counter,flag) , message) -> Payload counter flag message)
 invertPayload (Payload count flag message) = Payload (count + 1) (not flag) (Text.reverse message)
 
 iqResponder context = do
-  chan' <- listenIQChan Get testNS context
+  chan' <- listenIQChan Set testNS context
   chan <- case chan' of
       Left _ -> liftIO $ putStrLn "Channel was already taken"
                      >> error "hanging up"
@@ -72,14 +75,12 @@ iqResponder context = do
     let answerPayload = invertPayload payload
     let answerBody = pickleElem payloadP answerPayload
     unless (payloadCounter payload == 3) . void $
-        answerIQ next (Right $ Just answerBody) context
-    when (payloadCounter payload == 10) $ do
-        threadDelay 1000000
-        endContext (session context)
+        answerIQ next (Right $ Just answerBody)
+
 
 autoAccept :: Xmpp ()
 autoAccept context = forever $ do
-  st <- waitForPresence isPresenceSubscribe context
+  st <- waitForPresence (\p -> presenceType p == Just Subscribe) context
   sendPresence (presenceSubscribed (fromJust $ presenceFrom st)) context
 
 simpleMessage :: Jid -> Text -> Message
@@ -111,23 +112,23 @@ expect debug x y context | x == y = debug "Ok."
 wait3 :: MonadIO m => m ()
 wait3 = liftIO $ threadDelay 1000000
 
-discoTest debug context = do
-    q <- Disco.queryInfo "species64739.dyndns.org" Nothing context
-    case q of
-        Left (Disco.DiscoXMLError el e) -> do
-            debug (ppElement el)
-            debug (Text.unpack $ ppUnpickleError e)
-            debug (show $ length $ elementNodes el)
-        x -> debug $ show x
+-- discoTest debug context = do
+--     q <- Disco.queryInfo "species64739.dyndns.org" Nothing context
+--     case q of
+--         Left (Disco.DiscoXMLError el e) -> do
+--             debug (ppElement el)
+--             debug (Text.unpack $ ppUnpickleError e)
+--             debug (show $ length $ elementNodes el)
+--         x -> debug $ show x
 
-    q <-  Disco.queryItems "species64739.dyndns.org"
-                     (Just "http://jabber.org/protocol/commands") context
-    case q of
-        Left (Disco.DiscoXMLError el e) -> do
-            debug (ppElement el)
-            debug (Text.unpack $ ppUnpickleError e)
-            debug (show $ length $ elementNodes el)
-        x -> debug $ show x
+--     q <-  Disco.queryItems "species64739.dyndns.org"
+--                      (Just "http://jabber.org/protocol/commands") context
+--     case q of
+--         Left (Disco.DiscoXMLError el e) -> do
+--             debug (ppElement el)
+--             debug (Text.unpack $ ppUnpickleError e)
+--             debug (show $ length $ elementNodes el)
+--         x -> debug $ show x
 
 iqTest debug we them context = do
     forM [1..10] $ \count -> do
@@ -135,7 +136,7 @@ iqTest debug we them context = do
         let payload = Payload count (even count) (Text.pack $ show count)
         let body = pickleElem payloadP payload
         debug "sending"
-        answer <- sendIQ' (Just them) Get Nothing body context
+        answer <- sendIQ' (Just them) Set Nothing body context
         case answer of
             IQResponseResult r -> do
                 debug "received"
@@ -147,16 +148,12 @@ iqTest debug we them context = do
             IQResponseError e -> do
                 debug $ "Error in packet: " ++ show count
         liftIO $ threadDelay 100000
-    sendUser "All tests done" context
+--    sendUser "All tests done" context
     debug "ending session"
 
-fork action context = do
-    context' <- forkSession context
-    forkIO $ action context'
-
-ibrTest debug uname pw = IBR.registerWith [ (IBR.Username, "testuser2")
-                                 , (IBR.Password, "pwd")
-                                 ] >>= debug . show
+-- ibrTest debug uname pw = IBR.registerWith [ (IBR.Username, "testuser2")
+--                                  , (IBR.Password, "pwd")
+--                                  ] >>= debug . show
 
 
 runMain :: (String -> STM ()) -> Int -> Bool -> IO ()
@@ -166,50 +163,23 @@ runMain debug number multi = do
                              0 -> (testUser2, testUser1,False)
   let debug' = liftIO . atomically .
                debug . (("Thread " ++ show number ++ ":") ++)
-  context <- newSession
-
-  setConnectionClosedHandler (\e s -> do
-              debug' $ "connection lost because " ++ show e
-              endContext s) (session context)
   debug' "running"
-  flip withConnection (session context) $ Ex.catch (do
-      debug' "connect"
-      connect "localhost" (PortNumber 5222) "species64739.dyndns.org"
---      debug' "tls start"
-      startTLS exampleParams
-      debug' "ibr start"
-      -- ibrTest debug' (localpart we) "pwd"
-      -- debug' "ibr end"
-      saslResponse <- simpleAuth
-                        (fromJust $ localpart we) "pwd" (resourcepart we)
-      case saslResponse of
-          Right _ -> return ()
-          Left e -> error $ show e
-      debug' "session standing"
-      features <- other `liftM` gets sFeatures
-      liftIO . void $ forM features $ \f -> debug' $ ppElement f
-      )
-      (\e -> debug' $ show  (e ::Ex.SomeException))
+  Right context <- session (Text.unpack $ domainpart we)
+               (Just ([scramSha1 (fromJust $ localpart we) Nothing "pwd"], resourcepart we))
+                config
   sendPresence presenceOnline context
-  thread1 <- fork autoAccept context
+  thread1 <- forkIO $ autoAccept =<< dupSession context
   sendPresence (presenceSubscribe them) context
-  thread2 <- fork iqResponder context
+  thread2 <- forkIO $ iqResponder =<< dupSession context
   when active $ do
     liftIO $ threadDelay 1000000 -- Wait for the other thread to go online
 --    discoTest debug'
     when multi $ iqTest debug' we them context
-    closeConnection (session context)
     killThread thread1
     killThread thread2
   return ()
   liftIO . threadDelay $ 10^6
 --  unless multi . void .  withConnection $ IBR.unregister
-  unless multi . void $ fork (\s -> forever $ do
-                                                 pullMessage s >>= debug' . show
-                                                 putStrLn ""
-                                                 putStrLn ""
-                             )
-                             context
   liftIO . forever $ threadDelay 1000000
   return ()
 
@@ -221,4 +191,6 @@ run i multi = do
   runMain debugOut (2 + i) multi
 
 
-main = run 0 True
+main = do
+    updateGlobalLogger "Pontarius.Xmpp" $ setLevel DEBUG
+    run 0 True
