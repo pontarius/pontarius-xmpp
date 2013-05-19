@@ -15,9 +15,11 @@ module Network.Xmpp.Types
     , IdGenerator(..)
     , LangTag (..)
     , Message(..)
+    , message
     , MessageError(..)
     , MessageType(..)
     , Presence(..)
+    , presence
     , PresenceError(..)
     , PresenceType(..)
     , SaslError(..)
@@ -155,6 +157,21 @@ data Message = Message { messageID      :: !(Maybe StanzaID)
                        , messagePayload :: ![Element]
                        } deriving Show
 
+
+
+-- | An empty message
+message :: Message
+message = Message { messageID      = Nothing
+                  , messageFrom    = Nothing
+                  , messageTo      = Nothing
+                  , messageLangTag = Nothing
+                  , messageType    = Normal
+                  , messagePayload = []
+                  }
+
+instance Default Message where
+    def = message
+
 -- | An error stanza generated in response to a 'Message'.
 data MessageError = MessageError { messageErrorID          :: !(Maybe StanzaID)
                                  , messageErrorFrom        :: !(Maybe Jid)
@@ -224,6 +241,18 @@ data Presence = Presence { presenceID      :: !(Maybe StanzaID)
                          , presencePayload :: ![Element]
                          } deriving Show
 
+-- | An empty presence.
+presence :: Presence
+presence = Presence { presenceID       = Nothing
+                    , presenceFrom     = Nothing
+                    , presenceTo       = Nothing
+                    , presenceLangTag  = Nothing
+                    , presenceType     = Available
+                    , presencePayload  = []
+                    }
+
+instance Default Presence where
+    def = presence
 
 -- | An error stanza generated in response to a 'Presence'.
 data PresenceError = PresenceError { presenceErrorID          :: !(Maybe StanzaID)
