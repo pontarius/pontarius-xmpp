@@ -30,7 +30,7 @@ instance Read ShowStatus where
 data IMPresence = IMP { showStatus :: Maybe ShowStatus
                       , status     :: Maybe Text
                       , priority   :: Maybe Int
-                      }
+                      } deriving Show
 
 imPresence :: IMPresence
 imPresence = IMP { showStatus = Nothing

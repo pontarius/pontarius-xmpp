@@ -11,6 +11,14 @@ import Control.Monad.State.Strict
 sendStanza :: Stanza -> Session -> IO ()
 sendStanza a session = atomically $ writeTChan (outCh session) a
 
+-- | Get the channel of incoming stanzas.
+getStanzaChan :: Session -> TChan Stanza
+getStanzaChan session = stanzaCh session
+
+-- | Get the next incoming stanza
+getStanza :: Session -> IO Stanza
+getStanza session = atomically . readTChan $ stanzaCh session
+
 -- | Create a new session object with the inbound channel duplicated
 dupSession :: Session -> IO Session
 dupSession session = do

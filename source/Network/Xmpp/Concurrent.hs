@@ -147,7 +147,9 @@ writeWorker stCh writeR = forever $ do
     (write, next) <- atomically $ (,) <$>
         takeTMVar writeR <*>
         readTChan stCh
-    r <- write $ renderElement (pickleElem xpStanza next)
+    let outData = renderElement $ nsHack (pickleElem xpStanza next)
+    debugOut outData
+    r <- write outData
     atomically $ putTMVar writeR write
     unless r $ do
         atomically $ unGetTChan stCh next -- If the writing failed, the

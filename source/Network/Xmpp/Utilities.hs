@@ -8,10 +8,14 @@ module Network.Xmpp.Utilities
     , renderOpenElement
     , renderElement
     , checkHostName
+    , withTMVar
     )
     where
 
 import           Control.Applicative ((<|>))
+import           Control.Concurrent.STM
+import           Control.Exception
+import           Control.Monad.State.Strict
 import qualified Data.Attoparsec.Text as AP
 import qualified Data.ByteString as BS
 import           Data.Conduit as C
@@ -24,6 +28,17 @@ import           Prelude
 import           System.IO.Unsafe(unsafePerformIO)
 import qualified Text.XML.Stream.Render as TXSR
 import           Text.XML.Unresolved as TXU
+
+-- | Apply f with the content of tv as state, restoring the original value when an
+-- exception occurs
+withTMVar :: TMVar a -> (a -> IO (c, a)) -> IO c
+withTMVar tv f = bracketOnError (atomically $ takeTMVar tv)
+                                (atomically . putTMVar tv)
+                                (\s -> do
+                                      (x, s') <- f s
+                                      atomically $ putTMVar tv s'
+                                      return x
+                                )
 
 openElementToEvents :: Element -> [Event]
 openElementToEvents (Element name as ns) = EventBeginElement name as : goN ns []

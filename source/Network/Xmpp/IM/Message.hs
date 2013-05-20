@@ -8,7 +8,6 @@ import Data.XML.Pickle
 import Data.XML.Types
 import Network.Xmpp.Marshal
 import Network.Xmpp.Types
-import Network.Xmpp.Stanza
 import Data.List
 import Data.Function
 

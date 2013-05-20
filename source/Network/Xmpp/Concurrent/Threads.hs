@@ -23,9 +23,10 @@ import           System.Log.Logger
 readWorker :: (Stanza -> IO ())
            -> (XmppFailure -> IO ())
            -> TMVar Stream
-           -> IO a
-readWorker onStanza onConnectionClosed stateRef =
-    Ex.mask_ . forever $ do
+           -> IO ()
+readWorker onStanza onConnectionClosed stateRef = Ex.mask_ go
+  where
+    go = do
         res <- Ex.catches ( do
                        -- we don't know whether pull will
                        -- necessarily be interruptible
@@ -47,10 +48,12 @@ readWorker onStanza onConnectionClosed stateRef =
                          return Nothing
                    ]
         case res of
-              Nothing -> return () -- Caught an exception, nothing to do. TODO: Can this happen?
-              Just (Left _) -> return ()
-              Just (Right sta) -> onStanza sta
-  where
+              Nothing -> go -- Caught an exception, nothing to do. TODO: Can this happen?
+              Just (Left e) -> do
+                  infoM "Pontarius.Xmpp.Reader" $
+                          "Connection died: " ++ show e
+                  onConnectionClosed e
+              Just (Right sta) -> onStanza sta >> go
     -- Defining an Control.Exception.allowInterrupt equivalent for GHC 7
     -- compatibility.
     allowInterrupt :: IO ()
@@ -78,20 +81,17 @@ startThreadsWith :: (Stanza -> IO ())
                   TMVar Stream,
                   ThreadId))
 startThreadsWith stanzaHandler eh con = do
-    rd <- withStream' (gets $ streamSend . streamHandle >>= \d -> return $ Right d) con
-    case rd of
-        Left e -> return $ Left e
-        Right read' -> do
-          writeLock <- newTMVarIO read'
-          conS <- newTMVarIO con
-          --    lw <- forkIO $ writeWorker outC writeLock
-          cp <- forkIO $ connPersist writeLock
-          rdw <- forkIO $ readWorker stanzaHandler (noCon eh) conS
-          return $ Right ( killConnection writeLock [rdw, cp]
-                         , writeLock
-                         , conS
-                         , rdw
-                         )
+    read' <- withStream' (gets $ streamSend . streamHandle) con
+    writeLock <- newTMVarIO read'
+    conS <- newTMVarIO con
+    --    lw <- forkIO $ writeWorker outC writeLock
+    cp <- forkIO $ connPersist writeLock
+    rdw <- forkIO $ readWorker stanzaHandler (noCon eh) conS
+    return $ Right ( killConnection writeLock [rdw, cp]
+                   , writeLock
+                   , conS
+                   , rdw
+                   )
   where
     killConnection writeLock threads = liftIO $ do
         _ <- atomically $ takeTMVar writeLock -- Should we put it back?
