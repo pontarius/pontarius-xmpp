@@ -23,10 +23,10 @@ xpStanza = ("xpStanza" , "") <?+> xpAlt stanzaSel
     [ xpWrap IQRequestS     (\(IQRequestS     x) -> x) xpIQRequest
     , xpWrap IQResultS      (\(IQResultS      x) -> x) xpIQResult
     , xpWrap IQErrorS       (\(IQErrorS       x) -> x) xpIQError
-    , xpWrap MessageS       (\(MessageS       x) -> x) xpMessage
     , xpWrap MessageErrorS  (\(MessageErrorS  x) -> x) xpMessageError
-    , xpWrap PresenceS      (\(PresenceS      x) -> x) xpPresence
+    , xpWrap MessageS       (\(MessageS       x) -> x) xpMessage
     , xpWrap PresenceErrorS (\(PresenceErrorS x) -> x) xpPresenceError
+    , xpWrap PresenceS      (\(PresenceS      x) -> x) xpPresence
     ]
   where
     -- Selector for which pickler to execute above.
@@ -34,10 +34,10 @@ xpStanza = ("xpStanza" , "") <?+> xpAlt stanzaSel
     stanzaSel (IQRequestS     _) = 0
     stanzaSel (IQResultS      _) = 1
     stanzaSel (IQErrorS       _) = 2
-    stanzaSel (MessageS       _) = 3
-    stanzaSel (MessageErrorS  _) = 4
-    stanzaSel (PresenceS      _) = 5
-    stanzaSel (PresenceErrorS _) = 6
+    stanzaSel (MessageErrorS  _) = 3
+    stanzaSel (MessageS       _) = 4
+    stanzaSel (PresenceErrorS _) = 5
+    stanzaSel (PresenceS      _) = 6
 
 xpMessage :: PU [Node] (Message)
 xpMessage = ("xpMessage" , "") <?+> xpWrap
