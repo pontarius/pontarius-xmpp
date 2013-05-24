@@ -4,10 +4,11 @@
 
 module Network.Xmpp.IM.Presence where
 
-import           Data.Text (Text)
-import           Data.XML.Pickle
-import           Data.XML.Types
-import           Network.Xmpp.Types
+import Data.Default
+import Data.Text (Text)
+import Data.XML.Pickle
+import Data.XML.Types
+import Network.Xmpp.Types
 
 data ShowStatus = StatusAway
                 | StatusChat
@@ -38,7 +39,11 @@ imPresence = IMP { showStatus = Nothing
                  , priority   = Nothing
                  }
 
+instance Default IMPresence where
+    def = imPresence
 
+-- | Try to extract RFC6121 IM presence information from presence stanza
+-- Returns Nothing when the data is malformed, (Just IMPresence) otherwise
 getIMPresence :: Presence -> Maybe IMPresence
 getIMPresence pres = case unpickle xpIMPresence (presencePayload pres) of
     Left _ -> Nothing
