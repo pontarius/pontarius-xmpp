@@ -3,14 +3,14 @@
 
 module Network.Xmpp.IM.Message where
 
+import Data.Default
+import Data.Function
+import Data.List
 import Data.Text (Text)
 import Data.XML.Pickle
 import Data.XML.Types
 import Network.Xmpp.Marshal
 import Network.Xmpp.Types
-import Data.List
-import Data.Function
-
 
 data MessageBody = MessageBody { bodyLang    :: Maybe LangTag
                                , bodyContent :: Text
@@ -35,6 +35,9 @@ instantMessage = InstantMessage { imThread  = Nothing
                                 , imSubject = []
                                 , imBody    = []
                                 }
+
+instance Default InstantMessage where
+    def = instantMessage
 
 -- | Get the IM specific parts of a message. Returns 'Nothing' when the received
 -- payload is not valid IM data.
