@@ -42,6 +42,8 @@ import           Network.Xmpp.Tls
 import           Network.Xmpp.Types
 import           Network.Xmpp.Utilities
 
+import           Control.Monad.State.Strict
+
 runHandlers :: (TChan Stanza) -> [StanzaHandler] -> Stanza -> IO ()
 runHandlers _    []        _   = return ()
 runHandlers outC (h:hands) sta = do
@@ -162,17 +164,18 @@ writeWorker stCh writeR = forever $ do
 -- third parameter is a 'Just' value, @session@ will attempt to authenticate and
 -- acquire an XMPP resource.
 session :: HostName                          -- ^ The hostname / realm
-        -> Maybe ([SaslHandler], Maybe Text) -- ^ SASL handlers and the desired
-                                             -- JID resource (or Nothing to let
-                                             -- the server decide)
+        -> Maybe (ConnectionState -> [SaslHandler] , Maybe Text)
+           -- ^ SASL handlers and the desired JID resource (or Nothing to let
+           -- the server decide)
         -> SessionConfiguration              -- ^ configuration details
         -> IO (Either XmppFailure Session)
 session realm mbSasl config = runErrorT $ do
     stream <- ErrorT $ openStream realm (sessionStreamConfiguration config)
     ErrorT $ tls stream
+    cs <- liftIO $ withStream (gets streamConnectionState) stream
     mbAuthError <- case mbSasl of
         Nothing -> return Nothing
-        Just (handlers, resource) -> ErrorT $ auth handlers resource stream
+        Just (handlers, resource) -> ErrorT $ auth (handlers cs) resource stream
     case mbAuthError of
         Nothing -> return ()
         Just _  -> throwError XmppAuthFailure

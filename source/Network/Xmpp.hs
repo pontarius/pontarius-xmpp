@@ -167,6 +167,7 @@ module Network.Xmpp
                , AuthIllegalCredentials
                , AuthOtherFailure )
   , SaslHandler
+  , ConnectionState(..)
   ) where
 
 import Network.Xmpp.Concurrent
