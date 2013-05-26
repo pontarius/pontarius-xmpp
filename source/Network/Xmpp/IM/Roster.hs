@@ -164,7 +164,7 @@ xpItems = xpWrap (map (\((app_, ask_, jid_, name_, sub_), groups_) ->
             (xpWrap isJust
                     (\p -> if p then Just () else Nothing) $
                      xpOption $ xpAttribute_ "ask" "subscribe")
-            (xpAttribute  "jid" xpPrim)
+            (xpAttribute  "jid" xpJid)
             (xpAttribute' "name" xpText)
             (xpAttribute' "subscription" xpPrim)
           )

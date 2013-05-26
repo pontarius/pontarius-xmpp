@@ -200,7 +200,7 @@ startStream = runErrorT $ do
         let to'  = lookup "to"      children
             ver' = lookup "version" children
             xl   = lookup xmlLang   children
-          in case () of () | Just (Nothing :: Maybe Jid) == (safeRead <$> to') ->
+          in case () of () | Just Nothing == fmap jidFromText to' ->
                                runErrorT $ closeStreamWithError
                                    StreamBadNamespacePrefix Nothing
                                    "stream to not a valid JID"

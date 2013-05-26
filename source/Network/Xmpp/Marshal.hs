@@ -47,8 +47,8 @@ xpMessage = ("xpMessage" , "") <?+> xpWrap
          (xp5Tuple
              (xpDefault Normal $ xpAttr "type" xpPrim)
              (xpAttrImplied "id"   xpPrim)
-             (xpAttrImplied "from" xpPrim)
-             (xpAttrImplied "to"   xpPrim)
+             (xpAttrImplied "from" xpJid)
+             (xpAttrImplied "to"   xpJid)
              xpLangTag
              -- TODO: NS?
          )
@@ -62,8 +62,8 @@ xpPresence = ("xpPresence" , "") <?+> xpWrap
     (xpElem "{jabber:client}presence"
          (xp5Tuple
               (xpAttrImplied "id"   xpPrim)
-              (xpAttrImplied "from" xpPrim)
-              (xpAttrImplied "to"   xpPrim)
+              (xpAttrImplied "from" xpJid)
+              (xpAttrImplied "to"   xpJid)
               xpLangTag
               (xpDefault Available $ xpAttr "type" xpPrim)
          )
@@ -77,8 +77,8 @@ xpIQRequest = ("xpIQRequest" , "") <?+> xpWrap
     (xpElem "{jabber:client}iq"
          (xp5Tuple
              (xpAttr        "id"   xpPrim)
-             (xpAttrImplied "from" xpPrim)
-             (xpAttrImplied "to"   xpPrim)
+             (xpAttrImplied "from" xpJid)
+             (xpAttrImplied "to"   xpJid)
              xpLangTag
              ((xpAttr        "type" xpPrim))
          )
@@ -92,8 +92,8 @@ xpIQResult = ("xpIQResult" , "") <?+> xpWrap
     (xpElem "{jabber:client}iq"
          (xp5Tuple
              (xpAttr        "id"   xpPrim)
-             (xpAttrImplied "from" xpPrim)
-             (xpAttrImplied "to"   xpPrim)
+             (xpAttrImplied "from" xpJid)
+             (xpAttrImplied "to"   xpJid)
              xpLangTag
              ((xpAttrFixed "type" "result"))
          )
@@ -141,8 +141,8 @@ xpMessageError = ("xpMessageError" , "") <?+> xpWrap
          (xp5Tuple
               (xpAttrFixed   "type" "error")
               (xpAttrImplied "id"   xpPrim)
-              (xpAttrImplied "from" xpPrim)
-              (xpAttrImplied "to"   xpPrim)
+              (xpAttrImplied "from" xpJid)
+              (xpAttrImplied "to"   xpJid)
               (xpAttrImplied xmlLang xpPrim)
               -- TODO: NS?
          )
@@ -158,8 +158,8 @@ xpPresenceError = ("xpPresenceError" , "") <?+> xpWrap
     (xpElem "{jabber:client}presence"
          (xp5Tuple
               (xpAttrImplied "id"   xpPrim)
-              (xpAttrImplied "from" xpPrim)
-              (xpAttrImplied "to"   xpPrim)
+              (xpAttrImplied "from" xpJid)
+              (xpAttrImplied "to"   xpJid)
               xpLangTag
               (xpAttrFixed "type" "error")
          )
@@ -175,8 +175,8 @@ xpIQError = ("xpIQError" , "") <?+> xpWrap
     (xpElem "{jabber:client}iq"
          (xp5Tuple
               (xpAttr        "id"   xpPrim)
-              (xpAttrImplied "from" xpPrim)
-              (xpAttrImplied "to"   xpPrim)
+              (xpAttrImplied "from" xpJid)
+              (xpAttrImplied "to"   xpJid)
               xpLangTag
               ((xpAttrFixed "type" "error"))
          )
@@ -239,8 +239,8 @@ xpStream = xpElemAttrs
     (Name "stream" (Just "http://etherx.jabber.org/streams") (Just "stream"))
     (xp5Tuple
          (xpAttr "version" xpId)
-         (xpAttrImplied "from" xpPrim)
-         (xpAttrImplied "to" xpPrim)
+         (xpAttrImplied "from" xpJid)
+         (xpAttrImplied "to" xpJid)
          (xpAttrImplied "id" xpId)
          xpLangTag
     )
@@ -272,3 +272,9 @@ xpStreamFeatures = ("xpStreamFeatures","") <?> xpWrap
         xpElemNodes "{urn:ietf:params:xml:ns:xmpp-sasl}mechanisms"
         (xpAll $ xpElemNodes
              "{urn:ietf:params:xml:ns:xmpp-sasl}mechanism" (xpContent xpId))
+
+xpJid :: PU Text Jid
+xpJid = PU { unpickleTree = \input -> case jidFromText input of
+                  Nothing -> UnpickleError $ ErrorMessage "Could not parse JID."
+                  Just jid -> Result jid Nothing
+           , pickleTree = \input -> pack $ jidToText input }

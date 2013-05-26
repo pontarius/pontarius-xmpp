@@ -102,7 +102,7 @@ xmppBind rsrc c = runErrorT $ do
     case answer of
         Right IQResult{iqResultPayload = Just b} -> do
             lift $ debugM "Pontarius.Xmpp" "xmppBind: IQ result received; unpickling JID..."
-            let jid = unpickleElem xpJid b
+            let jid = unpickleElem xpJid' b
             case jid of
                 Right jid' -> do
                     lift $ infoM "Pontarius.Xmpp" $ "Bound JID: " ++ show jid'
@@ -120,8 +120,8 @@ xmppBind rsrc c = runErrorT $ do
             throwError XmppOtherFailure
   where
     -- Extracts the character data in the `jid' element.
-    xpJid :: PU [Node] Jid
-    xpJid = xpBind $ xpElemNodes jidName (xpContent xpPrim)
+    xpJid' :: PU [Node] Jid
+    xpJid' = xpBind $ xpElemNodes jidName (xpContent xpJid)
     jidName = "{urn:ietf:params:xml:ns:xmpp-bind}jid"
 
 -- A `bind' element pickler.

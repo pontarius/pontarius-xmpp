@@ -47,6 +47,8 @@ module Network.Xmpp.Types
     , isFull
     , jidFromText
     , jidFromTexts
+    , jidToText
+    , jidToTexts
     , StreamEnd(..)
     , InvalidXmppXml(..)
     , SessionConfiguration(..)
@@ -886,17 +888,18 @@ data Jid = Jid { -- | The @localpart@ of a JID is an optional identifier placed
                  -- the entity associated with an XMPP localpart at a domain
                  -- (i.e., @localpart\@domainpart/resourcepart@).
                , resourcepart :: !(Maybe Text)
-               } deriving (Eq, Ord)
+               } deriving (Eq, Ord, Show) -- A `Read' instance must validate.
 
-instance Show Jid where
-  show (Jid nd dmn res) =
-      maybe "" ((++ "@") . Text.unpack) nd ++ Text.unpack dmn ++
-          maybe "" (('/' :) . Text.unpack) res
+-- | Converts a JID to a Text.
+jidToText :: Jid -> String
+jidToText (Jid nd dmn res) =
+    (maybe "" ((++ "@") . Text.unpack) nd) ++ (Text.unpack dmn) ++
+        maybe "" (('/' :) . Text.unpack) res
 
-instance Read Jid where
-  readsPrec _ x = case jidFromText (Text.pack x) of
-      Nothing -> []
-      Just j -> [(j,"")]
+-- | Converts a JID to up to three Text values: (the optional) localpart, the
+-- domainpart, and (the optional) resourcepart.
+jidToTexts :: Jid -> (Maybe Text, Text, Maybe Text)
+jidToTexts (Jid nd dmn res) = (nd, dmn, res)
 
 instance IsString Jid where
   fromString = fromJust . jidFromText . Text.pack
