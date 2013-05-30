@@ -48,6 +48,7 @@ module Network.Xmpp
   , isFull
   , jidFromText
   , jidFromTexts
+  , toJid
   , getJid
   -- * Stanzas
   -- | The basic protocol data unit in XMPP is the XML stanza. The stanza is

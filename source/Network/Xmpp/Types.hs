@@ -888,15 +888,39 @@ data Jid = Jid { -- | The @localpart@ of a JID is an optional identifier placed
                , resourcepart :: !(Maybe Text)
                } deriving (Eq, Ord)
 
+-- Produces a Jid value in the format "jid \"<jid>\"".
 instance Show Jid where
   show (Jid nd dmn res) =
-      maybe "" ((++ "@") . Text.unpack) nd ++ Text.unpack dmn ++
-          maybe "" (('/' :) . Text.unpack) res
+      "jid \"" ++ maybe "" ((++ "@") . Text.unpack) nd ++ Text.unpack dmn ++
+          maybe "" (('/' :) . Text.unpack) res ++ "\""
 
+-- The string must be in the format "jid \"<jid>\"".
+-- TODO: This function should produce its error values in a uniform way.
+-- TODO: Do we need to care about precedence here?
 instance Read Jid where
-  readsPrec _ x = case jidFromText (Text.pack x) of
-      Nothing -> []
-      Just j -> [(j,"")]
+    readsPrec _ s = do
+        -- Verifies that the first word is "jid", parses the second word and
+        -- the remainder, if any, and produces these two values or fails.
+        let (s', r) = case lex s of
+                          [] -> error "Expected `jid \"<jid>\"'"
+                          [("jid", r')] -> case lex r' of
+                                              [] -> error "Expected `jid \"<jid>\"'"
+                                              [(s', r)] -> (s', r)
+                                              _ -> error "Expected `jid \"<jid>\"'"
+                          _ -> error "Expected `jid \"<jid>\"'"
+        -- Read the JID string (removes the quotes), validate, and return.
+        [(jid (read s' :: String), r)] -- May fail with "Prelude.read: no parse"
+                                       -- or the `jid' error message (see below)
+
+-- | Parses a JID string.
+-- 
+-- Note: This function is only meant to be used to reverse @Jid@ Show
+-- operations; it will produce an 'undefined' value if the JID does not
+-- validate; please refer to @jidFromText@ for a safe equivalent.
+jid :: String -> Jid
+jid s = case jidFromText $ Text.pack s of
+            Just jid -> jid
+            Nothing -> error $ "Jid value (" ++ s ++ ") did not validate"
 
 instance IsString Jid where
   fromString = fromJust . jidFromText . Text.pack
