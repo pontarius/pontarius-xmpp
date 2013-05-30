@@ -49,6 +49,7 @@ module Network.Xmpp.Types
     , jidFromTexts
     , jidToText
     , jidToTexts
+    , parseJid
     , StreamEnd(..)
     , InvalidXmppXml(..)
     , SessionConfiguration(..)
@@ -888,18 +889,52 @@ data Jid = Jid { -- | The @localpart@ of a JID is an optional identifier placed
                  -- the entity associated with an XMPP localpart at a domain
                  -- (i.e., @localpart\@domainpart/resourcepart@).
                , resourcepart :: !(Maybe Text)
-               } deriving (Eq, Ord, Show) -- A `Read' instance must validate.
+               } deriving (Eq, Ord)
 
 -- | Converts a JID to a Text.
-jidToText :: Jid -> String
+jidToText :: Jid -> Text
 jidToText (Jid nd dmn res) =
-    (maybe "" ((++ "@") . Text.unpack) nd) ++ (Text.unpack dmn) ++
+    Text.pack $ (maybe "" ((++ "@") . Text.unpack) nd) ++ (Text.unpack dmn) ++
         maybe "" (('/' :) . Text.unpack) res
 
 -- | Converts a JID to up to three Text values: (the optional) localpart, the
 -- domainpart, and (the optional) resourcepart.
 jidToTexts :: Jid -> (Maybe Text, Text, Maybe Text)
 jidToTexts (Jid nd dmn res) = (nd, dmn, res)
+
+-- Produces a Jid value in the format "parseJid \"<jid>\"".
+instance Show Jid where
+  show (Jid nd dmn res) =
+      "parseJid \"" ++ maybe "" ((++ "@") . Text.unpack) nd ++ Text.unpack dmn ++
+          maybe "" (('/' :) . Text.unpack) res ++ "\""
+
+-- The string must be in the format "parseJid \"<jid>\"".
+-- TODO: This function should produce its error values in a uniform way.
+-- TODO: Do we need to care about precedence here?
+instance Read Jid where
+    readsPrec _ s = do
+        -- Verifies that the first word is "parseJid", parses the second word and
+        -- the remainder, if any, and produces these two values or fails.
+        let (s', r) = case lex s of
+                          [] -> error "Expected `parseJid \"<jid>\"'"
+                          [("parseJid", r')] -> case lex r' of
+                                              [] -> error "Expected `parseJid \"<jid>\"'"
+                                              [(s', r)] -> (s', r)
+                                              _ -> error "Expected `parseJid \"<jid>\"'"
+                          _ -> error "Expected `parseJid \"<jid>\"'"
+        -- Read the JID string (removes the quotes), validate, and return.
+        [(parseJid (read s' :: String), r)] -- May fail with "Prelude.read: no parse"
+                                            -- or the `parseJid' error message (see below)
+
+-- | Parses a JID string.
+-- 
+-- Note: This function is only meant to be used to reverse @Jid@ Show
+-- operations; it will produce an 'undefined' value if the JID does not
+-- validate; please refer to @jidFromText@ for a safe equivalent.
+parseJid :: String -> Jid
+parseJid s = case jidFromText $ Text.pack s of
+                 Just jid -> jid
+                 Nothing -> error $ "Jid value (" ++ s ++ ") did not validate"
 
 instance IsString Jid where
   fromString = fromJust . jidFromText . Text.pack
