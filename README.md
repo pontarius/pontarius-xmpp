@@ -1,8 +1,13 @@
 Welcome to Pontarius XMPP!
 ==========================
 
-Pontarius XMPP is an active work in progress to build a Haskell XMPP library
-that implements the client capabilities of [RFC 6120](http://tools.ietf.org/html/rfc6120).
+Pontarius XMPP is an active work in progress to build a Haskell XMPP client
+library that implements the capabilities of [RFC 6120
+("XMPP CORE")](http://tools.ietf.org/html/rfc6120), [RFC 6121 ("XMPP
+IM")](http://tools.ietf.org/html/rfc6121), and [RFC 6122 ("XMPP
+ADDR")](http://tools.ietf.org/html/rfc6122). Pontarius XMPP is part of [the
+Pontarius project](http://www.pontarius.org/), an effort to produce free and
+open source, uncentralized, and privacy-aware software solutions.
 
 Getting started
 ---------------
@@ -13,6 +18,10 @@ page](http://hackage.haskell.org/package/pontarius-xmpp/).
 
 _Note:_ Pontarius XMPP is still in its Alpha phase. Pontarius XMPP is not yet
 feature-complete, it may contain bugs, and its API may change between versions.
+
+_Note:_ You will need the ICU Unicode library and it's header files in order to
+be able to build Pontarius XMPP. On Debian, you will need to install the
+*libicu-dev* package. In Fedora, the package is called *libicu-devel*.
 
 The first thing to do is to import the modules that we are going to use. We are
 also using the OverloadedStrings LANGUAGE pragma in order to be able to type
@@ -36,15 +45,16 @@ When this is done, a <code>Session</code> object can be acquired by calling
 
     result <- session
                  "example.com"
+                  (Just (\_ -> ( [scramSha1 "username" Nothing "password"])
+                               , Nothing))
                   def
-                  (Just ([scramSha1 "username" Nothing "password"], Nothing))
 
-The three parameters above are the XMPP server realm, the session configuration
-settings (set to the default settings), and a SASL handler (for authentication).
-<code>session</code> will perform the necessary DNS queries to find the address
-of the realm, connect, establish the XMPP stream, attempt to secure the stream
-with TLS, authenticate, establish a concurrent interface for interacting with
-the stream, and return the <code>Session</code> object.
+The three parameters above are the XMPP server realm, a SASL handler (for
+authentication), and the session configuration settings (set to the default
+settings). <code>session</code> will perform the necessary DNS queries to find
+the address of the realm, connect, establish the XMPP stream, attempt to secure
+the stream with TLS, authenticate, establish a concurrent interface for
+interacting with the stream, and return the <code>Session</code> object.
 
 The return type of <code>session</code> is <code>IO (Either XmppFailure
 Session)</code>. As <code>XmppFailure</code> is an
@@ -58,7 +68,11 @@ doing it could be doing something like this:
 
 Next, let us set our status to Online.
 
-    sendPresence (Presence Nothing Nothing Nothing Nothing Nothing []) sess
+    sendPresence def sess
+
+Here, <code>def</code> refers to the default <code>Presence</code> value, which
+is the same as <code>Presence Nothing Nothing Nothing Nothing Available
+[]</code>.
 
 Now, let's say that we want to receive all message stanzas, and echo the stanzas
 back to the recipient. This can be done like so:

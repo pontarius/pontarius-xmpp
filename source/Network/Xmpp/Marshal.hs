@@ -277,4 +277,4 @@ xpJid :: PU Text Jid
 xpJid = PU { unpickleTree = \input -> case jidFromText input of
                   Nothing -> UnpickleError $ ErrorMessage "Could not parse JID."
                   Just jid -> Result jid Nothing
-           , pickleTree = \input -> pack $ jidToText input }
+           , pickleTree = \input -> jidToText input }
