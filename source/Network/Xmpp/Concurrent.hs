@@ -178,7 +178,7 @@ session realm mbSasl config = runErrorT $ do
         Just (handlers, resource) -> ErrorT $ auth (handlers cs) resource stream
     case mbAuthError of
         Nothing -> return ()
-        Just _  -> throwError XmppAuthFailure
+        Just e  -> throwError $ XmppAuthFailure e
     ses <- ErrorT $ newSession stream config
     liftIO $ when (enableRoster config) $ initRoster ses
     return ses
