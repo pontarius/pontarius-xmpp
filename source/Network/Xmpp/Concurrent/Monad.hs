@@ -2,15 +2,14 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Network.Xmpp.Concurrent.Monad where
 
+import           Control.Applicative ((<$>))
 import           Control.Concurrent
 import           Control.Concurrent.STM
 import qualified Control.Exception.Lifted as Ex
-import           Control.Monad.Reader
 import           Control.Monad.State
 import           Network.Xmpp.Concurrent.Types
 import           Network.Xmpp.Stream
 import           Network.Xmpp.Types
-
 
 -- TODO: Wait for presence error?
 
@@ -80,6 +79,11 @@ setConnectionClosedHandler eh session = do
     modifyHandlers (\s -> s{connectionClosedHandler =
                                  \e -> eh e session}) session
 
+runConnectionClosedHandler :: Session -> XmppFailure -> IO ()
+runConnectionClosedHandler session e = do
+    h <- connectionClosedHandler <$> atomically (readTVar $ eventHandlers session)
+    h e
+
 -- | Run an event handler.
 runHandler :: (EventHandlers -> IO a) -> Session -> IO a
 runHandler h session = h =<< atomically (readTVar $ eventHandlers session)
@@ -88,13 +92,17 @@ runHandler h session = h =<< atomically (readTVar $ eventHandlers session)
 -- | End the current Xmpp session.
 endSession :: Session -> IO ()
 endSession session =  do -- TODO: This has to be idempotent (is it?)
-    _ <- closeConnection session
+    _ <- flip withConnection session $ \stream -> do
+        _ <- closeStreams stream
+        return ((), stream)
     stopThreads session
 
 -- | Close the connection to the server. Closes the stream (by enforcing a
 -- write lock and sending a </stream:stream> element), waits (blocks) for three
 -- seconds, and then closes the connection.
-closeConnection :: Session -> IO (Either XmppFailure ())
-closeConnection = withConnection $ \stream -> do
-    _ <- closeStreams stream
-    return ((), stream)
+closeConnection :: Session -> IO ()
+closeConnection session = do
+    _ <-flip withConnection session $ \stream -> do
+        _ <- closeStreams stream
+        return ((), stream)
+    runConnectionClosedHandler session StreamEndFailure
