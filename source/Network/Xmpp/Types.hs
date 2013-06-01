@@ -49,7 +49,6 @@ module Network.Xmpp.Types
     , jidFromTexts
     , StreamEnd(..)
     , InvalidXmppXml(..)
-    , SessionConfiguration(..)
     , TlsBehaviour(..)
     )
        where
@@ -1087,31 +1086,6 @@ instance Default StreamConfiguration where
 type StanzaHandler =  TChan Stanza -- ^ outgoing stanza
                    -> Stanza       -- ^ stanza to handle
                    -> IO Bool      -- ^ True when processing should continue
-
--- | Configuration for the @Session@ object.
-data SessionConfiguration = SessionConfiguration
-    { -- | Configuration for the @Stream@ object.
-      sessionStreamConfiguration :: StreamConfiguration
-      -- | Handler to be run when the session ends (for whatever reason).
-    , sessionClosedHandler       :: XmppFailure -> IO ()
-      -- | Function to generate the stream of stanza identifiers.
-    , sessionStanzaIDs           :: IO (IO StanzaID)
-    , extraStanzaHandlers        :: [StanzaHandler]
-    , enableRoster               :: Bool
-    }
-
-instance Default SessionConfiguration where
-    def = SessionConfiguration { sessionStreamConfiguration = def
-                               , sessionClosedHandler = \_ -> return ()
-                               , sessionStanzaIDs = do
-                                     idRef <- newTVarIO 1
-                                     return . atomically $ do
-                                         curId <- readTVar idRef
-                                         writeTVar idRef (curId + 1 :: Integer)
-                                         return . StanzaID . Text.pack . show $ curId
-                               , extraStanzaHandlers = []
-                               , enableRoster = True
-                               }
 
 -- | How the client should behave in regards to TLS.
 data TlsBehaviour = RequireTls -- ^ Require the use of TLS; disconnect if it's
