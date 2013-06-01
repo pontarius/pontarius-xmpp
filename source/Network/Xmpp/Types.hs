@@ -1041,7 +1041,7 @@ data InvalidXmppXml = InvalidXmppXml String deriving (Show, Typeable)
 instance Exception InvalidXmppXml
 
 data ConnectionDetails = UseRealm -- ^ Use realm to resolv host
-                       | UseSrv HostName -- ^ Use this hostname for a SRC lookup
+                       | UseSrv HostName -- ^ Use this hostname for a SRV lookup
                        | UseHost HostName PortID -- ^ Use specified host
 
 -- | Configuration settings related to the stream.
