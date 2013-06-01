@@ -936,9 +936,6 @@ parseJid s = case jidFromText $ Text.pack s of
                  Just jid -> jid
                  Nothing -> error $ "Jid value (" ++ s ++ ") did not validate"
 
-instance IsString Jid where
-  fromString = fromJust . jidFromText . Text.pack
-
 -- | Converts a Text to a JID.
 jidFromText :: Text -> Maybe Jid
 jidFromText t = do

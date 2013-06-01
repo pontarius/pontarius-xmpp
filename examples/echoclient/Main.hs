@@ -20,12 +20,13 @@ main = do
     updateGlobalLogger "Pontarius.Xmpp" $ setLevel DEBUG
     result <- session
                  "example.com"
+                  (Just (\_ -> ( [scramSha1 "username" Nothing "password"])
+                               , Nothing))
                   def
-                  (Just ([scramSha1 "username" Nothing "password"], Nothing))
     sess <- case result of
                 Right s -> return s
                 Left e -> error $ "XmppFailure: " ++ (show e)
-    sendPresence (Presence Nothing Nothing Nothing Nothing Nothing []) sess
+    sendPresence def sess
     forever $ do
         msg <- getMessage sess
         case answerMessage msg (messagePayload msg) of

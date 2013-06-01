@@ -16,7 +16,7 @@ data MessageBody = MessageBody { bodyLang    :: Maybe LangTag
                                , bodyContent :: Text
                                }
 
-data MessageThread = MessageThread { theadID      :: Text
+data MessageThread = MessageThread { threadID     :: Text
                                    , threadParent :: Maybe Text
                                    }
 
