@@ -10,11 +10,11 @@ Author:        Jon Kristensen, Mahdi Abdinejadi, Philipp Balzarek
 Maintainer:    info@jonkri.com
 Stability:     alpha
 Homepage:      https://github.com/pontarius/pontarius-xmpp/
-Bug-Reports:   mailto:info@jonkri.com
+Bug-Reports:   https://github.com/pontarius/pontarius-xmpp/issues/
 Package-URL:   http://www.jonkri.com/releases/pontarius-xmpp-0.2.0.1.tar.gz
-Synopsis:      An incomplete implementation of RFC 6120 (XMPP: Core)
-Description:   Pontarius XMPP is a work in progress implementation of
-               RFC 6120 (XMPP: Core).
+Synopsis:      An incomplete XMPP client implementation
+Description:   Pontarius XMPP is a work in progress implementation of RFC 6120
+               ("XMPP CORE"), RFC 6121 ("XMPP IM"), and RFC 6122 ("XMPP ADDR").
 Category:      Network
 Tested-With:   GHC ==7.0.4, GHC ==7.4.1
 
