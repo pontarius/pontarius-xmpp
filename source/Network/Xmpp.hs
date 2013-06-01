@@ -83,6 +83,7 @@ module Network.Xmpp
   --    or IQ stanza.
   , getStanza
   , getStanzaChan
+  , newStanzaID
   -- ** Messages
   -- | The /message/ stanza is a /push/ mechanism whereby one entity
   -- pushes information to another entity, similar to the communications that

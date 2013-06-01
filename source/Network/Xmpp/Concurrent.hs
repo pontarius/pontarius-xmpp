@@ -12,6 +12,7 @@ module Network.Xmpp.Concurrent
   , newSession
   , writeWorker
   , session
+  , newStanzaID
   ) where
 
 import           Control.Applicative((<$>),(<*>))
@@ -182,3 +183,7 @@ session realm mbSasl config = runErrorT $ do
     ses <- ErrorT $ newSession stream config
     liftIO $ when (enableRoster config) $ initRoster ses
     return ses
+
+newStanzaID :: Session -> IO StanzaID
+newStanzaID = idGenerator
+    
