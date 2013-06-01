@@ -51,10 +51,13 @@ tls con = Ex.handle (return . Left . TlsError)
     case sState of
         Plain -> return ()
         Closed -> do
-            liftIO $ errorM "Pontarius.Xmpp" "startTls: The stream is closed."
+            liftIO $ errorM "Pontarius.Xmpp.Tls" "The stream is closed."
+            throwError XmppNoStream
+        Finished -> do
+            liftIO $ errorM "Pontarius.Xmpp.Tls" "The stream is finished."
             throwError XmppNoStream
         Secured -> do
-            liftIO $ errorM "Pontarius.Xmpp" "startTls: The stream is already secured."
+            liftIO $ errorM "Pontarius.Xmpp.Tls" "The stream is already secured."
             throwError TlsStreamSecured
     features <- lift $ gets streamFeatures
     case (tlsBehaviour conf, streamTls features) of

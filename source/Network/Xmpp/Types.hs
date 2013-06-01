@@ -803,6 +803,7 @@ data ConnectionState
     = Closed  -- ^ No stream has been established
     | Plain   -- ^ Stream established, but not secured via TLS
     | Secured -- ^ Stream established and secured via TLS
+    | Finished -- ^ Stream is closed
       deriving (Show, Eq, Typeable)
 
 -- | Defines operations for sending, receiving, flushing, and closing on a

@@ -122,11 +122,12 @@ startStream = runErrorT $ do
     -- state of the stream.
     let expectedTo = case ( streamConnectionState st
                           , toJid $ streamConfiguration st) of
-          (Plain  , (Just (jid, True)))  -> Just jid
-          (Plain  , _                 )  -> Nothing
-          (Secured, (Just (jid, _   )))  -> Just jid
-          (Secured, Nothing           )  -> Nothing
-          (Closed , _                 )  -> Nothing
+          (Plain    , (Just (jid, True)))  -> Just jid
+          (Plain    , _                 )  -> Nothing
+          (Secured  , (Just (jid, _   )))  -> Just jid
+          (Secured  , Nothing           )  -> Nothing
+          (Closed   , _                 )  -> Nothing
+          (Finished , _                 )  -> Nothing
     case streamAddress st of
         Nothing -> do
             lift $ lift $ errorM "Pontarius.XMPP" "Server sent no hostname."
@@ -338,6 +339,7 @@ closeStreams' = do
         threadDelay 3000000 -- TODO: Configurable value
         void ((Ex.try cc) :: IO (Either Ex.SomeException ()))
         return ()
+    put xmppNoStream{ streamConnectionState = Finished }
     collectElems []
   where
     -- Pulls elements from the stream until the stream ends, or an error is
@@ -470,18 +472,21 @@ catchPush p = ExL.catch
          _ -> ExL.throwIO e
     )
 
+zeroHandle :: StreamHandle
+zeroHandle = StreamHandle { streamSend = \_ -> return False
+                          , streamReceive = \_ -> do
+                                 errorM "Pontarius.XMPP"
+                                        "xmppNoStream: Stream is closed."
+                                 ExL.throwIO XmppOtherFailure
+                          , streamFlush = return ()
+                          , streamClose = return ()
+                          }
+
 -- Stream state used when there is no connection.
 xmppNoStream :: StreamState
 xmppNoStream = StreamState {
       streamConnectionState = Closed
-    , streamHandle = StreamHandle { streamSend = \_ -> return False
-                                  , streamReceive = \_ -> do
-                                                            errorM "Pontarius.XMPP" "xmppNoStream: No stream on receive."
-                                                            ExL.throwIO $
-                                                              XmppOtherFailure
-                                  , streamFlush = return ()
-                                  , streamClose = return ()
-                                  }
+    , streamHandle = zeroHandle
     , streamEventSource = zeroSource
     , streamFeatures = StreamFeatures Nothing [] []
     , streamAddress = Nothing
@@ -705,14 +710,14 @@ srvLookup realm resolvSeed = ErrorT $ do
             rest <- orderSublist sublist''
             return $ ((priority, weight, port, domain):rest)
 
--- Closes the connection and updates the XmppConMonad Stream state.
--- killStream :: Stream -> IO (Either ExL.SomeException ())
+-- | Close the connection and updates the XmppConMonad Stream state. Does
+-- not send the stream end tag.
 killStream :: Stream -> IO (Either XmppFailure ())
 killStream = withStream $ do
     cc <- gets (streamClose . streamHandle)
     err <- wrapIOException cc
     -- (ExL.try cc :: IO (Either ExL.SomeException ()))
-    put xmppNoStream
+    put xmppNoStream{ streamConnectionState = Finished }
     return err
 
 -- Sends an IQ request and waits for the response. If the response ID does not
