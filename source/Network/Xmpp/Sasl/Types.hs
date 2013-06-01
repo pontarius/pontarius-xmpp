@@ -7,25 +7,6 @@ import           Data.ByteString(ByteString)
 import qualified Data.Text as Text
 import           Network.Xmpp.Types
 
--- | Signals a (non-fatal) SASL authentication error condition.
-data AuthFailure = -- | No mechanism offered by the server was matched
-                   -- by the provided acceptable mechanisms; wraps the
-                   -- mechanisms offered by the server
-                   AuthNoAcceptableMechanism [Text.Text]
-                 | AuthStreamFailure XmppFailure -- TODO: Remove
-                   -- | A SASL failure element was encountered
-                 | AuthSaslFailure SaslFailure
-                   -- | The credentials provided did not conform to
-                   -- the SASLprep Stringprep profile
-                 | AuthIllegalCredentials
-                   -- | Other failure; more information is available
-                   -- in the log
-                 | AuthOtherFailure
-                 deriving Show
-
-instance Error AuthFailure where
-    noMsg = AuthOtherFailure
-
 data SaslElement = SaslSuccess   (Maybe Text.Text)
                  | SaslChallenge (Maybe Text.Text)
 

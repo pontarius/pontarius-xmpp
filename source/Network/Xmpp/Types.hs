@@ -54,6 +54,7 @@ module Network.Xmpp.Types
     , InvalidXmppXml(..)
     , SessionConfiguration(..)
     , TlsBehaviour(..)
+    , AuthFailure(..)
     )
        where
 
@@ -427,7 +428,7 @@ data SaslFailure = SaslFailure { saslFailureCondition :: SaslError
                                , saslFailureText :: Maybe ( Maybe LangTag
                                                           , Text
                                                           )
-                               } deriving Show
+                               } deriving (Eq, Show)
 
 data SaslError = SaslAborted              -- ^ Client aborted.
                | SaslAccountDisabled      -- ^ The account has been temporarily
@@ -456,6 +457,7 @@ data SaslError = SaslAborted              -- ^ Client aborted.
                                           --   temporary error condition; the
                                           --   initiating entity is recommended
                                           --   to try again later.
+               deriving Eq
 
 instance Show SaslError where
     show SaslAborted               = "aborted"
@@ -692,8 +694,8 @@ data XmppFailure = StreamErrorFailure StreamErrorInfo -- ^ An error XML stream
                  | XmppNoStream -- ^ An action that required an active
                                 -- stream were performed when the
                                 -- 'StreamState' was 'Closed'
-                 | XmppAuthFailure -- ^ Authentication with the server failed
-                                   -- unrecoverably
+                 | XmppAuthFailure AuthFailure -- ^ Authentication with the
+                                               -- server failed (unrecoverably)
                  | TlsStreamSecured -- ^ Connection already secured
                  | XmppOtherFailure -- ^ Undefined condition. More
                                     -- information should be available in
@@ -704,6 +706,25 @@ data XmppFailure = StreamErrorFailure StreamErrorInfo -- ^ An error XML stream
 
 instance Exception XmppFailure
 instance Error XmppFailure where noMsg = XmppOtherFailure
+
+-- | Signals a SASL authentication error condition.
+data AuthFailure = -- | No mechanism offered by the server was matched
+                   -- by the provided acceptable mechanisms; wraps the
+                   -- mechanisms offered by the server
+                   AuthNoAcceptableMechanism [Text.Text]
+                 | AuthStreamFailure XmppFailure -- TODO: Remove
+                   -- | A SASL failure element was encountered
+                 | AuthSaslFailure SaslFailure
+                   -- | The credentials provided did not conform to
+                   -- the SASLprep Stringprep profile
+                 | AuthIllegalCredentials
+                   -- | Other failure; more information is available
+                   -- in the log
+                 | AuthOtherFailure
+                 deriving (Eq, Show)
+
+instance Error AuthFailure where
+    noMsg = AuthOtherFailure
 
 -- =============================================================================
 --  XML TYPES
