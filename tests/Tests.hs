@@ -28,13 +28,13 @@ import           System.Environment
 import           System.Log.Logger
 
 testUser1 :: Jid
-testUser1 = "echo1@species64739.dyndns.org/bot"
+testUser1 = parseJid "echo1@species64739.dyndns.org/bot"
 
 testUser2 :: Jid
-testUser2 = "echo2@species64739.dyndns.org/bot"
+testUser2 = parseJid "echo2@species64739.dyndns.org/bot"
 
 supervisor :: Jid
-supervisor = "uart14@species64739.dyndns.org"
+supervisor = parseJid "uart14@species64739.dyndns.org"
 
 config = def{sessionStreamConfiguration
               = def{connectionDetails = UseHost "localhost" (PortNumber 5222)}}
