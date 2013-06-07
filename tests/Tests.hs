@@ -175,7 +175,6 @@ runMain debug number multi = do
   sendPresence presenceOnline context
   thread1 <- forkIO $ autoAccept =<< dupSession context
   thread2 <- forkIO $ iqResponder =<< dupSession context
-  thread2 <- forkIO $ showPresence =<< dupSession context
   when active $ do
     liftIO $ threadDelay 1000000 -- Wait for the other thread to go online
 --    discoTest debug'
@@ -199,3 +198,20 @@ run i multi = do
 main = do
     updateGlobalLogger "Pontarius.Xmpp" $ setLevel DEBUG
     run 0 True
+
+
+connectionClosedTest = do
+  updateGlobalLogger "Pontarius.Xmpp" $ setLevel DEBUG
+  let debug' = infoM "Pontarius.Xmpp"
+  debug' "running"
+  let we = testUser1
+  Right context <- session (Text.unpack $ domainpart we)
+               (Just ([scramSha1 (fromJust $ localpart we) Nothing "pwd"], resourcepart we))
+                config {onConnectionClosed = \e -> do
+                             debug' $ "closed: " ++ show e
+
+                       }
+  sendPresence presenceOnline context
+  forkIO $ threadDelay 3000000 >> void (closeConnection context)
+  forever $ threadDelay 1000000
+  return ()
