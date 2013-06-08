@@ -1,6 +1,8 @@
 Welcome to Pontarius XMPP!
 ==========================
 
+[![Status](https://travis-ci.org/pontarius/pontarius-xmpp.png?branch=master)](https://travis-ci.org/pontarius/pontarius-xmpp)
+
 Pontarius XMPP is an active work in progress to build a Haskell XMPP client
 library that implements the capabilities of [RFC 6120
 ("XMPP CORE")](http://tools.ietf.org/html/rfc6120), [RFC 6121 ("XMPP
