@@ -122,14 +122,15 @@ startStream = runErrorT $ do
     -- state of the stream.
     let expectedTo = case ( streamConnectionState st
                           , toJid $ streamConfiguration st) of
-          (Plain  , (Just (jid, True)))  -> Just jid
-          (Plain  , _                 )  -> Nothing
-          (Secured, (Just (jid, _   )))  -> Just jid
-          (Secured, Nothing           )  -> Nothing
-          (Closed , _                 )  -> Nothing
+          (Plain    , (Just (jid, True)))  -> Just jid
+          (Plain    , _                 )  -> Nothing
+          (Secured  , (Just (jid, _   )))  -> Just jid
+          (Secured  , Nothing           )  -> Nothing
+          (Closed   , _                 )  -> Nothing
+          (Finished , _                 )  -> Nothing
     case streamAddress st of
         Nothing -> do
-            lift $ lift $ errorM "Pontarius.XMPP" "Server sent no hostname."
+            lift $ lift $ errorM "Pontarius.Xmpp" "Server sent no hostname."
             throwError XmppOtherFailure
         Just address -> do
             pushing pushXmlDecl
@@ -194,7 +195,7 @@ startStream = runErrorT $ do
         void . lift . pushElement . pickleElem xpStreamError
             $ StreamErrorInfo sec Nothing el
         void . lift $ closeStreams'
-        liftIO $ errorM "Pontarius.XMPP" $ "closeStreamWithError: " ++ msg
+        liftIO $ errorM "Pontarius.Xmpp" $ "closeStreamWithError: " ++ msg
         throwError XmppOtherFailure
     checkchildren children =
         let to'  = lookup "to"      children
@@ -234,7 +235,7 @@ flattenAttrs attrs = Prelude.map (\(name, cont) ->
 -- and calls xmppStartStream.
 restartStream :: StateT StreamState IO (Either XmppFailure ())
 restartStream = do
-    liftIO $ debugM "Pontarius.XMPP" "Restarting stream..."
+    liftIO $ debugM "Pontarius.Xmpp" "Restarting stream..."
     raw <- gets (streamReceive . streamHandle)
     let newSource =loopRead raw $= XP.parseBytes def
     buffered <- liftIO . bufferSrc $ newSource
@@ -309,7 +310,7 @@ streamS _expectedTo = do -- TODO: check expectedTo
         e <- lift $ elements =$ CL.head
         case e of
             Nothing -> do
-                lift $ lift $ errorM "Pontarius.XMPP" "streamS: Stream ended."
+                lift $ lift $ errorM "Pontarius.Xmpp" "streamS: Stream ended."
                 throwError XmppOtherFailure
             Just r -> streamUnpickleElem xpStreamFeatures r
 
@@ -317,7 +318,7 @@ streamS _expectedTo = do -- TODO: check expectedTo
 -- realm.
 openStream :: HostName -> StreamConfiguration -> IO (Either XmppFailure (Stream))
 openStream realm config = runErrorT $ do
-    lift $ debugM "Pontarius.XMPP" "Opening stream..."
+    lift $ debugM "Pontarius.Xmpp" "Opening stream..."
     stream' <- createStream realm config
     ErrorT . liftIO $ withStream startStream stream'
     return stream'
@@ -330,7 +331,7 @@ closeStreams = withStream closeStreams'
 
 closeStreams' :: StateT StreamState IO (Either XmppFailure [Element])
 closeStreams' = do
-    lift $ debugM "Pontarius.XMPP" "Closing stream..."
+    lift $ debugM "Pontarius.Xmpp" "Closing stream..."
     send <- gets (streamSend . streamHandle)
     cc <- gets (streamClose . streamHandle)
     void . liftIO $ send "</stream:stream>"
@@ -338,6 +339,7 @@ closeStreams' = do
         threadDelay 3000000 -- TODO: Configurable value
         void ((Ex.try cc) :: IO (Either Ex.SomeException ()))
         return ()
+    put xmppNoStream{ streamConnectionState = Finished }
     collectElems []
   where
     -- Pulls elements from the stream until the stream ends, or an error is
@@ -361,7 +363,7 @@ wrapIOException action = do
     case r of
         Right b -> return $ Right b
         Left e -> do
-            lift $ warningM "Pontarius.XMPP" $ "wrapIOException: Exception wrapped: " ++ (show e)
+            lift $ warningM "Pontarius.Xmpp" $ "wrapIOException: Exception wrapped: " ++ (show e)
             return $ Left $ XmppIOException e
 
 pushElement :: Element -> StateT StreamState IO (Either XmppFailure Bool)
@@ -421,18 +423,18 @@ pullElement = do
         e <- runEventsSink (elements =$ await)
         case e of
             Nothing -> do
-                lift $ errorM "Pontarius.XMPP" "pullElement: Stream ended."
+                lift $ errorM "Pontarius.Xmpp" "pullElement: Stream ended."
                 return . Left $ XmppOtherFailure
             Just r -> return $ Right r
         )
         [ ExL.Handler (\StreamEnd -> return $ Left StreamEndFailure)
         , ExL.Handler (\(InvalidXmppXml s) -- Invalid XML `Event' encountered, or missing element close tag
                      -> do
-                            lift $ errorM "Pontarius.XMPP" $ "pullElement: Invalid XML: " ++ (show s)
+                            lift $ errorM "Pontarius.Xmpp" $ "pullElement: Invalid XML: " ++ (show s)
                             return . Left $ XmppOtherFailure)
         , ExL.Handler $ \(e :: InvalidEventStream)
                      -> do
-                            lift $ errorM "Pontarius.XMPP" $ "pullElement: Invalid event stream: " ++ (show e)
+                            lift $ errorM "Pontarius.Xmpp" $ "pullElement: Invalid event stream: " ++ (show e)
                             return . Left $ XmppOtherFailure
         ]
 
@@ -446,7 +448,7 @@ pullUnpickle p = do
             let res = unpickleElem p elem'
             case res of
                 Left e -> do
-                    lift $ errorM "Pontarius.XMPP" $ "pullUnpickle: Unpickle failed: " ++ (ppUnpickleError e)
+                    lift $ errorM "Pontarius.Xmpp" $ "pullUnpickle: Unpickle failed: " ++ (ppUnpickleError e)
                     return . Left $ XmppOtherFailure
                 Right r -> return $ Right r
 
@@ -470,18 +472,21 @@ catchPush p = ExL.catch
          _ -> ExL.throwIO e
     )
 
+zeroHandle :: StreamHandle
+zeroHandle = StreamHandle { streamSend = \_ -> return False
+                          , streamReceive = \_ -> do
+                                 errorM "Pontarius.Xmpp"
+                                        "xmppNoStream: Stream is closed."
+                                 ExL.throwIO XmppOtherFailure
+                          , streamFlush = return ()
+                          , streamClose = return ()
+                          }
+
 -- Stream state used when there is no connection.
 xmppNoStream :: StreamState
 xmppNoStream = StreamState {
       streamConnectionState = Closed
-    , streamHandle = StreamHandle { streamSend = \_ -> return False
-                                  , streamReceive = \_ -> do
-                                                            errorM "Pontarius.XMPP" "xmppNoStream: No stream on receive."
-                                                            ExL.throwIO $
-                                                              XmppOtherFailure
-                                  , streamFlush = return ()
-                                  , streamClose = return ()
-                                  }
+    , streamHandle = zeroHandle
     , streamEventSource = zeroSource
     , streamFeatures = StreamFeatures Nothing [] []
     , streamAddress = Nothing
@@ -494,7 +499,7 @@ xmppNoStream = StreamState {
 
 zeroSource :: Source IO output
 zeroSource = liftIO $ do
-    errorM "Pontarius.Xmpp" "zeroSource"
+    debugM "Pontarius.Xmpp" "zeroSource"
     ExL.throwIO XmppOtherFailure
 
 createStream :: HostName -> StreamConfiguration -> ErrorT XmppFailure IO (Stream)
@@ -705,14 +710,14 @@ srvLookup realm resolvSeed = ErrorT $ do
             rest <- orderSublist sublist''
             return $ ((priority, weight, port, domain):rest)
 
--- Closes the connection and updates the XmppConMonad Stream state.
--- killStream :: Stream -> IO (Either ExL.SomeException ())
+-- | Close the connection and updates the XmppConMonad Stream state. Does
+-- not send the stream end tag.
 killStream :: Stream -> IO (Either XmppFailure ())
 killStream = withStream $ do
     cc <- gets (streamClose . streamHandle)
     err <- wrapIOException cc
     -- (ExL.try cc :: IO (Either ExL.SomeException ()))
-    put xmppNoStream
+    put xmppNoStream{ streamConnectionState = Finished }
     return err
 
 -- Sends an IQ request and waits for the response. If the response ID does not
@@ -734,13 +739,13 @@ pushIQ iqID to tp lang body stream = runErrorT $ do
         Right (IQResultS r) -> do
             unless
                 (iqID == iqResultID r) $ liftIO $ do
-                    liftIO $ errorM "Pontarius.XMPP" $ "pushIQ: ID mismatch (" ++ (show iqID) ++ " /= " ++ (show $ iqResultID r) ++ ")."
+                    liftIO $ errorM "Pontarius.Xmpp" $ "pushIQ: ID mismatch (" ++ (show iqID) ++ " /= " ++ (show $ iqResultID r) ++ ")."
                     liftIO $ ExL.throwIO XmppOtherFailure
                 -- TODO: Log: ("In sendIQ' IDs don't match: " ++ show iqID ++
                 -- " /= " ++ show (iqResultID r) ++ " .")
             return $ Right r
         _ -> do
-                 liftIO $ errorM "Pontarius.XMPP" $ "pushIQ: Unexpected stanza type."
+                 liftIO $ errorM "Pontarius.Xmpp" $ "pushIQ: Unexpected stanza type."
                  throwError XmppOtherFailure
 
 debugConduit :: (Show o, MonadIO m) => ConduitM o o m b
@@ -748,7 +753,7 @@ debugConduit = forever $ do
     s' <- await
     case s' of
         Just s ->  do
-            liftIO $ debugM "Pontarius.XMPP" $ "debugConduit: In: " ++ (show s)
+            liftIO $ debugM "Pontarius.Xmpp" $ "debugConduit: In: " ++ (show s)
             yield s
         Nothing -> return ()
 

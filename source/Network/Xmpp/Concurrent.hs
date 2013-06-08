@@ -117,7 +117,7 @@ newSession stream config = runErrorT $ do
     outC <- lift newTChanIO
     stanzaChan <- lift newTChanIO
     iqHands  <- lift $ newTVarIO (Map.empty, Map.empty)
-    eh <- lift $ newTVarIO $ EventHandlers { connectionClosedHandler = sessionClosedHandler config }
+    eh <- lift $ newTVarIO $ EventHandlers { connectionClosedHandler = onConnectionClosed config }
     ros <- liftIO . newTVarIO $ Roster Nothing Map.empty
     let rosterH = if (enableRoster config) then handleRoster ros
                                            else \ _ _ -> return True

@@ -27,6 +27,7 @@ module Network.Xmpp
   ( -- * Session management
     Session
   , session
+  , setConnectionClosedHandler
   , StreamConfiguration(..)
   , SessionConfiguration(..)
   , ConnectionDetails(..)

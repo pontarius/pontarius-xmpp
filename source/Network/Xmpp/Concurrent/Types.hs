@@ -7,13 +7,40 @@ import           Control.Concurrent
 import           Control.Concurrent.STM
 import qualified Control.Exception.Lifted as Ex
 import qualified Data.ByteString as BS
+import           Data.Default
 import qualified Data.Map as Map
 import           Data.Text (Text)
+import qualified Data.Text as Text
 import           Data.Typeable
 import           Data.XML.Types (Element)
-
 import           Network.Xmpp.IM.Roster.Types
 import           Network.Xmpp.Types
+
+
+-- | Configuration for the @Session@ object.
+data SessionConfiguration = SessionConfiguration
+    { -- | Configuration for the @Stream@ object.
+      sessionStreamConfiguration :: StreamConfiguration
+      -- | Handler to be run when the session ends (for whatever reason).
+    , onConnectionClosed       :: XmppFailure -> IO ()
+      -- | Function to generate the stream of stanza identifiers.
+    , sessionStanzaIDs           :: IO (IO StanzaID)
+    , extraStanzaHandlers        :: [StanzaHandler]
+    , enableRoster               :: Bool
+    }
+
+instance Default SessionConfiguration where
+    def = SessionConfiguration { sessionStreamConfiguration = def
+                               , onConnectionClosed = \_ -> return ()
+                               , sessionStanzaIDs = do
+                                     idRef <- newTVarIO 1
+                                     return . atomically $ do
+                                         curId <- readTVar idRef
+                                         writeTVar idRef (curId + 1 :: Integer)
+                                         return . StanzaID . Text.pack . show $ curId
+                               , extraStanzaHandlers = []
+                               , enableRoster = True
+                               }
 
 -- | Handlers to be run when the Xmpp session ends and when the Xmpp connection is
 -- closed.

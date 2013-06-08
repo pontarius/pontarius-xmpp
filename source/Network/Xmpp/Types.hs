@@ -52,7 +52,6 @@ module Network.Xmpp.Types
     , parseJid
     , StreamEnd(..)
     , InvalidXmppXml(..)
-    , SessionConfiguration(..)
     , TlsBehaviour(..)
     , AuthFailure(..)
     )
@@ -828,6 +827,7 @@ data ConnectionState
     = Closed  -- ^ No stream has been established
     | Plain   -- ^ Stream established, but not secured via TLS
     | Secured -- ^ Stream established and secured via TLS
+    | Finished -- ^ Stream is closed
       deriving (Show, Eq, Typeable)
 
 -- | Defines operations for sending, receiving, flushing, and closing on a
@@ -1097,7 +1097,7 @@ data InvalidXmppXml = InvalidXmppXml String deriving (Show, Typeable)
 instance Exception InvalidXmppXml
 
 data ConnectionDetails = UseRealm -- ^ Use realm to resolv host
-                       | UseSrv HostName -- ^ Use this hostname for a SRC lookup
+                       | UseSrv HostName -- ^ Use this hostname for a SRV lookup
                        | UseHost HostName PortID -- ^ Use specified host
 
 -- | Configuration settings related to the stream.
@@ -1143,31 +1143,6 @@ instance Default StreamConfiguration where
 type StanzaHandler =  TChan Stanza -- ^ outgoing stanza
                    -> Stanza       -- ^ stanza to handle
                    -> IO Bool      -- ^ True when processing should continue
-
--- | Configuration for the @Session@ object.
-data SessionConfiguration = SessionConfiguration
-    { -- | Configuration for the @Stream@ object.
-      sessionStreamConfiguration :: StreamConfiguration
-      -- | Handler to be run when the session ends (for whatever reason).
-    , sessionClosedHandler       :: XmppFailure -> IO ()
-      -- | Function to generate the stream of stanza identifiers.
-    , sessionStanzaIDs           :: IO (IO StanzaID)
-    , extraStanzaHandlers        :: [StanzaHandler]
-    , enableRoster               :: Bool
-    }
-
-instance Default SessionConfiguration where
-    def = SessionConfiguration { sessionStreamConfiguration = def
-                               , sessionClosedHandler = \_ -> return ()
-                               , sessionStanzaIDs = do
-                                     idRef <- newTVarIO 1
-                                     return . atomically $ do
-                                         curId <- readTVar idRef
-                                         writeTVar idRef (curId + 1 :: Integer)
-                                         return . StanzaID . Text.pack . show $ curId
-                               , extraStanzaHandlers = []
-                               , enableRoster = True
-                               }
 
 -- | How the client should behave in regards to TLS.
 data TlsBehaviour = RequireTls -- ^ Require the use of TLS; disconnect if it's

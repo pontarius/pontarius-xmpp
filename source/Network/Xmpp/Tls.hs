@@ -51,10 +51,13 @@ tls con = Ex.handle (return . Left . TlsError)
     case sState of
         Plain -> return ()
         Closed -> do
-            liftIO $ errorM "Pontarius.Xmpp" "startTls: The stream is closed."
+            liftIO $ errorM "Pontarius.Xmpp.Tls" "The stream is closed."
+            throwError XmppNoStream
+        Finished -> do
+            liftIO $ errorM "Pontarius.Xmpp.Tls" "The stream is finished."
             throwError XmppNoStream
         Secured -> do
-            liftIO $ errorM "Pontarius.Xmpp" "startTls: The stream is already secured."
+            liftIO $ errorM "Pontarius.Xmpp.Tls" "The stream is already secured."
             throwError TlsStreamSecured
     features <- lift $ gets streamFeatures
     case (tlsBehaviour conf, streamTls features) of
@@ -67,13 +70,13 @@ tls con = Ex.handle (return . Left . TlsError)
         (RefuseTls   , Just True) -> throwError XmppOtherFailure
         (RefuseTls   , _        ) -> skipTls
   where
-    skipTls = liftIO $ infoM "Pontarius.Xmpp" "Skipping TLS negotiation"
+    skipTls = liftIO $ infoM "Pontarius.Xmpp.Tls" "Skipping TLS negotiation"
     startTls = do
-        liftIO $ infoM "Pontarius.Xmpp" "Running StartTLS"
+        liftIO $ infoM "Pontarius.Xmpp.Tls" "Running StartTLS"
         params <- gets $ tlsParams . streamConfiguration
         sent <- ErrorT $ pushElement starttlsE
         unless sent $ do
-            liftIO $ errorM "Pontarius.Xmpp" "startTls: Could not sent stanza."
+            liftIO $ errorM "Pontarius.Xmpp.Tls" "Could not sent stanza."
             throwError XmppOtherFailure
         answer <- lift $ pullElement
         case answer of
@@ -84,8 +87,8 @@ tls con = Ex.handle (return . Left . TlsError)
                 liftIO $ errorM "Pontarius.Xmpp" "startTls: TLS initiation failed."
                 throwError XmppOtherFailure
             Right r ->
-                liftIO $ errorM "Pontarius.Xmpp" $
-                            "startTls: Unexpected element: " ++ show r
+                liftIO $ errorM "Pontarius.Xmpp.Tls" $
+                            "Unexpected element: " ++ show r
         hand <- gets streamHandle
         (_raw, _snk, psh, recv, ctx) <- lift $ tlsinit params (mkBackend hand)
         let newHand = StreamHandle { streamSend = catchPush . psh
@@ -94,7 +97,7 @@ tls con = Ex.handle (return . Left . TlsError)
                                    , streamClose = bye ctx >> streamClose hand
                                    }
         lift $ modify ( \x -> x {streamHandle = newHand})
-        liftIO $ infoM "Pontarius.Xmpp" "Stream Secured."
+        liftIO $ infoM "Pontarius.Xmpp.Tls" "Stream Secured."
         either (lift . Ex.throwIO) return =<< lift restartStream
         modify (\s -> s{streamConnectionState = Secured})
         return ()
@@ -116,13 +119,13 @@ tlsinit :: (MonadIO m, MonadIO m1) =>
           , Context
           )
 tlsinit params backend = do
-    liftIO $ debugM "Pontarius.Xmpp.TLS" "TLS with debug mode enabled."
+    liftIO $ debugM "Pontarius.Xmpp.Tls" "TLS with debug mode enabled."
     gen <- liftIO $ getSystemRandomGen -- TODO: Find better random source?
     con <- client params gen backend
     handshake con
     let src = forever $ do
             dt <- liftIO $ recvData con
-            liftIO $ debugM "Pontarius.Xmpp.TLS" ("In :" ++ BSC8.unpack dt)
+            liftIO $ debugM "Pontarius.Xmpp.Tls" ("In :" ++ BSC8.unpack dt)
             yield dt
     let snk = do
             d <- await
