@@ -59,7 +59,7 @@ Library
                , void              >=0.5.5
                , xml-types         >=0.3.1
                , xml-conduit       >=1.0
-               , xml-picklers      >=0.3.2
+               , xml-picklers      >=0.3.3
   Exposed-modules: Network.Xmpp
                  , Network.Xmpp.IM
                  , Network.Xmpp.Internal

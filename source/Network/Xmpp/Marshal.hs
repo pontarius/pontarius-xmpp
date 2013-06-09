@@ -2,7 +2,9 @@
 -- respectively. By convensions, pickler/unpickler ("PU") function names start
 -- out with "xp".
 
-{-# Language OverloadedStrings, ViewPatterns, NoMonomorphismRestriction #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE NoMonomorphismRestriction #-}
 
 {-# OPTIONS_HADDOCK hide #-}
 
@@ -274,7 +276,8 @@ xpStreamFeatures = ("xpStreamFeatures","") <?> xpWrap
              "{urn:ietf:params:xml:ns:xmpp-sasl}mechanism" (xpContent xpId))
 
 xpJid :: PU Text Jid
-xpJid = PU { unpickleTree = \input -> case jidFromText input of
-                  Nothing -> UnpickleError $ ErrorMessage "Could not parse JID."
-                  Just jid -> Result jid Nothing
-           , pickleTree = \input -> jidToText input }
+xpJid = ("xpJid", "") <?>
+        xpPartial ( \input -> case jidFromText input of
+                                   Nothing -> Left "Could not parse JID."
+                                   Just jid -> Right jid)
+                  jidToText
