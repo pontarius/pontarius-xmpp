@@ -52,9 +52,9 @@ module Network.Xmpp
   , jidToText
   , jidToTexts
   , toBare
-  , toLocalpart
-  , toDomainpart
-  , toResourcepart
+  , localpart
+  , domainpart
+  , resourcepart
   , parseJid
   , getJid
   -- * Stanzas

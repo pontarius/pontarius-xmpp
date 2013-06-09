@@ -50,9 +50,9 @@ module Network.Xmpp.Types
     , jidToText
     , jidToTexts
     , toBare
-    , toLocalpart
-    , toDomainpart
-    , toResourcepart
+    , localpart
+    , domainpart
+    , resourcepart
     , parseJid
     , StreamEnd(..)
     , InvalidXmppXml(..)
@@ -883,7 +883,7 @@ newtype Stream = Stream { unStream :: TMVar StreamState }
 -- | A JID is XMPP\'s native format for addressing entities in the network. It
 -- is somewhat similar to an e-mail address but contains three parts instead of
 -- two: localpart, domainpart, and resourcepart.
--- 
+--
 -- The @localpart@ of a JID is an optional identifier placed
 -- before the domainpart and separated from the latter by a
 -- \'\@\' character. Typically a localpart uniquely identifies
@@ -902,7 +902,7 @@ newtype Stream = Stream { unStream :: TMVar StreamState }
 -- server functionality (e.g., a domainpart can identify an
 -- entity such as a multi-user chat service, a
 -- publish-subscribe service, or a user directory).
--- 
+--
 -- The resourcepart of a JID is an optional identifier placed
 -- after the domainpart and separated from the latter by the
 -- \'\/\' character. A resourcepart can modify either a
@@ -913,9 +913,9 @@ newtype Stream = Stream { unStream :: TMVar StreamState }
 -- the entity associated with an XMPP localpart at a domain
 -- (i.e., @localpart\@domainpart/resourcepart@).
 
-data Jid = Jid { localpart :: !(Maybe Text)
-               , domainpart :: !Text
-               , resourcepart :: !(Maybe Text)
+data Jid = Jid { localpart_ :: !(Maybe Text)
+               , domainpart_ :: !Text
+               , resourcepart_ :: !(Maybe Text)
                } deriving (Eq, Ord)
 
 -- | Converts a JID to a Text.
@@ -954,7 +954,7 @@ instance Read Jid where
                                             -- or the `parseJid' error message (see below)
 
 -- | Parses a JID string.
--- 
+--
 -- Note: This function is only meant to be used to reverse @Jid@ Show
 -- operations; it will produce an 'undefined' value if the JID does not
 -- validate; please refer to @jidFromText@ for a safe equivalent.
@@ -1010,19 +1010,19 @@ isFull = not . isBare
 
 -- | Returns the @Jid@ without the resourcepart (if any).
 toBare :: Jid -> Jid
-toBare (Jid localpart domainpart _) = Jid localpart domainpart Nothing
+toBare jid  = jid{resourcepart_ = Nothing}
 
 -- | Returns the localpart of the @Jid@ (if any).
-toLocalpart :: Jid -> Maybe Text
-toLocalpart = localpart
+localpart :: Jid -> Maybe Text
+localpart = localpart_
 
 -- | Returns the domainpart of the @Jid@.
-toDomainpart :: Jid -> Text
-toDomainpart = domainpart
+domainpart :: Jid -> Text
+domainpart = domainpart_
 
 -- | Returns the resourcepart of the @Jid@ (if any).
-toResourcepart :: Jid -> Maybe Text
-toResourcepart = resourcepart
+resourcepart :: Jid -> Maybe Text
+resourcepart = resourcepart_
 
 -- Parses an JID string and returns its three parts. It performs no validation
 -- or transformations.
