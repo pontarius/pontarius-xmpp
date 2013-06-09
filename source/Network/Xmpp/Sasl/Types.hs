@@ -1,7 +1,6 @@
 {-# OPTIONS_HADDOCK hide #-}
 module Network.Xmpp.Sasl.Types where
 
-import           Control.Monad.Error
 import           Control.Monad.State.Strict
 import           Data.ByteString(ByteString)
 import qualified Data.Text as Text

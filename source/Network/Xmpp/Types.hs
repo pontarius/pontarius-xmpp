@@ -69,7 +69,7 @@ import qualified Data.Attoparsec.Text as AP
 import qualified Data.ByteString as BS
 import           Data.Conduit
 import           Data.Default
-import           Data.Maybe (fromJust, maybeToList)
+import           Data.Maybe (maybeToList)
 import qualified Data.Set as Set
 import           Data.String (IsString(..))
 import           Data.Text (Text)
@@ -946,7 +946,7 @@ instance Read Jid where
                           [] -> error "Expected `parseJid \"<jid>\"'"
                           [("parseJid", r')] -> case lex r' of
                                               [] -> error "Expected `parseJid \"<jid>\"'"
-                                              [(s', r)] -> (s', r)
+                                              [(s'', r'')] -> (s'', r'')
                                               _ -> error "Expected `parseJid \"<jid>\"'"
                           _ -> error "Expected `parseJid \"<jid>\"'"
         -- Read the JID string (removes the quotes), validate, and return.

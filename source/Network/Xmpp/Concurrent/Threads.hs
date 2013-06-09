@@ -24,7 +24,7 @@ readWorker :: (Stanza -> IO ())
            -> (XmppFailure -> IO ())
            -> TMVar Stream
            -> IO a
-readWorker onStanza onConnectionClosed stateRef = forever . Ex.mask_ $ do
+readWorker onStanza onCClosed stateRef = forever . Ex.mask_ $ do
 
     s' <- Ex.catches ( do
                    -- we don't know whether pull will
@@ -54,8 +54,8 @@ readWorker onStanza onConnectionClosed stateRef = forever . Ex.mask_ $ do
                        , Ex.Handler $ \(e :: XmppFailure) -> do
                               errorM "Pontarius.Xmpp" $ "Read error: "
                                                          ++ show e
-                              closeStreams s
-                              onConnectionClosed e
+                              _ <- closeStreams s
+                              onCClosed e
                               return Nothing
                        ]
             case res of
@@ -63,8 +63,8 @@ readWorker onStanza onConnectionClosed stateRef = forever . Ex.mask_ $ do
                                      -- do. TODO: Can this happen?
                 Just (Left e) -> do
                     errorM "Pontarius.Xmpp" $ "Stanza error:" ++ show e
-                    closeStreams s
-                    onConnectionClosed e
+                    _ <- closeStreams s
+                    onCClosed e
                 Just (Right sta) -> void $ onStanza sta
   where
     -- Defining an Control.Exception.allowInterrupt equivalent for GHC 7
