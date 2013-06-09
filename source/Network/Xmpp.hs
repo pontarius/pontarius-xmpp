@@ -44,13 +44,17 @@ module Network.Xmpp
   -- | A JID (historically: Jabber ID) is XMPPs native format
   -- for addressing entities in the network. It is somewhat similar to an e-mail
   -- address, but contains three parts instead of two.
-  , Jid(..)
+  , Jid
   , isBare
   , isFull
   , jidFromText
   , jidFromTexts
   , jidToText
   , jidToTexts
+  , toBare
+  , toLocalpart
+  , toDomainpart
+  , toResourcepart
   , parseJid
   , getJid
   -- * Stanzas

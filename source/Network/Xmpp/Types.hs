@@ -49,6 +49,10 @@ module Network.Xmpp.Types
     , jidFromTexts
     , jidToText
     , jidToTexts
+    , toBare
+    , toLocalpart
+    , toDomainpart
+    , toResourcepart
     , parseJid
     , StreamEnd(..)
     , InvalidXmppXml(..)
@@ -878,37 +882,39 @@ newtype Stream = Stream { unStream :: TMVar StreamState }
 
 -- | A JID is XMPP\'s native format for addressing entities in the network. It
 -- is somewhat similar to an e-mail address but contains three parts instead of
--- two.
-data Jid = Jid { -- | The @localpart@ of a JID is an optional identifier placed
-                 -- before the domainpart and separated from the latter by a
-                 -- \'\@\' character. Typically a localpart uniquely identifies
-                 -- the entity requesting and using network access provided by a
-                 -- server (i.e., a local account), although it can also
-                 -- represent other kinds of entities (e.g., a chat room
-                 -- associated with a multi-user chat service). The entity
-                 -- represented by an XMPP localpart is addressed within the
-                 -- context of a specific domain (i.e.,
-                 -- @localpart\@domainpart@).
-                 localpart :: !(Maybe Text)
+-- two: localpart, domainpart, and resourcepart.
+-- 
+-- The @localpart@ of a JID is an optional identifier placed
+-- before the domainpart and separated from the latter by a
+-- \'\@\' character. Typically a localpart uniquely identifies
+-- the entity requesting and using network access provided by a
+-- server (i.e., a local account), although it can also
+-- represent other kinds of entities (e.g., a chat room
+-- associated with a multi-user chat service). The entity
+-- represented by an XMPP localpart is addressed within the
+-- context of a specific domain (i.e.,
+-- @localpart\@domainpart@).
+--
+-- The domainpart typically identifies the /home/ server to
+-- which clients connect for XML routing and data management
+-- functionality. However, it is not necessary for an XMPP
+-- domainpart to identify an entity that provides core XMPP
+-- server functionality (e.g., a domainpart can identify an
+-- entity such as a multi-user chat service, a
+-- publish-subscribe service, or a user directory).
+-- 
+-- The resourcepart of a JID is an optional identifier placed
+-- after the domainpart and separated from the latter by the
+-- \'\/\' character. A resourcepart can modify either a
+-- @localpart\@domainpart@ address or a mere @domainpart@
+-- address. Typically a resourcepart uniquely identifies a
+-- specific connection (e.g., a device or location) or object
+-- (e.g., an occupant in a multi-user chat room) belonging to
+-- the entity associated with an XMPP localpart at a domain
+-- (i.e., @localpart\@domainpart/resourcepart@).
 
-                 -- | The domainpart typically identifies the /home/ server to
-                 -- which clients connect for XML routing and data management
-                 -- functionality. However, it is not necessary for an XMPP
-                 -- domainpart to identify an entity that provides core XMPP
-                 -- server functionality (e.g., a domainpart can identify an
-                 -- entity such as a multi-user chat service, a
-                 -- publish-subscribe service, or a user directory).
+data Jid = Jid { localpart :: !(Maybe Text)
                , domainpart :: !Text
-
-                 -- | The resourcepart of a JID is an optional identifier placed
-                 -- after the domainpart and separated from the latter by the
-                 -- \'\/\' character. A resourcepart can modify either a
-                 -- @localpart\@domainpart@ address or a mere @domainpart@
-                 -- address. Typically a resourcepart uniquely identifies a
-                 -- specific connection (e.g., a device or location) or object
-                 -- (e.g., an occupant in a multi-user chat room) belonging to
-                 -- the entity associated with an XMPP localpart at a domain
-                 -- (i.e., @localpart\@domainpart/resourcepart@).
                , resourcepart :: !(Maybe Text)
                } deriving (Eq, Ord)
 
@@ -1001,6 +1007,22 @@ isBare j | resourcepart j == Nothing = True
 -- | Returns 'True' if the JID is /full/, and 'False' otherwise.
 isFull :: Jid -> Bool
 isFull = not . isBare
+
+-- | Returns the @Jid@ without the resourcepart (if any).
+toBare :: Jid -> Jid
+toBare (Jid localpart domainpart _) = Jid localpart domainpart Nothing
+
+-- | Returns the localpart of the @Jid@ (if any).
+toLocalpart :: Jid -> Maybe Text
+toLocalpart = localpart
+
+-- | Returns the domainpart of the @Jid@.
+toDomainpart :: Jid -> Text
+toDomainpart = domainpart
+
+-- | Returns the resourcepart of the @Jid@ (if any).
+toResourcepart :: Jid -> Maybe Text
+toResourcepart = resourcepart
 
 -- Parses an JID string and returns its three parts. It performs no validation
 -- or transformations.
