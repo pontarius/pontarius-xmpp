@@ -110,7 +110,7 @@ handleRoster ref sem sta = case sta of
 
 retrieveRoster :: Maybe Roster -> Session -> IO (Maybe Roster)
 retrieveRoster mbOldRoster sess = do
-    useVersioning <- rosterVer <$> getFeatures sess
+    useVersioning <- isJust . rosterVer <$> getFeatures sess
     let version = if useVersioning
                 then case mbOldRoster of
                       Nothing -> Just ""

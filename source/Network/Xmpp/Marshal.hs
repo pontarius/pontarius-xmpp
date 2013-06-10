@@ -261,7 +261,7 @@ xpStreamFeatures = ("xpStreamFeatures","") <?> xpWrap
          (xp4Tuple
               (xpOption pickleTlsFeature)
               (xpOption pickleSaslFeature)
-              (xpElemExists "{urn:xmpp:features:rosterver}ver")
+              (xpOption pickleRosterVer)
               (xpAll xpElemVerbatim)
          )
     )
@@ -275,6 +275,8 @@ xpStreamFeatures = ("xpStreamFeatures","") <?> xpWrap
         xpElemNodes "{urn:ietf:params:xml:ns:xmpp-sasl}mechanisms"
         (xpAll $ xpElemNodes
              "{urn:ietf:params:xml:ns:xmpp-sasl}mechanism" (xpContent xpId))
+    pickleRosterVer = xpElemNodes "{urn:xmpp:features:rosterver}ver" $
+                           xpElemExists "{urn:xmpp:features:rosterver}optional"
 
 xpJid :: PU Text Jid
 xpJid = ("xpJid", "") <?>
