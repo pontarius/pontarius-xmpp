@@ -250,17 +250,18 @@ xpStream = xpElemAttrs
 -- Pickler/Unpickler for the stream features - TLS, SASL, and the rest.
 xpStreamFeatures :: PU [Node] StreamFeatures
 xpStreamFeatures = ("xpStreamFeatures","") <?> xpWrap
-    (\(tls, sasl, rest) -> StreamFeatures tls (mbl sasl) rest)
-    (\(StreamFeatures tls sasl rest) -> (tls, lmb sasl, rest))
+    (\(tls, sasl, ver, rest) -> StreamFeatures tls (mbl sasl) ver rest)
+    (\(StreamFeatures tls sasl ver rest) -> (tls, lmb sasl, ver, rest))
     (xpElemNodes
          (Name
              "features"
              (Just "http://etherx.jabber.org/streams")
              (Just "stream")
          )
-         (xpTriple
+         (xp4Tuple
               (xpOption pickleTlsFeature)
               (xpOption pickleSaslFeature)
+              (xpElemExists "{urn:xmpp:features:rosterver}ver")
               (xpAll xpElemVerbatim)
          )
     )

@@ -823,6 +823,7 @@ langTagParser = do
 data StreamFeatures = StreamFeatures
     { streamTls            :: !(Maybe Bool)
     , streamSaslMechanisms :: ![Text.Text]
+    , rosterVer            :: !Bool
     , streamOtherFeatures  :: ![Element] -- TODO: All feature elements instead?
     } deriving Show
 

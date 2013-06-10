@@ -4,6 +4,7 @@
 
 module Network.Xmpp.IM.Roster where
 
+import           Control.Applicative ((<$>))
 import           Control.Concurrent.STM
 import           Control.Monad
 import           Data.List (nub)
@@ -14,11 +15,12 @@ import           Data.XML.Pickle
 import           Data.XML.Types
 import           System.Log.Logger
 
+import           Network.Xmpp.Concurrent.Basic
+import           Network.Xmpp.Concurrent.IQ
+import           Network.Xmpp.Concurrent.Types
 import           Network.Xmpp.IM.Roster.Types
 import           Network.Xmpp.Marshal
-import           Network.Xmpp.Concurrent.Types
 import           Network.Xmpp.Types
-import           Network.Xmpp.Concurrent.IQ
 
 -- | Push a roster item to the server. The values for approved and ask are
 -- ignored and all values for subsciption except "remove" are ignored
@@ -107,9 +109,15 @@ handleRoster ref outC sta = case sta of
         IQResultS $ IQResult iqid Nothing from lang Nothing
 
 retrieveRoster :: Maybe Roster -> Session -> IO (Maybe Roster)
-retrieveRoster oldRoster sess = do
+retrieveRoster mbOldRoster sess = do
+    useVersioning <- rosterVer <$> getFeatures sess
+    let version = if useVersioning
+                then case mbOldRoster of
+                      Nothing -> Just ""
+                      Just oldRoster -> ver oldRoster
+                else Nothing
     res <- sendIQ' Nothing Get Nothing
-        (pickleElem xpQuery (Query (ver =<< oldRoster) []))
+        (pickleElem xpQuery (Query version []))
         sess
     case res of
         IQResponseResult (IQResult{iqResultPayload = Just ros})
@@ -119,7 +127,7 @@ retrieveRoster oldRoster sess = do
                 return Nothing
             Right ros' -> return . Just $ toRoster ros'
         IQResponseResult (IQResult{iqResultPayload = Nothing}) -> do
-            return oldRoster
+            return mbOldRoster
                 -- sever indicated that no roster updates are necessary
         IQResponseTimeout -> do
             errorM "Pontarius.Xmpp.Roster" "getRoster: request timed out"
