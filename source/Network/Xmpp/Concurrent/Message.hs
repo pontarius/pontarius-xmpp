@@ -52,6 +52,6 @@ filterMessages f g session = do
         Right m | g m -> return $ Right m
                 | otherwise -> filterMessages f g session
 
--- | Send a message stanza.
-sendMessage :: Message -> Session -> IO ()
+-- | Send a message stanza. Returns False when the Message could not be sentx
+sendMessage :: Message -> Session -> IO Bool
 sendMessage m session = sendStanza (MessageS m) session

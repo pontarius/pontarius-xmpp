@@ -24,7 +24,7 @@ import           Network.Xmpp.Types
 
 -- | Push a roster item to the server. The values for approved and ask are
 -- ignored and all values for subsciption except "remove" are ignored
-rosterPush :: Item -> Session -> IO IQResponse
+rosterPush :: Item -> Session -> IO (Maybe IQResponse)
 rosterPush item session = do
     let el = pickleElem xpQuery (Query Nothing [fromItem item])
     sendIQ'  Nothing Set Nothing el session
@@ -36,7 +36,7 @@ rosterAdd :: Jid -- ^ JID of the item
           -> Maybe Text -- ^ Name alias
           -> [Text] -- ^ Groups (duplicates will be removed)
           -> Session
-          -> IO IQResponse
+          -> IO (Maybe IQResponse)
 rosterAdd j n gs session = do
     let el = pickleElem xpQuery (Query Nothing
                                  [QueryItem { qiApproved = Nothing
@@ -58,7 +58,7 @@ rosterRemove j sess = do
         Just _ -> do
             res <- rosterPush (Item False False j Nothing Remove []) sess
             case res of
-                IQResponseResult IQResult{} -> return True
+                Just (IQResponseResult IQResult{}) -> return True
                 _ -> return False
 
 -- | Retrieve the current Roster state
@@ -76,8 +76,8 @@ initRoster session = do
                           "Server did not return a roster"
         Just roster -> atomically $ writeTVar (rosterRef session) roster
 
-handleRoster :: TVar Roster -> TChan Stanza -> Stanza -> IO Bool
-handleRoster ref outC sta = case sta of
+handleRoster :: TVar Roster -> WriteSemaphore -> Stanza -> IO Bool
+handleRoster ref sem sta = case sta of
     IQRequestS (iqr@IQRequest{iqRequestPayload =
                                    iqb@Element{elementName = en}})
         | nameNamespace en == Just "jabber:iq:roster" -> do
@@ -89,11 +89,11 @@ handleRoster ref outC sta = case sta of
                                , queryItems = [update]
                                } -> do
                         handleUpdate v update
-                        atomically . writeTChan outC $ result iqr
+                        _ <- writeStanza sem $ result iqr
                         return False
                     _ -> do
                         errorM "Pontarius.Xmpp" "Invalid roster query"
-                        atomically . writeTChan outC $ badRequest iqr
+                        _ <- writeStanza sem $ badRequest iqr
                         return False
     _ -> return True
   where
@@ -120,19 +120,22 @@ retrieveRoster mbOldRoster sess = do
         (pickleElem xpQuery (Query version []))
         sess
     case res of
-        IQResponseResult (IQResult{iqResultPayload = Just ros})
+        Nothing -> do
+            errorM "Pontarius.Xmpp.Roster" "getRoster: sending stanza failed"
+            return Nothing
+        Just (IQResponseResult (IQResult{iqResultPayload = Just ros}))
             -> case unpickleElem xpQuery ros of
             Left _e -> do
                 errorM "Pontarius.Xmpp.Roster" "getRoster: invalid query element"
                 return Nothing
             Right ros' -> return . Just $ toRoster ros'
-        IQResponseResult (IQResult{iqResultPayload = Nothing}) -> do
+        Just (IQResponseResult (IQResult{iqResultPayload = Nothing})) -> do
             return mbOldRoster
                 -- sever indicated that no roster updates are necessary
-        IQResponseTimeout -> do
+        Just IQResponseTimeout -> do
             errorM "Pontarius.Xmpp.Roster" "getRoster: request timed out"
             return Nothing
-        IQResponseError e -> do
+        Just (IQResponseError e) -> do
             errorM "Pontarius.Xmpp.Roster" $ "getRoster: server returned error"
                    ++ show e
             return Nothing

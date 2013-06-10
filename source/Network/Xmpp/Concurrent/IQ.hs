@@ -13,16 +13,20 @@ import           Network.Xmpp.Concurrent.Basic
 import           Network.Xmpp.Concurrent.Types
 import           Network.Xmpp.Types
 
--- | Sends an IQ, returns a 'TMVar' that will be filled with the first inbound
--- IQ with a matching ID that has type @result@ or @error@.
-sendIQ :: Maybe Int -- ^ Timeout
+-- | Sends an IQ, returns Just a 'TMVar' that will be filled with the first
+-- inbound IQ with a matching ID that has type @result@ or @error@ or Nothing if
+-- the stanza could not be sent
+sendIQ :: Maybe Int -- ^ Timeout . When the timeout is reached the response
+                    -- TMVar will be filled with 'IQResponseTimeout' and the id
+                    -- is removed from the list of IQ handlers. 'Nothing'
+                    -- deactivates the timeout
        -> Maybe Jid -- ^ Recipient (to)
        -> IQRequestType  -- ^ IQ type (@Get@ or @Set@)
        -> Maybe LangTag  -- ^ Language tag of the payload (@Nothing@ for
                          -- default)
        -> Element -- ^ The IQ body (there has to be exactly one)
        -> Session
-       -> IO (TMVar IQResponse)
+       -> IO (Maybe (TMVar IQResponse))
 sendIQ timeOut to tp lang body session = do -- TODO: Add timeout
     newId <- idGenerator session
     ref <- atomically $ do
@@ -31,13 +35,16 @@ sendIQ timeOut to tp lang body session = do -- TODO: Add timeout
         writeTVar (iqHandlers session) (byNS, Map.insert newId resRef byId)
           -- TODO: Check for id collisions (shouldn't happen?)
         return resRef
-    sendStanza  (IQRequestS $ IQRequest newId Nothing to lang tp body) session
-    case timeOut of
-        Nothing -> return ()
-        Just t -> void . forkIO $ do
-                  threadDelay t
-                  doTimeOut (iqHandlers session) newId ref
-    return ref
+    res <- sendStanza (IQRequestS $ IQRequest newId Nothing to lang tp body) session
+    if res
+        then do
+            case timeOut of
+                Nothing -> return ()
+                Just t -> void . forkIO $ do
+                          threadDelay t
+                          doTimeOut (iqHandlers session) newId ref
+            return $ Just ref
+        else return Nothing
   where
     doTimeOut handlers iqid var = atomically $ do
       p <- tryPutTMVar var IQResponseTimeout
@@ -53,10 +60,10 @@ sendIQ' :: Maybe Jid
         -> Maybe LangTag
         -> Element
         -> Session
-        -> IO IQResponse
+        -> IO (Maybe IQResponse)
 sendIQ' to tp lang body session = do
     ref <- sendIQ (Just 3000000) to tp lang body session
-    atomically $ takeTMVar ref
+    maybe (return Nothing) (fmap Just . atomically . takeTMVar) ref
 
 
 -- | Retrieves an IQ listener channel. If the namespace/'IQRequestType' is not
@@ -103,7 +110,12 @@ dropIQChan tp ns session = do
         writeTVar handlers (byNS', byID)
         return ()
 
--- | Answer an IQ request. Only the first answer ist sent and then True is
--- returned. Subsequent answers are dropped and (False is returned in that case)
-answerIQ :: IQRequestTicket -> Either StanzaError (Maybe Element) -> IO Bool
+-- | Answer an IQ request. Only the first answer ist sent and Just True is
+-- returned when the answer is sucessfully sent. If an error occured during
+-- sending Just False is returned (and another attempt can be
+-- undertaken). Subsequent answers after the first sucessful one are dropped and
+-- (False is returned in that case)
+answerIQ :: IQRequestTicket
+         -> Either StanzaError (Maybe Element)
+         -> IO (Maybe Bool)
 answerIQ ticket = answerTicket ticket

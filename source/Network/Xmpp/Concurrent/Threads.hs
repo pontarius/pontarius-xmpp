@@ -10,7 +10,6 @@ import           Control.Concurrent.STM
 import qualified Control.Exception.Lifted as Ex
 import           Control.Monad
 import           Control.Monad.Error
-import           Control.Monad.State.Strict
 import qualified Data.ByteString as BS
 import           GHC.IO (unsafeUnmask)
 import           Network.Xmpp.Concurrent.Types
@@ -90,28 +89,30 @@ readWorker onStanza onCClosed stateRef = forever . Ex.mask_ $ do
 -- | Runs thread in XmppState monad. Returns channel of incoming and outgoing
 -- stances, respectively, and an Action to stop the Threads and close the
 -- connection.
-startThreadsWith :: (Stanza -> IO ())
+startThreadsWith :: TMVar (BS.ByteString -> IO Bool)
+                 -> (Stanza -> IO ())
                  -> TVar EventHandlers
                  -> Stream
                  -> IO (Either XmppFailure (IO (),
                   TMVar (BS.ByteString -> IO Bool),
                   TMVar Stream,
                   ThreadId))
-startThreadsWith stanzaHandler eh con = do
-    read' <- withStream' (gets $ streamSend . streamHandle) con
-    writeLock <- newTMVarIO read'
+startThreadsWith writeSem stanzaHandler eh con = do
+    -- read' <- withStream' (gets $ streamSend . streamHandle) con
+    -- writeSem <- newTMVarIO read'
     conS <- newTMVarIO con
-    --    lw <- forkIO $ writeWorker outC writeLock
-    cp <- forkIO $ connPersist writeLock
+    cp <- forkIO $ connPersist writeSem
     rdw <- forkIO $ readWorker stanzaHandler (noCon eh) conS
-    return $ Right ( killConnection writeLock [rdw, cp]
-                   , writeLock
+    return $ Right ( killConnection [rdw, cp]
+                   , writeSem
                    , conS
                    , rdw
                    )
   where
-    killConnection writeLock threads = liftIO $ do
-        _ <- atomically $ takeTMVar writeLock -- Should we put it back?
+    killConnection threads = liftIO $ do
+        _ <- atomically $ do
+            _ <- takeTMVar writeSem
+            putTMVar writeSem $ \_ -> return False
         _ <- forM threads killThread
         return ()
     -- Call the connection closed handlers.
@@ -124,8 +125,8 @@ startThreadsWith stanzaHandler eh con = do
 -- Acquires the write lock, pushes a space, and releases the lock.
 -- | Sends a blank space every 30 seconds to keep the connection alive.
 connPersist :: TMVar (BS.ByteString -> IO Bool) -> IO ()
-connPersist lock = forever $ do
-    pushBS <- atomically $ takeTMVar lock
+connPersist sem = forever $ do
+    pushBS <- atomically $ takeTMVar sem
     _ <- pushBS " "
-    atomically $ putTMVar lock pushBS
+    atomically $ putTMVar sem pushBS
     threadDelay 30000000 -- 30s

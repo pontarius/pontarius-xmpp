@@ -54,21 +54,21 @@ instance Show Interrupt where show _ = "<Interrupt>"
 
 instance Ex.Exception Interrupt
 
+type WriteSemaphore = TMVar (BS.ByteString -> IO Bool)
 
 -- | A concurrent interface to Pontarius XMPP.
 data Session = Session
     { stanzaCh :: TChan Stanza -- All stanzas
-    , outCh :: TChan Stanza
     , iqHandlers :: TVar IQHandlers
       -- Writing lock, so that only one thread could write to the stream at any
       -- given time.
       -- Fields below are from Context.
-    , writeRef :: TMVar (BS.ByteString -> IO Bool)
+    , writeSemaphore :: WriteSemaphore
     , readerThread :: ThreadId
     , idGenerator :: IO StanzaID
       -- | Lock (used by withStream) to make sure that a maximum of one
       -- Stream action is executed at any given time.
-    , streamRef :: TMVar (Stream)
+    , streamRef :: TMVar Stream
     , eventHandlers :: TVar EventHandlers
     , stopThreads :: IO ()
     , rosterRef :: TVar Roster
@@ -83,7 +83,12 @@ type IQHandlers = (Map.Map (IQRequestType, Text) (TChan IQRequestTicket)
 
 -- | Contains whether or not a reply has been sent, and the IQ request body to
 -- reply to.
+
 data IQRequestTicket = IQRequestTicket
-    { answerTicket :: Either StanzaError (Maybe Element) -> IO Bool
+    { answerTicket :: Either StanzaError (Maybe Element) -> IO (Maybe Bool)
+                      -- ^ Return Nothing when the IQ request was already
+                      -- answered before, Just True when it was sucessfully
+                      -- answered and Just False when the answer was attempted,
+                      -- but failed (e.g. there is a connection failure)
     , iqRequestBody :: IQRequest
     }

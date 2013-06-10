@@ -27,5 +27,5 @@ waitForPresence f session = do
                 | otherwise -> waitForPresence f session
 
 -- | Send a presence stanza.
-sendPresence :: Presence -> Session -> IO ()
+sendPresence :: Presence -> Session -> IO Bool
 sendPresence p session = sendStanza (PresenceS p) session

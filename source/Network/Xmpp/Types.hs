@@ -838,7 +838,8 @@ data ConnectionState
 -- | Defines operations for sending, receiving, flushing, and closing on a
 -- stream.
 data StreamHandle =
-    StreamHandle { streamSend :: BS.ByteString -> IO Bool
+    StreamHandle { streamSend :: BS.ByteString -> IO Bool -- ^ Sends may not
+                                                          -- interleave
                  , streamReceive :: Int -> IO BS.ByteString
                    -- This is to hold the state of the XML parser (otherwise we
                    -- will receive EventBeginDocument events and forget about
@@ -849,8 +850,8 @@ data StreamHandle =
 
 data StreamState = StreamState
     { -- | State of the stream - 'Closed', 'Plain', or 'Secured'
-      streamConnectionState :: !ConnectionState -- ^ State of connection
-      -- | Functions to send, receive, flush, and close on the stream
+      streamConnectionState :: !ConnectionState
+      -- | Functions to send, receive, flush, and close the stream
     , streamHandle :: StreamHandle
       -- | Event conduit source, and its associated finalizer
     , streamEventSource :: Source IO Event
@@ -1163,7 +1164,7 @@ instance Default StreamConfiguration where
                                                                 }
                               }
 
-type StanzaHandler =  TChan Stanza -- ^ outgoing stanza
+type StanzaHandler =  TMVar (BS.ByteString -> IO Bool) -- ^ outgoing stanza
                    -> Stanza       -- ^ stanza to handle
                    -> IO Bool      -- ^ True when processing should continue
 

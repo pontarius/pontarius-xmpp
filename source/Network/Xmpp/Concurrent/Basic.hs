@@ -1,15 +1,30 @@
 {-# OPTIONS_HADDOCK hide #-}
 module Network.Xmpp.Concurrent.Basic where
 
-import Control.Concurrent.STM
-import Network.Xmpp.Concurrent.Types
-import Network.Xmpp.Stream
-import Network.Xmpp.Types
-import Control.Monad.State.Strict
+import           Control.Concurrent.STM
+import qualified Control.Exception as Ex
+import           Control.Monad.State.Strict
+import qualified Data.ByteString as BS
+import           Network.Xmpp.Concurrent.Types
+import           Network.Xmpp.Marshal
+import           Network.Xmpp.Stream
+import           Network.Xmpp.Types
+import           Network.Xmpp.Utilities
+
+semWrite :: WriteSemaphore -> BS.ByteString -> IO Bool
+semWrite sem bs = Ex.bracket (atomically $ takeTMVar sem)
+                          (atomically . putTMVar sem)
+                          ($ bs)
+
+writeStanza :: WriteSemaphore -> Stanza -> IO Bool
+writeStanza sem a = do
+    let outData = renderElement $ nsHack (pickleElem xpStanza a)
+    semWrite sem outData
 
 -- | Send a stanza to the server.
-sendStanza :: Stanza -> Session -> IO ()
-sendStanza a session = atomically $ writeTChan (outCh session) a
+sendStanza :: Stanza -> Session -> IO Bool
+sendStanza a session = writeStanza (writeSemaphore session) a
+
 
 -- | Get the channel of incoming stanzas.
 getStanzaChan :: Session -> TChan Stanza

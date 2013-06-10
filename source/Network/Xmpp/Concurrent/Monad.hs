@@ -32,7 +32,7 @@ withConnection a session =  do
         -- fetches an updated state.
         s <- Ex.catch
             (atomically $ do
-                 _ <- takeTMVar (writeRef session)
+                 _ <- takeTMVar (writeSemaphore session)
                  s <- takeTMVar (streamRef session)
                  putTMVar wait ()
                  return s
@@ -48,7 +48,7 @@ withConnection a session =  do
                  (res, s') <- a s
                  wl <- withStream' (gets $ streamSend . streamHandle) s'
                  atomically $ do
-                     putTMVar (writeRef session) wl
+                     putTMVar (writeSemaphore session) wl
                      putTMVar (streamRef session) s'
                      return $ Right res
             )
