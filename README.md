@@ -25,6 +25,16 @@ _Note:_ You will need the ICU Unicode library and it's header files in order to
 be able to build Pontarius XMPP. On Debian, you will need to install the
 *libicu-dev* package. In Fedora, the package is called *libicu-devel*.
 
+_Note to GHC 7.0 users:_ You will need *cabal-install*, version *0.14.0* or
+higher, or the build will fail with an "unrecognized option:
+--disable-benchmarks" error. The versions *1.16.0* and higher might not build on
+your system; if so, install *0.14.0* with "cabal install cabal-install-0.14.0".
+
+_Note to GHC 7.0.1 users:_ You will want to configure your Cabal environment
+(including *cabal-install*) for *bytestring*, version *0.9.2.1*. We recommend
+that you run "cabal install bytestring-0.9.2.1 cabal-install-0.14.0" prior to
+installing Pontarius XMPP.
+
 The first thing to do is to import the modules that we are going to use. We are
 also using the OverloadedStrings LANGUAGE pragma in order to be able to type
 <code>Text</code> values like strings.

@@ -39,7 +39,7 @@ import           Network.DNS hiding (encode, lookup)
 import           Network.Xmpp.Marshal
 import           Network.Xmpp.Types
 import           System.IO
-import           System.IO.Error (tryIOError)
+-- import           System.IO.Error (tryIOError) <- Only available in base >=4.4
 import           System.Log.Logger
 import           System.Random (randomRIO)
 import           Text.XML.Stream.Parse as XP
@@ -821,3 +821,7 @@ withStream' action (Stream stream) = do
 
 mkStream :: StreamState -> IO Stream
 mkStream con = Stream `fmap` atomically (newTMVar con)
+
+-- "Borrowed" from base-4.4 for compatibility with GHC 7.0.1.
+tryIOError :: IO a -> IO (Either IOError a)
+tryIOError f = catch (f >>= \r -> return (Right r)) (return . Left)
