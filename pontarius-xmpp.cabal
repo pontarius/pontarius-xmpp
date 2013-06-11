@@ -16,7 +16,7 @@ Synopsis:      An incomplete XMPP client implementation
 Description:   Pontarius XMPP is a work in progress implementation of RFC 6120
                ("XMPP CORE"), RFC 6121 ("XMPP IM"), and RFC 6122 ("XMPP ADDR").
 Category:      Network
-Tested-With:   GHC ==7.0.4, GHC ==7.4.1
+Tested-With:   GHC >=7.0.1 && <=7.6.3
 
 Extra-Source-Files: README.md
                   , examples/echoclient/echoclient.cabal
