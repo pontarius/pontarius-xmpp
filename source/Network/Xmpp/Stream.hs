@@ -824,4 +824,4 @@ mkStream con = Stream `fmap` atomically (newTMVar con)
 
 -- "Borrowed" from base-4.4 for compatibility with GHC 7.0.1.
 tryIOError :: IO a -> IO (Either IOError a)
-tryIOError f = catch (f >>= \r -> return (Right r)) (return . Left)
+tryIOError f = Ex.catch (Right <$> f) (return . Left)
