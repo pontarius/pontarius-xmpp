@@ -30,5 +30,5 @@ main = do
     forever $ do
         msg <- getMessage sess
         case answerMessage msg (messagePayload msg) of
-            Just answer -> sendMessage answer sess
+            Just answer -> sendMessage answer sess >> return ()
             Nothing -> putStrLn "Received message with no sender."
