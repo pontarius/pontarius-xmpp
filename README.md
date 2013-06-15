@@ -1,8 +1,6 @@
 Welcome to Pontarius XMPP!
 ==========================
 
-[![Status](https://travis-ci.org/pontarius/pontarius-xmpp.png?branch=master)](https://travis-ci.org/pontarius/pontarius-xmpp)
-
 Pontarius XMPP is an active work in progress to build a Haskell XMPP client
 library that implements the capabilities of [RFC 6120
 ("XMPP CORE")](http://tools.ietf.org/html/rfc6120), [RFC 6121 ("XMPP
@@ -10,6 +8,24 @@ IM")](http://tools.ietf.org/html/rfc6121), and [RFC 6122 ("XMPP
 ADDR")](http://tools.ietf.org/html/rfc6122). Pontarius XMPP is part of [the
 Pontarius project](http://www.pontarius.org/), an effort to produce free and
 open source, uncentralized, and privacy-aware software solutions.
+
+Prerequisites
+-------------
+
+You will need the ICU Unicode library and it's header files in order to be able
+to build Pontarius XMPP. On Debian, you will need to install the *libicu-dev*
+package. In Fedora, the package is called *libicu-devel*.
+
+_Note to users of GHC 7.0 and GHC 7.2:_ You will need *cabal-install*, version
+*0.14.0* or higher, or the build will fail with an "unrecognized option:
+--disable-benchmarks" error. The versions *1.16.0* and higher might not build on
+your system; if so, install *0.14.0* with "cabal install cabal-install-0.14.0".
+
+_Note to users of GHC 7.2.1:_ Due to a bug, recent versions of the *binary*
+package wont build without running "ghc-pkg trust base".
+
+_Note to users of GHC 7.0.1:_ You will want to configure your Cabal environment
+(including *cabal-install*) for version *0.9.2.1* of *bytestring*.
 
 Getting started
 ---------------
@@ -20,20 +36,6 @@ page](http://hackage.haskell.org/package/pontarius-xmpp/).
 
 _Note:_ Pontarius XMPP is still in its Alpha phase. Pontarius XMPP is not yet
 feature-complete, it may contain bugs, and its API may change between versions.
-
-_Note:_ You will need the ICU Unicode library and it's header files in order to
-be able to build Pontarius XMPP. On Debian, you will need to install the
-*libicu-dev* package. In Fedora, the package is called *libicu-devel*.
-
-_Note to GHC 7.0 users:_ You will need *cabal-install*, version *0.14.0* or
-higher, or the build will fail with an "unrecognized option:
---disable-benchmarks" error. The versions *1.16.0* and higher might not build on
-your system; if so, install *0.14.0* with "cabal install cabal-install-0.14.0".
-
-_Note to GHC 7.0.1 users:_ You will want to configure your Cabal environment
-(including *cabal-install*) for *bytestring*, version *0.9.2.1*. We recommend
-that you run "cabal install bytestring-0.9.2.1 cabal-install-0.14.0" prior to
-installing Pontarius XMPP.
 
 The first thing to do is to import the modules that we are going to use. We are
 also using the OverloadedStrings LANGUAGE pragma in order to be able to type
