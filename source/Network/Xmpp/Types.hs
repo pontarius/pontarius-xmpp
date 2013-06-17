@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE StandaloneDeriving #-}
@@ -43,6 +44,7 @@ module Network.Xmpp.Types
     , StreamConfiguration(..)
     , langTag
     , Jid(..)
+    , jidQ
     , isBare
     , isFull
     , jidFromText
@@ -76,6 +78,8 @@ import           Data.Text (Text)
 import qualified Data.Text as Text
 import           Data.Typeable(Typeable)
 import           Data.XML.Types
+import           Language.Haskell.TH.Quote
+import           Language.Haskell.TH
 import           Network
 import           Network.DNS
 import           Network.TLS hiding (Version)
@@ -959,6 +963,22 @@ instance Read Jid where
         -- Read the JID string (removes the quotes), validate, and return.
         [(parseJid (read s' :: String), r)] -- May fail with "Prelude.read: no parse"
                                             -- or the `parseJid' error message (see below)
+
+jidQ :: QuasiQuoter
+jidQ = QuasiQuoter { quoteExp = \s -> case jidFromText (Text.pack s) of
+                         Nothing -> fail $ "Could not parse JID " ++ s
+                         Just j -> [| Jid $(mbTextE $ localpart_ j)
+                                          $(textE   $ domainpart_ j)
+                                          $(mbTextE $ resourcepart_ j)
+                                    |]
+                  , quotePat = fail "Jid patterns aren't implemented"
+                  , quoteType = fail "jid QQ can't be used in type context"
+                  , quoteDec  = fail "jid QQ can't be used in declaration context"
+                  }
+  where
+    textE t = [| Text.pack $(stringE $ Text.unpack t) |]
+    mbTextE Nothing = [| Nothing |]
+    mbTextE (Just s) = [| Just $(textE s) |]
 
 -- | Parses a JID string.
 --

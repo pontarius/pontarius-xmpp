@@ -45,6 +45,7 @@ module Network.Xmpp
   -- for addressing entities in the network. It is somewhat similar to an e-mail
   -- address, but contains three parts instead of two.
   , Jid
+  , jidQ
   , isBare
   , isFull
   , jidFromText
