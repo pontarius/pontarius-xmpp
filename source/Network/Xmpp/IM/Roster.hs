@@ -145,23 +145,23 @@ retrieveRoster mbOldRoster sess = do
                                                is)
 
 toItem :: QueryItem -> Item
-toItem qi = Item { approved = fromMaybe False (qiApproved qi)
-                 , ask = qiAsk qi
-                 , jid = qiJid qi
-                 , name = qiName qi
-                 , subscription = fromMaybe None (qiSubscription qi)
-                 , groups = nub $ qiGroups qi
+toItem qi = Item { riApproved = fromMaybe False (qiApproved qi)
+                 , riAsk = qiAsk qi
+                 , riJid = qiJid qi
+                 , riName = qiName qi
+                 , riSubscription = fromMaybe None (qiSubscription qi)
+                 , riGroups = nub $ qiGroups qi
                  }
 
 fromItem :: Item -> QueryItem
 fromItem i = QueryItem { qiApproved = Nothing
                        , qiAsk = False
-                       , qiJid = jid i
-                       , qiName = name i
-                       , qiSubscription = case subscription i of
+                       , qiJid = riJid i
+                       , qiName = riName i
+                       , qiSubscription = case riSubscription i of
                            Remove -> Just Remove
                            _ -> Nothing
-                       , qiGroups = nub $ groups i
+                       , qiGroups = nub $ riGroups i
                        }
 
 xpItems :: PU [Node] [QueryItem]

@@ -25,13 +25,13 @@ data Roster = Roster { ver :: Maybe Text
                      , items :: Map.Map Jid Item } deriving Show
 
 
-
-data Item = Item { approved :: Bool
-                 , ask :: Bool
-                 , jid :: Jid
-                 , name :: Maybe Text
-                 , subscription :: Subscription
-                 , groups :: [Text]
+-- | Roster Items
+data Item = Item { riApproved :: Bool
+                 , riAsk :: Bool
+                 , riJid :: Jid
+                 , riName :: Maybe Text
+                 , riSubscription :: Subscription
+                 , riGroups :: [Text]
                  } deriving Show
 
 data QueryItem = QueryItem { qiApproved :: Maybe Bool
