@@ -51,7 +51,7 @@ withConnection a session =  do
                      putTMVar (writeSemaphore session) wl
                      putTMVar (streamRef session) s'
                      return $ Right res
-            )
+            ) -- TODO: DO we have to replace the MVars in case of ane exception?
             -- We treat all Exceptions as fatal. If we catch a StreamError, we
             -- return it. Otherwise, we throw an exception.
             [ Ex.Handler $ \e -> return $ Left (e :: XmppFailure)
@@ -61,15 +61,15 @@ withConnection a session =  do
 
 -- | Executes a function to update the event handlers.
 modifyHandlers :: (EventHandlers -> EventHandlers) -> Session -> IO ()
-modifyHandlers f session = atomically $ modifyTVar_ (eventHandlers session) f
+modifyHandlers f session = atomically $ modifyTMVar_ (eventHandlers session) f
   where
     -- Borrowing modifyTVar from
     -- http://hackage.haskell.org/packages/archive/stm/2.4/doc/html/src/Control-Concurrent-STM-TVar.html
     -- as it's not available in GHC 7.0.
-    modifyTVar_ :: TVar a -> (a -> a) -> STM ()
-    modifyTVar_ var g = do
-      x <- readTVar var
-      writeTVar var (g x)
+    modifyTMVar_ :: TMVar a -> (a -> a) -> STM ()
+    modifyTMVar_ var g = do
+      x <- takeTMVar var
+      putTMVar var (g x)
 
 -- | Changes the handler to be executed when the server connection is closed. To
 -- avoid race conditions the initial value should be set in the configuration
@@ -81,12 +81,13 @@ setConnectionClosedHandler eh session = do
 
 runConnectionClosedHandler :: Session -> XmppFailure -> IO ()
 runConnectionClosedHandler session e = do
-    h <- connectionClosedHandler <$> atomically (readTVar $ eventHandlers session)
+    h <- connectionClosedHandler <$> atomically (readTMVar
+                                                  $ eventHandlers session)
     h e
 
 -- | Run an event handler.
 runHandler :: (EventHandlers -> IO a) -> Session -> IO a
-runHandler h session = h =<< atomically (readTVar $ eventHandlers session)
+runHandler h session = h =<< atomically (readTMVar $ eventHandlers session)
 
 
 -- | End the current Xmpp session.

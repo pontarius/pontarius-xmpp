@@ -326,21 +326,26 @@ openStream realm config = runErrorT $ do
 -- | Send "</stream:stream>" and wait for the server to finish processing and to
 -- close the connection. Any remaining elements from the server are returned.
 -- Surpresses StreamEndFailure exceptions, but may throw a StreamCloseError.
-closeStreams :: Stream -> IO (Either XmppFailure [Element])
+closeStreams :: Stream -> IO ()
 closeStreams = withStream closeStreams'
 
-closeStreams' :: StateT StreamState IO (Either XmppFailure [Element])
+closeStreams' :: StateT StreamState IO ()
 closeStreams' = do
-    lift $ debugM "Pontarius.Xmpp" "Closing stream..."
+    lift $ debugM "Pontarius.Xmpp" "Closing stream"
     send <- gets (streamSend . streamHandle)
     cc <- gets (streamClose . streamHandle)
+    lift $ debugM "Pontarius.Xmpp" "Sending closing tag"
     void . liftIO $ send "</stream:stream>"
+    lift $ debugM "Pontarius.Xmpp" "Waiting for stream to close"
     void $ liftIO $ forkIO $ do
         threadDelay 3000000 -- TODO: Configurable value
         void ((Ex.try cc) :: IO (Either Ex.SomeException ()))
         return ()
     put xmppNoStream{ streamConnectionState = Finished }
-    collectElems []
+    lift $ debugM "Pontarius.Xmpp" "Collecting remaining elements"
+--     es <- collectElems []
+    -- lift $ debugM "Pontarius.Xmpp" "Stream sucessfully closed"
+    -- return es
   where
     -- Pulls elements from the stream until the stream ends, or an error is
     -- raised.

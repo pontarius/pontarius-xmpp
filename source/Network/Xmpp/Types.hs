@@ -987,7 +987,7 @@ jidQ = QuasiQuoter { quoteExp = \s -> case jidFromText (Text.pack s) of
 -- validate; please refer to @jidFromText@ for a safe equivalent.
 parseJid :: String -> Jid
 parseJid s = case jidFromText $ Text.pack s of
-                 Just jid -> jid
+                 Just j -> j
                  Nothing -> error $ "Jid value (" ++ s ++ ") did not validate"
 
 -- | Converts a Text to a JID.
@@ -1037,7 +1037,7 @@ isFull = not . isBare
 
 -- | Returns the @Jid@ without the resourcepart (if any).
 toBare :: Jid -> Jid
-toBare jid  = jid{resourcepart_ = Nothing}
+toBare j  = j{resourcepart_ = Nothing}
 
 -- | Returns the localpart of the @Jid@ (if any).
 localpart :: Jid -> Maybe Text

@@ -43,7 +43,7 @@ scram hToken authcid authzid password = do
     scramhelper ac az pw
   where
     scramhelper authcid' authzid' pwd = do
-        cnonce <- liftIO $ makeNonce
+        cnonce <- liftIO makeNonce
         _ <- saslInit "SCRAM-SHA-1" (Just $ cFirstMessage cnonce)
         sFirstMessage <- saslFromJust =<< pullChallenge
         prs <- toPairs sFirstMessage
