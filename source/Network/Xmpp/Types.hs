@@ -78,8 +78,8 @@ import           Data.Text (Text)
 import qualified Data.Text as Text
 import           Data.Typeable(Typeable)
 import           Data.XML.Types
-import           Language.Haskell.TH.Quote
 import           Language.Haskell.TH
+import           Language.Haskell.TH.Quote
 import           Network
 import           Network.DNS
 import           Network.TLS hiding (Version)
@@ -965,12 +965,16 @@ instance Read Jid where
                                             -- or the `parseJid' error message (see below)
 
 jidQ :: QuasiQuoter
-jidQ = QuasiQuoter { quoteExp = \s -> case jidFromText (Text.pack s) of
-                         Nothing -> fail $ "Could not parse JID " ++ s
-                         Just j -> [| Jid $(mbTextE $ localpart_ j)
-                                          $(textE   $ domainpart_ j)
-                                          $(mbTextE $ resourcepart_ j)
-                                    |]
+jidQ = QuasiQuoter { quoteExp = \s -> do
+                          when (head s == ' ') . fail $ "Leading whitespaces in JID" ++ show s
+                          let t = Text.pack s
+                          when (Text.last t == ' ') . reportWarning $ "Trailing whitespace in JID " ++ show s
+                          case jidFromText t of
+                              Nothing -> fail $ "Could not parse JID " ++ s
+                              Just j -> [| Jid $(mbTextE $ localpart_ j)
+                                               $(textE   $ domainpart_ j)
+                                               $(mbTextE $ resourcepart_ j)
+                                        |]
                   , quotePat = fail "Jid patterns aren't implemented"
                   , quoteType = fail "jid QQ can't be used in type context"
                   , quoteDec  = fail "jid QQ can't be used in declaration context"
