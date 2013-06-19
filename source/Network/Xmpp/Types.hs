@@ -942,9 +942,7 @@ jidToTexts (Jid nd dmn res) = (nd, dmn, res)
 
 -- Produces a Jid value in the format "parseJid \"<jid>\"".
 instance Show Jid where
-  show (Jid nd dmn res) =
-      "parseJid \"" ++ maybe "" ((++ "@") . Text.unpack) nd ++ Text.unpack dmn ++
-          maybe "" (('/' :) . Text.unpack) res ++ "\""
+  show j = "parseJid " ++ show (jidToText j)
 
 -- The string must be in the format "parseJid \"<jid>\"".
 -- TODO: This function should produce its error values in a uniform way.
