@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE StandaloneDeriving #-}
@@ -43,6 +44,7 @@ module Network.Xmpp.Types
     , StreamConfiguration(..)
     , langTag
     , Jid(..)
+    , jidQ
     , isBare
     , isFull
     , jidFromText
@@ -76,6 +78,8 @@ import           Data.Text (Text)
 import qualified Data.Text as Text
 import           Data.Typeable(Typeable)
 import           Data.XML.Types
+import           Language.Haskell.TH
+import           Language.Haskell.TH.Quote
 import           Network
 import           Network.DNS
 import           Network.TLS hiding (Version)
@@ -938,9 +942,7 @@ jidToTexts (Jid nd dmn res) = (nd, dmn, res)
 
 -- Produces a Jid value in the format "parseJid \"<jid>\"".
 instance Show Jid where
-  show (Jid nd dmn res) =
-      "parseJid \"" ++ maybe "" ((++ "@") . Text.unpack) nd ++ Text.unpack dmn ++
-          maybe "" (('/' :) . Text.unpack) res ++ "\""
+  show j = "parseJid " ++ show (jidToText j)
 
 -- The string must be in the format "parseJid \"<jid>\"".
 -- TODO: This function should produce its error values in a uniform way.
@@ -960,6 +962,26 @@ instance Read Jid where
         [(parseJid (read s' :: String), r)] -- May fail with "Prelude.read: no parse"
                                             -- or the `parseJid' error message (see below)
 
+jidQ :: QuasiQuoter
+jidQ = QuasiQuoter { quoteExp = \s -> do
+                          when (head s == ' ') . fail $ "Leading whitespaces in JID" ++ show s
+                          let t = Text.pack s
+                          when (Text.last t == ' ') . reportWarning $ "Trailing whitespace in JID " ++ show s
+                          case jidFromText t of
+                              Nothing -> fail $ "Could not parse JID " ++ s
+                              Just j -> [| Jid $(mbTextE $ localpart_ j)
+                                               $(textE   $ domainpart_ j)
+                                               $(mbTextE $ resourcepart_ j)
+                                        |]
+                  , quotePat = fail "Jid patterns aren't implemented"
+                  , quoteType = fail "jid QQ can't be used in type context"
+                  , quoteDec  = fail "jid QQ can't be used in declaration context"
+                  }
+  where
+    textE t = [| Text.pack $(stringE $ Text.unpack t) |]
+    mbTextE Nothing = [| Nothing |]
+    mbTextE (Just s) = [| Just $(textE s) |]
+
 -- | Parses a JID string.
 --
 -- Note: This function is only meant to be used to reverse @Jid@ Show
@@ -967,7 +989,7 @@ instance Read Jid where
 -- validate; please refer to @jidFromText@ for a safe equivalent.
 parseJid :: String -> Jid
 parseJid s = case jidFromText $ Text.pack s of
-                 Just jid -> jid
+                 Just j -> j
                  Nothing -> error $ "Jid value (" ++ s ++ ") did not validate"
 
 -- | Converts a Text to a JID.
@@ -1017,7 +1039,7 @@ isFull = not . isBare
 
 -- | Returns the @Jid@ without the resourcepart (if any).
 toBare :: Jid -> Jid
-toBare jid  = jid{resourcepart_ = Nothing}
+toBare j  = j{resourcepart_ = Nothing}
 
 -- | Returns the localpart of the @Jid@ (if any).
 localpart :: Jid -> Maybe Text

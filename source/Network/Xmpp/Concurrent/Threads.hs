@@ -91,7 +91,7 @@ readWorker onStanza onCClosed stateRef = forever . Ex.mask_ $ do
 -- connection.
 startThreadsWith :: TMVar (BS.ByteString -> IO Bool)
                  -> (Stanza -> IO ())
-                 -> TVar EventHandlers
+                 -> TMVar EventHandlers
                  -> Stream
                  -> IO (Either XmppFailure (IO (),
                   TMVar (BS.ByteString -> IO Bool),
@@ -116,9 +116,9 @@ startThreadsWith writeSem stanzaHandler eh con = do
         _ <- forM threads killThread
         return ()
     -- Call the connection closed handlers.
-    noCon :: TVar EventHandlers -> XmppFailure -> IO ()
+    noCon :: TMVar EventHandlers -> XmppFailure -> IO ()
     noCon h e = do
-        hands <- atomically $ readTVar h
+        hands <- atomically $ readTMVar h
         _ <- forkIO $ connectionClosedHandler hands e
         return ()
 

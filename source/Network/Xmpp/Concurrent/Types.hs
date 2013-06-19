@@ -13,8 +13,10 @@ import           Data.Text (Text)
 import qualified Data.Text as Text
 import           Data.Typeable
 import           Data.XML.Types (Element)
+import           Network
 import           Network.Xmpp.IM.Roster.Types
 import           Network.Xmpp.Types
+import           Network.Xmpp.Sasl.Types
 
 
 -- | Configuration for the @Session@ object.
@@ -22,7 +24,7 @@ data SessionConfiguration = SessionConfiguration
     { -- | Configuration for the @Stream@ object.
       sessionStreamConfiguration :: StreamConfiguration
       -- | Handler to be run when the session ends (for whatever reason).
-    , onConnectionClosed       :: XmppFailure -> IO ()
+    , onConnectionClosed         :: Session -> XmppFailure -> IO ()
       -- | Function to generate the stream of stanza identifiers.
     , sessionStanzaIDs           :: IO (IO StanzaID)
     , extraStanzaHandlers        :: [StanzaHandler]
@@ -31,7 +33,7 @@ data SessionConfiguration = SessionConfiguration
 
 instance Default SessionConfiguration where
     def = SessionConfiguration { sessionStreamConfiguration = def
-                               , onConnectionClosed = \_ -> return ()
+                               , onConnectionClosed = \_ _ -> return ()
                                , sessionStanzaIDs = do
                                      idRef <- newTVarIO 1
                                      return . atomically $ do
@@ -69,10 +71,12 @@ data Session = Session
       -- | Lock (used by withStream) to make sure that a maximum of one
       -- Stream action is executed at any given time.
     , streamRef :: TMVar Stream
-    , eventHandlers :: TVar EventHandlers
+    , eventHandlers :: TMVar EventHandlers
     , stopThreads :: IO ()
     , rosterRef :: TVar Roster
     , conf :: SessionConfiguration
+    , sRealm :: HostName
+    , sSaslCredentials :: Maybe (ConnectionState -> [SaslHandler] , Maybe Text)
     }
 
 -- | IQHandlers holds the registered channels for incomming IQ requests and

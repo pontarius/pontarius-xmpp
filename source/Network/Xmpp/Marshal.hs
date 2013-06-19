@@ -282,5 +282,5 @@ xpJid :: PU Text Jid
 xpJid = ("xpJid", "") <?>
         xpPartial ( \input -> case jidFromText input of
                                    Nothing -> Left "Could not parse JID."
-                                   Just jid -> Right jid)
+                                   Just j -> Right j)
                   jidToText

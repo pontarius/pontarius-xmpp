@@ -12,12 +12,13 @@ module Network.Xmpp.Concurrent
   , newSession
   , session
   , newStanzaID
+  , reconnect
   ) where
 
 import           Control.Concurrent.STM
+import qualified Control.Exception as Ex
 import           Control.Monad
 import           Control.Monad.Error
-import qualified Control.Exception as Ex
 import qualified Data.Map as Map
 import           Data.Maybe
 import           Data.Text as Text
@@ -30,13 +31,14 @@ import           Network.Xmpp.Concurrent.Monad
 import           Network.Xmpp.Concurrent.Presence
 import           Network.Xmpp.Concurrent.Threads
 import           Network.Xmpp.Concurrent.Types
-import           Network.Xmpp.IM.Roster.Types
 import           Network.Xmpp.IM.Roster
+import           Network.Xmpp.IM.Roster.Types
 import           Network.Xmpp.Sasl
 import           Network.Xmpp.Sasl.Types
 import           Network.Xmpp.Stream
 import           Network.Xmpp.Tls
 import           Network.Xmpp.Types
+import           System.Log.Logger
 
 import           Control.Monad.State.Strict
 
@@ -119,13 +121,17 @@ handleIQ iqHands writeSem sta = do
         iqID (Right iq') = iqResultID iq'
 
 -- | Creates and initializes a new Xmpp context.
-newSession :: Stream -> SessionConfiguration -> IO (Either XmppFailure Session)
-newSession stream config = runErrorT $ do
+newSession :: Stream
+           -> SessionConfiguration
+           -> HostName
+           -> Maybe (ConnectionState -> [SaslHandler] , Maybe Text)
+           -> IO (Either XmppFailure Session)
+newSession stream config realm mbSasl = runErrorT $ do
     write' <- liftIO $ withStream' (gets $ streamSend . streamHandle) stream
     writeSem <- liftIO $ newTMVarIO write'
     stanzaChan <- lift newTChanIO
     iqHands  <- lift $ newTVarIO (Map.empty, Map.empty)
-    eh <- lift $ newTVarIO $ EventHandlers { connectionClosedHandler = onConnectionClosed config }
+    eh <- lift $ newEmptyTMVarIO
     ros <- liftIO . newTVarIO $ Roster Nothing Map.empty
     let rosterH = if (enableRoster config) then handleRoster ros
                                            else \ _ _ -> return True
@@ -139,7 +145,7 @@ newSession stream config = runErrorT $ do
                                          ]
     (kill, wLock, streamState, reader) <- ErrorT $ startThreadsWith writeSem stanzaHandler eh stream
     idGen <- liftIO $ sessionStanzaIDs config
-    return $ Session { stanzaCh = stanzaChan
+    let sess = Session { stanzaCh = stanzaChan
                      , iqHandlers = iqHands
                      , writeSemaphore = wLock
                      , readerThread = reader
@@ -149,7 +155,12 @@ newSession stream config = runErrorT $ do
                      , stopThreads = kill
                      , conf = config
                      , rosterRef = ros
+                     , sRealm = realm
+                     , sSaslCredentials = mbSasl
                      }
+    liftIO . atomically $ putTMVar eh $ EventHandlers { connectionClosedHandler =
+                                                 onConnectionClosed config sess }
+    return sess
 
 -- | Creates a 'Session' object by setting up a connection with an XMPP server.
 --
@@ -172,9 +183,40 @@ session realm mbSasl config = runErrorT $ do
     case mbAuthError of
         Nothing -> return ()
         Just e  -> throwError $ XmppAuthFailure e
-    ses <- ErrorT $ newSession stream config
+    ses <- ErrorT $ newSession stream config realm mbSasl
     liftIO $ when (enableRoster config) $ initRoster ses
     return ses
+
+reconnect :: Session -> IO ()
+reconnect sess@Session{conf = config} = do
+    debugM "Pontarius.Xmpp" "reconnecting"
+    _ <- flip withConnection sess $ \oldStream -> do
+        s <- runErrorT $ do
+            liftIO $ debugM "Pontarius.Xmpp" "reconnect: closing stream"
+            _ <- liftIO $ closeStreams oldStream
+            liftIO $ debugM "Pontarius.Xmpp" "reconnect: opening stream"
+            stream <- ErrorT $ openStream (sRealm sess)
+                                          (sessionStreamConfiguration config)
+            liftIO $ debugM "Pontarius.Xmpp" "reconnect: tls"
+            ErrorT $ tls stream
+            liftIO $ debugM "Pontarius.Xmpp" "reconnect: auth"
+            cs <- liftIO $ withStream (gets streamConnectionState) stream
+            mbAuthError <- case sSaslCredentials sess of
+                Nothing -> return Nothing
+                Just (handlers, resource) -> ErrorT $ auth (handlers cs)
+                                                           resource stream
+            case mbAuthError of
+                Nothing -> return ()
+                Just e  -> throwError $ XmppAuthFailure e
+            return stream
+        case s of
+            Left  e -> do
+                errorM "Pontarius.Xmpp" $ "reconnect failed"  ++ show e
+                return (Left e   , oldStream )
+            Right r -> return (Right () , r      )
+    when (enableRoster config) $ initRoster sess
+
+
 
 newStanzaID :: Session -> IO StanzaID
 newStanzaID = idGenerator
