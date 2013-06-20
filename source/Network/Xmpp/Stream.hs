@@ -19,6 +19,7 @@ import           Control.Monad.Trans.Resource as R
 import           Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BSC8
+import           Data.Char (isSpace)
 import           Data.Conduit
 import           Data.Conduit.Binary as CB
 import qualified Data.Conduit.Internal as DCI
@@ -772,6 +773,8 @@ elements = do
             -- This might be an XML error if the end element tag is not
             -- "</stream>". TODO: We might want to check this at a later time
             Just (EventEndElement _) -> lift $ R.monadThrow StreamEnd
+            Just (EventContent (ContentText ct)) | Text.all isSpace ct ->
+                elements
             Nothing -> return ()
             _ -> lift $ R.monadThrow $ InvalidXmppXml $ "not an element: " ++ show x
   where
