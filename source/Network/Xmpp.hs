@@ -21,7 +21,7 @@
 -- For low-level access to Pontarius XMPP, see the "Network.Xmpp.Internal"
 -- module.
 
-{-# LANGUAGE NoMonomorphismRestriction, OverloadedStrings #-}
+{-# LANGUAGE CPP, NoMonomorphismRestriction, OverloadedStrings #-}
 
 module Network.Xmpp
   ( -- * Session management
@@ -46,7 +46,9 @@ module Network.Xmpp
   -- for addressing entities in the network. It is somewhat similar to an e-mail
   -- address, but contains three parts instead of two.
   , Jid
+#if __GLASGOW_HASKELL >= 706
   , jidQ
+#endif
   , isBare
   , isFull
   , jidFromText

@@ -1,6 +1,11 @@
+{-# LANGUAGE CPP #-}
+
+#if __GLASGOW_HASKELL >= 706
+{-# LANGUAGE TemplateHaskell #-}
+#endif
+
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE TupleSections #-}
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE StandaloneDeriving #-}
@@ -44,7 +49,9 @@ module Network.Xmpp.Types
     , StreamConfiguration(..)
     , langTag
     , Jid(..)
+#if __GLASGOW_HASKELL >= 706
     , jidQ
+#endif
     , isBare
     , isFull
     , jidFromText
@@ -78,8 +85,10 @@ import           Data.Text (Text)
 import qualified Data.Text as Text
 import           Data.Typeable(Typeable)
 import           Data.XML.Types
+#if __GLASGOW_HASKELL >= 706
 import           Language.Haskell.TH
 import           Language.Haskell.TH.Quote
+#endif
 import           Network
 import           Network.DNS
 import           Network.TLS hiding (Version)
@@ -962,6 +971,7 @@ instance Read Jid where
         [(parseJid (read s' :: String), r)] -- May fail with "Prelude.read: no parse"
                                             -- or the `parseJid' error message (see below)
 
+#if __GLASGOW_HASKELL >= 706
 jidQ :: QuasiQuoter
 jidQ = QuasiQuoter { quoteExp = \s -> do
                           when (head s == ' ') . fail $ "Leading whitespaces in JID" ++ show s
@@ -981,6 +991,7 @@ jidQ = QuasiQuoter { quoteExp = \s -> do
     textE t = [| Text.pack $(stringE $ Text.unpack t) |]
     mbTextE Nothing = [| Nothing |]
     mbTextE (Just s) = [| Just $(textE s) |]
+#endif
 
 -- | Parses a JID string.
 --
