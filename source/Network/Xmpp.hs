@@ -171,7 +171,9 @@ module Network.Xmpp
   -- * Threads
   , dupSession
   -- * Miscellaneous
-  , LangTag(..)
+  , LangTag
+  , langTagFromText
+  , langTagToText
   , XmppFailure(..)
   , StreamErrorInfo(..)
   , StreamErrorCondition(..)

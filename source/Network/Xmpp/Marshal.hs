@@ -47,8 +47,8 @@ xpMessage = ("xpMessage" , "") <?+> xpWrap
     (\(Message qid from to lang tp ext) -> ((tp, qid, from, to, lang), ext))
     (xpElem "{jabber:client}message"
          (xp5Tuple
-             (xpDefault Normal $ xpAttr "type" xpPrim)
-             (xpAttrImplied "id"   xpPrim)
+             (xpDefault Normal $ xpAttr "type" xpMessageType)
+             (xpAttrImplied "id"   xpStanzaID)
              (xpAttrImplied "from" xpJid)
              (xpAttrImplied "to"   xpJid)
              xpLangTag
@@ -63,11 +63,11 @@ xpPresence = ("xpPresence" , "") <?+> xpWrap
     (\(Presence qid from to lang tp ext) -> ((qid, from, to, lang, tp), ext))
     (xpElem "{jabber:client}presence"
          (xp5Tuple
-              (xpAttrImplied "id"   xpPrim)
+              (xpAttrImplied "id"   xpStanzaID)
               (xpAttrImplied "from" xpJid)
               (xpAttrImplied "to"   xpJid)
               xpLangTag
-              (xpDefault Available $ xpAttr "type" xpPrim)
+              (xpDefault Available $ xpAttr "type" xpPresenceType)
          )
          (xpAll xpElemVerbatim)
     )
@@ -78,11 +78,11 @@ xpIQRequest = ("xpIQRequest" , "") <?+> xpWrap
     (\(IQRequest qid from to lang tp body) -> ((qid, from, to, lang, tp), body))
     (xpElem "{jabber:client}iq"
          (xp5Tuple
-             (xpAttr        "id"   xpPrim)
+             (xpAttr        "id"   xpStanzaID)
              (xpAttrImplied "from" xpJid)
              (xpAttrImplied "to"   xpJid)
              xpLangTag
-             ((xpAttr        "type" xpPrim))
+             ((xpAttr        "type" xpIQRequestType))
          )
          xpElemVerbatim
     )
@@ -93,7 +93,7 @@ xpIQResult = ("xpIQResult" , "") <?+> xpWrap
     (\(IQResult qid from to lang body) -> ((qid, from, to, lang, ()), body))
     (xpElem "{jabber:client}iq"
          (xp5Tuple
-             (xpAttr        "id"   xpPrim)
+             (xpAttr        "id"   xpStanzaID)
              (xpAttrImplied "from" xpJid)
              (xpAttrImplied "to"   xpJid)
              xpLangTag
@@ -112,7 +112,7 @@ xpErrorCondition = ("xpErrorCondition" , "") <?+> xpWrap
     (\cond -> (cond, (), ()))
     (xpElemByNamespace
         "urn:ietf:params:xml:ns:xmpp-stanzas"
-        xpPrim
+        xpStanzaErrorCondition
         xpUnit
         xpUnit
     )
@@ -122,11 +122,11 @@ xpStanzaError = ("xpStanzaError" , "") <?+> xpWrap
     (\(tp, (cond, txt, ext)) -> StanzaError tp cond txt ext)
     (\(StanzaError tp cond txt ext) -> (tp, (cond, txt, ext)))
     (xpElem "{jabber:client}error"
-         (xpAttr "type" xpPrim)
+         (xpAttr "type" xpStanzaErrorType)
          (xp3Tuple
               xpErrorCondition
               (xpOption $ xpElem "{jabber:client}text"
-                   (xpAttrImplied xmlLang xpPrim)
+                   (xpAttrImplied xmlLang xpLang)
                    (xpContent xpId)
               )
               (xpOption xpElemVerbatim)
@@ -142,10 +142,10 @@ xpMessageError = ("xpMessageError" , "") <?+> xpWrap
     (xpElem "{jabber:client}message"
          (xp5Tuple
               (xpAttrFixed   "type" "error")
-              (xpAttrImplied "id"   xpPrim)
+              (xpAttrImplied "id"   xpStanzaID)
               (xpAttrImplied "from" xpJid)
               (xpAttrImplied "to"   xpJid)
-              (xpAttrImplied xmlLang xpPrim)
+              (xpAttrImplied xmlLang xpLang)
               -- TODO: NS?
          )
          (xp2Tuple xpStanzaError (xpAll xpElemVerbatim))
@@ -159,7 +159,7 @@ xpPresenceError = ("xpPresenceError" , "") <?+> xpWrap
         ((qid, from, to, lang, ()), (err, ext)))
     (xpElem "{jabber:client}presence"
          (xp5Tuple
-              (xpAttrImplied "id"   xpPrim)
+              (xpAttrImplied "id"   xpStanzaID)
               (xpAttrImplied "from" xpJid)
               (xpAttrImplied "to"   xpJid)
               xpLangTag
@@ -176,7 +176,7 @@ xpIQError = ("xpIQError" , "") <?+> xpWrap
         ((qid, from, to, lang, ()), (err, body)))
     (xpElem "{jabber:client}iq"
          (xp5Tuple
-              (xpAttr        "id"   xpPrim)
+              (xpAttr        "id"   xpStanzaID)
               (xpAttrImplied "from" xpJid)
               (xpAttrImplied "to"   xpJid)
               xpLangTag
@@ -198,7 +198,7 @@ xpStreamError = ("xpStreamError" , "") <?+> xpWrap
          (xp3Tuple
               (xpElemByNamespace
                    "urn:ietf:params:xml:ns:xmpp-streams"
-                   xpPrim
+                   xpStreamErrorCondition
                    xpUnit
                    xpUnit
               )
@@ -212,7 +212,14 @@ xpStreamError = ("xpStreamError" , "") <?+> xpWrap
     )
 
 xpLangTag :: PU [Attribute] (Maybe LangTag)
-xpLangTag = xpAttrImplied xmlLang xpPrim
+xpLangTag = xpAttrImplied xmlLang xpLang
+
+xpLang :: PU Text LangTag
+xpLang = ("xpLang", "") <?>
+    xpPartial ( \input -> case langTagFromText input of
+                               Nothing -> Left "Could not parse language tag."
+                               Just j -> Right j)
+              langTagToText
 
 xmlLang :: Name
 xmlLang = Name "lang" (Just "http://www.w3.org/XML/1998/namespace") (Just "xml")
@@ -284,3 +291,227 @@ xpJid = ("xpJid", "") <?>
                                    Nothing -> Left "Could not parse JID."
                                    Just j -> Right j)
                   jidToText
+
+xpStanzaID :: PU Text StanzaID
+xpStanzaID = ("xpStanzaID", "") <?>
+        xpPartial ( \input -> case stanzaIDFromText input of
+                                   Nothing -> Left "Could not parse StanzaID."
+                                   Just j -> Right j)
+                  stanzaIDToText
+  where
+    stanzaIDFromText t = Just $ StanzaID t
+    stanzaIDToText (StanzaID s) = s
+
+xpIQRequestType :: PU Text IQRequestType
+xpIQRequestType = ("xpIQRequestType", "") <?>
+        xpPartial ( \input -> case iqRequestTypeFromText input of
+                                   Nothing -> Left "Could not parse IQ request type."
+                                   Just j -> Right j)
+                  iqRequestTypeToText
+  where
+    iqRequestTypeFromText "get" = Just Get
+    iqRequestTypeFromText "set" = Just Set
+    iqRequestTypeFromText _ = Nothing
+    iqRequestTypeToText Get = "get"
+    iqRequestTypeToText Set = "set"
+
+xpMessageType :: PU Text MessageType
+xpMessageType = ("xpMessageType", "") <?>
+        xpPartial ( \input -> case messageTypeFromText input of
+                                   Nothing -> Left "Could not parse message type."
+                                   Just j -> Right j)
+                  messageTypeToText
+  where
+    messageTypeFromText "chat" = Just Chat
+    messageTypeFromText "groupchat" = Just GroupChat
+    messageTypeFromText "headline" = Just Headline
+    messageTypeFromText "normal" = Just Normal
+    messageTypeFromText _ = Just Normal
+    messageTypeToText Chat = "chat"
+    messageTypeToText GroupChat = "groupchat"
+    messageTypeToText Headline = "headline"
+    messageTypeToText Normal = "normal"
+
+xpPresenceType :: PU Text PresenceType
+xpPresenceType = ("xpPresenceType", "") <?>
+        xpPartial ( \input -> case presenceTypeFromText input of
+                                   Nothing -> Left "Could not parse presence type."
+                                   Just j -> Right j)
+                  presenceTypeToText
+  where
+    presenceTypeFromText "" = Just Available
+    presenceTypeFromText "available" = Just Available
+    presenceTypeFromText "unavailable" = Just Unavailable
+    presenceTypeFromText "subscribe" = Just Subscribe
+    presenceTypeFromText "subscribed" = Just Subscribed
+    presenceTypeFromText "unsubscribe" = Just Unsubscribe
+    presenceTypeFromText "unsubscribed" = Just Unsubscribed
+    presenceTypeFromText "probe" = Just Probe
+    presenceTypeToText Available = "available"
+    presenceTypeToText Unavailable = "unavailable"
+    presenceTypeToText Subscribe = "subscribe"
+    presenceTypeToText Subscribed = "subscribed"
+    presenceTypeToText Unsubscribe = "unsubscribe"
+    presenceTypeToText Unsubscribed = "unsubscribed"
+    presenceTypeToText Probe = "probe"
+
+xpStanzaErrorType :: PU Text StanzaErrorType
+xpStanzaErrorType = ("xpStanzaErrorType", "") <?>
+        xpPartial ( \input -> case stanzaErrorTypeFromText input of
+                                   Nothing -> Left "Could not parse stanza error type."
+                                   Just j -> Right j)
+                  stanzaErrorTypeToText
+  where
+    stanzaErrorTypeFromText "auth" = Just Auth
+    stanzaErrorTypeFromText "cancel" = Just Cancel
+    stanzaErrorTypeFromText "continue" = Just Continue
+    stanzaErrorTypeFromText "modify" = Just Modify
+    stanzaErrorTypeFromText "wait" = Just Wait
+    stanzaErrorTypeFromText _ = Nothing
+    stanzaErrorTypeToText Auth = "auth"
+    stanzaErrorTypeToText Cancel = "cancel"
+    stanzaErrorTypeToText Continue = "continue"
+    stanzaErrorTypeToText Modify = "modify"
+    stanzaErrorTypeToText Wait = "wait"
+
+xpStanzaErrorCondition :: PU Text StanzaErrorCondition
+xpStanzaErrorCondition = ("xpStanzaErrorCondition", "") <?>
+        xpPartial ( \input -> case stanzaErrorConditionFromText input of
+                                   Nothing -> Left "Could not parse stanza error condition."
+                                   Just j -> Right j)
+                  stanzaErrorConditionToText
+  where
+    stanzaErrorConditionToText BadRequest = "bad-request"
+    stanzaErrorConditionToText Conflict = "conflict"
+    stanzaErrorConditionToText FeatureNotImplemented = "feature-not-implemented"
+    stanzaErrorConditionToText Forbidden = "forbidden"
+    stanzaErrorConditionToText Gone = "gone"
+    stanzaErrorConditionToText InternalServerError = "internal-server-error"
+    stanzaErrorConditionToText ItemNotFound = "item-not-found"
+    stanzaErrorConditionToText JidMalformed = "jid-malformed"
+    stanzaErrorConditionToText NotAcceptable = "not-acceptable"
+    stanzaErrorConditionToText NotAllowed = "not-allowed"
+    stanzaErrorConditionToText NotAuthorized = "not-authorized"
+    stanzaErrorConditionToText PaymentRequired = "payment-required"
+    stanzaErrorConditionToText RecipientUnavailable = "recipient-unavailable"
+    stanzaErrorConditionToText Redirect = "redirect"
+    stanzaErrorConditionToText RegistrationRequired = "registration-required"
+    stanzaErrorConditionToText RemoteServerNotFound = "remote-server-not-found"
+    stanzaErrorConditionToText RemoteServerTimeout = "remote-server-timeout"
+    stanzaErrorConditionToText ResourceConstraint = "resource-constraint"
+    stanzaErrorConditionToText ServiceUnavailable = "service-unavailable"
+    stanzaErrorConditionToText SubscriptionRequired = "subscription-required"
+    stanzaErrorConditionToText UndefinedCondition = "undefined-condition"
+    stanzaErrorConditionToText UnexpectedRequest = "unexpected-request"
+    stanzaErrorConditionFromText "bad-request" = Just BadRequest
+    stanzaErrorConditionFromText "conflict" = Just Conflict
+    stanzaErrorConditionFromText "feature-not-implemented" = Just FeatureNotImplemented
+    stanzaErrorConditionFromText "forbidden" = Just Forbidden
+    stanzaErrorConditionFromText "gone" = Just Gone
+    stanzaErrorConditionFromText "internal-server-error" = Just InternalServerError
+    stanzaErrorConditionFromText "item-not-found" = Just ItemNotFound
+    stanzaErrorConditionFromText "jid-malformed" = Just JidMalformed
+    stanzaErrorConditionFromText "not-acceptable" = Just NotAcceptable
+    stanzaErrorConditionFromText "not-allowed" = Just NotAllowed
+    stanzaErrorConditionFromText "not-authorized" = Just NotAuthorized
+    stanzaErrorConditionFromText "payment-required" = Just PaymentRequired
+    stanzaErrorConditionFromText "recipient-unavailable" = Just RecipientUnavailable
+    stanzaErrorConditionFromText "redirect" = Just Redirect
+    stanzaErrorConditionFromText "registration-required" = Just RegistrationRequired
+    stanzaErrorConditionFromText "remote-server-not-found" = Just RemoteServerNotFound
+    stanzaErrorConditionFromText "remote-server-timeout" = Just RemoteServerTimeout
+    stanzaErrorConditionFromText "resource-constraint" = Just ResourceConstraint
+    stanzaErrorConditionFromText "service-unavailable" = Just ServiceUnavailable
+    stanzaErrorConditionFromText "subscription-required" = Just SubscriptionRequired
+    stanzaErrorConditionFromText "undefined-condition" = Just UndefinedCondition
+    stanzaErrorConditionFromText "unexpected-request" = Just UnexpectedRequest
+    stanzaErrorConditionFromText _ = Nothing
+
+xpSaslError :: PU Text SaslError
+xpSaslError = ("xpSaslError", "") <?>
+        xpPartial ( \input -> case saslErrorFromText input of
+                                   Nothing -> Left "Could not parse SASL error."
+                                   Just j -> Right j)
+                  saslErrorToText
+  where
+    saslErrorToText SaslAborted              = "aborted"
+    saslErrorToText SaslAccountDisabled      = "account-disabled"
+    saslErrorToText SaslCredentialsExpired   = "credentials-expired"
+    saslErrorToText SaslEncryptionRequired   = "encryption-required"
+    saslErrorToText SaslIncorrectEncoding    = "incorrect-encoding"
+    saslErrorToText SaslInvalidAuthzid       = "invalid-authzid"
+    saslErrorToText SaslInvalidMechanism     = "invalid-mechanism"
+    saslErrorToText SaslMalformedRequest     = "malformed-request"
+    saslErrorToText SaslMechanismTooWeak     = "mechanism-too-weak"
+    saslErrorToText SaslNotAuthorized        = "not-authorized"
+    saslErrorToText SaslTemporaryAuthFailure = "temporary-auth-failure"
+    saslErrorFromText "aborted" = Just SaslAborted
+    saslErrorFromText "account-disabled" = Just SaslAccountDisabled
+    saslErrorFromText "credentials-expired" = Just SaslCredentialsExpired
+    saslErrorFromText "encryption-required" = Just SaslEncryptionRequired
+    saslErrorFromText "incorrect-encoding" = Just SaslIncorrectEncoding
+    saslErrorFromText "invalid-authzid" = Just SaslInvalidAuthzid
+    saslErrorFromText "invalid-mechanism" = Just SaslInvalidMechanism
+    saslErrorFromText "malformed-request" = Just SaslMalformedRequest
+    saslErrorFromText "mechanism-too-weak" = Just SaslMechanismTooWeak
+    saslErrorFromText "not-authorized" = Just SaslNotAuthorized
+    saslErrorFromText "temporary-auth-failure" = Just SaslTemporaryAuthFailure
+
+xpStreamErrorCondition :: PU Text StreamErrorCondition
+xpStreamErrorCondition = ("xpStreamErrorCondition", "") <?>
+        xpPartial ( \input -> case streamErrorConditionFromText input of
+                                   Nothing -> Left "Could not parse stream error condition."
+                                   Just j -> Right j)
+                  streamErrorConditionToText
+  where
+    streamErrorConditionToText StreamBadFormat              = "bad-format"
+    streamErrorConditionToText StreamBadNamespacePrefix     = "bad-namespace-prefix"
+    streamErrorConditionToText StreamConflict               = "conflict"
+    streamErrorConditionToText StreamConnectionTimeout      = "connection-timeout"
+    streamErrorConditionToText StreamHostGone               = "host-gone"
+    streamErrorConditionToText StreamHostUnknown            = "host-unknown"
+    streamErrorConditionToText StreamImproperAddressing     = "improper-addressing"
+    streamErrorConditionToText StreamInternalServerError    = "internal-server-error"
+    streamErrorConditionToText StreamInvalidFrom            = "invalid-from"
+    streamErrorConditionToText StreamInvalidNamespace       = "invalid-namespace"
+    streamErrorConditionToText StreamInvalidXml             = "invalid-xml"
+    streamErrorConditionToText StreamNotAuthorized          = "not-authorized"
+    streamErrorConditionToText StreamNotWellFormed          = "not-well-formed"
+    streamErrorConditionToText StreamPolicyViolation        = "policy-violation"
+    streamErrorConditionToText StreamRemoteConnectionFailed = "remote-connection-failed"
+    streamErrorConditionToText StreamReset                  = "reset"
+    streamErrorConditionToText StreamResourceConstraint     = "resource-constraint"
+    streamErrorConditionToText StreamRestrictedXml          = "restricted-xml"
+    streamErrorConditionToText StreamSeeOtherHost           = "see-other-host"
+    streamErrorConditionToText StreamSystemShutdown         = "system-shutdown"
+    streamErrorConditionToText StreamUndefinedCondition     = "undefined-condition"
+    streamErrorConditionToText StreamUnsupportedEncoding    = "unsupported-encoding"
+    streamErrorConditionToText StreamUnsupportedFeature     = "unsupported-feature"
+    streamErrorConditionToText StreamUnsupportedStanzaType  = "unsupported-stanza-type"
+    streamErrorConditionToText StreamUnsupportedVersion     = "unsupported-version"
+    streamErrorConditionFromText "bad-format" = Just StreamBadFormat
+    streamErrorConditionFromText "bad-namespace-prefix" = Just StreamBadNamespacePrefix
+    streamErrorConditionFromText "conflict" = Just StreamConflict
+    streamErrorConditionFromText "connection-timeout" = Just StreamConnectionTimeout
+    streamErrorConditionFromText "host-gone" = Just StreamHostGone
+    streamErrorConditionFromText "host-unknown" = Just StreamHostUnknown
+    streamErrorConditionFromText "improper-addressing" = Just StreamImproperAddressing
+    streamErrorConditionFromText "internal-server-error" = Just StreamInternalServerError
+    streamErrorConditionFromText "invalid-from" = Just StreamInvalidFrom
+    streamErrorConditionFromText "invalid-namespace" = Just StreamInvalidNamespace
+    streamErrorConditionFromText "invalid-xml" = Just StreamInvalidXml
+    streamErrorConditionFromText "not-authorized" = Just StreamNotAuthorized
+    streamErrorConditionFromText "not-well-formed" = Just StreamNotWellFormed
+    streamErrorConditionFromText "policy-violation" = Just StreamPolicyViolation
+    streamErrorConditionFromText "remote-connection-failed" = Just StreamRemoteConnectionFailed
+    streamErrorConditionFromText "reset" = Just StreamReset
+    streamErrorConditionFromText "resource-constraint" = Just StreamResourceConstraint
+    streamErrorConditionFromText "restricted-xml" = Just StreamRestrictedXml
+    streamErrorConditionFromText "see-other-host" = Just StreamSeeOtherHost
+    streamErrorConditionFromText "system-shutdown" = Just StreamSystemShutdown
+    streamErrorConditionFromText "undefined-condition" = Just StreamUndefinedCondition
+    streamErrorConditionFromText "unsupported-encoding" = Just StreamUnsupportedEncoding
+    streamErrorConditionFromText "unsupported-feature" = Just StreamUnsupportedFeature
+    streamErrorConditionFromText "unsupported-stanza-type" = Just StreamUnsupportedStanzaType
+    streamErrorConditionFromText "unsupported-version" = Just StreamUnsupportedVersion
+    streamErrorConditionFromText _ = Nothing
