@@ -46,7 +46,7 @@ module Network.Xmpp
   -- for addressing entities in the network. It is somewhat similar to an e-mail
   -- address, but contains three parts instead of two.
   , Jid
-#if __GLASGOW_HASKELL >= 706
+#if __GLASGOW_HASKELL__ >= 706
   , jidQ
 #endif
   , isBare
@@ -174,6 +174,7 @@ module Network.Xmpp
   , LangTag
   , langTagFromText
   , langTagToText
+  , parseLangTag
   , XmppFailure(..)
   , StreamErrorInfo(..)
   , StreamErrorCondition(..)

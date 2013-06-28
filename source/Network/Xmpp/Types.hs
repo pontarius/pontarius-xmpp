@@ -1,6 +1,6 @@
 {-# LANGUAGE CPP #-}
 
-#if __GLASGOW_HASKELL >= 706
+#if __GLASGOW_HASKELL__ >= 706
 {-# LANGUAGE TemplateHaskell #-}
 #endif
 
@@ -22,6 +22,7 @@ module Network.Xmpp.Types
     , LangTag (..)
     , langTagFromText
     , langTagToText
+    , parseLangTag
     , Message(..)
     , message
     , MessageError(..)
@@ -50,7 +51,7 @@ module Network.Xmpp.Types
     , ConnectionDetails(..)
     , StreamConfiguration(..)
     , Jid(..)
-#if __GLASGOW_HASKELL >= 706
+#if __GLASGOW_HASKELL__ >= 706
     , jidQ
 #endif
     , isBare
@@ -86,7 +87,7 @@ import           Data.Text (Text)
 import qualified Data.Text as Text
 import           Data.Typeable(Typeable)
 import           Data.XML.Types
-#if __GLASGOW_HASKELL >= 706
+#if __GLASGOW_HASKELL__ >= 706
 import           Language.Haskell.TH
 import           Language.Haskell.TH.Quote
 #endif
@@ -598,7 +599,7 @@ versionParser = do
 -- has a primary tag and a number of subtags. Two language tags are considered
 -- equal if and only if they contain the same tags (case-insensitive).
 data LangTag = LangTag { primaryTag :: !Text
-                       , subtags    :: ![Text] } deriving (Read, Show)
+                       , subtags    :: ![Text] }
 
 -- Equals for language tags is not case-sensitive.
 instance Eq LangTag where
@@ -774,7 +775,7 @@ instance Read Jid where
         [(parseJid (read s' :: String), r)] -- May fail with "Prelude.read: no parse"
                                             -- or the `parseJid' error message (see below)
 
-#if __GLASGOW_HASKELL >= 706
+#if __GLASGOW_HASKELL__ >= 706
 jidQ :: QuasiQuoter
 jidQ = QuasiQuoter { quoteExp = \s -> do
                           when (head s == ' ') . fail $ "Leading whitespaces in JID" ++ show s
@@ -795,6 +796,28 @@ jidQ = QuasiQuoter { quoteExp = \s -> do
     mbTextE Nothing = [| Nothing |]
     mbTextE (Just s) = [| Just $(textE s) |]
 #endif
+
+-- Produces a LangTag value in the format "parseLangTag \"<jid>\"".
+instance Show LangTag where
+  show l = "parseLangTag " ++ show (langTagToText l)
+
+-- The string must be in the format "parseLangTag \"<LangTag>\"". This is based
+-- on parseJid, and suffers the same problems.
+instance Read LangTag where
+    readsPrec _ s = do
+        let (s', r) = case lex s of
+                          [] -> error "Expected `parseLangTag \"<LangTag>\"'"
+                          [("parseLangTag", r')] -> case lex r' of
+                                              [] -> error "Expected `parseLangTag \"<LangTag>\"'"
+                                              [(s'', r'')] -> (s'', r'')
+                                              _ -> error "Expected `parseLangTag \"<LangTag>\"'"
+                          _ -> error "Expected `parseLangTag \"<LangTag>\"'"
+        [(parseLangTag (read s' :: String), r)]
+
+parseLangTag :: String -> LangTag
+parseLangTag s = case langTagFromText $ Text.pack s of
+                     Just l -> l
+                     Nothing -> error $ "Language tag value (" ++ s ++ ") did not validate"
 
 -- | Parses a JID string.
 --
