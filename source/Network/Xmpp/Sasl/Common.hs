@@ -80,9 +80,39 @@ xpFailure = xpWrap
                   (xpContent xpId))
         (xpElemByNamespace
              "urn:ietf:params:xml:ns:xmpp-sasl"
-             xpPrim
+             xpSaslError
              (xpUnit)
              (xpUnit))))
+
+xpSaslError :: PU Text.Text SaslError
+xpSaslError = ("xpSaslError", "") <?>
+        xpPartial ( \input -> case saslErrorFromText input of
+                                   Nothing -> Left "Could not parse SASL error."
+                                   Just j -> Right j)
+                  saslErrorToText
+  where
+    saslErrorToText SaslAborted              = "aborted"
+    saslErrorToText SaslAccountDisabled      = "account-disabled"
+    saslErrorToText SaslCredentialsExpired   = "credentials-expired"
+    saslErrorToText SaslEncryptionRequired   = "encryption-required"
+    saslErrorToText SaslIncorrectEncoding    = "incorrect-encoding"
+    saslErrorToText SaslInvalidAuthzid       = "invalid-authzid"
+    saslErrorToText SaslInvalidMechanism     = "invalid-mechanism"
+    saslErrorToText SaslMalformedRequest     = "malformed-request"
+    saslErrorToText SaslMechanismTooWeak     = "mechanism-too-weak"
+    saslErrorToText SaslNotAuthorized        = "not-authorized"
+    saslErrorToText SaslTemporaryAuthFailure = "temporary-auth-failure"
+    saslErrorFromText "aborted" = Just SaslAborted
+    saslErrorFromText "account-disabled" = Just SaslAccountDisabled
+    saslErrorFromText "credentials-expired" = Just SaslCredentialsExpired
+    saslErrorFromText "encryption-required" = Just SaslEncryptionRequired
+    saslErrorFromText "incorrect-encoding" = Just SaslIncorrectEncoding
+    saslErrorFromText "invalid-authzid" = Just SaslInvalidAuthzid
+    saslErrorFromText "invalid-mechanism" = Just SaslInvalidMechanism
+    saslErrorFromText "malformed-request" = Just SaslMalformedRequest
+    saslErrorFromText "mechanism-too-weak" = Just SaslMechanismTooWeak
+    saslErrorFromText "not-authorized" = Just SaslNotAuthorized
+    saslErrorFromText "temporary-auth-failure" = Just SaslTemporaryAuthFailure
 
 -- Challenge element pickler.
 xpChallenge :: PU [Node] (Maybe Text.Text)
