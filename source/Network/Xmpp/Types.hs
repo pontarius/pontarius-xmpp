@@ -72,7 +72,7 @@ module Network.Xmpp.Types
     )
        where
 
-import           Control.Applicative ((<$>), (<|>), many)
+import           Control.Applicative ((<|>), many)
 import           Control.Concurrent.STM
 import           Control.Exception
 import           Control.Monad.Error
@@ -80,7 +80,6 @@ import qualified Data.Attoparsec.Text as AP
 import qualified Data.ByteString as BS
 import           Data.Conduit
 import           Data.Default
-import           Data.Maybe (maybeToList)
 import qualified Data.Set as Set
 import           Data.String (IsString(..))
 import           Data.Text (Text)
@@ -819,6 +818,27 @@ parseLangTag s = case langTagFromText $ Text.pack s of
                      Just l -> l
                      Nothing -> error $ "Language tag value (" ++ s ++ ") did not validate"
 
+#if __GLASGOW_HASKELL__ >= 706
+langTagQ :: QuasiQuoter
+langTagQ = QuasiQuoter {quoteExp = \s -> case langTagFromText $ Text.pack  s of
+                             Nothing -> fail $ "Not a valid language tag: "
+                                               ++  s
+                             Just lt -> [|LangTag $(textE $ primaryTag lt)
+                                                  $(listE $
+                                                      map textE (subtags lt))
+                                        |]
+
+                       , quotePat = fail $ "LanguageTag patterns aren't"
+                                         ++ " implemented"
+                       , quoteType = fail $ "LanguageTag QQ can't be used"
+                                           ++ " in type context"
+                       , quoteDec  = fail $ "LanguageTag QQ can't be used"
+                                           ++ " in declaration context"
+
+                       }
+  where
+    textE t = [| Text.pack $(stringE $ Text.unpack t) |]
+#endif
 -- | Parses a JID string.
 --
 -- Note: This function is only meant to be used to reverse @Jid@ Show
