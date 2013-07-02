@@ -1,6 +1,11 @@
+{-# LANGUAGE CPP #-}
+
+#if __GLASGOW_HASKELL__ >= 706
+{-# LANGUAGE TemplateHaskell #-}
+#endif
+
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE TupleSections #-}
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE StandaloneDeriving #-}
@@ -15,6 +20,9 @@ module Network.Xmpp.Types
     , IQResult(..)
     , IdGenerator(..)
     , LangTag (..)
+    , langTagFromText
+    , langTagToText
+    , parseLangTag
     , Message(..)
     , message
     , MessageError(..)
@@ -42,9 +50,10 @@ module Network.Xmpp.Types
     , StanzaHandler
     , ConnectionDetails(..)
     , StreamConfiguration(..)
-    , langTag
     , Jid(..)
+#if __GLASGOW_HASKELL__ >= 706
     , jidQ
+#endif
     , isBare
     , isFull
     , jidFromText
@@ -78,8 +87,10 @@ import           Data.Text (Text)
 import qualified Data.Text as Text
 import           Data.Typeable(Typeable)
 import           Data.XML.Types
+#if __GLASGOW_HASKELL__ >= 706
 import           Language.Haskell.TH
 import           Language.Haskell.TH.Quote
+#endif
 import           Network
 import           Network.DNS
 import           Network.TLS hiding (Version)
@@ -91,13 +102,7 @@ import qualified Text.StringPrep as SP
 -- Wraps a string of random characters that, when using an appropriate
 -- @IdGenerator@, is guaranteed to be unique for the Xmpp session.
 
-data StanzaID = StanzaID !Text deriving (Eq, Ord)
-
-instance Show StanzaID where
-  show (StanzaID s) = Text.unpack s
-
-instance Read StanzaID where
-  readsPrec _ x = [(StanzaID $ Text.pack x, "")]
+data StanzaID = StanzaID !Text deriving (Eq, Ord, Read, Show)
 
 instance IsString StanzaID where
   fromString = StanzaID . Text.pack
@@ -124,16 +129,7 @@ data IQRequest = IQRequest { iqRequestID      :: !StanzaID
                            } deriving Show
 
 -- | The type of IQ request that is made.
-data IQRequestType = Get | Set deriving (Eq, Ord)
-
-instance Show IQRequestType where
-  show Get = "get"
-  show Set = "set"
-
-instance Read IQRequestType where
-  readsPrec _ "get" = [(Get, "")]
-  readsPrec _ "set" = [(Set, "")]
-  readsPrec _ _ = []
+data IQRequestType = Get | Set deriving (Eq, Ord, Read, Show)
 
 -- | A "response" Info/Query (IQ) stanza is either an 'IQError', an IQ stanza
 -- of  type "result" ('IQResult') or a Timeout.
@@ -228,20 +224,7 @@ data MessageType = -- | The message is sent in the context of a one-to-one chat
                    --
                    -- This is the /default/ value.
                  | Normal
-                 deriving (Eq)
-
-instance Show MessageType where
-    show Chat      = "chat"
-    show GroupChat = "groupchat"
-    show Headline  = "headline"
-    show Normal    = "normal"
-
-instance Read MessageType where
-    readsPrec _  "chat"      = [(Chat, "")]
-    readsPrec _  "groupchat" = [(GroupChat, "")]
-    readsPrec _  "headline"  = [(Headline, "")]
-    readsPrec _  "normal"    = [(Normal, "")]
-    readsPrec _  _           = [(Normal, "")]
+                 deriving (Eq, Read, Show)
 
 -- | The presence stanza. Used for communicating status updates.
 data Presence = Presence { presenceID      :: !(Maybe StanzaID)
@@ -285,27 +268,7 @@ data PresenceType = Subscribe    | -- ^ Sender wants to subscribe to presence
                                    --   should only be used by servers
                     Available    | -- ^ Sender wants to express availability
                                    --   (no type attribute is defined)
-                    Unavailable deriving (Eq)
-
-instance Show PresenceType where
-    show Subscribe    = "subscribe"
-    show Subscribed   = "subscribed"
-    show Unsubscribe  = "unsubscribe"
-    show Unsubscribed = "unsubscribed"
-    show Probe        = "probe"
-    show Available    = ""
-    show Unavailable  = "unavailable"
-
-instance Read PresenceType where
-    readsPrec _  ""             = [(Available, "")]
-    readsPrec _  "available"    = [(Available, "")]
-    readsPrec _  "unavailable"  = [(Unavailable, "")]
-    readsPrec _  "subscribe"    = [(Subscribe, "")]
-    readsPrec _  "subscribed"   = [(Subscribed, "")]
-    readsPrec _  "unsubscribe"  = [(Unsubscribe, "")]
-    readsPrec _  "unsubscribed" = [(Unsubscribed, "")]
-    readsPrec _  "probe"        = [(Probe, "")]
-    readsPrec _  _              = []
+                    Unavailable deriving (Eq, Read, Show)
 
 -- | All stanzas (IQ, message, presence) can cause errors, which in the Xmpp
 -- stream looks like <stanza-kind to='sender' type='error'>. These errors are
@@ -324,22 +287,7 @@ data StanzaErrorType = Cancel   | -- ^ Error is unrecoverable - do not retry
                        Modify   | -- ^ Change the data and retry
                        Auth     | -- ^ Provide credentials and retry
                        Wait       -- ^ Error is temporary - wait and retry
-                       deriving (Eq)
-
-instance Show StanzaErrorType where
-    show Cancel   = "cancel"
-    show Continue = "continue"
-    show Modify   = "modify"
-    show Auth     = "auth"
-    show Wait     = "wait"
-
-instance Read StanzaErrorType where
-  readsPrec _ "auth"     = [( Auth    , "")]
-  readsPrec _ "cancel"   = [( Cancel  , "")]
-  readsPrec _ "continue" = [( Continue, "")]
-  readsPrec _ "modify"   = [( Modify  , "")]
-  readsPrec _ "wait"     = [( Wait    , "")]
-  readsPrec _ _          = []
+                       deriving (Eq, Read, Show)
 
 -- | Stanza errors are accommodated with one of the error conditions listed
 -- below.
@@ -376,56 +324,7 @@ data StanzaErrorCondition = BadRequest            -- ^ Malformed XML.
                           | UndefinedCondition    -- ^ Application-specific
                                                   --   condition.
                           | UnexpectedRequest     -- ^ Badly timed request.
-                            deriving Eq
-
-instance Show StanzaErrorCondition where
-    show BadRequest = "bad-request"
-    show Conflict = "conflict"
-    show FeatureNotImplemented = "feature-not-implemented"
-    show Forbidden = "forbidden"
-    show Gone = "gone"
-    show InternalServerError = "internal-server-error"
-    show ItemNotFound = "item-not-found"
-    show JidMalformed = "jid-malformed"
-    show NotAcceptable = "not-acceptable"
-    show NotAllowed = "not-allowed"
-    show NotAuthorized = "not-authorized"
-    show PaymentRequired = "payment-required"
-    show RecipientUnavailable = "recipient-unavailable"
-    show Redirect = "redirect"
-    show RegistrationRequired = "registration-required"
-    show RemoteServerNotFound = "remote-server-not-found"
-    show RemoteServerTimeout = "remote-server-timeout"
-    show ResourceConstraint = "resource-constraint"
-    show ServiceUnavailable = "service-unavailable"
-    show SubscriptionRequired = "subscription-required"
-    show UndefinedCondition = "undefined-condition"
-    show UnexpectedRequest = "unexpected-request"
-
-instance Read StanzaErrorCondition where
-    readsPrec _  "bad-request"             = [(BadRequest           , "")]
-    readsPrec _  "conflict"                = [(Conflict             , "")]
-    readsPrec _  "feature-not-implemented" = [(FeatureNotImplemented, "")]
-    readsPrec _  "forbidden"               = [(Forbidden            , "")]
-    readsPrec _  "gone"                    = [(Gone                 , "")]
-    readsPrec _  "internal-server-error"   = [(InternalServerError  , "")]
-    readsPrec _  "item-not-found"          = [(ItemNotFound         , "")]
-    readsPrec _  "jid-malformed"           = [(JidMalformed         , "")]
-    readsPrec _  "not-acceptable"          = [(NotAcceptable        , "")]
-    readsPrec _  "not-allowed"             = [(NotAllowed           , "")]
-    readsPrec _  "not-authorized"          = [(NotAuthorized        , "")]
-    readsPrec _  "payment-required"        = [(PaymentRequired      , "")]
-    readsPrec _  "recipient-unavailable"   = [(RecipientUnavailable , "")]
-    readsPrec _  "redirect"                = [(Redirect             , "")]
-    readsPrec _  "registration-required"   = [(RegistrationRequired , "")]
-    readsPrec _  "remote-server-not-found" = [(RemoteServerNotFound , "")]
-    readsPrec _  "remote-server-timeout"   = [(RemoteServerTimeout  , "")]
-    readsPrec _  "resource-constraint"     = [(ResourceConstraint   , "")]
-    readsPrec _  "service-unavailable"     = [(ServiceUnavailable   , "")]
-    readsPrec _  "subscription-required"   = [(SubscriptionRequired , "")]
-    readsPrec _  "unexpected-request"      = [(UnexpectedRequest    , "")]
-    readsPrec _  "undefined-condition"     = [(UndefinedCondition   , "")]
-    readsPrec _  _                         = [(UndefinedCondition   , "")]
+                            deriving (Eq, Read, Show)
 
 -- =============================================================================
 --  OTHER STUFF
@@ -464,34 +363,7 @@ data SaslError = SaslAborted              -- ^ Client aborted.
                                           --   temporary error condition; the
                                           --   initiating entity is recommended
                                           --   to try again later.
-               deriving Eq
-
-instance Show SaslError where
-    show SaslAborted               = "aborted"
-    show SaslAccountDisabled       = "account-disabled"
-    show SaslCredentialsExpired    = "credentials-expired"
-    show SaslEncryptionRequired    = "encryption-required"
-    show SaslIncorrectEncoding     = "incorrect-encoding"
-    show SaslInvalidAuthzid        = "invalid-authzid"
-    show SaslInvalidMechanism      = "invalid-mechanism"
-    show SaslMalformedRequest      = "malformed-request"
-    show SaslMechanismTooWeak      = "mechanism-too-weak"
-    show SaslNotAuthorized         = "not-authorized"
-    show SaslTemporaryAuthFailure  = "temporary-auth-failure"
-
-instance Read SaslError where
-    readsPrec _ "aborted"                = [(SaslAborted              , "")]
-    readsPrec _ "account-disabled"       = [(SaslAccountDisabled      , "")]
-    readsPrec _ "credentials-expired"    = [(SaslCredentialsExpired   , "")]
-    readsPrec _ "encryption-required"    = [(SaslEncryptionRequired   , "")]
-    readsPrec _ "incorrect-encoding"     = [(SaslIncorrectEncoding    , "")]
-    readsPrec _ "invalid-authzid"        = [(SaslInvalidAuthzid       , "")]
-    readsPrec _ "invalid-mechanism"      = [(SaslInvalidMechanism     , "")]
-    readsPrec _ "malformed-request"      = [(SaslMalformedRequest     , "")]
-    readsPrec _ "mechanism-too-weak"     = [(SaslMechanismTooWeak     , "")]
-    readsPrec _ "not-authorized"         = [(SaslNotAuthorized        , "")]
-    readsPrec _ "temporary-auth-failure" = [(SaslTemporaryAuthFailure , "")]
-    readsPrec _ _                        = []
+               deriving (Eq, Read, Show)
 
 -- The documentation of StreamErrorConditions is copied from
 -- http://xmpp.org/rfcs/rfc6120.html#streams-error-conditions
@@ -608,63 +480,7 @@ data StreamErrorCondition
                                -- initiating entity in the stream header
                                -- specifies a version of XMPP that is not
                                -- supported by the server.
-      deriving Eq
-
-instance Show StreamErrorCondition where
-    show StreamBadFormat              = "bad-format"
-    show StreamBadNamespacePrefix     = "bad-namespace-prefix"
-    show StreamConflict               = "conflict"
-    show StreamConnectionTimeout      = "connection-timeout"
-    show StreamHostGone               = "host-gone"
-    show StreamHostUnknown            = "host-unknown"
-    show StreamImproperAddressing     = "improper-addressing"
-    show StreamInternalServerError    = "internal-server-error"
-    show StreamInvalidFrom            = "invalid-from"
-    show StreamInvalidNamespace       = "invalid-namespace"
-    show StreamInvalidXml             = "invalid-xml"
-    show StreamNotAuthorized          = "not-authorized"
-    show StreamNotWellFormed          = "not-well-formed"
-    show StreamPolicyViolation        = "policy-violation"
-    show StreamRemoteConnectionFailed = "remote-connection-failed"
-    show StreamReset                  = "reset"
-    show StreamResourceConstraint     = "resource-constraint"
-    show StreamRestrictedXml          = "restricted-xml"
-    show StreamSeeOtherHost           = "see-other-host"
-    show StreamSystemShutdown         = "system-shutdown"
-    show StreamUndefinedCondition     = "undefined-condition"
-    show StreamUnsupportedEncoding    = "unsupported-encoding"
-    show StreamUnsupportedFeature     = "unsupported-feature"
-    show StreamUnsupportedStanzaType  = "unsupported-stanza-type"
-    show StreamUnsupportedVersion     = "unsupported-version"
-
-instance Read StreamErrorCondition where
-    readsPrec _ "bad-format"               = [(StreamBadFormat            , "")]
-    readsPrec _ "bad-namespace-prefix"     = [(StreamBadNamespacePrefix   , "")]
-    readsPrec _ "conflict"                 = [(StreamConflict             , "")]
-    readsPrec _ "connection-timeout"       = [(StreamConnectionTimeout    , "")]
-    readsPrec _ "host-gone"                = [(StreamHostGone             , "")]
-    readsPrec _ "host-unknown"             = [(StreamHostUnknown          , "")]
-    readsPrec _ "improper-addressing"      = [(StreamImproperAddressing   , "")]
-    readsPrec _ "internal-server-error"    = [(StreamInternalServerError  , "")]
-    readsPrec _ "invalid-from"             = [(StreamInvalidFrom          , "")]
-    readsPrec _ "invalid-namespace"        = [(StreamInvalidNamespace     , "")]
-    readsPrec _ "invalid-xml"              = [(StreamInvalidXml           , "")]
-    readsPrec _ "not-authorized"           = [(StreamNotAuthorized        , "")]
-    readsPrec _ "not-well-formed"          = [(StreamNotWellFormed        , "")]
-    readsPrec _ "policy-violation"         = [(StreamPolicyViolation      , "")]
-    readsPrec _ "remote-connection-failed" =
-        [(StreamRemoteConnectionFailed, "")]
-    readsPrec _ "reset"                    = [(StreamReset                , "")]
-    readsPrec _ "resource-constraint"      = [(StreamResourceConstraint   , "")]
-    readsPrec _ "restricted-xml"           = [(StreamRestrictedXml        , "")]
-    readsPrec _ "see-other-host"           = [(StreamSeeOtherHost         , "")]
-    readsPrec _ "system-shutdown"          = [(StreamSystemShutdown       , "")]
-    readsPrec _ "undefined-condition"      = [(StreamUndefinedCondition   , "")]
-    readsPrec _ "unsupported-encoding"     = [(StreamUnsupportedEncoding  , "")]
-    readsPrec _ "unsupported-feature"      = [(StreamUnsupportedFeature   , "")]
-    readsPrec _ "unsupported-stanza-type"  = [(StreamUnsupportedStanzaType, "")]
-    readsPrec _ "unsupported-version"      = [(StreamUnsupportedVersion   , "")]
-    readsPrec _ _                          = [(StreamUndefinedCondition   , "")]
+      deriving (Eq, Read, Show)
 
 -- | Encapsulates information about an XMPP stream error.
 data StreamErrorInfo = StreamErrorInfo
@@ -749,7 +565,7 @@ newtype IdGenerator = IdGenerator (IO Text)
 -- 2.13, which in turn is lesser than 12.3.
 
 data Version = Version { majorVersion :: !Integer
-                       , minorVersion :: !Integer } deriving (Eq)
+                       , minorVersion :: !Integer } deriving (Eq, Read, Show)
 
 -- If the major version numbers are not equal, compare them. Otherwise, compare
 -- the minor version numbers.
@@ -758,11 +574,11 @@ instance Ord Version where
         | amajor /= bmajor = compare amajor bmajor
         | otherwise = compare aminor bminor
 
-instance Read Version where
-    readsPrec _ txt = (,"") <$> maybeToList (versionFromText $ Text.pack txt)
+-- instance Read Version where
+--     readsPrec _ txt = (,"") <$> maybeToList (versionFromText $ Text.pack txt)
 
-instance Show Version where
-    show (Version major minor) = (show major) ++ "." ++ (show minor)
+-- instance Show Version where
+--     show (Version major minor) = (show major) ++ "." ++ (show minor)
 
 -- Converts a "<major>.<minor>" numeric version number to a @Version@ object.
 versionFromText :: Text.Text -> Maybe Version
@@ -785,23 +601,20 @@ versionParser = do
 data LangTag = LangTag { primaryTag :: !Text
                        , subtags    :: ![Text] }
 
+-- Equals for language tags is not case-sensitive.
 instance Eq LangTag where
     LangTag p s == LangTag q t = Text.toLower p == Text.toLower q &&
         map Text.toLower s == map Text.toLower t
 
-instance Read LangTag where
-    readsPrec _ txt = (,"") <$> maybeToList (langTag $ Text.pack txt)
-
-instance Show LangTag where
-    show (LangTag p []) = Text.unpack p
-    show (LangTag p s) = Text.unpack . Text.concat $
-        [p, "-", Text.intercalate "-" s]
-
 -- | Parses, validates, and possibly constructs a "LangTag" object.
-langTag :: Text.Text -> Maybe LangTag
-langTag s = case AP.parseOnly langTagParser s of
-              Right tag -> Just tag
-              Left _ -> Nothing
+langTagFromText :: Text.Text -> Maybe LangTag
+langTagFromText s = case AP.parseOnly langTagParser s of
+                        Right tag -> Just tag
+                        Left _ -> Nothing
+
+langTagToText :: LangTag -> Text.Text
+langTagToText (LangTag p []) = p
+langTagToText (LangTag p s) = Text.concat $ [p, "-", Text.intercalate "-" s]
 
 -- Parses a language tag as defined by RFC 1766 and constructs a LangTag object.
 langTagParser :: AP.Parser LangTag
@@ -962,6 +775,7 @@ instance Read Jid where
         [(parseJid (read s' :: String), r)] -- May fail with "Prelude.read: no parse"
                                             -- or the `parseJid' error message (see below)
 
+#if __GLASGOW_HASKELL__ >= 706
 jidQ :: QuasiQuoter
 jidQ = QuasiQuoter { quoteExp = \s -> do
                           when (head s == ' ') . fail $ "Leading whitespaces in JID" ++ show s
@@ -981,6 +795,29 @@ jidQ = QuasiQuoter { quoteExp = \s -> do
     textE t = [| Text.pack $(stringE $ Text.unpack t) |]
     mbTextE Nothing = [| Nothing |]
     mbTextE (Just s) = [| Just $(textE s) |]
+#endif
+
+-- Produces a LangTag value in the format "parseLangTag \"<jid>\"".
+instance Show LangTag where
+  show l = "parseLangTag " ++ show (langTagToText l)
+
+-- The string must be in the format "parseLangTag \"<LangTag>\"". This is based
+-- on parseJid, and suffers the same problems.
+instance Read LangTag where
+    readsPrec _ s = do
+        let (s', r) = case lex s of
+                          [] -> error "Expected `parseLangTag \"<LangTag>\"'"
+                          [("parseLangTag", r')] -> case lex r' of
+                                              [] -> error "Expected `parseLangTag \"<LangTag>\"'"
+                                              [(s'', r'')] -> (s'', r'')
+                                              _ -> error "Expected `parseLangTag \"<LangTag>\"'"
+                          _ -> error "Expected `parseLangTag \"<LangTag>\"'"
+        [(parseLangTag (read s' :: String), r)]
+
+parseLangTag :: String -> LangTag
+parseLangTag s = case langTagFromText $ Text.pack s of
+                     Just l -> l
+                     Nothing -> error $ "Language tag value (" ++ s ++ ") did not validate"
 
 -- | Parses a JID string.
 --

@@ -177,7 +177,7 @@ xpItems = xpWrap (map (\((app_, ask_, jid_, name_, sub_), groups_) ->
                      xpOption $ xpAttribute_ "ask" "subscribe")
             (xpAttribute  "jid" xpJid)
             (xpAttribute' "name" xpText)
-            (xpAttribute' "subscription" xpPrim)
+            (xpAttribute' "subscription" xpSubscription)
           )
           (xpFindMatches $ xpElemText "{jabber:iq:roster}group")
 
@@ -187,3 +187,22 @@ xpQuery = xpWrap (\(ver_, items_) -> Query ver_ items_ )
           xpElem "{jabber:iq:roster}query"
             (xpAttribute' "ver" xpText)
             xpItems
+
+xpSubscription :: PU Text Subscription
+xpSubscription = ("xpSubscription", "") <?>
+        xpPartial ( \input -> case subscriptionFromText input of
+                                   Nothing -> Left "Could not parse subscription."
+                                   Just j -> Right j)
+                  subscriptionToText
+  where
+    subscriptionFromText "none" = Just None
+    subscriptionFromText "to" = Just To
+    subscriptionFromText "from" = Just From
+    subscriptionFromText "both" = Just Both
+    subscriptionFromText "remove" = Just Remove
+    subscriptionFromText _ = Nothing
+    subscriptionToText None = "none"
+    subscriptionToText To = "to"
+    subscriptionToText From = "from"
+    subscriptionToText Both = "both"
+    subscriptionToText Remove = "remove"

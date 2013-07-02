@@ -13,20 +13,7 @@ import Network.Xmpp.Types
 data ShowStatus = StatusAway
                 | StatusChat
                 | StatusDnd
-                | StatusXa
-
-instance Show ShowStatus where
-    show StatusAway = "away"
-    show StatusChat = "chat"
-    show StatusDnd  = "dnd"
-    show StatusXa   = "xa"
-
-instance Read ShowStatus where
-    readsPrec _ "away" = [(StatusAway, "")]
-    readsPrec _ "chat" = [(StatusChat, "")]
-    readsPrec _ "dnd"  = [(StatusDnd , "")]
-    readsPrec _ "xa"   = [(StatusXa  , "")]
-    readsPrec _ _      = []
+                | StatusXa deriving (Read, Show)
 
 data IMPresence = IMP { showStatus :: Maybe ShowStatus
                       , status     :: Maybe Text
@@ -65,8 +52,25 @@ xpIMPresence = xpUnliftElems .
                xpClean $
                xp3Tuple
                   (xpOption $ xpElemNodes "{jabber:client}show"
-                     (xpContent xpPrim))
+                     (xpContent xpShow))
                   (xpOption $ xpElemNodes "{jabber:client}status"
                      (xpContent xpText))
                   (xpOption $ xpElemNodes "{jabber:client}priority"
                      (xpContent xpPrim))
+
+xpShow :: PU Text ShowStatus
+xpShow = ("xpShow", "") <?>
+        xpPartial ( \input -> case showStatusFromText input of
+                                   Nothing -> Left "Could not parse show status."
+                                   Just j -> Right j)
+                  showStatusToText
+  where
+    showStatusFromText "away" = Just StatusAway
+    showStatusFromText "chat" = Just StatusChat
+    showStatusFromText "dnd" = Just StatusDnd
+    showStatusFromText "xa" = Just StatusXa
+    showStatusFromText _ = Nothing
+    showStatusToText StatusAway = "away"
+    showStatusToText StatusChat = "chat"
+    showStatusToText StatusDnd = "dnd"
+    showStatusToText StatusXa = "xa"

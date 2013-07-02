@@ -4,22 +4,7 @@ import qualified Data.Map as Map
 import           Data.Text (Text)
 import           Network.Xmpp.Types
 
-data Subscription = None | To | From | Both | Remove deriving Eq
-
-instance Show Subscription where
-    show None = "none"
-    show To   = "to"
-    show From = "from"
-    show Both = "both"
-    show Remove = "remove"
-
-instance Read Subscription where
-    readsPrec _ "none" = [(None ,"")]
-    readsPrec _ "to"   = [(To   ,"")]
-    readsPrec _ "from" = [(From ,"")]
-    readsPrec _ "both" = [(Both ,"")]
-    readsPrec _ "remove" = [(Remove ,"")]
-    readsPrec _ _ = []
+data Subscription = None | To | From | Both | Remove deriving (Eq, Read, Show)
 
 data Roster = Roster { ver :: Maybe Text
                      , items :: Map.Map Jid Item } deriving Show

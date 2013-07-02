@@ -54,7 +54,7 @@ sendIQ timeOut to tp lang body session = do -- TODO: Add timeout
       return ()
 
 
--- | Like 'sendIQ', but waits for the answer IQ. Times out after 3 seconds
+-- | Like 'sendIQ', but waits for the answer IQ. Times out after 30 seconds
 sendIQ' :: Maybe Jid
         -> IQRequestType
         -> Maybe LangTag
@@ -62,7 +62,7 @@ sendIQ' :: Maybe Jid
         -> Session
         -> IO (Maybe IQResponse)
 sendIQ' to tp lang body session = do
-    ref <- sendIQ (Just 3000000) to tp lang body session
+    ref <- sendIQ (Just 30000000) to tp lang body session
     maybe (return Nothing) (fmap Just . atomically . takeTMVar) ref
 
 
