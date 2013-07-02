@@ -51,3 +51,12 @@ getFeatures :: Session -> IO StreamFeatures
 getFeatures Session{streamRef = st} = do
     s <- atomically $ readTMVar st
     withStream' (gets streamFeatures) s
+
+waitForStream :: Session -> IO ()
+waitForStream Session{streamRef = sr} = atomically $ do
+    s <- readTMVar sr
+    ss <- readTMVar $ unStream s
+    case streamConnectionState ss of
+        Plain -> return ()
+        Secured -> return ()
+        _ -> retry
