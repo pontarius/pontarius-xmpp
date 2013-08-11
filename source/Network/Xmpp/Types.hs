@@ -1,6 +1,6 @@
 {-# LANGUAGE CPP #-}
 
-#if __GLASGOW_HASKELL__ >= 706
+#if WITH_TEMPLATE_HASKELL
 {-# LANGUAGE TemplateHaskell #-}
 #endif
 
@@ -51,7 +51,7 @@ module Network.Xmpp.Types
     , ConnectionDetails(..)
     , StreamConfiguration(..)
     , Jid(..)
-#if __GLASGOW_HASKELL__ >= 706
+#if WITH_TEMPLATE_HASKELL
     , jidQ
 #endif
     , isBare
@@ -86,7 +86,7 @@ import           Data.Text (Text)
 import qualified Data.Text as Text
 import           Data.Typeable(Typeable)
 import           Data.XML.Types
-#if __GLASGOW_HASKELL__ >= 706
+#if WITH_TEMPLATE_HASKELL
 import           Language.Haskell.TH
 import           Language.Haskell.TH.Quote
 #endif
@@ -774,7 +774,7 @@ instance Read Jid where
         [(parseJid (read s' :: String), r)] -- May fail with "Prelude.read: no parse"
                                             -- or the `parseJid' error message (see below)
 
-#if __GLASGOW_HASKELL__ >= 706
+#if WITH_TEMPLATE_HASKELL
 jidQ :: QuasiQuoter
 jidQ = QuasiQuoter { quoteExp = \s -> do
                           when (head s == ' ') . fail $ "Leading whitespaces in JID" ++ show s
@@ -818,7 +818,7 @@ parseLangTag s = case langTagFromText $ Text.pack s of
                      Just l -> l
                      Nothing -> error $ "Language tag value (" ++ s ++ ") did not validate"
 
-#if __GLASGOW_HASKELL__ >= 706
+#if WITH_TEMPLATE_HASKELL
 langTagQ :: QuasiQuoter
 langTagQ = QuasiQuoter {quoteExp = \s -> case langTagFromText $ Text.pack  s of
                              Nothing -> fail $ "Not a valid language tag: "
