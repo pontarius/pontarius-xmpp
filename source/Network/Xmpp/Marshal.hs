@@ -347,6 +347,7 @@ xpPresenceType = ("xpPresenceType", "") <?>
     presenceTypeFromText "unsubscribe" = Just Unsubscribe
     presenceTypeFromText "unsubscribed" = Just Unsubscribed
     presenceTypeFromText "probe" = Just Probe
+    presenceTypeFromText _ = Nothing
     presenceTypeToText Available = "available"
     presenceTypeToText Unavailable = "unavailable"
     presenceTypeToText Subscribe = "subscribe"

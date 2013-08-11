@@ -113,6 +113,7 @@ xpSaslError = ("xpSaslError", "") <?>
     saslErrorFromText "mechanism-too-weak" = Just SaslMechanismTooWeak
     saslErrorFromText "not-authorized" = Just SaslNotAuthorized
     saslErrorFromText "temporary-auth-failure" = Just SaslTemporaryAuthFailure
+    saslErrorFromText _ = Nothing
 
 -- Challenge element pickler.
 xpChallenge :: PU [Node] (Maybe Text.Text)
