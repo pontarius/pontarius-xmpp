@@ -21,7 +21,6 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BSC8
 import           Data.Char (isSpace)
 import           Data.Conduit
-import           Data.Conduit.Binary as CB
 import qualified Data.Conduit.Internal as DCI
 import qualified Data.Conduit.List as CL
 import           Data.IP
@@ -237,11 +236,15 @@ flattenAttrs attrs = Prelude.map (\(name, cont) ->
 restartStream :: StateT StreamState IO (Either XmppFailure ())
 restartStream = do
     liftIO $ debugM "Pontarius.Xmpp" "Restarting stream..."
-    raw <- gets (streamReceive . streamHandle)
-    let newSource =loopRead raw $= XP.parseBytes def
+    raw <- gets streamHandle
+    let newSource = sourceStreamHandle raw $= XP.parseBytes def
     buffered <- liftIO . bufferSrc $ newSource
     modify (\s -> s{streamEventSource = buffered })
     startStream
+
+
+sourceStreamHandle :: MonadIO m => StreamHandle -> ConduitM i ByteString m ()
+sourceStreamHandle s = loopRead $ streamReceive s
   where
     loopRead rd = do
         bs <- liftIO (rd 4096)
@@ -508,22 +511,23 @@ zeroSource = liftIO $ do
     debugM "Pontarius.Xmpp" "zeroSource"
     ExL.throwIO XmppOtherFailure
 
+handleToStreamHandle :: Handle -> StreamHandle
+handleToStreamHandle h = StreamHandle { streamSend = \d -> catchPush $ BS.hPut h d
+                                      , streamReceive = \n -> BS.hGetSome h n
+                                      , streamFlush = hFlush h
+                                      , streamClose = hClose h
+                                      }
+
 createStream :: HostName -> StreamConfiguration -> ErrorT XmppFailure IO (Stream)
 createStream realm config = do
     result <- connect realm config
     case result of
-        Just h -> ErrorT $ do
+        Just hand -> ErrorT $ do
             debugM "Pontarius.Xmpp" "Acquired handle."
             debugM "Pontarius.Xmpp" "Setting NoBuffering mode on handle."
-            hSetBuffering h NoBuffering
             eSource <- liftIO . bufferSrc $
-                         (sourceHandle h $= logConduit) $= XP.parseBytes def
-
-            let hand = StreamHandle { streamSend = \d -> catchPush $ BS.hPut h d
-                                    , streamReceive = \n -> BS.hGetSome h n
-                                    , streamFlush = hFlush h
-                                    , streamClose = hClose h
-                                    }
+                         (sourceStreamHandle hand $= logConduit)
+                           $= XP.parseBytes def
             let stream = StreamState
                   { streamConnectionState = Plain
                   , streamHandle = hand
@@ -553,14 +557,34 @@ createStream realm config = do
 -- case that address is used instead). If an A(AAA) record results are
 -- encountered, all IP addresses will be tried until a successful connection
 -- attempt has been made. Will return the Handle acquired, if any.
-connect :: HostName -> StreamConfiguration -> ErrorT XmppFailure IO (Maybe Handle)
+connect :: HostName -> StreamConfiguration -> ErrorT XmppFailure IO
+           (Maybe StreamHandle)
 connect realm config = do
     case connectionDetails config of
         UseHost host port -> lift $ do
             debugM "Pontarius.Xmpp" "Connecting to configured address."
-            connectTcp $ [(host, port)]
-        UseSrv host -> connectSrv host
-        UseRealm -> connectSrv realm
+            h <- connectTcp $ [(host, port)]
+            case h of
+                Nothing -> return Nothing
+                Just h' -> do
+                    liftIO $ hSetBuffering h' NoBuffering
+                    return . Just $ handleToStreamHandle h'
+        UseSrv host -> do
+            h <- connectSrv host
+            case h of
+                Nothing -> return Nothing
+                Just h' -> do
+                    liftIO $ hSetBuffering h' NoBuffering
+                    return . Just $ handleToStreamHandle h'
+        UseRealm -> do
+            h <- connectSrv realm
+            case h of
+                Nothing -> return Nothing
+                Just h' -> do
+                    liftIO $ hSetBuffering h' NoBuffering
+                    return . Just $ handleToStreamHandle h'
+        UseConnection mkC -> Just <$> liftIO mkC
+
   where
     connectSrv host = do
         case checkHostName (Text.pack host) of

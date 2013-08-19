@@ -1007,6 +1007,7 @@ instance Exception InvalidXmppXml
 data ConnectionDetails = UseRealm -- ^ Use realm to resolv host
                        | UseSrv HostName -- ^ Use this hostname for a SRV lookup
                        | UseHost HostName PortID -- ^ Use specified host
+                       | UseConnection (IO StreamHandle)
 
 -- | Configuration settings related to the stream.
 data StreamConfiguration =
