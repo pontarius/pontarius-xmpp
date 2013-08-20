@@ -1,4 +1,5 @@
 {-# OPTIONS_HADDOCK hide #-}
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE OverloadedStrings #-}
 
@@ -8,7 +9,11 @@ import           Control.Applicative ((<$>))
 import           Control.Concurrent.STM
 import           Control.Monad
 import           Data.List (nub)
+#if MIN_VERSION_containers(0, 5, 0)
 import qualified Data.Map.Strict as Map
+#else
+import qualified Data.Map as Map
+#endif
 import           Data.Maybe (isJust, fromMaybe)
 import           Data.Text (Text)
 import           Data.XML.Pickle
