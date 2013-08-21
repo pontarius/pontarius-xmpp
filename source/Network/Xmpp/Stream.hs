@@ -570,42 +570,42 @@ connect realm config = do
                     liftIO $ hSetBuffering h' NoBuffering
                     return . Just $ handleToStreamHandle h'
         UseSrv host -> do
-            h <- connectSrv host
+            h <- connectSrv (resolvConf config) host
             case h of
                 Nothing -> return Nothing
                 Just h' -> do
                     liftIO $ hSetBuffering h' NoBuffering
                     return . Just $ handleToStreamHandle h'
         UseRealm -> do
-            h <- connectSrv realm
+            h <- connectSrv (resolvConf config) realm
             case h of
                 Nothing -> return Nothing
                 Just h' -> do
                     liftIO $ hSetBuffering h' NoBuffering
                     return . Just $ handleToStreamHandle h'
-        UseConnection mkC -> Just <$> liftIO mkC
+        UseConnection mkC -> Just <$> mkC
 
-  where
-    connectSrv host = do
-        case checkHostName (Text.pack host) of
-            Just host' -> do
-                resolvSeed <- lift $ makeResolvSeed (resolvConf config)
-                lift $ debugM "Pontarius.Xmpp" "Performing SRV lookup..."
-                srvRecords <- srvLookup host' resolvSeed
-                case srvRecords of
-                    Nothing -> do
-                        lift $ debugM "Pontarius.Xmpp"
-                            "No SRV records, using fallback process."
-                        lift $ resolvAndConnectTcp resolvSeed (BSC8.pack $ host)
-                                                   5222
-                    Just srvRecords' -> do
-                        lift $ debugM "Pontarius.Xmpp"
-                            "SRV records found, performing A/AAAA lookups."
-                        lift $ resolvSrvsAndConnectTcp resolvSeed srvRecords'
-            Nothing -> do
-                    lift $ errorM "Pontarius.Xmpp"
-                        "The hostname could not be validated."
-                    throwError XmppIllegalTcpDetails
+connectSrv :: ResolvConf -> String -> ErrorT XmppFailure IO (Maybe Handle)
+connectSrv config host = do
+    case checkHostName (Text.pack host) of
+        Just host' -> do
+            resolvSeed <- lift $ makeResolvSeed config
+            lift $ debugM "Pontarius.Xmpp" "Performing SRV lookup..."
+            srvRecords <- srvLookup host' resolvSeed
+            case srvRecords of
+                Nothing -> do
+                    lift $ debugM "Pontarius.Xmpp"
+                        "No SRV records, using fallback process."
+                    lift $ resolvAndConnectTcp resolvSeed (BSC8.pack $ host)
+                                               5222
+                Just srvRecords' -> do
+                    lift $ debugM "Pontarius.Xmpp"
+                        "SRV records found, performing A/AAAA lookups."
+                    lift $ resolvSrvsAndConnectTcp resolvSeed srvRecords'
+        Nothing -> do
+                lift $ errorM "Pontarius.Xmpp"
+                    "The hostname could not be validated."
+                throwError XmppIllegalTcpDetails
 
 -- Connects to a list of addresses and ports. Surpresses any exceptions from
 -- connectTcp.

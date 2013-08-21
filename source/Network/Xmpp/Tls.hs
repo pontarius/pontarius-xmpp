@@ -15,6 +15,7 @@ import qualified Data.ByteString.Lazy as BL
 import           Data.Conduit
 import           Data.IORef
 import           Data.XML.Types
+import           Network.DNS.Resolver (ResolvConf)
 import           Network.TLS
 import           Network.Xmpp.Stream
 import           Network.Xmpp.Types
@@ -154,3 +155,23 @@ mkReadBuffer recv = do
             writeIORef buffer rest
             return result
     return read'
+
+-- | Connect to an XMPP server and secure the connection with TLS before
+-- starting the XMPP streams
+connectTls :: ResolvConf -- ^ Resolv conf to use (try defaultResolvConf as a
+                         -- default)
+           -> TLSParams  -- ^ TLS parameters to use when securing the connection
+           -> String     -- ^ Host to use when connecting (will be resolved
+                         -- using SRV records)
+           -> ErrorT XmppFailure IO StreamHandle
+connectTls config params host = do
+    h <- connectSrv config host >>= \h' -> case h' of
+        Nothing -> throwError TcpConnectionFailure
+        Just h'' -> return h''
+    let hand = handleToStreamHandle h
+    (_raw, _snk, psh, recv, ctx) <- tlsinit params $ mkBackend hand
+    return $ StreamHandle { streamSend = catchPush . psh
+                          , streamReceive = recv
+                          , streamFlush = contextFlush ctx
+                          , streamClose = bye ctx >> streamClose hand
+                          }
