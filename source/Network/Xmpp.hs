@@ -32,6 +32,8 @@ module Network.Xmpp
   , StreamConfiguration(..)
   , SessionConfiguration(..)
   , ConnectionDetails(..)
+  , closeConnection
+  , endSession
     -- TODO: Close session, etc.
     -- ** Authentication handlers
     -- | The use of 'scramSha1' is /recommended/, but 'digestMd5' might be
@@ -39,8 +41,6 @@ module Network.Xmpp
   , scramSha1
   , plain
   , digestMd5
-  , closeConnection
-  , endSession
   -- * Addressing
   -- | A JID (historically: Jabber ID) is XMPPs native format
   -- for addressing entities in the network. It is somewhat similar to an e-mail
@@ -184,6 +184,7 @@ module Network.Xmpp
                , AuthOtherFailure )
   , SaslHandler
   , ConnectionState(..)
+  , connectTls
   ) where
 
 import Network.Xmpp.Concurrent
@@ -191,3 +192,4 @@ import Network.Xmpp.Sasl
 import Network.Xmpp.Sasl.Types
 import Network.Xmpp.Stanza
 import Network.Xmpp.Types
+import Network.Xmpp.Tls
