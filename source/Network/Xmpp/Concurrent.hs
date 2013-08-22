@@ -13,6 +13,7 @@ module Network.Xmpp.Concurrent
   , session
   , newStanzaID
   , reconnect
+  , reconnectNow
   ) where
 
 import           Control.Concurrent (threadDelay)
