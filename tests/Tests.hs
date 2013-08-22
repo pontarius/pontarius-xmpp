@@ -143,14 +143,15 @@ iqTest debug we them context = do
         debug "sending"
         answer <- sendIQ' (Just them) Set Nothing body context
         case answer of
-            IQResponseResult r -> do
+            Nothing -> debug "Connection Down"
+            Just (IQResponseResult r) -> do
                 debug "received"
                 let Right answerPayload = unpickleElem payloadP
                                       (fromJust $ iqResultPayload r)
                 expect debug (invertPayload payload) answerPayload context
-            IQResponseTimeout -> do
+            Just IQResponseTimeout -> do
                 debug $ "Timeout in packet: " ++ show count
-            IQResponseError e -> do
+            Just (IQResponseError e) -> do
                 debug $ "Error in packet: " ++ show count
         liftIO $ threadDelay 100000
 --    sendUser "All tests done" context
@@ -170,7 +171,7 @@ runMain debug number multi = do
                debug . (("Thread " ++ show number ++ ":") ++)
   debug' "running"
   Right context <- session (Text.unpack $ domainpart we)
-               (Just ([scramSha1 (fromJust $ localpart we) Nothing "pwd"], resourcepart we))
+               (Just (\_ -> [scramSha1 (fromJust $ localpart we) Nothing "pwd"], resourcepart we))
                 config
   sendPresence presenceOnline context
   thread1 <- forkIO $ autoAccept =<< dupSession context
@@ -206,12 +207,12 @@ connectionClosedTest = do
   debug' "running"
   let we = testUser1
   Right context <- session (Text.unpack $ domainpart we)
-               (Just ([scramSha1 (fromJust $ localpart we) Nothing "pwd"], resourcepart we))
-                config {onConnectionClosed = \e -> do
-                             debug' $ "closed: " ++ show e
-
+               (Just (\_ -> [scramSha1 (fromJust $ localpart we) Nothing "pwd"], resourcepart we))
+                config {onConnectionClosed = \s e -> do
+                             liftIO $ reconnect Nothing s
+                             liftIO $ sendPresence presenceOnline s
+                             return ()
                        }
   sendPresence presenceOnline context
-  forkIO $ threadDelay 3000000 >> void (closeConnection context)
   forever $ threadDelay 1000000
   return ()

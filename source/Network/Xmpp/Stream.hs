@@ -346,20 +346,20 @@ closeStreams' = do
         void ((Ex.try cc) :: IO (Either Ex.SomeException ()))
         return ()
     put xmppNoStream{ streamConnectionState = Finished }
-    lift $ debugM "Pontarius.Xmpp" "Collecting remaining elements"
+--     lift $ debugM "Pontarius.Xmpp" "Collecting remaining elements"
 --     es <- collectElems []
     -- lift $ debugM "Pontarius.Xmpp" "Stream sucessfully closed"
     -- return es
-  where
-    -- Pulls elements from the stream until the stream ends, or an error is
-    -- raised.
-    collectElems :: [Element] -> StateT StreamState IO (Either XmppFailure [Element])
-    collectElems es = do
-        result <- pullElement
-        case result of
-            Left StreamEndFailure -> return $ Right es
-            Left e -> return $ Left $ StreamCloseError (es, e)
-            Right e -> collectElems (e:es)
+  -- where
+  --   -- Pulls elements from the stream until the stream ends, or an error is
+  --   -- raised.
+  --   collectElems :: [Element] -> StateT StreamState IO (Either XmppFailure [Element])
+  --   collectElems es = do
+  --       result <- pullElement
+  --       case result of
+  --           Left StreamEndFailure -> return $ Right es
+  --           Left e -> return $ Left $ StreamCloseError (es, e)
+  --           Right e -> collectElems (e:es)
 
 -- TODO: Can the TLS send/recv functions throw something other than an IO error?
 debugOut :: MonadIO m => ByteString -> m ()
