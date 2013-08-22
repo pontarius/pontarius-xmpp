@@ -77,6 +77,7 @@ data Session = Session
     , conf :: SessionConfiguration
     , sRealm :: HostName
     , sSaslCredentials :: Maybe (ConnectionState -> [SaslHandler] , Maybe Text)
+    , reconnectWait :: TVar Int
     }
 
 -- | IQHandlers holds the registered channels for incomming IQ requests and

@@ -94,12 +94,12 @@ hostnameP = do
                     then fail "Hostname too long."
                     else return $ Text.concat [label, Text.pack ".", r]
 
--- The number of seconds to wait before reconnection attempts in accordance with
--- the truncated binary exponential backoff algorithm.
-waitingTimes :: IO [Int]
-waitingTimes = do
-    wait <- randomRIO (1, 59)
-    waits <- Prelude.mapM (\n -> randomRIO (0, wait * n)) slotTimes
-    return (wait:waits)
-  where
-    slotTimes = [1, 3, 8, 15, 24, 35, 48, 63, 80, 99, 99, 99, 99, 99, 99]
+-- -- The number of seconds to wait before reconnection attempts in accordance with
+-- -- the truncated binary exponential backoff algorithm.
+-- waitingTimes :: IO [Int]
+-- waitingTimes = do
+--     wait <- randomRIO (1, 59)
+--     waits <- Prelude.mapM (\n -> randomRIO (0, wait * n)) slotTimes
+--     return (wait:waits)
+--   where
+--     slotTimes = [1, 3, 8, 15, 24, 35, 48, 63, 80, 99, 99, 99, 99, 99, 99]

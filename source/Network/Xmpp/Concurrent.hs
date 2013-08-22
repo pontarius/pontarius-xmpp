@@ -15,6 +15,7 @@ module Network.Xmpp.Concurrent
   , reconnect
   ) where
 
+import           Control.Concurrent (threadDelay)
 import           Control.Concurrent.STM
 import qualified Control.Exception as Ex
 import           Control.Monad
@@ -39,6 +40,7 @@ import           Network.Xmpp.Stream
 import           Network.Xmpp.Tls
 import           Network.Xmpp.Types
 import           System.Log.Logger
+import           System.Random (randomRIO)
 
 import           Control.Monad.State.Strict
 
@@ -133,6 +135,7 @@ newSession stream config realm mbSasl = runErrorT $ do
     iqHands  <- lift $ newTVarIO (Map.empty, Map.empty)
     eh <- lift $ newEmptyTMVarIO
     ros <- liftIO . newTVarIO $ Roster Nothing Map.empty
+    rew <- lift $ newTVarIO 3
     let rosterH = if (enableRoster config) then handleRoster ros
                                            else \ _ _ -> return True
     let stanzaHandler = runHandlers writeSem
@@ -157,6 +160,7 @@ newSession stream config realm mbSasl = runErrorT $ do
                      , rosterRef = ros
                      , sRealm = realm
                      , sSaslCredentials = mbSasl
+                     , reconnectWait = rew
                      }
     liftIO . atomically $ putTMVar eh $ EventHandlers { connectionClosedHandler =
                                                  onConnectionClosed config sess }
@@ -187,10 +191,13 @@ session realm mbSasl config = runErrorT $ do
     liftIO $ when (enableRoster config) $ initRoster ses
     return ses
 
-reconnect :: Session -> IO ()
-reconnect sess@Session{conf = config} = do
+-- | Reconnect immediately with the stored settings. Returns Just the error when
+-- the reconnect attempt fails and Nothing when no failure was encountered
+reconnectNow :: Session -- ^ session to reconnect
+          -> IO (Maybe XmppFailure)
+reconnectNow sess@Session{conf = config, reconnectWait = rw} = do
     debugM "Pontarius.Xmpp" "reconnecting"
-    _ <- flip withConnection sess $ \oldStream -> do
+    res <- flip withConnection sess $ \oldStream -> do
         s <- runErrorT $ do
             liftIO $ debugM "Pontarius.Xmpp" "reconnect: closing stream"
             _ <- liftIO $ closeStreams oldStream
@@ -213,9 +220,46 @@ reconnect sess@Session{conf = config} = do
             Left  e -> do
                 errorM "Pontarius.Xmpp" $ "reconnect failed"  ++ show e
                 return (Left e   , oldStream )
-            Right r -> return (Right () , r      )
-    when (enableRoster config) $ initRoster sess
+            Right r -> return (Right () , r )
+    case res of
+        Left e -> return $ Just e
+        Right (Left e) -> return $ Just e
+        Right (Right ()) -> do
+            atomically $ writeTVar rw 3
+            when (enableRoster config) $ initRoster sess
+            return Nothing
 
+
+-- | Reconnect with the stored settings. Returns Just the error when the
+-- reconnect attempt fails and Nothing when no failure was encountered
+reconnect :: Maybe Int -- ^ maximum number of retries (Nothing for
+                       -- unbounded). Numbers of 1 or less will perform exactly
+                       -- one retry
+          -> Session -- ^ session to reconnect
+          -> IO (Maybe XmppFailure) -- ^ The failure mode of the last retry
+reconnect maxTries sess@Session{reconnectWait = rw} = go maxTries
+  where
+    go Nothing = do
+        res <- doRetry
+        case res of
+            Nothing -> return Nothing
+            Just _e  -> go Nothing
+    go (Just t) = do
+        res <- doRetry
+        case res of
+            Nothing -> return Nothing
+            Just e  -> if (t > 1) then go (Just $ t - 1)
+                                  else return $ Just e
+    doRetry = do
+        wait <- atomically $ do
+            wt <- readTVar rw
+            writeTVar rw $ min 300 (2 * wt + 5)
+            return wt
+        t <- randomRIO (wait `div` 2, wait)
+        debugM "Pontarius.Xmpp" $
+            "Waiting " ++ show t ++ " seconds before reconnecting"
+        threadDelay $ t * 10^(6 :: Int)
+        reconnectNow sess
 
 
 newStanzaID :: Session -> IO StanzaID
