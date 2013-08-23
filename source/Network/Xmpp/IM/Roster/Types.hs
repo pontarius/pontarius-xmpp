@@ -4,6 +4,8 @@ import qualified Data.Map as Map
 import           Data.Text (Text)
 import           Network.Xmpp.Types
 
+-- Note that `Remove' is not exported from IM.hs, as it will never be visible to
+-- the user anyway.
 data Subscription = None | To | From | Both | Remove deriving (Eq, Read, Show)
 
 data Roster = Roster { ver :: Maybe Text
