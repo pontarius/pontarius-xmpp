@@ -136,7 +136,7 @@ newSession stream config realm mbSasl = runErrorT $ do
     iqHands  <- lift $ newTVarIO (Map.empty, Map.empty)
     eh <- lift $ newEmptyTMVarIO
     ros <- liftIO . newTVarIO $ Roster Nothing Map.empty
-    rew <- lift $ newTVarIO 3
+    rew <- lift $ newTVarIO 15
     let rosterH = if (enableRoster config) then handleRoster ros
                                            else \ _ _ -> return True
     let stanzaHandler = runHandlers writeSem
@@ -226,7 +226,7 @@ reconnectNow sess@Session{conf = config, reconnectWait = rw} = do
         Left e -> return $ Just e
         Right (Left e) -> return $ Just e
         Right (Right ()) -> do
-            atomically $ writeTVar rw 3
+            atomically $ writeTVar rw 15
             when (enableRoster config) $ initRoster sess
             return Nothing
 
@@ -254,9 +254,9 @@ reconnect maxTries sess@Session{reconnectWait = rw} = go maxTries
     doRetry = do
         wait <- atomically $ do
             wt <- readTVar rw
-            writeTVar rw $ min 300 (2 * wt + 5)
+            writeTVar rw $ min 300 (2 * wt)
             return wt
-        t <- randomRIO (wait `div` 2, wait)
+        t <- randomRIO (wait `div` 4, max 30 wait)
         debugM "Pontarius.Xmpp" $
             "Waiting " ++ show t ++ " seconds before reconnecting"
         threadDelay $ t * 10^(6 :: Int)
