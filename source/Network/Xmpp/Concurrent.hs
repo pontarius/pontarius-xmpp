@@ -16,6 +16,7 @@ module Network.Xmpp.Concurrent
   , reconnectNow
   ) where
 
+import           Control.Applicative ((<$>))
 import           Control.Concurrent (threadDelay)
 import           Control.Concurrent.STM
 import qualified Control.Exception as Ex
@@ -136,7 +137,7 @@ newSession stream config realm mbSasl = runErrorT $ do
     iqHands  <- lift $ newTVarIO (Map.empty, Map.empty)
     eh <- lift $ newEmptyTMVarIO
     ros <- liftIO . newTVarIO $ Roster Nothing Map.empty
-    rew <- lift $ newTVarIO 15
+    rew <- lift $ newTVarIO 60
     let rosterH = if (enableRoster config) then handleRoster ros
                                            else \ _ _ -> return True
     let stanzaHandler = runHandlers writeSem
@@ -226,41 +227,59 @@ reconnectNow sess@Session{conf = config, reconnectWait = rw} = do
         Left e -> return $ Just e
         Right (Left e) -> return $ Just e
         Right (Right ()) -> do
-            atomically $ writeTVar rw 15
+            atomically $ writeTVar rw 60
             when (enableRoster config) $ initRoster sess
             return Nothing
 
 
--- | Reconnect with the stored settings. Returns Just the error when the
--- reconnect attempt fails and Nothing when no failure was encountered
-reconnect :: Maybe Int -- ^ maximum number of retries (Nothing for
-                       -- unbounded). Numbers of 1 or less will perform exactly
-                       -- one retry
+-- | Reconnect with the stored settings. Returns a list of errors when the
+-- reconnect attempt fail and Nothing when no failure was encountered
+--
+-- Waits a random amount of seconds (between 0 and 60 inclusive) before the
+-- first attempt and an increasing amount after each attempt after that. Caps
+-- out at 2-5 minutes.
+reconnect :: Integer -- ^ maximum number of retries (Nothing for
+                     -- unbounded). Numbers of 1 or less will perform exactly
+                     -- one retry
           -> Session -- ^ session to reconnect
-          -> IO (Maybe XmppFailure) -- ^ The failure mode of the last retry
-reconnect maxTries sess@Session{reconnectWait = rw} = go maxTries
+          -> IO [XmppFailure] -- ^ The failure modes of the retries
+reconnect maxTries sess = go maxTries
   where
-    go Nothing = do
-        res <- doRetry
+    go t = do
+        res <- doRetry sess
         case res of
-            Nothing -> return Nothing
-            Just _e  -> go Nothing
-    go (Just t) = do
-        res <- doRetry
+            Nothing -> return []
+            Just e  -> if (t > 1) then (e:) <$> go (t - 1)
+                                  else return $ [e]
+
+-- | Reconnect with the stored settings with an unlimited number of retries.
+--
+-- Waits a random amount of seconds (between 0 and 60 inclusive) before the
+-- first attempt and an increasing amount after each attempt after that. Caps
+-- out at 2-5 minutes.
+--
+reconnect' :: Session -- ^ session to reconnect
+          -> IO Integer -- ^ number of failed retries before connection could be
+                        -- established
+reconnect' sess = go 0
+  where
+    go i = do
+        res <- doRetry sess
         case res of
-            Nothing -> return Nothing
-            Just e  -> if (t > 1) then go (Just $ t - 1)
-                                  else return $ Just e
-    doRetry = do
-        wait <- atomically $ do
-            wt <- readTVar rw
-            writeTVar rw $ min 300 (2 * wt)
-            return wt
-        t <- randomRIO (wait `div` 4, max 30 wait)
-        debugM "Pontarius.Xmpp" $
-            "Waiting " ++ show t ++ " seconds before reconnecting"
-        threadDelay $ t * 10^(6 :: Int)
-        reconnectNow sess
+            Nothing -> return i
+            Just e  -> go (i+1)
+
+
+doRetry sess@Session{reconnectWait = rw} = do
+    wait <- atomically $ do
+        wt <- readTVar rw
+        writeTVar rw $ min 300 (2 * wt)
+        return wt
+    t <- randomRIO (wait `div` 2 - 30, max 60 wait)
+    debugM "Pontarius.Xmpp" $
+        "Waiting " ++ show t ++ " seconds before reconnecting"
+    threadDelay $ t * 10^(6 :: Int)
+    reconnectNow sess
 
 
 newStanzaID :: Session -> IO StanzaID
