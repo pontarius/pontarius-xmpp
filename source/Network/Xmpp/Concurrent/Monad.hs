@@ -91,12 +91,18 @@ runHandler h session = h =<< atomically (readTMVar $ eventHandlers session)
 
 
 -- | End the current Xmpp session.
+-- Kills the associated threads and closes the connection.
+--
+-- The connectionClosedHandler will not be called (to avoid possibly
+-- reestablishing the connection)
 endSession :: Session -> IO ()
 endSession session =  do -- TODO: This has to be idempotent (is it?)
+    stopThreads session
     _ <- flip withConnection session $ \stream -> do
         _ <- closeStreams stream
         return ((), stream)
-    stopThreads session
+    return ()
+
 
 -- | Close the connection to the server. Closes the stream (by enforcing a
 -- write lock and sending a </stream:stream> element), waits (blocks) for three
