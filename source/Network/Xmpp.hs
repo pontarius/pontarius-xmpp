@@ -29,6 +29,7 @@ module Network.Xmpp
   , session
   , setConnectionClosedHandler
   , reconnect
+  , reconnect'
   , reconnectNow
   , StreamConfiguration(..)
   , SessionConfiguration(..)
