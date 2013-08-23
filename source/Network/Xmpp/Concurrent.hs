@@ -269,9 +269,9 @@ reconnect' sess = go 0
         res <- doRetry sess
         case res of
             Nothing -> return i
-            Just e  -> go (i+1)
+            Just _e  -> go (i+1)
 
-
+doRetry :: Session -> IO (Maybe XmppFailure)
 doRetry sess@Session{reconnectWait = rw} = do
     wait <- atomically $ do
         wt <- readTVar rw

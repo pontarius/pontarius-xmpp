@@ -52,6 +52,7 @@ getFeatures Session{streamRef = st} = do
     s <- atomically $ readTMVar st
     withStream' (gets streamFeatures) s
 
+-- | Wait until the connection of the stream is re-established
 waitForStream :: Session -> IO ()
 waitForStream Session{streamRef = sr} = atomically $ do
     s <- readTMVar sr

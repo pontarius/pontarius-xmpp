@@ -1,4 +1,6 @@
-{-# LANGUAGE OverloadedStrings, NoMonomorphismRestriction #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE NoMonomorphismRestriction #-}
+{-# LANGUAGE QuasiQuotes #-}
 module Example where
 
 import           Control.Concurrent
@@ -21,6 +23,7 @@ import           Network.Xmpp.IM.Presence
 import           Network.Xmpp.Internal
 import           Network.Xmpp.Marshal
 import           Network.Xmpp.Types
+import           Network.Xmpp.Utilities (renderElement)
 -- import qualified Network.Xmpp.Xep.InbandRegistration as IBR
 import           Data.Default (def)
 import qualified Network.Xmpp.Xep.ServiceDiscovery as Disco
@@ -28,13 +31,13 @@ import           System.Environment
 import           System.Log.Logger
 
 testUser1 :: Jid
-testUser1 = parseJid "echo1@species64739.dyndns.org/bot"
+testUser1 = [jidQ|echo1@species64739.dyndns.org/bot|]
 
 testUser2 :: Jid
-testUser2 = parseJid "echo2@species64739.dyndns.org/bot"
+testUser2 = [jidQ|echo2@species64739.dyndns.org/bot|]
 
 supervisor :: Jid
-supervisor = parseJid "uart14@species64739.dyndns.org"
+supervisor = [jidQ|uart14@species64739.dyndns.org|]
 
 config = def{sessionStreamConfiguration
               = def{connectionDetails = UseHost "localhost" (PortNumber 5222)}}
@@ -117,23 +120,23 @@ expect debug x y context | x == y = debug "Ok."
 wait3 :: MonadIO m => m ()
 wait3 = liftIO $ threadDelay 1000000
 
--- discoTest debug context = do
---     q <- Disco.queryInfo "species64739.dyndns.org" Nothing context
---     case q of
---         Left (Disco.DiscoXMLError el e) -> do
---             debug (ppElement el)
---             debug (Text.unpack $ ppUnpickleError e)
---             debug (show $ length $ elementNodes el)
---         x -> debug $ show x
+discoTest debug context = do
+    q <- Disco.queryInfo [jidQ|species64739.dyndns.org|] Nothing context
+    case q of
+        Left (Disco.DiscoXmlError el e) -> do
+            debug (show $ renderElement el)
+            debug (ppUnpickleError e)
+            debug (show $ length $ elementNodes el)
+        x -> debug $ show x
 
---     q <-  Disco.queryItems "species64739.dyndns.org"
---                      (Just "http://jabber.org/protocol/commands") context
---     case q of
---         Left (Disco.DiscoXMLError el e) -> do
---             debug (ppElement el)
---             debug (Text.unpack $ ppUnpickleError e)
---             debug (show $ length $ elementNodes el)
---         x -> debug $ show x
+    q <-  Disco.queryItems [jidQ|species64739.dyndns.org|]
+                     (Just "http://jabber.org/protocol/commands") context
+    case q of
+        Left (Disco.DiscoXmlError el e) -> do
+            debug (show $ renderElement el)
+            debug (ppUnpickleError e)
+            debug (show $ length $ elementNodes el)
+        x -> debug $ show x
 
 iqTest debug we them context = do
     forM [1..10] $ \count -> do
@@ -178,7 +181,7 @@ runMain debug number multi = do
   thread2 <- forkIO $ iqResponder =<< dupSession context
   when active $ do
     liftIO $ threadDelay 1000000 -- Wait for the other thread to go online
---    discoTest debug'
+    discoTest debug' context
 --    when multi $ iqTest debug' we them context
     killThread thread1
     killThread thread2
@@ -198,7 +201,7 @@ run i multi = do
 
 main = do
     updateGlobalLogger "Pontarius.Xmpp" $ setLevel DEBUG
-    run 0 True
+    run 1 False
 
 
 connectionClosedTest = do
@@ -209,10 +212,14 @@ connectionClosedTest = do
   Right context <- session (Text.unpack $ domainpart we)
                (Just (\_ -> [scramSha1 (fromJust $ localpart we) Nothing "pwd"], resourcepart we))
                 config {onConnectionClosed = \s e -> do
-                             liftIO $ reconnect Nothing s
+                             liftIO $ reconnect' s
                              liftIO $ sendPresence presenceOnline s
                              return ()
                        }
   sendPresence presenceOnline context
+  forkIO $ do
+      threadDelay 1000000
+      endSession context
+      debug' "done"
   forever $ threadDelay 1000000
   return ()
