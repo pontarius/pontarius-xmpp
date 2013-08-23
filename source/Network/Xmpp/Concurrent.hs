@@ -284,5 +284,5 @@ doRetry sess@Session{reconnectWait = rw} = do
     reconnectNow sess
 
 
-newStanzaID :: Session -> IO StanzaID
+newStanzaID :: Session -> IO Text
 newStanzaID = idGenerator

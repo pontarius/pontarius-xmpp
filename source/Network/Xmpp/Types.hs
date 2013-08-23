@@ -18,7 +18,6 @@ module Network.Xmpp.Types
     , IQRequestType(..)
     , IQResponse(..)
     , IQResult(..)
-    , IdGenerator(..)
     , LangTag (..)
     , langTagFromText
     , langTagToText
@@ -38,7 +37,6 @@ module Network.Xmpp.Types
     , StanzaError(..)
     , StanzaErrorCondition(..)
     , StanzaErrorType(..)
-    , StanzaID(..)
     , XmppFailure(..)
     , StreamErrorCondition(..)
     , Version(..)
@@ -97,15 +95,6 @@ import           Network.TLS.Extra
 import qualified Text.NamePrep as SP
 import qualified Text.StringPrep as SP
 
--- |
--- Wraps a string of random characters that, when using an appropriate
--- @IdGenerator@, is guaranteed to be unique for the Xmpp session.
-
-data StanzaID = StanzaID !Text deriving (Eq, Ord, Read, Show)
-
-instance IsString StanzaID where
-  fromString = StanzaID . Text.pack
-
 -- | The Xmpp communication primities (Message, Presence and Info/Query) are
 -- called stanzas.
 data Stanza = IQRequestS     !IQRequest
@@ -119,7 +108,7 @@ data Stanza = IQRequestS     !IQRequest
 
 -- | A "request" Info/Query (IQ) stanza is one with either "get" or "set" as
 -- type. It always contains an xml payload.
-data IQRequest = IQRequest { iqRequestID      :: !StanzaID
+data IQRequest = IQRequest { iqRequestID      :: !Text
                            , iqRequestFrom    :: !(Maybe Jid)
                            , iqRequestTo      :: !(Maybe Jid)
                            , iqRequestLangTag :: !(Maybe LangTag)
@@ -138,7 +127,7 @@ data IQResponse = IQResponseError IQError
                 deriving Show
 
 -- | The (non-error) answer to an IQ request.
-data IQResult = IQResult { iqResultID      :: !StanzaID
+data IQResult = IQResult { iqResultID      :: !Text
                          , iqResultFrom    :: !(Maybe Jid)
                          , iqResultTo      :: !(Maybe Jid)
                          , iqResultLangTag :: !(Maybe LangTag)
@@ -146,7 +135,7 @@ data IQResult = IQResult { iqResultID      :: !StanzaID
                          } deriving Show
 
 -- | The answer to an IQ request that generated an error.
-data IQError = IQError { iqErrorID          :: !StanzaID
+data IQError = IQError { iqErrorID          :: !Text
                        , iqErrorFrom        :: !(Maybe Jid)
                        , iqErrorTo          :: !(Maybe Jid)
                        , iqErrorLangTag     :: !(Maybe LangTag)
@@ -155,7 +144,7 @@ data IQError = IQError { iqErrorID          :: !StanzaID
                        } deriving Show
 
 -- | The message stanza. Used for /push/ type communication.
-data Message = Message { messageID      :: !(Maybe StanzaID)
+data Message = Message { messageID      :: !(Maybe Text)
                        , messageFrom    :: !(Maybe Jid)
                        , messageTo      :: !(Maybe Jid)
                        , messageLangTag :: !(Maybe LangTag)
@@ -179,7 +168,7 @@ instance Default Message where
     def = message
 
 -- | An error stanza generated in response to a 'Message'.
-data MessageError = MessageError { messageErrorID          :: !(Maybe StanzaID)
+data MessageError = MessageError { messageErrorID          :: !(Maybe Text)
                                  , messageErrorFrom        :: !(Maybe Jid)
                                  , messageErrorTo          :: !(Maybe Jid)
                                  , messageErrorLangTag     :: !(Maybe LangTag)
@@ -226,7 +215,7 @@ data MessageType = -- | The message is sent in the context of a one-to-one chat
                  deriving (Eq, Read, Show)
 
 -- | The presence stanza. Used for communicating status updates.
-data Presence = Presence { presenceID      :: !(Maybe StanzaID)
+data Presence = Presence { presenceID      :: !(Maybe Text)
                          , presenceFrom    :: !(Maybe Jid)
                          , presenceTo      :: !(Maybe Jid)
                          , presenceLangTag :: !(Maybe LangTag)
@@ -248,7 +237,7 @@ instance Default Presence where
     def = presence
 
 -- | An error stanza generated in response to a 'Presence'.
-data PresenceError = PresenceError { presenceErrorID          :: !(Maybe StanzaID)
+data PresenceError = PresenceError { presenceErrorID          :: !(Maybe Text)
                                    , presenceErrorFrom        :: !(Maybe Jid)
                                    , presenceErrorTo          :: !(Maybe Jid)
                                    , presenceErrorLangTag     :: !(Maybe LangTag)
@@ -551,14 +540,6 @@ instance Error AuthFailure where
 -- =============================================================================
 --  XML TYPES
 -- =============================================================================
-
-
--- | Wraps a function that MUST generate a stream of unique Ids. The
---   strings MUST be appropriate for use in the stanza id attirubte.
---   For a default implementation, see @idGenerator@.
-
-newtype IdGenerator = IdGenerator (IO Text)
-
 
 -- | XMPP version number. Displayed as "<major>.<minor>". 2.4 is lesser than
 -- 2.13, which in turn is lesser than 12.3.
