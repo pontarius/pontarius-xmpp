@@ -9,8 +9,13 @@ ADDR")](http://tools.ietf.org/html/rfc6122). Pontarius XMPP is part of [the
 Pontarius project](http://www.pontarius.org/), an effort to produce free and
 open source, uncentralized, and privacy-aware software solutions.
 
+While in alpha, Pontarius XMPP works quite well and fulfills most requirements
+of the RFCs.
+
 Prerequisites
 -------------
+
+Pontarius XMPP requires GHC 7.0, or later.
 
 You will need the ICU Unicode library and it's header files in order to be able
 to build Pontarius XMPP. On Debian, you will need to install the *libicu-dev*
@@ -96,6 +101,10 @@ back to the recipient. This can be done like so:
         case answerMessage msg (messagePayload msg) of
             Just answer -> sendMessage answer sess
             Nothing -> putStrLn "Received message with no sender."
+
+You don't need to worry about escaping your <code>Text</code> values - Pontarius
+XMPP (or rather, [xml-picklers](https://github.com/Philonous/xml-picklers)) will
+take care of that for you.
 
 Additional XMPP threads can be created using <code>dupSession</code> and
 <code>forkIO</code>.
