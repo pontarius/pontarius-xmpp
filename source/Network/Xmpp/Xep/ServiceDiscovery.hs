@@ -16,7 +16,6 @@ module Network.Xmpp.Xep.ServiceDiscovery
   )
   where
 
-import           Control.Applicative((<$>))
 import           Control.Monad.IO.Class
 import           Control.Monad.Error
 
@@ -53,7 +52,7 @@ discoInfoNS :: Text.Text
 discoInfoNS = "http://jabber.org/protocol/disco#info"
 
 infoN :: Text.Text -> Name
-infoN name = (Name name (Just discoInfoNS) Nothing)
+infoN name = Name name (Just discoInfoNS) Nothing
 
 xpIdentities = xpWrap (map $(\(cat, n, tp, lang) -> Ident cat n tp lang) . fst)
                (map $ \(Ident cat n tp lang) -> ((cat, n, tp, lang),())) $
@@ -89,9 +88,10 @@ queryInfo :: Jid -- ^ Entity to query
 queryInfo to node context = do
     res <- sendIQ' (Just to) Get Nothing queryBody context
     return $ case res of
-        IQResponseError e -> Left $ DiscoIQError (Just e)
-        IQResponseTimeout -> Left $ DiscoTimeout
-        IQResponseResult r -> case iqResultPayload r of
+        Nothing -> Left $ DiscoIQError Nothing
+        Just (IQResponseError e) -> Left $ DiscoIQError (Just e)
+        Just IQResponseTimeout -> Left $ DiscoTimeout
+        Just (IQResponseResult r) -> case iqResultPayload r of
             Nothing -> Left DiscoNoQueryElement
             Just p -> case unpickleElem xpQueryInfo p of
                 Left e -> Left $ DiscoXmlError p e
@@ -155,9 +155,10 @@ queryItems :: Jid -- ^ Entity to query
 queryItems to node session = do
     res <- sendIQ' (Just to) Get Nothing queryBody session
     return $ case res of
-        IQResponseError e -> Left $ DiscoIQError (Just e)
-        IQResponseTimeout -> Left $ DiscoTimeout
-        IQResponseResult r -> case iqResultPayload r of
+        Nothing -> Left $ DiscoIQError Nothing
+        Just (IQResponseError e) -> Left $ DiscoIQError (Just e)
+        Just IQResponseTimeout -> Left $ DiscoTimeout
+        Just (IQResponseResult r) -> case iqResultPayload r of
             Nothing -> Left DiscoNoQueryElement
             Just p -> case unpickleElem xpQueryItems p of
                 Left e -> Left $ DiscoXmlError p e
