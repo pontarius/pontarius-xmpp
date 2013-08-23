@@ -17,6 +17,7 @@ module Network.Xmpp.Concurrent
   ) where
 
 import           Control.Applicative ((<$>))
+import           Control.Arrow (second)
 import           Control.Concurrent (threadDelay)
 import           Control.Concurrent.STM
 import qualified Control.Exception as Ex
@@ -242,15 +243,15 @@ reconnect :: Integer -- ^ maximum number of retries (Nothing for
                      -- unbounded). Numbers of 1 or less will perform exactly
                      -- one retry
           -> Session -- ^ session to reconnect
-          -> IO [XmppFailure] -- ^ The failure modes of the retries
+          -> IO (Bool, [XmppFailure]) -- ^ The failure modes of the retries
 reconnect maxTries sess = go maxTries
   where
     go t = do
         res <- doRetry sess
         case res of
-            Nothing -> return []
-            Just e  -> if (t > 1) then (e:) <$> go (t - 1)
-                                  else return $ [e]
+            Nothing -> return (True, [])
+            Just e  -> if (t > 1) then (second (e:)) <$> go (t - 1)
+                                  else return $ (False, [e])
 
 -- | Reconnect with the stored settings with an unlimited number of retries.
 --
