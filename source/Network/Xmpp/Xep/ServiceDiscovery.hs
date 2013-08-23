@@ -80,7 +80,7 @@ xpQueryInfo = xpWrap (\(nd, (feats, ids)) -> QIR nd ids feats)
                      xpIdentities
                      )
 
--- | Query an entity for it's identity and features
+-- | Query an entity for its identity and features
 queryInfo :: Jid -- ^ Entity to query
           -> Maybe Text.Text -- ^ Node
           -> Session
@@ -138,7 +138,7 @@ xpItem = xpWrap (\(jid, name, node) -> Item jid name node)
                 (\(Item jid name node) -> (jid, name, node)) $
          xpElemAttrs (itemsN "item")
            (xp3Tuple
-              (xpAttr "jid" xpPrim)
+              (xpAttr "jid" xpJid)
               (xpAttrImplied "name" xpText)
               (xpAttrImplied "node" xpText))
 
