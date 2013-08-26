@@ -79,7 +79,6 @@ import qualified Data.ByteString as BS
 import           Data.Conduit
 import           Data.Default
 import qualified Data.Set as Set
-import           Data.String (IsString(..))
 import           Data.Text (Text)
 import qualified Data.Text as Text
 import           Data.Typeable(Typeable)
@@ -392,11 +391,11 @@ data StreamErrorCondition
                         -- Server Dialback, or (2) between a client and a server
                         -- via SASL authentication and resource binding.
     | StreamInvalidNamespace -- ^ The stream namespace name is something other
-                             -- than "http://etherx.jabber.org/streams" (see
+                             -- than \"http://etherx.jabber.org/streams\" (see
                              -- Section 11.2) or the content namespace declared
                              -- as the default namespace is not supported (e.g.,
                              -- something other than "jabber:client" or
-                             -- "jabber:server").
+                             -- \"jabber:server\").
     | StreamInvalidXml -- ^ The entity has sent invalid XML over the stream to a
                        -- server that performs validation
     | StreamNotAuthorized -- ^ The entity has attempted to send XML stanzas or
@@ -541,7 +540,7 @@ instance Error AuthFailure where
 --  XML TYPES
 -- =============================================================================
 
--- | XMPP version number. Displayed as "<major>.<minor>". 2.4 is lesser than
+-- | XMPP version number. Displayed as "\<major\>.\<minor\>". 2.4 is lesser than
 -- 2.13, which in turn is lesser than 12.3.
 
 data Version = Version { majorVersion :: !Integer
@@ -756,6 +755,12 @@ instance Read Jid where
                                             -- or the `parseJid' error message (see below)
 
 #if WITH_TEMPLATE_HASKELL
+-- | Constructs a @Jid@ value at compile time.
+--  
+-- Syntax:
+-- @
+--     [jidQ|localpart\@domainpart/resourcepart|]
+-- @
 jidQ :: QuasiQuoter
 jidQ = QuasiQuoter { quoteExp = \s -> do
                           when (head s == ' ') . fail $ "Leading whitespaces in JID" ++ show s

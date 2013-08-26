@@ -283,6 +283,7 @@ doRetry sess@Session{reconnectWait = rw} = do
     threadDelay $ t * 10^(6 :: Int)
     reconnectNow sess
 
-
+-- | Generates a new stanza identifier based on the 'sessionStanzaIDs' field of
+-- 'SessionConfiguration'.
 newStanzaID :: Session -> IO Text
 newStanzaID = idGenerator

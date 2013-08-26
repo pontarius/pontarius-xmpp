@@ -327,9 +327,9 @@ openStream realm config = runErrorT $ do
     ErrorT . liftIO $ withStream startStream stream'
     return stream'
 
--- | Send "</stream:stream>" and wait for the server to finish processing and to
--- close the connection. Any remaining elements from the server are returned.
--- Surpresses StreamEndFailure exceptions, but may throw a StreamCloseError.
+-- | Send \"</stream:stream>\" and wait for the server to finish processing and
+-- to close the connection. Any remaining elements from the server are returned.
+-- Surpresses 'StreamEndFailure' exceptions, but may throw a 'StreamCloseError'.
 closeStreams :: Stream -> IO ()
 closeStreams = withStream closeStreams'
 
