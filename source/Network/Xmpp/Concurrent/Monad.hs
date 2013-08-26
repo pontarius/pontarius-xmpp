@@ -90,11 +90,14 @@ runHandler :: (EventHandlers -> IO a) -> Session -> IO a
 runHandler h session = h =<< atomically (readTMVar $ eventHandlers session)
 
 
--- | End the current Xmpp session.
--- Kills the associated threads and closes the connection.
+-- | End the current XMPP session. Kills the associated threads and closes the
+-- connection.
+--
+-- Note that XMPP clients (that has signalled availability) should send
+-- \"Unavailable\" presence prior to disconnecting.
 --
 -- The connectionClosedHandler will not be called (to avoid possibly
--- reestablishing the connection)
+-- reestablishing the connection).
 endSession :: Session -> IO ()
 endSession session =  do -- TODO: This has to be idempotent (is it?)
     stopThreads session
@@ -105,8 +108,8 @@ endSession session =  do -- TODO: This has to be idempotent (is it?)
 
 
 -- | Close the connection to the server. Closes the stream (by enforcing a
--- write lock and sending a </stream:stream> element), waits (blocks) for three
--- seconds, and then closes the connection.
+-- write lock and sending a \</stream:stream\> element), waits (blocks) for
+-- three seconds, and then closes the connection.
 closeConnection :: Session -> IO ()
 closeConnection session = do
     _ <-flip withConnection session $ \stream -> do

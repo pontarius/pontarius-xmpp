@@ -195,8 +195,11 @@ session realm mbSasl config = runErrorT $ do
     liftIO $ when (enableRoster config) $ initRoster ses
     return ses
 
--- | Reconnect immediately with the stored settings. Returns Just the error when
--- the reconnect attempt fails and Nothing when no failure was encountered
+-- | Reconnect immediately with the stored settings. Returns @Just@ the error
+-- when the reconnect attempt fails and Nothing when no failure was encountered.
+--
+-- This function does not set your presence to online, so you will have to do
+-- this yourself.
 reconnectNow :: Session -- ^ session to reconnect
           -> IO (Maybe XmppFailure)
 reconnectNow sess@Session{conf = config, reconnectWait = rw} = do
@@ -234,17 +237,20 @@ reconnectNow sess@Session{conf = config, reconnectWait = rw} = do
             return Nothing
 
 
--- | Reconnect with the stored settings. Returns a list of errors when the
--- reconnect attempt fail and Nothing when no failure was encountered
+-- | Reconnect with the stored settings.
 --
 -- Waits a random amount of seconds (between 0 and 60 inclusive) before the
 -- first attempt and an increasing amount after each attempt after that. Caps
 -- out at 2-5 minutes.
-reconnect :: Integer -- ^ maximum number of retries (Nothing for
-                     -- unbounded). Numbers of 1 or less will perform exactly
-                     -- one retry
-          -> Session -- ^ session to reconnect
-          -> IO (Bool, [XmppFailure]) -- ^ The failure modes of the retries
+--
+-- This function does not set your presence to online, so you will have to do
+-- this yourself.
+reconnect :: Integer -- ^ Maximum number of retries (numbers of 1 or less will
+                     -- perform exactly one retry)
+          -> Session -- ^ Session to reconnect
+          -> IO (Bool, [XmppFailure]) -- ^ Whether or not the reconnect attempt
+                                      -- was successful, and a list of failure
+                                      -- modes encountered
 reconnect maxTries sess = go maxTries
   where
     go t = do
@@ -260,8 +266,10 @@ reconnect maxTries sess = go maxTries
 -- first attempt and an increasing amount after each attempt after that. Caps
 -- out at 2-5 minutes.
 --
-reconnect' :: Session -- ^ session to reconnect
-          -> IO Integer -- ^ number of failed retries before connection could be
+-- This function does not set your presence to online, so you will have to do
+-- this yourself.
+reconnect' :: Session -- ^ Session to reconnect
+          -> IO Integer -- ^ Number of failed retries before connection could be
                         -- established
 reconnect' sess = go 0
   where
