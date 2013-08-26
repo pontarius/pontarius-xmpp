@@ -1,6 +1,6 @@
 Name:          pontarius-xmpp
 Version:       0.3.0.0
-Cabal-Version: >= 1.4
+Cabal-Version: >= 1.6
 Build-Type:    Simple
 License:       BSD3
 License-File:  LICENSE.md
