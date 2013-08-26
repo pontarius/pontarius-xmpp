@@ -30,7 +30,6 @@ module Network.Xmpp.Internal
   , pullStanza
   , pushIQ
   , SaslHandler
-  , StanzaID(..)
   , Stanza(..)
   , TlsBehaviour(..)
  )

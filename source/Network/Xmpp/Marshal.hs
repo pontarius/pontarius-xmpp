@@ -48,7 +48,7 @@ xpMessage = ("xpMessage" , "") <?+> xpWrap
     (xpElem "{jabber:client}message"
          (xp5Tuple
              (xpDefault Normal $ xpAttr "type" xpMessageType)
-             (xpAttrImplied "id"   xpStanzaID)
+             (xpAttrImplied "id"   xpId)
              (xpAttrImplied "from" xpJid)
              (xpAttrImplied "to"   xpJid)
              xpLangTag
@@ -63,7 +63,7 @@ xpPresence = ("xpPresence" , "") <?+> xpWrap
     (\(Presence qid from to lang tp ext) -> ((qid, from, to, lang, tp), ext))
     (xpElem "{jabber:client}presence"
          (xp5Tuple
-              (xpAttrImplied "id"   xpStanzaID)
+              (xpAttrImplied "id"   xpId)
               (xpAttrImplied "from" xpJid)
               (xpAttrImplied "to"   xpJid)
               xpLangTag
@@ -78,7 +78,7 @@ xpIQRequest = ("xpIQRequest" , "") <?+> xpWrap
     (\(IQRequest qid from to lang tp body) -> ((qid, from, to, lang, tp), body))
     (xpElem "{jabber:client}iq"
          (xp5Tuple
-             (xpAttr        "id"   xpStanzaID)
+             (xpAttr        "id"   xpId)
              (xpAttrImplied "from" xpJid)
              (xpAttrImplied "to"   xpJid)
              xpLangTag
@@ -93,7 +93,7 @@ xpIQResult = ("xpIQResult" , "") <?+> xpWrap
     (\(IQResult qid from to lang body) -> ((qid, from, to, lang, ()), body))
     (xpElem "{jabber:client}iq"
          (xp5Tuple
-             (xpAttr        "id"   xpStanzaID)
+             (xpAttr        "id"   xpId)
              (xpAttrImplied "from" xpJid)
              (xpAttrImplied "to"   xpJid)
              xpLangTag
@@ -142,7 +142,7 @@ xpMessageError = ("xpMessageError" , "") <?+> xpWrap
     (xpElem "{jabber:client}message"
          (xp5Tuple
               (xpAttrFixed   "type" "error")
-              (xpAttrImplied "id"   xpStanzaID)
+              (xpAttrImplied "id"   xpId)
               (xpAttrImplied "from" xpJid)
               (xpAttrImplied "to"   xpJid)
               (xpAttrImplied xmlLang xpLang)
@@ -159,7 +159,7 @@ xpPresenceError = ("xpPresenceError" , "") <?+> xpWrap
         ((qid, from, to, lang, ()), (err, ext)))
     (xpElem "{jabber:client}presence"
          (xp5Tuple
-              (xpAttrImplied "id"   xpStanzaID)
+              (xpAttrImplied "id"   xpId)
               (xpAttrImplied "from" xpJid)
               (xpAttrImplied "to"   xpJid)
               xpLangTag
@@ -176,7 +176,7 @@ xpIQError = ("xpIQError" , "") <?+> xpWrap
         ((qid, from, to, lang, ()), (err, body)))
     (xpElem "{jabber:client}iq"
          (xp5Tuple
-              (xpAttr        "id"   xpStanzaID)
+              (xpAttr        "id"   xpId)
               (xpAttrImplied "from" xpJid)
               (xpAttrImplied "to"   xpJid)
               xpLangTag
@@ -291,16 +291,6 @@ xpJid = ("xpJid", "") <?>
                                    Nothing -> Left "Could not parse JID."
                                    Just j -> Right j)
                   jidToText
-
-xpStanzaID :: PU Text StanzaID
-xpStanzaID = ("xpStanzaID", "") <?>
-        xpPartial ( \input -> case stanzaIDFromText input of
-                                   Nothing -> Left "Could not parse StanzaID."
-                                   Just j -> Right j)
-                  stanzaIDToText
-  where
-    stanzaIDFromText t = Just $ StanzaID t
-    stanzaIDToText (StanzaID s) = s
 
 xpIQRequestType :: PU Text IQRequestType
 xpIQRequestType = ("xpIQRequestType", "") <?>

@@ -26,7 +26,7 @@ data SessionConfiguration = SessionConfiguration
       -- | Handler to be run when the session ends (for whatever reason).
     , onConnectionClosed         :: Session -> XmppFailure -> IO ()
       -- | Function to generate the stream of stanza identifiers.
-    , sessionStanzaIDs           :: IO (IO StanzaID)
+    , sessionStanzaIDs           :: IO (IO Text)
     , extraStanzaHandlers        :: [StanzaHandler]
     , enableRoster               :: Bool
     }
@@ -39,7 +39,7 @@ instance Default SessionConfiguration where
                                      return . atomically $ do
                                          curId <- readTVar idRef
                                          writeTVar idRef (curId + 1 :: Integer)
-                                         return . StanzaID . Text.pack . show $ curId
+                                         return . Text.pack . show $ curId
                                , extraStanzaHandlers = []
                                , enableRoster = True
                                }
@@ -67,7 +67,7 @@ data Session = Session
       -- Fields below are from Context.
     , writeSemaphore :: WriteSemaphore
     , readerThread :: ThreadId
-    , idGenerator :: IO StanzaID
+    , idGenerator :: IO Text
       -- | Lock (used by withStream) to make sure that a maximum of one
       -- Stream action is executed at any given time.
     , streamRef :: TMVar Stream
@@ -80,10 +80,11 @@ data Session = Session
     , reconnectWait :: TVar Int
     }
 
--- | IQHandlers holds the registered channels for incomming IQ requests and
--- TMVars of and TMVars for expected IQ responses
+-- | IQHandlers holds the registered channels for incoming IQ requests and
+-- TMVars of and TMVars for expected IQ responses (the second Text represent a
+-- stanza identifier.
 type IQHandlers = (Map.Map (IQRequestType, Text) (TChan IQRequestTicket)
-                  , Map.Map StanzaID (TMVar IQResponse)
+                  , Map.Map Text (TMVar IQResponse)
                   )
 
 -- | Contains whether or not a reply has been sent, and the IQ request body to
