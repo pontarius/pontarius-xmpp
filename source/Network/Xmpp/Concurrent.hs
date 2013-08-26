@@ -170,6 +170,39 @@ newSession stream config realm mbSasl = runErrorT $ do
                                                  onConnectionClosed config sess }
     return sess
 
+connectStream :: HostName
+              -> SessionConfiguration
+              -> Maybe (ConnectionState -> [SaslHandler], Maybe Text)
+              -> IO (Either XmppFailure Stream)
+connectStream realm config mbSasl = do
+    Ex.bracketOnError (openStream realm (sessionStreamConfiguration config))
+                      (\s -> case s of
+                                  Left _ -> return ()
+                                  Right stream -> closeStreams stream)
+
+        (\stream' -> case stream' of
+              Left e -> return $ Left e
+              Right stream -> do
+                  res <- runErrorT $ do
+                      ErrorT $ tls stream
+                      cs <- liftIO $ withStream (gets streamConnectionState)
+                                                stream
+                      mbAuthError <- case mbSasl of
+                          Nothing -> return Nothing
+                          Just (handlers, resource) -> ErrorT $ auth (handlers cs)
+                                                                resource stream
+                      case mbAuthError of
+                          Nothing -> return ()
+                          Just e  -> throwError $ XmppAuthFailure e
+                      return stream
+                  case res of
+                      Left e -> do
+                          debugM "Pontarius.Xmpp" "Closing stream after error"
+                          closeStreams stream
+                          return (Left e)
+                      Right r -> return $ Right r
+                  )
+
 -- | Creates a 'Session' object by setting up a connection with an XMPP server.
 --
 -- Will connect to the specified host with the provided configuration. If the
@@ -182,15 +215,7 @@ session :: HostName                          -- ^ The hostname / realm
         -> SessionConfiguration              -- ^ configuration details
         -> IO (Either XmppFailure Session)
 session realm mbSasl config = runErrorT $ do
-    stream <- ErrorT $ openStream realm (sessionStreamConfiguration config)
-    ErrorT $ tls stream
-    cs <- liftIO $ withStream (gets streamConnectionState) stream
-    mbAuthError <- case mbSasl of
-        Nothing -> return Nothing
-        Just (handlers, resource) -> ErrorT $ auth (handlers cs) resource stream
-    case mbAuthError of
-        Nothing -> return ()
-        Just e  -> throwError $ XmppAuthFailure e
+    stream <- ErrorT $ connectStream realm config mbSasl
     ses <- ErrorT $ newSession stream config realm mbSasl
     liftIO $ when (enableRoster config) $ initRoster ses
     return ses
@@ -202,24 +227,10 @@ reconnectNow :: Session -- ^ session to reconnect
 reconnectNow sess@Session{conf = config, reconnectWait = rw} = do
     debugM "Pontarius.Xmpp" "reconnecting"
     res <- flip withConnection sess $ \oldStream -> do
-        s <- runErrorT $ do
-            liftIO $ debugM "Pontarius.Xmpp" "reconnect: closing stream"
-            _ <- liftIO $ closeStreams oldStream
-            liftIO $ debugM "Pontarius.Xmpp" "reconnect: opening stream"
-            stream <- ErrorT $ openStream (sRealm sess)
-                                          (sessionStreamConfiguration config)
-            liftIO $ debugM "Pontarius.Xmpp" "reconnect: tls"
-            ErrorT $ tls stream
-            liftIO $ debugM "Pontarius.Xmpp" "reconnect: auth"
-            cs <- liftIO $ withStream (gets streamConnectionState) stream
-            mbAuthError <- case sSaslCredentials sess of
-                Nothing -> return Nothing
-                Just (handlers, resource) -> ErrorT $ auth (handlers cs)
-                                                           resource stream
-            case mbAuthError of
-                Nothing -> return ()
-                Just e  -> throwError $ XmppAuthFailure e
-            return stream
+        debugM "Pontarius.Xmpp" "reconnect: closing stream"
+        closeStreams oldStream
+        debugM "Pontarius.Xmpp" "reconnect: opening stream"
+        s <- connectStream (sRealm sess) config (sSaslCredentials sess)
         case s of
             Left  e -> do
                 errorM "Pontarius.Xmpp" $ "reconnect failed"  ++ show e

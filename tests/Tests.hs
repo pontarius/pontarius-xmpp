@@ -218,8 +218,8 @@ connectionClosedTest = do
                        }
   sendPresence presenceOnline context
   forkIO $ do
-      threadDelay 1000000
-      endSession context
+      threadDelay 5000000
+      closeConnection context
       debug' "done"
   forever $ threadDelay 1000000
   return ()
