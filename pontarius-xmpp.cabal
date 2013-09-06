@@ -47,7 +47,7 @@ Library
                , conduit              >=1.0.1
                , containers           >=0.4.0.0
                , crypto-api           >=0.9
-               , crypto-random-api    >=0.2
+               , crypto-random        >=0.0.5
                , cryptohash           >=0.6.1
                , cryptohash-cryptoapi >=0.1
                , data-default         >=0.2

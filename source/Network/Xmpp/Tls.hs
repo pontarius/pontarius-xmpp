@@ -1,6 +1,7 @@
 {-# OPTIONS_HADDOCK hide #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PackageImports #-}
 
 module Network.Xmpp.Tls where
 
@@ -8,7 +9,7 @@ import qualified Control.Exception.Lifted as Ex
 import           Control.Monad
 import           Control.Monad.Error
 import           Control.Monad.State.Strict
-import           Crypto.Random.API
+import "crypto-random" Crypto.Random
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BSC8
 import qualified Data.ByteString.Lazy as BL
@@ -121,7 +122,8 @@ tlsinit :: (MonadIO m, MonadIO m1) =>
           )
 tlsinit params backend = do
     liftIO $ debugM "Pontarius.Xmpp.Tls" "TLS with debug mode enabled."
-    gen <- liftIO $ getSystemRandomGen -- TODO: Find better random source?
+    pool <- liftIO $ createEntropyPool
+    let gen = cprgCreate pool :: SystemRNG
     con <- client params gen backend
     handshake con
     let src = forever $ do
