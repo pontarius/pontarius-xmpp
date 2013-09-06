@@ -11,7 +11,7 @@ Maintainer:    info@jonkri.com
 Stability:     alpha
 Homepage:      https://github.com/pontarius/pontarius-xmpp/
 Bug-Reports:   https://github.com/pontarius/pontarius-xmpp/issues/
-Package-URL:   http://www.jonkri.com/releases/pontarius-xmpp-0.3.0.0.tar.gz
+Package-URL:   http://www.jonkri.com/releases/pontarius-xmpp-0.3.0.1.tar.gz
 Synopsis:      An XMPP client library
 Description:   Pontarius XMPP is a work in progress implementation of RFC 6120
                ("XMPP CORE"), RFC 6121 ("XMPP IM"), and RFC 6122 ("XMPP ADDR").
@@ -121,4 +121,4 @@ Source-Repository head
 Source-Repository this
   Type: git
   Location: git://github.com/pontarius/pontarius-xmpp.git
-  Tag: 0.3.0.0
+  Tag: 0.3.0.1
