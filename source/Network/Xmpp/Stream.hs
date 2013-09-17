@@ -608,6 +608,17 @@ connectSrv config host = do
                     "The hostname could not be validated."
                 throwError XmppIllegalTcpDetails
 
+showPort :: PortID -> String
+#if MIN_VERSION_network(2, 4, 1)
+showPort = show
+#else
+showPort (PortNumber x) = "PortNumber " ++ show x
+showPort (Service x) = "Service " ++ show x
+#if !defined(mingw32_HOST_OS) && !defined(__MINGW32__)
+showPort (UnixSocket x) = "UnixSocket " ++ show x
+#endif
+#endif
+
 -- Connects to a list of addresses and ports. Surpresses any exceptions from
 -- connectTcp.
 connectTcp :: [(HostName, PortID)] -> IO (Maybe Handle)
@@ -615,7 +626,7 @@ connectTcp [] = return Nothing
 connectTcp ((address, port):remainder) = do
     result <- Ex.try $ (do
         debugM "Pontarius.Xmpp" $ "Connecting to " ++ address ++ " on port " ++
-            (show port) ++ "."
+            (showPort port) ++ "."
         connectTo address port) :: IO (Either Ex.IOException Handle)
     case result of
         Right handle -> do
