@@ -1,5 +1,6 @@
 {-# OPTIONS_HADDOCK hide #-}
 
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TupleSections #-}
@@ -624,13 +625,21 @@ connectTcp ((address, port):remainder) = do
             debugM "Pontarius.Xmpp" "Connection to HostName could not be established."
             connectTcp remainder
 
+#if MIN_VERSION_dns(1, 0, 0)
+fixDnsResult :: Either e a -> Maybe a
+fixDnsResult = either (const Nothing) Just
+#else
+fixDnsResult :: Maybe a -> Maybe a
+fixDnsResult = id
+#endif
+
 -- Makes an AAAA query to acquire a IPs, and tries to connect to all of them. If
 -- a handle can not be acquired this way, an analogous A query is performed.
 -- Surpresses all IO exceptions.
 resolvAndConnectTcp :: ResolvSeed -> Domain -> Int -> IO (Maybe Handle)
 resolvAndConnectTcp resolvSeed domain port = do
     aaaaResults <- (Ex.try $ rethrowErrorCall $ withResolver resolvSeed $
-                        \resolver -> lookupAAAA resolver domain) :: IO (Either Ex.IOException (Maybe [IPv6]))
+                        \resolver -> fmap fixDnsResult $ lookupAAAA resolver domain) :: IO (Either Ex.IOException (Maybe [IPv6]))
     handle <- case aaaaResults of
         Right Nothing -> return Nothing
         Right (Just ipv6s) -> connectTcp $
@@ -641,7 +650,7 @@ resolvAndConnectTcp resolvSeed domain port = do
     case handle of
         Nothing -> do
             aResults <- (Ex.try $ rethrowErrorCall $ withResolver resolvSeed $
-                             \resolver -> lookupA resolver domain) :: IO (Either Ex.IOException (Maybe [IPv4]))
+                             \resolver -> fmap fixDnsResult $ lookupA resolver domain) :: IO (Either Ex.IOException (Maybe [IPv4]))
             handle' <- case aResults of
                 Left  _       -> return Nothing
                 Right Nothing -> return Nothing
@@ -684,7 +693,7 @@ srvLookup realm resolvSeed = ErrorT $ do
     result <- Ex.try $ rethrowErrorCall $ withResolver resolvSeed
               $ \resolver -> do
         srvResult <- lookupSRV resolver $ BSC8.pack $ "_xmpp-client._tcp." ++ (Text.unpack realm) ++ "."
-        case srvResult of
+        case fixDnsResult srvResult of
             Just [(_, _, _, ".")] -> do
                 debugM "Pontarius.Xmpp" $ "\".\" SRV result returned."
                 return $ Just []
