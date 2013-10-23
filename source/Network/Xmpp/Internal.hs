@@ -29,6 +29,7 @@ module Network.Xmpp.Internal
   , pushStanza
   , pullStanza
   , pushIQ
+  , writeStanza
   , SaslHandler
   , Stanza(..)
   , TlsBehaviour(..)
@@ -41,3 +42,4 @@ import Network.Xmpp.Sasl
 import Network.Xmpp.Sasl.Types
 import Network.Xmpp.Tls
 import Network.Xmpp.Types
+import Network.Xmpp.Concurrent.Basic
