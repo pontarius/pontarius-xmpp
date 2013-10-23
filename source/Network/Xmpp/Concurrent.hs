@@ -52,24 +52,21 @@ runHandlers :: WriteSemaphore -> [StanzaHandler] -> Stanza -> IO ()
 runHandlers _    []        _   = return ()
 runHandlers  sem (h:hands) sta = do
     res <- h sem sta
-    case res of
-        True -> runHandlers sem hands sta
-        False -> return ()
+    forM_ res (runHandlers sem hands)
 
 toChan :: TChan Stanza -> StanzaHandler
 toChan stanzaC _ sta = do
     atomically $ writeTChan stanzaC sta
-    return True
-
+    return [sta]
 
 handleIQ :: TVar IQHandlers
          -> StanzaHandler
 handleIQ iqHands writeSem sta = do
         case sta of
-            IQRequestS     i -> handleIQRequest iqHands i >> return False
-            IQResultS      i -> handleIQResponse iqHands (Right i) >> return False
-            IQErrorS       i -> handleIQResponse iqHands (Left i) >> return False
-            _                -> return True
+            IQRequestS     i -> handleIQRequest iqHands i >> return []
+            IQResultS      i -> handleIQResponse iqHands (Right i) >> return []
+            IQErrorS       i -> handleIQResponse iqHands (Left i)  >> return []
+            _                -> return [sta]
   where
     -- If the IQ request has a namespace, send it through the appropriate channel.
     handleIQRequest :: TVar IQHandlers -> IQRequest -> IO ()
@@ -141,7 +138,7 @@ newSession stream config realm mbSasl = runErrorT $ do
     ros <- liftIO . newTVarIO $ Roster Nothing Map.empty
     rew <- lift $ newTVarIO 60
     let rosterH = if (enableRoster config) then handleRoster ros
-                                           else \ _ _ -> return True
+                                           else \ _ sta -> return [sta]
     let stanzaHandler = runHandlers writeSem
                         $ Prelude.concat [ [ toChan stanzaChan ]
                                          , extraStanzaHandlers

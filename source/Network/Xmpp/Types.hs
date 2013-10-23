@@ -756,7 +756,7 @@ instance Read Jid where
 
 #if WITH_TEMPLATE_HASKELL
 -- | Constructs a @Jid@ value at compile time.
---  
+--
 -- Syntax:
 -- @
 --     [jidQ|localpart\@domainpart/resourcepart|]
@@ -1037,7 +1037,7 @@ instance Default StreamConfiguration where
 
 type StanzaHandler =  TMVar (BS.ByteString -> IO Bool) -- ^ outgoing stanza
                    -> Stanza       -- ^ stanza to handle
-                   -> IO Bool      -- ^ True when processing should continue
+                   -> IO [Stanza]  -- ^ modified stanzas (if any)
 
 -- | How the client should behave in regards to TLS.
 data TlsBehaviour = RequireTls -- ^ Require the use of TLS; disconnect if it's
