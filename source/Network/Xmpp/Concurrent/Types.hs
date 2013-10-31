@@ -23,7 +23,7 @@ import           Network.Xmpp.Sasl.Types
 data SessionConfiguration = SessionConfiguration
     { -- | Configuration for the @Stream@ object.
       sessionStreamConfiguration :: StreamConfiguration
-      -- | Handler to be run when the session ends (for whatever reason).
+      -- | Handler to be run when the conection to the XMPP server is closed.
     , onConnectionClosed         :: Session -> XmppFailure -> IO ()
       -- | Function to generate the stream of stanza identifiers.
     , sessionStanzaIDs           :: IO (IO Text)
@@ -58,7 +58,8 @@ instance Ex.Exception Interrupt
 
 type WriteSemaphore = TMVar (BS.ByteString -> IO Bool)
 
--- | A concurrent interface to Pontarius XMPP.
+-- | The Session object represents a single session with an XMPP server. You can
+-- use 'session' to establish a session
 data Session = Session
     { stanzaCh :: TChan Stanza -- All stanzas
     , iqHandlers :: TVar IQHandlers
@@ -83,13 +84,12 @@ data Session = Session
 -- | IQHandlers holds the registered channels for incoming IQ requests and
 -- TMVars of and TMVars for expected IQ responses (the second Text represent a
 -- stanza identifier.
-type IQHandlers = (Map.Map (IQRequestType, Text) (TChan IQRequestTicket)
+type IQHandlers = ( Map.Map (IQRequestType, Text) (TChan IQRequestTicket)
                   , Map.Map Text (TMVar IQResponse)
                   )
 
 -- | Contains whether or not a reply has been sent, and the IQ request body to
 -- reply to.
-
 data IQRequestTicket = IQRequestTicket
     { answerTicket :: Either StanzaError (Maybe Element) -> IO (Maybe Bool)
                       -- ^ Return Nothing when the IQ request was already
