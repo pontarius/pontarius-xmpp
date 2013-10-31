@@ -1,7 +1,6 @@
+{-# OPTIONS_HADDOCK hide #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
-
-
 
 module Network.Xmpp.Utilities
     ( openElementToEvents

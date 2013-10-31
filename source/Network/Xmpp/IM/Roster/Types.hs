@@ -1,3 +1,4 @@
+{-# OPTIONS_HADDOCK hide #-}
 module Network.Xmpp.IM.Roster.Types where
 
 import qualified Data.Map as Map
