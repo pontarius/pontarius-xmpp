@@ -171,6 +171,14 @@ module Network.Xmpp
   , StanzaErrorType(..)
   , StanzaErrorCondition(..)
   , SaslFailure(..)
+  -- * Lenses
+  -- | import Network.Xmpp.Lens for basic lens functions ('view',
+  -- 'modify' and 'set')
+  , HasStanzaAttrs(..)
+  , HasStanzaID(..)
+  , sid'
+  , HasStanzaPayload(..)
+  , HasStanzaError(..)
   -- * Threads
   , dupSession
   -- * Miscellaneous
@@ -196,3 +204,4 @@ import Network.Xmpp.Sasl.Types
 import Network.Xmpp.Stanza
 import Network.Xmpp.Types
 import Network.Xmpp.Tls
+import Network.Xmpp.Lens

@@ -95,6 +95,7 @@ Library
                  , Network.Xmpp.IM.Presence
                  , Network.Xmpp.IM.Roster
                  , Network.Xmpp.IM.Roster.Types
+                 , Network.Xmpp.Lens
                  , Network.Xmpp.Marshal
                  , Network.Xmpp.Sasl
                  , Network.Xmpp.Sasl.Common

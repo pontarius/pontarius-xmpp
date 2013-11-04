@@ -1,27 +1,55 @@
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FunctionalDependencies #-}
 
-module Network.Xmpp.Lens where
+-- | Van Laarhoven lenses for XMPP types. The lenses are designed to work with
+-- the lens library.
+module Network.Xmpp.Lens
+       ( Lens
+         -- * Accessors
+         -- | Reimplementation of the basic lens functions so you don't have to
+         -- bring in all of lens library in to use the lenses
+       , view
+       , modify
+       , set
+         -- * Lenses
+       , HasStanzaAttrs(..)
+       , HasStanzaID(..)
+       , sid'
+       , HasStanzaPayload(..)
+       , HasStanzaError(..)
+       )
+       where
 
-import Control.Applicative((<$>), Const(..))
-import Network.Xmpp.Types
+import           Control.Applicative((<$>), Const(..))
+import           Data.Functor.Identity(Identity(..))
+import qualified Data.Text as Text
+import           Data.Text(Text)
+import           Data.XML.Types(Element)
+import           Network.Xmpp.Types
 
+-- | Van-Laarhoven lenses.
 type Lens a b = Functor f => (b -> f b) -> a -> f a
 
-class StanzaC s where
+class HasStanzaAttrs s where
+    -- | From-attribute of the stanza
     from :: Lens s (Maybe Jid)
+    -- | To-attribute of the stanza
     to   :: Lens s (Maybe Jid)
+    -- | Langtag of the stanza
     lang :: Lens s (Maybe LangTag)
 
 
-instance StanzaC Message where
+instance HasStanzaAttrs Message where
     from inj m@(Message{messageFrom=f}) = (\f' -> m{messageFrom = f'}) <$> inj f
     to inj m@(Message{messageTo=t}) = (\t' -> m{messageTo = t'}) <$> inj t
     lang inj m@(Message{messageLangTag=t}) =
         (\t' -> m{messageLangTag = t'}) <$> inj t
 
 
-instance StanzaC MessageError where
+instance HasStanzaAttrs MessageError where
     from inj m@(MessageError{messageErrorFrom=f}) =
         (\f' -> m{messageErrorFrom = f'}) <$> inj f
     to inj m@(MessageError{messageErrorTo=t}) =
@@ -29,13 +57,13 @@ instance StanzaC MessageError where
     lang inj m@(MessageError{messageErrorLangTag=t}) =
         (\t' -> m{messageErrorLangTag = t'}) <$> inj t
 
-instance StanzaC Presence where
+instance HasStanzaAttrs Presence where
     from inj m@(Presence{presenceFrom=f}) = (\f' -> m{presenceFrom = f'}) <$> inj f
     to inj m@(Presence{presenceTo=t}) = (\t' -> m{presenceTo = t'}) <$> inj t
     lang inj m@(Presence{presenceLangTag=t}) =
         (\t' -> m{presenceLangTag = t'}) <$> inj t
 
-instance StanzaC PresenceError where
+instance HasStanzaAttrs PresenceError where
     from inj m@(PresenceError{presenceErrorFrom=f}) =
         (\f' -> m{presenceErrorFrom = f'}) <$> inj f
     to inj m@(PresenceError{presenceErrorTo=t}) =
@@ -43,7 +71,7 @@ instance StanzaC PresenceError where
     lang inj m@(PresenceError{presenceErrorLangTag=t}) =
         (\t' -> m{presenceErrorLangTag = t'}) <$> inj t
 
-instance StanzaC IQRequest where
+instance HasStanzaAttrs IQRequest where
     from inj m@(IQRequest{iqRequestFrom=f}) =
         (\f' -> m{iqRequestFrom = f'}) <$> inj f
     to inj m@(IQRequest{iqRequestTo=t}) =
@@ -51,7 +79,7 @@ instance StanzaC IQRequest where
     lang inj m@(IQRequest{iqRequestLangTag=t}) =
         (\t' -> m{iqRequestLangTag = t'}) <$> inj t
 
-instance StanzaC IQResult where
+instance HasStanzaAttrs IQResult where
     from inj m@(IQResult{iqResultFrom=f}) =
         (\f' -> m{iqResultFrom = f'}) <$> inj f
     to inj m@(IQResult{iqResultTo=t}) =
@@ -59,7 +87,7 @@ instance StanzaC IQResult where
     lang inj m@(IQResult{iqResultLangTag=t}) =
         (\t' -> m{iqResultLangTag = t'}) <$> inj t
 
-instance StanzaC IQError where
+instance HasStanzaAttrs IQError where
     from inj m@(IQError{iqErrorFrom=f}) =
         (\f' -> m{iqErrorFrom = f'}) <$> inj f
     to inj m@(IQError{iqErrorTo=t}) =
@@ -67,7 +95,7 @@ instance StanzaC IQError where
     lang inj m@(IQError{iqErrorLangTag=t}) =
         (\t' -> m{iqErrorLangTag = t'}) <$> inj t
 
-lift :: (forall s. StanzaC s => Lens s a) -> Lens Stanza a
+lift :: (forall s. HasStanzaAttrs s => Lens s a) -> Lens Stanza a
 lift f inj (IQRequestS     s) = IQRequestS     <$> f inj s
 lift f inj (IQResultS      s) = IQResultS      <$> f inj s
 lift f inj (IQErrorS       s) = IQErrorS       <$> f inj s
@@ -76,31 +104,115 @@ lift f inj (MessageErrorS  s) = MessageErrorS  <$> f inj s
 lift f inj (PresenceS      s) = PresenceS      <$> f inj s
 lift f inj (PresenceErrorS s) = PresenceErrorS <$> f inj s
 
-instance StanzaC Stanza where
+instance HasStanzaAttrs Stanza where
     from = lift from
     to   = lift to
     lang = lift lang
 
-class HasStanzaID s where
-    sid :: Lens s StanzaID
+class HasStanzaID s i | s -> i where
+    sid :: Lens s i
 
-instance HasStanzaID IQRequest where
+instance HasStanzaID IQRequest Text where
     sid inj m@(IQRequest {iqRequestID = i}) = (\i' -> m{iqRequestID = i'}) <$>
                                                   inj i
 
-instance HasStanzaID IQResult where
+instance HasStanzaID IQResult Text where
     sid inj m@(IQResult {iqResultID = i}) = (\i' -> m{iqResultID = i'}) <$>
                                                   inj i
 
-instance HasStanzaID IQError where
+instance HasStanzaID IQError Text where
     sid inj m@(IQError {iqErrorID = i}) = (\i' -> m{iqErrorID = i'}) <$>
                                                   inj i
-class MaybeHasStanzaID s where
-    msid :: Lens s (Maybe StanzaID)
-
-instance MaybeHasStanzaID Message where
-    msid inj m@(Message {messageID = i}) = (\i' -> m{messageID = i'}) <$>
+instance HasStanzaID Message (Maybe Text) where
+    sid inj m@(Message {messageID = i}) = (\i' -> m{messageID = i'}) <$>
                                                   inj i
 
-($.) :: Lens a b -> a -> b
-f $. x = getConst $ f Const x
+instance HasStanzaID MessageError (Maybe Text) where
+    sid inj m@(MessageError {messageErrorID = i}) =
+        (\i' -> m{messageErrorID = i'}) <$> inj i
+
+instance HasStanzaID Presence (Maybe Text) where
+    sid inj m@(Presence {presenceID = i}) = (\i' -> m{presenceID = i'}) <$>
+                                                  inj i
+
+instance HasStanzaID PresenceError (Maybe Text) where
+    sid inj m@(PresenceError {presenceErrorID = i}) =
+        (\i' -> m{presenceErrorID = i'}) <$> inj i
+
+-- | Access to the ID of a stanza. Setting the stanza ID of any non-IQ* stanza
+-- to the empty string will instead set it to Nothing
+sid' :: Lens Stanza Text
+sid' inj (IQRequestS     s) = IQRequestS     <$> sid inj s
+sid' inj (IQResultS      s) = IQResultS      <$> sid inj s
+sid' inj (IQErrorS       s) = IQErrorS       <$> sid inj s
+sid' inj (MessageS       s) = MessageS       <$> (sid . maybeNonempty) inj s
+sid' inj (MessageErrorS  s) = MessageErrorS  <$> (sid . maybeNonempty) inj s
+sid' inj (PresenceS      s) = PresenceS      <$> (sid . maybeNonempty) inj s
+sid' inj (PresenceErrorS s) = PresenceErrorS <$> (sid . maybeNonempty) inj s
+
+maybeNonempty :: Lens (Maybe Text) Text
+maybeNonempty inj Nothing  = (\x -> if Text.null x then Nothing else Just x)
+                               <$> inj Text.empty
+maybeNonempty inj (Just x) = (\y -> if Text.null y then Nothing else Just y)
+                               <$> inj x
+
+class HasStanzaError s where
+    -- | Error element of the stanza
+    stanzaError :: Lens s StanzaError
+
+instance HasStanzaError IQError where
+    stanzaError inj m@IQError{iqErrorStanzaError = i} =
+        (\i' -> m{iqErrorStanzaError = i'}) <$> inj i
+
+instance HasStanzaError MessageError where
+    stanzaError inj m@MessageError{messageErrorStanzaError = i} =
+        (\i' -> m{messageErrorStanzaError = i'}) <$> inj i
+
+instance HasStanzaError PresenceError where
+    stanzaError inj m@PresenceError{presenceErrorStanzaError = i} =
+        (\i' -> m{presenceErrorStanzaError = i'}) <$> inj i
+
+class HasStanzaPayload s p | s -> p where
+    -- | Payload element(s) of the stanza
+    payload :: Lens s p
+
+instance HasStanzaPayload IQRequest Element where
+    payload inj m@IQRequest{iqRequestPayload = i} =
+        (\i' -> m{iqRequestPayload = i'}) <$> inj i
+
+instance HasStanzaPayload IQResult (Maybe Element) where
+    payload inj m@IQResult{iqResultPayload = i} =
+        (\i' -> m{iqResultPayload = i'}) <$> inj i
+
+instance HasStanzaPayload IQError (Maybe Element) where
+    payload inj m@IQError{iqErrorPayload = i} =
+        (\i' -> m{iqErrorPayload = i'}) <$> inj i
+
+instance HasStanzaPayload Message [Element] where
+    payload inj m@Message{messagePayload = i} =
+        (\i' -> m{messagePayload = i'}) <$> inj i
+
+instance HasStanzaPayload MessageError [Element] where
+    payload inj m@MessageError{messageErrorPayload = i} =
+        (\i' -> m{messageErrorPayload = i'}) <$> inj i
+
+instance HasStanzaPayload Presence [Element] where
+    payload inj m@Presence{presencePayload = i} =
+        (\i' -> m{presencePayload = i'}) <$> inj i
+
+instance HasStanzaPayload PresenceError [Element] where
+    payload inj m@PresenceError{presenceErrorPayload = i} =
+        (\i' -> m{presenceErrorPayload = i'}) <$> inj i
+
+
+-- | Read the value the lens is pointing to
+view :: Lens a b -> a -> b
+view l x = getConst $ l Const x
+
+-- | Modify the value the lens is pointing to
+modify :: Lens a b -> (b -> b) -> a -> a
+modify l f x = runIdentity $ l (fmap f . Identity) x
+
+-- | Replace the value the lens is pointing to
+set :: Lens a b -> b -> a -> a
+set l b x = modify l (const b) x
