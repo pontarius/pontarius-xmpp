@@ -92,7 +92,7 @@ streamUnpickleElem p x = do
 type StreamSink a = ErrorT XmppFailure (ConduitM Event Void IO) a
 
 -- Discards all events before the first EventBeginElement.
-throwOutJunk :: Monad m => Sink Event m ()
+throwOutJunk :: Monad m => ConduitM Event a m ()
 throwOutJunk = do
     next <- CL.peek
     case next of

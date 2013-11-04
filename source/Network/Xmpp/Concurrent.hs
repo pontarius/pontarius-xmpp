@@ -24,6 +24,7 @@ import           Control.Concurrent.STM
 import qualified Control.Exception as Ex
 import           Control.Monad
 import           Control.Monad.Error
+import qualified Data.List as List
 import qualified Data.Map as Map
 import           Data.Maybe
 import           Data.Text as Text
@@ -48,11 +49,11 @@ import           System.Random (randomRIO)
 
 import           Control.Monad.State.Strict
 
-runHandlers :: WriteSemaphore -> [StanzaHandler] -> Stanza -> IO ()
-runHandlers _    []        _   = return ()
-runHandlers  sem (h:hands) sta = do
-    res <- h sem sta
-    forM_ res (runHandlers sem hands)
+runHandlers :: [Stanza -> IO [Stanza]] -> Stanza -> IO ()
+runHandlers []        _   = return ()
+runHandlers (h:hands) sta = do
+    res <- h sta
+    forM_ res $ runHandlers hands
 
 toChan :: TChan Stanza -> StanzaHandler
 toChan stanzaC _ sta = do
@@ -61,7 +62,7 @@ toChan stanzaC _ sta = do
 
 handleIQ :: TVar IQHandlers
          -> StanzaHandler
-handleIQ iqHands writeSem sta = do
+handleIQ iqHands out sta = do
         case sta of
             IQRequestS     i -> handleIQRequest iqHands i >> return []
             IQResultS      i -> handleIQResponse iqHands (Right i) >> return []
@@ -71,7 +72,7 @@ handleIQ iqHands writeSem sta = do
     -- If the IQ request has a namespace, send it through the appropriate channel.
     handleIQRequest :: TVar IQHandlers -> IQRequest -> IO ()
     handleIQRequest handlers iq = do
-        out <- atomically $ do
+        res <- atomically $ do
             (byNS, _) <- readTVar handlers
             let iqNS = fromMaybe "" (nameNamespace . elementName
                                                  $ iqRequestPayload iq)
@@ -95,7 +96,7 @@ handleIQ iqHands writeSem sta = do
                                       atomically $ putTMVar sentRef True
                                       return Nothing
                                   False -> do
-                                      didSend <- writeStanza writeSem response
+                                      didSend <- out response
                                       case didSend of
                                           True -> do
                                               atomically $ putTMVar sentRef True
@@ -105,7 +106,7 @@ handleIQ iqHands writeSem sta = do
                                               return $ Just False
                   writeTChan ch $ IQRequestTicket answerT iq
                   return Nothing
-        maybe (return ()) (void . writeStanza writeSem) out
+        maybe (return ()) (void . out) res
     serviceUnavailable (IQRequest iqid from _to lang _tp bd) =
         IQErrorS $ IQError iqid Nothing from lang err (Just bd)
     err = StanzaError Cancel ServiceUnavailable Nothing Nothing
@@ -137,16 +138,15 @@ newSession stream config realm mbSasl = runErrorT $ do
     eh <- lift $ newEmptyTMVarIO
     ros <- liftIO . newTVarIO $ Roster Nothing Map.empty
     rew <- lift $ newTVarIO 60
-    let rosterH = if (enableRoster config) then handleRoster ros
-                                           else \ _ sta -> return [sta]
-    let stanzaHandler = runHandlers writeSem
-                        $ Prelude.concat [ [ toChan stanzaChan ]
-                                         , extraStanzaHandlers
-                                           config
-                                         , [ handleIQ iqHands
-                                           , rosterH
-                                           ]
-                                         ]
+    let rosterH = if (enableRoster config) then [handleRoster ros $ out writeSem]
+                                           else []
+    let stanzaHandler = runHandlers $ List.concat
+                        [ pluginHandlers writeSem
+                        , [ toChan stanzaChan (out writeSem)
+                          , handleIQ iqHands (out writeSem)
+                          ]
+                        , rosterH
+                        ]
     (kill, wLock, streamState, reader) <- ErrorT $ startThreadsWith writeSem stanzaHandler eh stream
     idGen <- liftIO $ sessionStanzaIDs config
     let sess = Session { stanzaCh = stanzaChan
@@ -166,6 +166,19 @@ newSession stream config realm mbSasl = runErrorT $ do
     liftIO . atomically $ putTMVar eh $ EventHandlers { connectionClosedHandler =
                                                  onConnectionClosed config sess }
     return sess
+  where
+    -- Each inbound plugin may need to send outbound stanzas. Those stanzas have
+    -- to be treated by the plugins "outward" of the handling plugin. We generate
+    -- the list of outbound plugins with "reverse . tails $ outHandler <$>
+    -- (plugins config))
+    pluginHandlers ws = List.zipWith ($)
+                            (inHandler <$> List.reverse (plugins config))
+                            (List.map (runOut ws) . List.reverse . List.tails
+                                 $ outHandler <$> (plugins config))
+    -- Treat stanza with all plugins
+    out ws = runOut ws $ outHandler <$> (plugins config)
+    -- Compose a list of Stanza transformers
+    runOut ws = List.foldr ($) (writeStanza ws)
 
 connectStream :: HostName
               -> SessionConfiguration

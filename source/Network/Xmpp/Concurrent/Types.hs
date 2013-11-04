@@ -19,6 +19,10 @@ import           Network.Xmpp.Types
 import           Network.Xmpp.Sasl.Types
 
 
+data Plugin = Plugin { inHandler :: StanzaHandler
+                     , outHandler :: (Stanza -> IO Bool) -> Stanza -> IO Bool
+                     }
+
 -- | Configuration for the @Session@ object.
 data SessionConfiguration = SessionConfiguration
     { -- | Configuration for the @Stream@ object.
@@ -27,7 +31,7 @@ data SessionConfiguration = SessionConfiguration
     , onConnectionClosed         :: Session -> XmppFailure -> IO ()
       -- | Function to generate the stream of stanza identifiers.
     , sessionStanzaIDs           :: IO (IO Text)
-    , extraStanzaHandlers        :: [StanzaHandler]
+    , plugins                    :: [Plugin]
     , enableRoster               :: Bool
     }
 
@@ -40,7 +44,7 @@ instance Default SessionConfiguration where
                                          curId <- readTVar idRef
                                          writeTVar idRef (curId + 1 :: Integer)
                                          return . Text.pack . show $ curId
-                               , extraStanzaHandlers = []
+                               , plugins = []
                                , enableRoster = True
                                }
 

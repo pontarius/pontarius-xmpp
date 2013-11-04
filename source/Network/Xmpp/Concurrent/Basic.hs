@@ -1,6 +1,7 @@
 {-# OPTIONS_HADDOCK hide #-}
 module Network.Xmpp.Concurrent.Basic where
 
+import           Control.Applicative ((<$>))
 import           Control.Concurrent.STM
 import qualified Control.Exception as Ex
 import           Control.Monad.State.Strict
@@ -21,9 +22,18 @@ writeStanza sem a = do
     let outData = renderElement $ nsHack (pickleElem xpStanza a)
     semWrite sem outData
 
--- | Send a stanza to the server.
+
+-- | Send a stanza to the server without running plugins. (The stanza is sent as
+-- is)
+sendRawStanza :: Stanza -> Session -> IO Bool
+sendRawStanza a session = writeStanza (writeSemaphore session) a
+
+
+-- | Send a stanza to the server, handing it to plugins.
 sendStanza :: Stanza -> Session -> IO Bool
-sendStanza a session = writeStanza (writeSemaphore session) a
+sendStanza a session = do
+    let ts = outHandler <$> plugins (conf session)
+    foldr ($) (flip sendRawStanza session) ts $ a
 
 
 -- | Get the channel of incoming stanzas.

@@ -1035,7 +1035,7 @@ instance Default StreamConfiguration where
                                                                 }
                               }
 
-type StanzaHandler =  TMVar (BS.ByteString -> IO Bool) -- ^ outgoing stanza
+type StanzaHandler =  (Stanza -> IO Bool) -- ^ outgoing stanza
                    -> Stanza       -- ^ stanza to handle
                    -> IO [Stanza]  -- ^ modified stanzas (if any)
 
