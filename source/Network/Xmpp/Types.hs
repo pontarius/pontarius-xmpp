@@ -163,6 +163,10 @@ message = Message { messageID      = Nothing
                   , messagePayload = []
                   }
 
+-- | Empty message stanza
+messageS :: Stanza
+messageS = MessageS message
+
 instance Default Message where
     def = message
 
@@ -231,6 +235,10 @@ presence = Presence { presenceID       = Nothing
                     , presenceType     = Available
                     , presencePayload  = []
                     }
+
+-- | Empty presence stanza
+presenceS :: Stanza
+presenceS = PresenceS presence
 
 instance Default Presence where
     def = presence
