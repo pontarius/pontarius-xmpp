@@ -5,7 +5,9 @@
 {-# LANGUAGE FunctionalDependencies #-}
 
 -- | Van Laarhoven lenses for XMPP types. The lenses are designed to work with
--- the lens library.
+-- the lens library. This module also provides 3 simple accessors ('view',
+-- 'modify', 'set') so you don't need to pull in the lens library to get some
+-- use out of them.
 module Network.Xmpp.Lens
        ( Lens
          -- * Accessors
@@ -15,11 +17,29 @@ module Network.Xmpp.Lens
        , modify
        , set
          -- * Lenses
+         -- ** Stanzas
        , HasStanzaAttrs(..)
        , HasStanzaID(..)
        , sid'
        , HasStanzaPayload(..)
        , HasStanzaError(..)
+       , messageTypeL
+       , presenceTypeL
+       , iqRequestTypeL
+         -- ** StanzaError
+       , stanzaErrorTypeL
+       , stanzaErrorConditionL
+       , stanzaErrorTextL
+       , stanzaErrorApplL
+         -- ** StreamConfiguration
+       , preferredLangL
+       , toJidL
+       , connectionDetailsL
+       , resolvConfL
+       , establishSessionL
+       , tlsBehaviourL
+       , tlsParamsL
+
        )
        where
 
@@ -28,6 +48,8 @@ import           Data.Functor.Identity(Identity(..))
 import qualified Data.Text as Text
 import           Data.Text(Text)
 import           Data.XML.Types(Element)
+import           Network.DNS(ResolvConf)
+import           Network.TLS (TLSParams)
 import           Network.Xmpp.Types
 
 -- | Van-Laarhoven lenses.
@@ -204,6 +226,70 @@ instance HasStanzaPayload PresenceError [Element] where
     payload inj m@PresenceError{presenceErrorPayload = i} =
         (\i' -> m{presenceErrorPayload = i'}) <$> inj i
 
+iqRequestTypeL :: Lens IQRequest IQRequestType
+iqRequestTypeL inj p@IQRequest{iqRequestType = tp} =
+    (\tp' -> p{iqRequestType = tp'}) <$> inj tp
+
+
+messageTypeL :: Lens Message MessageType
+messageTypeL inj p@Message{messageType = tp} =
+    (\tp' -> p{messageType = tp'}) <$> inj tp
+
+presenceTypeL :: Lens Presence PresenceType
+presenceTypeL inj p@Presence{presenceType = tp} =
+    (\tp' -> p{presenceType = tp'}) <$> inj tp
+
+
+-- StanzaError
+-----------------------
+
+stanzaErrorTypeL :: Lens StanzaError StanzaErrorType
+stanzaErrorTypeL inj se@StanzaError{stanzaErrorType = x} =
+    (\x' -> se{stanzaErrorType = x'}) <$> inj x
+
+stanzaErrorConditionL :: Lens StanzaError StanzaErrorCondition
+stanzaErrorConditionL inj se@StanzaError{stanzaErrorCondition = x} =
+    (\x' -> se{stanzaErrorCondition = x'}) <$> inj x
+
+stanzaErrorTextL :: Lens StanzaError (Maybe (Maybe LangTag, Text))
+stanzaErrorTextL inj se@StanzaError{stanzaErrorText = x} =
+    (\x' -> se{stanzaErrorText = x'}) <$> inj x
+
+stanzaErrorApplL  :: Lens StanzaError (Maybe Element)
+stanzaErrorApplL inj se@StanzaError{stanzaErrorApplicationSpecificCondition = x} =
+    (\x' -> se{stanzaErrorApplicationSpecificCondition = x'}) <$> inj x
+
+
+-- StreamConfiguration
+-----------------------
+
+preferredLangL :: Lens StreamConfiguration (Maybe LangTag)
+preferredLangL inj sc@StreamConfiguration{preferredLang = x}
+    = (\x' -> sc{preferredLang = x'}) <$> inj x
+
+toJidL :: Lens StreamConfiguration (Maybe (Jid, Bool))
+toJidL inj sc@StreamConfiguration{toJid = x}
+    = (\x' -> sc{toJid = x'}) <$> inj x
+
+connectionDetailsL :: Lens StreamConfiguration ConnectionDetails
+connectionDetailsL inj sc@StreamConfiguration{connectionDetails = x}
+    = (\x' -> sc{connectionDetails = x'}) <$> inj x
+
+resolvConfL :: Lens StreamConfiguration ResolvConf
+resolvConfL inj sc@StreamConfiguration{resolvConf = x}
+    = (\x' -> sc{resolvConf = x'}) <$> inj x
+
+establishSessionL :: Lens StreamConfiguration Bool
+establishSessionL inj sc@StreamConfiguration{establishSession = x}
+    = (\x' -> sc{establishSession = x'}) <$> inj x
+
+tlsBehaviourL :: Lens StreamConfiguration TlsBehaviour
+tlsBehaviourL inj sc@StreamConfiguration{tlsBehaviour = x}
+    = (\x' -> sc{tlsBehaviour = x'}) <$> inj x
+
+tlsParamsL :: Lens StreamConfiguration TLSParams
+tlsParamsL inj sc@StreamConfiguration{tlsParams = x}
+    = (\x' -> sc{tlsParams = x'}) <$> inj x
 
 -- | Read the value the lens is pointing to
 view :: Lens a b -> a -> b

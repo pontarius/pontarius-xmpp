@@ -172,13 +172,31 @@ module Network.Xmpp
   , StanzaErrorCondition(..)
   , SaslFailure(..)
   -- * Lenses
-  -- | import Network.Xmpp.Lens for basic lens functions ('view',
+  -- | You can import Network.Xmpp.Lens for basic lens functions ('view',
   -- 'modify' and 'set')
+
+  -- ** Stanzas
   , HasStanzaAttrs(..)
   , HasStanzaID(..)
   , sid'
   , HasStanzaPayload(..)
   , HasStanzaError(..)
+  , messageTypeL
+  , presenceTypeL
+  , iqRequestTypeL
+  -- ** StanzaError
+  , stanzaErrorTypeL
+  , stanzaErrorConditionL
+  , stanzaErrorTextL
+  , stanzaErrorApplL
+  -- ** StreamConfiguration
+  , preferredLangL
+  , toJidL
+  , connectionDetailsL
+  , resolvConfL
+  , establishSessionL
+  , tlsBehaviourL
+  , tlsParamsL
   -- * Threads
   , dupSession
   -- * Miscellaneous

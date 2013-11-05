@@ -262,9 +262,9 @@ data PresenceType = Subscribe    | -- ^ Sender wants to subscribe to presence
 -- wrapped in the @StanzaError@ type.
 -- TODO: Sender XML is (optional and is) not yet included.
 data StanzaError = StanzaError
-    { stanzaErrorType :: StanzaErrorType
-    , stanzaErrorCondition :: StanzaErrorCondition
-    , stanzaErrorText :: Maybe (Maybe LangTag, Text)
+    { stanzaErrorType                         :: StanzaErrorType
+    , stanzaErrorCondition                    :: StanzaErrorCondition
+    , stanzaErrorText                         :: Maybe (Maybe LangTag, Text)
     , stanzaErrorApplicationSpecificCondition :: Maybe Element
     } deriving (Eq, Show)
 
@@ -896,7 +896,7 @@ domainpart = domainpart_
 resourcepart :: Jid -> Maybe Text
 resourcepart = resourcepart_
 
--- Parses an JID string and returns its three parts. It performs no validation
+-- Parses a JID string and returns its three parts. It performs no validation
 -- or transformations.
 jidParts :: AP.Parser (Maybe Text, Text, Maybe Text)
 jidParts = do
@@ -1023,12 +1023,12 @@ data StreamConfiguration =
                         }
 
 instance Default StreamConfiguration where
-    def = StreamConfiguration { preferredLang = Nothing
-                              , toJid = Nothing
+    def = StreamConfiguration { preferredLang     = Nothing
+                              , toJid             = Nothing
                               , connectionDetails = UseRealm
-                              , resolvConf = defaultResolvConf
-                              , establishSession = True
-                              , tlsBehaviour = PreferTls
+                              , resolvConf        = defaultResolvConf
+                              , establishSession  = True
+                              , tlsBehaviour      = PreferTls
                               , tlsParams = defaultParamsClient { pConnectVersion = TLS10
                                                                 , pAllowedVersions = [TLS10, TLS11, TLS12]
                                                                 , pCiphers = ciphersuite_strong
