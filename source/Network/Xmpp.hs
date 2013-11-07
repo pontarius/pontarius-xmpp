@@ -197,6 +197,11 @@ module Network.Xmpp
   , establishSessionL
   , tlsBehaviourL
   , tlsParamsL
+  -- ** SessionConfiguration
+  , streamConfigurationL
+  , onConnectionClosedL
+  , sessionStanzaIDsL
+  , ensableRoster
   -- * Threads
   , dupSession
   -- * Miscellaneous

@@ -39,7 +39,11 @@ module Network.Xmpp.Lens
        , establishSessionL
        , tlsBehaviourL
        , tlsParamsL
-
+         -- ** SessionConfiguration
+       , streamConfigurationL
+       , onConnectionClosedL
+       , sessionStanzaIDsL
+       , ensableRoster
        )
        where
 
@@ -51,6 +55,7 @@ import           Data.XML.Types(Element)
 import           Network.DNS(ResolvConf)
 import           Network.TLS (TLSParams)
 import           Network.Xmpp.Types
+import           Network.Xmpp.Concurrent.Types
 
 -- | Van-Laarhoven lenses.
 type Lens a b = Functor f => (b -> f b) -> a -> f a
@@ -290,6 +295,27 @@ tlsBehaviourL inj sc@StreamConfiguration{tlsBehaviour = x}
 tlsParamsL :: Lens StreamConfiguration TLSParams
 tlsParamsL inj sc@StreamConfiguration{tlsParams = x}
     = (\x' -> sc{tlsParams = x'}) <$> inj x
+
+-- SessioConfiguration
+-----------------------
+streamConfigurationL :: Lens SessionConfiguration StreamConfiguration
+streamConfigurationL inj sc@SessionConfiguration{sessionStreamConfiguration = x}
+    = (\x' -> sc{sessionStreamConfiguration = x'}) <$> inj x
+
+onConnectionClosedL :: Lens SessionConfiguration (Session -> XmppFailure -> IO ())
+onConnectionClosedL inj sc@SessionConfiguration{onConnectionClosed = x}
+    = (\x' -> sc{onConnectionClosed = x'}) <$> inj x
+
+sessionStanzaIDsL :: Lens SessionConfiguration (IO (IO Text))
+sessionStanzaIDsL inj sc@SessionConfiguration{sessionStanzaIDs = x}
+    = (\x' -> sc{sessionStanzaIDs = x'}) <$> inj x
+
+ensableRoster :: Lens SessionConfiguration Bool
+ensableRoster inj sc@SessionConfiguration{enableRoster = x}
+    = (\x' -> sc{enableRoster = x'}) <$> inj x
+
+pluginsL inj sc@SessionConfiguration{plugins = x}
+    = (\x' -> sc{plugins = x'}) <$> inj x
 
 -- | Read the value the lens is pointing to
 view :: Lens a b -> a -> b
