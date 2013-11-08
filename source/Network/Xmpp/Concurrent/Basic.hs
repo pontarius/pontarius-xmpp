@@ -1,7 +1,6 @@
 {-# OPTIONS_HADDOCK hide #-}
 module Network.Xmpp.Concurrent.Basic where
 
-import           Control.Applicative ((<$>))
 import           Control.Concurrent.STM
 import qualified Control.Exception as Ex
 import           Control.Monad.State.Strict
@@ -28,13 +27,9 @@ writeStanza sem a = do
 sendRawStanza :: Stanza -> Session -> IO Bool
 sendRawStanza a session = writeStanza (writeSemaphore session) a
 
-
--- | Send a stanza to the server, handing it to plugins.
+-- | Send a stanza to the server, managed by plugins
 sendStanza :: Stanza -> Session -> IO Bool
-sendStanza a session = do
-    let ts = outHandler <$> plugins (conf session)
-    foldr ($) (flip sendRawStanza session) ts $ a
-
+sendStanza = flip sendStanza'
 
 -- | Get the channel of incoming stanzas.
 getStanzaChan :: Session -> TChan Stanza

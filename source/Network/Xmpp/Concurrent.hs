@@ -138,47 +138,45 @@ newSession stream config realm mbSasl = runErrorT $ do
     eh <- lift $ newEmptyTMVarIO
     ros <- liftIO . newTVarIO $ Roster Nothing Map.empty
     rew <- lift $ newTVarIO 60
-    let rosterH = if (enableRoster config) then [handleRoster ros $ out writeSem]
+    let out = writeStanza writeSem
+    let rosterH = if (enableRoster config) then [handleRoster ros out ]
                                            else []
+    (sStanza, ps) <- initPlugins out $ plugins config
     let stanzaHandler = runHandlers $ List.concat
-                        [ pluginHandlers writeSem
-                        , [ toChan stanzaChan (out writeSem)
-                          , handleIQ iqHands (out writeSem)
+                        [ inHandler <$> ps
+                        , [ toChan stanzaChan out
+                          , handleIQ iqHands out
                           ]
                         , rosterH
                         ]
     (kill, wLock, streamState, reader) <- ErrorT $ startThreadsWith writeSem stanzaHandler eh stream
     idGen <- liftIO $ sessionStanzaIDs config
     let sess = Session { stanzaCh = stanzaChan
-                     , iqHandlers = iqHands
-                     , writeSemaphore = wLock
-                     , readerThread = reader
-                     , idGenerator = idGen
-                     , streamRef = streamState
-                     , eventHandlers = eh
-                     , stopThreads = kill
-                     , conf = config
-                     , rosterRef = ros
-                     , sRealm = realm
-                     , sSaslCredentials = mbSasl
-                     , reconnectWait = rew
-                     }
+                       , iqHandlers = iqHands
+                       , writeSemaphore = wLock
+                       , readerThread = reader
+                       , idGenerator = idGen
+                       , streamRef = streamState
+                       , eventHandlers = eh
+                       , stopThreads = kill
+                       , conf = config
+                       , rosterRef = ros
+                       , sendStanza' = sStanza
+                       , sRealm = realm
+                       , sSaslCredentials = mbSasl
+                       , reconnectWait = rew
+                       }
     liftIO . atomically $ putTMVar eh $ EventHandlers { connectionClosedHandler =
                                                  onConnectionClosed config sess }
+    liftIO . forM_ ps $ \p -> onSessionUp p sess
     return sess
   where
-    -- Each inbound plugin may need to send outbound stanzas. Those stanzas have
-    -- to be treated by the plugins "outward" of the handling plugin. We generate
-    -- the list of outbound plugins with "reverse . tails $ outHandler <$>
-    -- (plugins config))
-    pluginHandlers ws = List.zipWith ($)
-                            (inHandler <$> List.reverse (plugins config))
-                            (List.map (runOut ws) . List.reverse . List.tails
-                                 $ outHandler <$> (plugins config))
-    -- Treat stanza with all plugins
-    out ws = runOut ws $ outHandler <$> (plugins config)
-    -- Compose a list of Stanza transformers
-    runOut ws = List.foldr ($) (writeStanza ws)
+    initPlugins out' = go out' []
+      where
+        go out ps' [] = return (out, ps')
+        go out ps' (p:ps) = do
+            p' <- p out
+            go (outHandler p') (p' : ps') ps
 
 connectStream :: HostName
               -> SessionConfiguration

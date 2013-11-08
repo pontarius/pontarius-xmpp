@@ -6,6 +6,7 @@ module Network.Xmpp.Concurrent.Types where
 import           Control.Concurrent
 import           Control.Concurrent.STM
 import qualified Control.Exception.Lifted as Ex
+import           Control.Monad.Error
 import qualified Data.ByteString as BS
 import           Data.Default
 import qualified Data.Map as Map
@@ -15,13 +16,19 @@ import           Data.Typeable
 import           Data.XML.Types (Element)
 import           Network
 import           Network.Xmpp.IM.Roster.Types
-import           Network.Xmpp.Types
 import           Network.Xmpp.Sasl.Types
+import           Network.Xmpp.Types
 
 
-data Plugin = Plugin { inHandler :: StanzaHandler
-                     , outHandler :: (Stanza -> IO Bool) -> Stanza -> IO Bool
-                     }
+data Plugin' = Plugin' { inHandler :: Stanza -> IO [Stanza]
+                       , outHandler :: Stanza -> IO Bool
+                          -- | In order to allow plugins to tie the knot (Plugin
+                          -- / Session) we pass the plugin the completed Session
+                          -- once it exists
+                       , onSessionUp :: Session -> IO ()
+                       }
+
+type Plugin = (Stanza -> IO Bool) -> ErrorT XmppFailure IO Plugin'
 
 -- | Configuration for the @Session@ object.
 data SessionConfiguration = SessionConfiguration
@@ -80,6 +87,7 @@ data Session = Session
     , stopThreads :: IO ()
     , rosterRef :: TVar Roster
     , conf :: SessionConfiguration
+    , sendStanza' :: Stanza -> IO Bool
     , sRealm :: HostName
     , sSaslCredentials :: Maybe (ConnectionState -> [SaslHandler] , Maybe Text)
     , reconnectWait :: TVar Int
