@@ -176,11 +176,9 @@ module Network.Xmpp
   -- 'modify' and 'set')
 
   -- ** Stanzas
-  , HasStanzaAttrs(..)
-  , HasStanzaID(..)
-  , sid'
+  , IsStanza(..)
+  , IsErrorStanza(..)
   , HasStanzaPayload(..)
-  , HasStanzaError(..)
   , messageTypeL
   , presenceTypeL
   , iqRequestTypeL
@@ -201,7 +199,8 @@ module Network.Xmpp
   , streamConfigurationL
   , onConnectionClosedL
   , sessionStanzaIDsL
-  , ensableRoster
+  , ensableRosterL
+  , pluginsL
   -- * Threads
   , dupSession
   -- * Miscellaneous

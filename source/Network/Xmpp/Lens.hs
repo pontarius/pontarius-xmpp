@@ -10,6 +10,7 @@
 -- use out of them.
 module Network.Xmpp.Lens
        ( Lens
+       , Traversal
          -- * Accessors
          -- | Reimplementation of the basic lens functions so you don't have to
          -- bring in all of lens library in to use the lenses
@@ -18,11 +19,9 @@ module Network.Xmpp.Lens
        , set
          -- * Lenses
          -- ** Stanzas
-       , HasStanzaAttrs(..)
-       , HasStanzaID(..)
-       , sid'
+       , IsStanza(..)
        , HasStanzaPayload(..)
-       , HasStanzaError(..)
+       , IsErrorStanza(..)
        , messageTypeL
        , presenceTypeL
        , iqRequestTypeL
@@ -43,11 +42,12 @@ module Network.Xmpp.Lens
        , streamConfigurationL
        , onConnectionClosedL
        , sessionStanzaIDsL
-       , ensableRoster
+       , ensableRosterL
+       , pluginsL
        )
        where
 
-import           Control.Applicative((<$>), Const(..))
+import           Control.Applicative
 import           Data.Functor.Identity(Identity(..))
 import qualified Data.Text as Text
 import           Data.Text(Text)
@@ -60,147 +60,159 @@ import           Network.Xmpp.Concurrent.Types
 -- | Van-Laarhoven lenses.
 type Lens a b = Functor f => (b -> f b) -> a -> f a
 
-class HasStanzaAttrs s where
+type Traversal a b = Applicative f => (b -> f b) -> a -> f a
+
+class IsStanza s where
     -- | From-attribute of the stanza
     from :: Lens s (Maybe Jid)
     -- | To-attribute of the stanza
     to   :: Lens s (Maybe Jid)
     -- | Langtag of the stanza
     lang :: Lens s (Maybe LangTag)
+    -- | Stanza ID. Setting this to /Nothing/ for IQ* stanzas will set the id to
+    -- the empty Text.
+    sid :: Lens s (Maybe Text)
+    -- | Traversal over the payload elements.
+    payloadT :: Traversal s Element
 
+traverseList :: Traversal [a] a
+traverseList _inj [] = pure []
+traverseList inj  (x:xs) = (:) <$> inj x <*> traverseList inj xs
 
-instance HasStanzaAttrs Message where
+instance IsStanza Message where
     from inj m@(Message{messageFrom=f}) = (\f' -> m{messageFrom = f'}) <$> inj f
     to inj m@(Message{messageTo=t}) = (\t' -> m{messageTo = t'}) <$> inj t
     lang inj m@(Message{messageLangTag=t}) =
         (\t' -> m{messageLangTag = t'}) <$> inj t
+    sid inj m@(Message{messageID = i}) =
+        ((\i' -> m{messageID = i'}) <$> inj i)
+    payloadT inj m@(Message{messagePayload=pl}) =
+        (\pl' -> m{messagePayload=pl'}) <$> traverseList inj pl
 
 
-instance HasStanzaAttrs MessageError where
+instance IsStanza MessageError where
     from inj m@(MessageError{messageErrorFrom=f}) =
         (\f' -> m{messageErrorFrom = f'}) <$> inj f
     to inj m@(MessageError{messageErrorTo=t}) =
         (\t' -> m{messageErrorTo = t'}) <$> inj t
     lang inj m@(MessageError{messageErrorLangTag=t}) =
         (\t' -> m{messageErrorLangTag = t'}) <$> inj t
+    sid inj m@(MessageError{messageErrorID = i}) =
+        ((\i' -> m{messageErrorID = i'}) <$> inj i)
+    payloadT inj m@(MessageError{messageErrorPayload=pl}) =
+        (\pl' -> m{messageErrorPayload=pl'}) <$> traverseList inj pl
 
-instance HasStanzaAttrs Presence where
+instance IsStanza Presence where
     from inj m@(Presence{presenceFrom=f}) = (\f' -> m{presenceFrom = f'}) <$> inj f
     to inj m@(Presence{presenceTo=t}) = (\t' -> m{presenceTo = t'}) <$> inj t
     lang inj m@(Presence{presenceLangTag=t}) =
         (\t' -> m{presenceLangTag = t'}) <$> inj t
+    sid inj m@(Presence{presenceID = i}) =
+        ((\i' -> m{presenceID = i'}) <$> inj i)
+    payloadT inj m@(Presence{presencePayload=pl}) =
+        (\pl' -> m{presencePayload=pl'}) <$> traverseList inj pl
 
-instance HasStanzaAttrs PresenceError where
+instance IsStanza PresenceError where
     from inj m@(PresenceError{presenceErrorFrom=f}) =
         (\f' -> m{presenceErrorFrom = f'}) <$> inj f
     to inj m@(PresenceError{presenceErrorTo=t}) =
         (\t' -> m{presenceErrorTo = t'}) <$> inj t
     lang inj m@(PresenceError{presenceErrorLangTag=t}) =
         (\t' -> m{presenceErrorLangTag = t'}) <$> inj t
+    sid inj m@(PresenceError{presenceErrorID = i}) =
+        ((\i' -> m{presenceErrorID = i'}) <$> inj i)
+    payloadT inj m@(PresenceError{presenceErrorPayload=pl}) =
+        (\pl' -> m{presenceErrorPayload=pl'}) <$> traverseList inj pl
 
-instance HasStanzaAttrs IQRequest where
+instance IsStanza IQRequest where
     from inj m@(IQRequest{iqRequestFrom=f}) =
         (\f' -> m{iqRequestFrom = f'}) <$> inj f
     to inj m@(IQRequest{iqRequestTo=t}) =
         (\t' -> m{iqRequestTo = t'}) <$> inj t
     lang inj m@(IQRequest{iqRequestLangTag=t}) =
         (\t' -> m{iqRequestLangTag = t'}) <$> inj t
+    sid inj m@(IQRequest{iqRequestID = i}) =
+        ((\i' -> m{iqRequestID = i'}) <$> maybeNonempty inj i)
+    payloadT inj m@(IQRequest{iqRequestPayload=pl}) =
+        (\pl' -> m{iqRequestPayload=pl'}) <$> inj pl
 
-instance HasStanzaAttrs IQResult where
+instance IsStanza IQResult where
     from inj m@(IQResult{iqResultFrom=f}) =
         (\f' -> m{iqResultFrom = f'}) <$> inj f
     to inj m@(IQResult{iqResultTo=t}) =
         (\t' -> m{iqResultTo = t'}) <$> inj t
     lang inj m@(IQResult{iqResultLangTag=t}) =
         (\t' -> m{iqResultLangTag = t'}) <$> inj t
+    sid inj m@(IQResult{iqResultID = i}) =
+        ((\i' -> m{iqResultID = i'}) <$> maybeNonempty inj i)
+    payloadT inj m@(IQResult{iqResultPayload=pl}) =
+        (\pl' -> m{iqResultPayload=pl'}) <$> maybe (pure Nothing)
+                                                   (fmap Just . inj) pl
 
-instance HasStanzaAttrs IQError where
+instance IsStanza IQError where
     from inj m@(IQError{iqErrorFrom=f}) =
         (\f' -> m{iqErrorFrom = f'}) <$> inj f
     to inj m@(IQError{iqErrorTo=t}) =
         (\t' -> m{iqErrorTo = t'}) <$> inj t
     lang inj m@(IQError{iqErrorLangTag=t}) =
         (\t' -> m{iqErrorLangTag = t'}) <$> inj t
+    sid inj m@(IQError{iqErrorID = i}) =
+        ((\i' -> m{iqErrorID = i'}) <$> maybeNonempty inj i)
+    payloadT inj m@(IQError{iqErrorPayload=pl}) =
+        (\pl' -> m{iqErrorPayload=pl'}) <$> maybe (pure Nothing)
+                                                  (fmap Just . inj) pl
 
-lift :: (forall s. HasStanzaAttrs s => Lens s a) -> Lens Stanza a
-lift f inj (IQRequestS     s) = IQRequestS     <$> f inj s
-lift f inj (IQResultS      s) = IQResultS      <$> f inj s
-lift f inj (IQErrorS       s) = IQErrorS       <$> f inj s
-lift f inj (MessageS       s) = MessageS       <$> f inj s
-lift f inj (MessageErrorS  s) = MessageErrorS  <$> f inj s
-lift f inj (PresenceS      s) = PresenceS      <$> f inj s
-lift f inj (PresenceErrorS s) = PresenceErrorS <$> f inj s
+liftLens :: (forall s. IsStanza s => Lens s a) -> Lens Stanza a
+liftLens f inj (IQRequestS     s) = IQRequestS     <$> f inj s
+liftLens f inj (IQResultS      s) = IQResultS      <$> f inj s
+liftLens f inj (IQErrorS       s) = IQErrorS       <$> f inj s
+liftLens f inj (MessageS       s) = MessageS       <$> f inj s
+liftLens f inj (MessageErrorS  s) = MessageErrorS  <$> f inj s
+liftLens f inj (PresenceS      s) = PresenceS      <$> f inj s
+liftLens f inj (PresenceErrorS s) = PresenceErrorS <$> f inj s
 
-instance HasStanzaAttrs Stanza where
-    from = lift from
-    to   = lift to
-    lang = lift lang
+liftTraversal :: (forall s. IsStanza s => Traversal s a) -> Traversal Stanza a
+liftTraversal f inj (IQRequestS     s) = IQRequestS     <$> f inj s
+liftTraversal f inj (IQResultS      s) = IQResultS      <$> f inj s
+liftTraversal f inj (IQErrorS       s) = IQErrorS       <$> f inj s
+liftTraversal f inj (MessageS       s) = MessageS       <$> f inj s
+liftTraversal f inj (MessageErrorS  s) = MessageErrorS  <$> f inj s
+liftTraversal f inj (PresenceS      s) = PresenceS      <$> f inj s
+liftTraversal f inj (PresenceErrorS s) = PresenceErrorS <$> f inj s
 
-class HasStanzaID s i | s -> i where
-    sid :: Lens s i
+instance IsStanza Stanza where
+    from     = liftLens from
+    to       = liftLens to
+    lang     = liftLens lang
+    sid      = liftLens sid
+    payloadT = liftTraversal payloadT
 
-instance HasStanzaID IQRequest Text where
-    sid inj m@(IQRequest {iqRequestID = i}) = (\i' -> m{iqRequestID = i'}) <$>
-                                                  inj i
+maybeNonempty :: Lens Text (Maybe Text)
+maybeNonempty inj x = (maybe Text.empty id)
+                      <$> inj (if Text.null x then Nothing else Just x)
 
-instance HasStanzaID IQResult Text where
-    sid inj m@(IQResult {iqResultID = i}) = (\i' -> m{iqResultID = i'}) <$>
-                                                  inj i
 
-instance HasStanzaID IQError Text where
-    sid inj m@(IQError {iqErrorID = i}) = (\i' -> m{iqErrorID = i'}) <$>
-                                                  inj i
-instance HasStanzaID Message (Maybe Text) where
-    sid inj m@(Message {messageID = i}) = (\i' -> m{messageID = i'}) <$>
-                                                  inj i
-
-instance HasStanzaID MessageError (Maybe Text) where
-    sid inj m@(MessageError {messageErrorID = i}) =
-        (\i' -> m{messageErrorID = i'}) <$> inj i
-
-instance HasStanzaID Presence (Maybe Text) where
-    sid inj m@(Presence {presenceID = i}) = (\i' -> m{presenceID = i'}) <$>
-                                                  inj i
-
-instance HasStanzaID PresenceError (Maybe Text) where
-    sid inj m@(PresenceError {presenceErrorID = i}) =
-        (\i' -> m{presenceErrorID = i'}) <$> inj i
-
--- | Access to the ID of a stanza. Setting the stanza ID of any non-IQ* stanza
--- to the empty string will instead set it to Nothing
-sid' :: Lens Stanza Text
-sid' inj (IQRequestS     s) = IQRequestS     <$> sid inj s
-sid' inj (IQResultS      s) = IQResultS      <$> sid inj s
-sid' inj (IQErrorS       s) = IQErrorS       <$> sid inj s
-sid' inj (MessageS       s) = MessageS       <$> (sid . maybeNonempty) inj s
-sid' inj (MessageErrorS  s) = MessageErrorS  <$> (sid . maybeNonempty) inj s
-sid' inj (PresenceS      s) = PresenceS      <$> (sid . maybeNonempty) inj s
-sid' inj (PresenceErrorS s) = PresenceErrorS <$> (sid . maybeNonempty) inj s
-
-maybeNonempty :: Lens (Maybe Text) Text
-maybeNonempty inj Nothing  = (\x -> if Text.null x then Nothing else Just x)
-                               <$> inj Text.empty
-maybeNonempty inj (Just x) = (\y -> if Text.null y then Nothing else Just y)
-                               <$> inj x
-
-class HasStanzaError s where
+class IsErrorStanza s where
     -- | Error element of the stanza
     stanzaError :: Lens s StanzaError
 
-instance HasStanzaError IQError where
+instance IsErrorStanza IQError where
     stanzaError inj m@IQError{iqErrorStanzaError = i} =
         (\i' -> m{iqErrorStanzaError = i'}) <$> inj i
 
-instance HasStanzaError MessageError where
+instance IsErrorStanza MessageError where
     stanzaError inj m@MessageError{messageErrorStanzaError = i} =
         (\i' -> m{messageErrorStanzaError = i'}) <$> inj i
 
-instance HasStanzaError PresenceError where
+instance IsErrorStanza PresenceError where
     stanzaError inj m@PresenceError{presenceErrorStanzaError = i} =
         (\i' -> m{presenceErrorStanzaError = i'}) <$> inj i
 
 class HasStanzaPayload s p | s -> p where
-    -- | Payload element(s) of the stanza
+    -- | Payload element(s) of the stanza. Since the amount of elements possible
+    -- in a stanza vary by type, this lens can't be used with a general
+    -- 'Stanza'. There is, however, a more general Traversable that works with
+    -- all stanzas (including 'Stanza'): 'payloadT'
     payload :: Lens s p
 
 instance HasStanzaPayload IQRequest Element where
@@ -310,10 +322,11 @@ sessionStanzaIDsL :: Lens SessionConfiguration (IO (IO Text))
 sessionStanzaIDsL inj sc@SessionConfiguration{sessionStanzaIDs = x}
     = (\x' -> sc{sessionStanzaIDs = x'}) <$> inj x
 
-ensableRoster :: Lens SessionConfiguration Bool
-ensableRoster inj sc@SessionConfiguration{enableRoster = x}
+ensableRosterL :: Lens SessionConfiguration Bool
+ensableRosterL inj sc@SessionConfiguration{enableRoster = x}
     = (\x' -> sc{enableRoster = x'}) <$> inj x
 
+pluginsL :: Lens SessionConfiguration [Plugin]
 pluginsL inj sc@SessionConfiguration{plugins = x}
     = (\x' -> sc{plugins = x'}) <$> inj x
 
