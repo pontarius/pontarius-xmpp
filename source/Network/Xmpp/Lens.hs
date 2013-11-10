@@ -8,6 +8,10 @@
 -- the lens library. This module also provides 3 simple accessors ('view',
 -- 'modify', 'set') so you don't need to pull in the lens library to get some
 -- use out of them.
+--
+-- The name of the lenses corresponds to the field name of the data types with
+-- an upper-case L appended. For documentation of the fields refer to the documentation of the data types (linked in the section header)
+
 module Network.Xmpp.Lens
        ( Lens
        , Traversal
@@ -18,6 +22,8 @@ module Network.Xmpp.Lens
        , modify
        , set
          -- * Lenses
+
+
          -- ** Stanzas
        , IsStanza(..)
        , HasStanzaPayload(..)
@@ -25,12 +31,12 @@ module Network.Xmpp.Lens
        , messageTypeL
        , presenceTypeL
        , iqRequestTypeL
-         -- ** StanzaError
+         -- *** 'StanzaError'
        , stanzaErrorTypeL
        , stanzaErrorConditionL
        , stanzaErrorTextL
        , stanzaErrorApplL
-         -- ** StreamConfiguration
+         -- *** 'StreamConfiguration'
        , preferredLangL
        , toJidL
        , connectionDetailsL
@@ -38,16 +44,35 @@ module Network.Xmpp.Lens
        , establishSessionL
        , tlsBehaviourL
        , tlsParamsL
-         -- ** SessionConfiguration
+         -- *** 'SessionConfiguration'
        , streamConfigurationL
        , onConnectionClosedL
        , sessionStanzaIDsL
        , ensableRosterL
        , pluginsL
-         -- ** Roster
+         -- ** IM
+         -- *** Roster
+         -- **** 'Roster'
        , verL
        , itemsL
-         -- ** IM
+         -- **** 'Item'
+       , riApprovedL
+       , riAskL
+       , riJidL
+       , riNameL
+       , riSubscriptionL
+       , riGroupsL
+         -- **** 'QueryItem'
+       , qiApprovedL
+       , qiAskL
+       , qiJidL
+       , qiNameL
+       , qiSubscriptionL
+       , qiGroupsL
+         -- **** 'Query'
+       , queryVerL
+       , queryItemsL
+         -- ** IM Message
        , bodyLangL
        , bodyContentL
        , threadIdL
@@ -75,6 +100,8 @@ import           Network.DNS(ResolvConf)
 import           Network.TLS (TLSParams)
 import           Network.Xmpp.Concurrent.Types
 import           Network.Xmpp.IM.Roster.Types
+import           Network.Xmpp.IM.Message
+import           Network.Xmpp.IM.Presence
 import           Network.Xmpp.Types
 
 -- | Van-Laarhoven lenses.
@@ -371,6 +398,58 @@ verL inj r@Roster{ver = x} = (\x' -> r{ver = x'}) <$> inj x
 
 itemsL :: Lens Roster (Map.Map Jid Item)
 itemsL inj r@Roster{items = x} = (\x' -> r{items = x'}) <$> inj x
+
+-- Item
+----------------------
+
+riApprovedL :: Lens Item Bool
+riApprovedL inj i@Item{riApproved = x} = (\x' -> i{riApproved = x'}) <$> inj x
+
+riAskL :: Lens Item Bool
+riAskL inj i@Item{riAsk = x} = (\x' -> i{riAsk = x'}) <$> inj x
+
+riJidL :: Lens Item Jid
+riJidL inj i@Item{riJid = x} = (\x' -> i{riJid = x'}) <$> inj x
+
+riNameL :: Lens Item (Maybe Text)
+riNameL inj i@Item{riName = x} = (\x' -> i{riName = x'}) <$> inj x
+
+riSubscriptionL :: Lens Item Subscription
+riSubscriptionL inj i@Item{riSubscription = x} =
+    (\x' -> i{riSubscription = x'}) <$> inj x
+
+riGroupsL :: Lens Item [Text]
+riGroupsL inj i@Item{riGroups = x} = (\x' -> i{riGroups = x'}) <$> inj x
+
+
+-- QueryItem
+-------------------
+qiApprovedL :: Lens QueryItem (Maybe Bool)
+qiApprovedL inj i@QueryItem{qiApproved = x} =
+    (\x' -> i{qiApproved = x'}) <$> inj x
+
+qiAskL :: Lens QueryItem Bool
+qiAskL inj i@QueryItem{qiAsk = x} = (\x' -> i{qiAsk = x'}) <$> inj x
+
+qiJidL :: Lens QueryItem Jid
+qiJidL inj i@QueryItem{qiJid = x} = (\x' -> i{qiJid = x'}) <$> inj x
+
+qiNameL :: Lens QueryItem (Maybe Text)
+qiNameL inj i@QueryItem{qiName = x} = (\x' -> i{qiName = x'}) <$> inj x
+
+qiSubscriptionL :: Lens QueryItem (Maybe Subscription)
+qiSubscriptionL inj i@QueryItem{qiSubscription = x} =
+    (\x' -> i{qiSubscription = x'}) <$> inj x
+
+qiGroupsL :: Lens QueryItem [Text]
+qiGroupsL inj i@QueryItem{qiGroups = x} = (\x' -> i{qiGroups = x'}) <$> inj x
+
+queryVerL :: Lens Query (Maybe Text)
+queryVerL inj i@Query{queryVer = x} = (\x' -> i{queryVer = x'}) <$> inj x
+
+queryItemsL :: Lens Query [QueryItem]
+queryItemsL inj i@Query{queryItems = x} = (\x' -> i{queryItems = x'}) <$> inj x
+
 
 -- IM
 -------------------

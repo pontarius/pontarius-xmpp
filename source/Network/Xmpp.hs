@@ -173,7 +173,10 @@ module Network.Xmpp
   , SaslFailure(..)
   -- * Threads
   , dupSession
-  module Network.Xmpp.Lens
+  -- * Lenses
+  -- | Network.Xmpp doesn't re-export the accessors to avoid name
+  -- clashes. If you want to use them import Network.Xmpp.Lens
+  , module Network.Xmpp.Lens
   -- * Miscellaneous
   , LangTag
   , langTagFromText
