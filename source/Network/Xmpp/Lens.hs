@@ -44,18 +44,38 @@ module Network.Xmpp.Lens
        , sessionStanzaIDsL
        , ensableRosterL
        , pluginsL
+         -- ** Roster
+       , verL
+       , itemsL
+         -- ** IM
+       , bodyLangL
+       , bodyContentL
+       , threadIdL
+       , threadParentL
+       , subjectLangL
+       , subjectContentL
+       , imThreadL
+       , imSubjectL
+       , imBodyL
+         -- IM Presence
+       , showStatusL
+       , statusL
+       , priorityL
+
        )
        where
 
 import           Control.Applicative
 import           Data.Functor.Identity(Identity(..))
+import qualified Data.Map as Map
 import qualified Data.Text as Text
 import           Data.Text(Text)
 import           Data.XML.Types(Element)
 import           Network.DNS(ResolvConf)
 import           Network.TLS (TLSParams)
-import           Network.Xmpp.Types
 import           Network.Xmpp.Concurrent.Types
+import           Network.Xmpp.IM.Roster.Types
+import           Network.Xmpp.Types
 
 -- | Van-Laarhoven lenses.
 type Lens a b = Functor f => (b -> f b) -> a -> f a
@@ -341,3 +361,67 @@ modify l f x = runIdentity $ l (fmap f . Identity) x
 -- | Replace the value the lens is pointing to
 set :: Lens a b -> b -> a -> a
 set l b x = modify l (const b) x
+
+
+-- Roster
+------------------
+
+verL :: Lens Roster (Maybe Text)
+verL inj r@Roster{ver = x} = (\x' -> r{ver = x'}) <$> inj x
+
+itemsL :: Lens Roster (Map.Map Jid Item)
+itemsL inj r@Roster{items = x} = (\x' -> r{items = x'}) <$> inj x
+
+-- IM
+-------------------
+
+
+bodyLangL :: Lens MessageBody (Maybe LangTag)
+bodyLangL inj m@MessageBody{bodyLang = bl} = (\bl' -> m{bodyLang = bl'}) <$> inj bl
+
+bodyContentL :: Lens MessageBody Text
+bodyContentL inj m@MessageBody{bodyContent = bc} =
+    (\bc' -> m{bodyContent = bc'}) <$> inj bc
+
+threadIdL :: Lens MessageThread Text
+threadIdL inj m@MessageThread{threadID = bc} =
+    (\bc' -> m{threadID = bc'}) <$> inj bc
+
+threadParentL :: Lens MessageThread (Maybe Text)
+threadParentL inj m@MessageThread{threadParent = bc} =
+    (\bc' -> m{threadParent = bc'}) <$> inj bc
+
+subjectLangL :: Lens MessageSubject (Maybe LangTag)
+subjectLangL inj m@MessageSubject{subjectLang = bc} =
+    (\bc' -> m{subjectLang = bc'}) <$> inj bc
+
+subjectContentL :: Lens MessageSubject Text
+subjectContentL inj m@MessageSubject{subjectContent = bc} =
+    (\bc' -> m{subjectContent = bc'}) <$> inj bc
+
+imThreadL :: Lens InstantMessage (Maybe MessageThread)
+imThreadL inj m@InstantMessage{imThread = bc} =
+    (\bc' -> m{imThread = bc'}) <$> inj bc
+
+imSubjectL :: Lens InstantMessage [MessageSubject]
+imSubjectL inj m@InstantMessage{imSubject = bc} =
+    (\bc' -> m{imSubject = bc'}) <$> inj bc
+
+imBodyL :: Lens InstantMessage [MessageBody]
+imBodyL inj m@InstantMessage{imBody = bc} =
+    (\bc' -> m{imBody = bc'}) <$> inj bc
+
+-- IM Presence
+------------------
+
+showStatusL :: Lens IMPresence (Maybe ShowStatus)
+showStatusL inj m@IMP{showStatus = bc} =
+    (\bc' -> m{showStatus = bc'}) <$> inj bc
+
+statusL :: Lens IMPresence (Maybe Text)
+statusL inj m@IMP{status = bc} =
+    (\bc' -> m{status = bc'}) <$> inj bc
+
+priorityL :: Lens IMPresence (Maybe Int)
+priorityL inj m@IMP{priority = bc} =
+    (\bc' -> m{priority = bc'}) <$> inj bc

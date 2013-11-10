@@ -47,7 +47,7 @@ getIM im = either (const Nothing) Just . unpickle xpIM $ messagePayload im
 sanitizeIM :: InstantMessage -> InstantMessage
 sanitizeIM im = im{imBody = nubBy ((==) `on` bodyLang) $ imBody im}
 
--- | Append IM data to a message
+-- | Append IM data to a message. Additional IM bodies with the same Langtag
 withIM :: Message -> InstantMessage -> Message
 withIM m im = m{ messagePayload = messagePayload m
                                  ++ pickleTree xpIM (sanitizeIM im) }

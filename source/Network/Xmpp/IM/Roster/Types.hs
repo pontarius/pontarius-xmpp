@@ -10,8 +10,8 @@ import           Network.Xmpp.Types
 data Subscription = None | To | From | Both | Remove deriving (Eq, Read, Show)
 
 data Roster = Roster { ver :: Maybe Text
-                     , items :: Map.Map Jid Item } deriving Show
-
+                     , items :: Map.Map Jid Item
+                     } deriving Show
 
 -- | Roster Items
 data Item = Item { riApproved :: Bool

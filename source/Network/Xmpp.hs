@@ -171,38 +171,9 @@ module Network.Xmpp
   , StanzaErrorType(..)
   , StanzaErrorCondition(..)
   , SaslFailure(..)
-  -- * Lenses
-  -- | You can import Network.Xmpp.Lens for basic lens functions ('view',
-  -- 'modify' and 'set')
-
-  -- ** Stanzas
-  , IsStanza(..)
-  , IsErrorStanza(..)
-  , HasStanzaPayload(..)
-  , messageTypeL
-  , presenceTypeL
-  , iqRequestTypeL
-  -- ** StanzaError
-  , stanzaErrorTypeL
-  , stanzaErrorConditionL
-  , stanzaErrorTextL
-  , stanzaErrorApplL
-  -- ** StreamConfiguration
-  , preferredLangL
-  , toJidL
-  , connectionDetailsL
-  , resolvConfL
-  , establishSessionL
-  , tlsBehaviourL
-  , tlsParamsL
-  -- ** SessionConfiguration
-  , streamConfigurationL
-  , onConnectionClosedL
-  , sessionStanzaIDsL
-  , ensableRosterL
-  , pluginsL
   -- * Threads
   , dupSession
+  module Network.Xmpp.Lens
   -- * Miscellaneous
   , LangTag
   , langTagFromText
@@ -226,4 +197,4 @@ import Network.Xmpp.Sasl.Types
 import Network.Xmpp.Stanza
 import Network.Xmpp.Types
 import Network.Xmpp.Tls
-import Network.Xmpp.Lens
+import Network.Xmpp.Lens hiding (view, show, modify)
