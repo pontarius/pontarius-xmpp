@@ -73,16 +73,20 @@ module Network.Xmpp.Lens
        , queryVerL
        , queryItemsL
          -- ** IM Message
+         -- *** 'MessageBody'
        , bodyLangL
        , bodyContentL
+         -- *** 'MessageThread'
        , threadIdL
        , threadParentL
+         -- *** 'MessageSubject'
        , subjectLangL
        , subjectContentL
+         -- *** 'InstantMessage'
        , imThreadL
        , imSubjectL
        , imBodyL
-         -- IM Presence
+         -- ** 'IMPresence'
        , showStatusL
        , statusL
        , priorityL

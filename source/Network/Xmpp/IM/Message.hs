@@ -30,6 +30,7 @@ data InstantMessage = InstantMessage { imThread  :: Maybe MessageThread
                                      , imBody    :: [MessageBody]
                                      }
 
+-- | Empty instant message
 instantMessage :: InstantMessage
 instantMessage = InstantMessage { imThread  = Nothing
                                 , imSubject = []
@@ -47,7 +48,8 @@ getIM im = either (const Nothing) Just . unpickle xpIM $ messagePayload im
 sanitizeIM :: InstantMessage -> InstantMessage
 sanitizeIM im = im{imBody = nubBy ((==) `on` bodyLang) $ imBody im}
 
--- | Append IM data to a message. Additional IM bodies with the same Langtag
+-- | Append IM data to a message. Additional IM bodies with the same Langtag are
+-- discarded
 withIM :: Message -> InstantMessage -> Message
 withIM m im = m{ messagePayload = messagePayload m
                                  ++ pickleTree xpIM (sanitizeIM im) }
@@ -65,10 +67,9 @@ simpleIM to bd = withIM message{messageTo = Just to}
 -- | Generate an answer from a received message. The recepient is
 -- taken from the original sender, the sender is set to Nothing,
 -- message ID, language tag, message type as well as subject and
--- thread are inherited, the remaining payload is replaced by the
--- given one.
+-- thread are inherited.
 --
--- If multiple message bodies are given they MUST have different language tags
+-- Additional IM bodies with the same Langtag are discarded
 answerIM :: [MessageBody] -> Message -> Maybe Message
 answerIM bd msg = case getIM msg of
     Nothing -> Nothing

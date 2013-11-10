@@ -100,7 +100,7 @@ module Network.Xmpp
   -- | The /message/ stanza is a /push/ mechanism whereby one entity
   -- pushes information to another entity, similar to the communications that
   -- occur in a system such as email. It is not to be confused with
-  -- /instant messaging/ which is handled in the 'Network.Xmpp.IM' module
+  -- an 'InstantMessage'
   , Message(..)
   , message
   , MessageError(..)
@@ -200,4 +200,4 @@ import Network.Xmpp.Sasl.Types
 import Network.Xmpp.Stanza
 import Network.Xmpp.Types
 import Network.Xmpp.Tls
-import Network.Xmpp.Lens hiding (view, show, modify)
+import Network.Xmpp.Lens hiding (view, set, modify)
