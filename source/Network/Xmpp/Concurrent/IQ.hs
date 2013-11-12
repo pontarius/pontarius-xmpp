@@ -1,8 +1,10 @@
 {-# OPTIONS_HADDOCK hide #-}
 module Network.Xmpp.Concurrent.IQ where
 
-import           Control.Concurrent (forkIO, threadDelay)
+import           Control.Concurrent (forkIO)
+import           Control.Concurrent.Thread.Delay (delay)
 import           Control.Concurrent.STM
+
 import           Control.Monad
 
 import qualified Data.Map as Map
@@ -16,17 +18,17 @@ import           Network.Xmpp.Types
 -- | Sends an IQ, returns Just a 'TMVar' that will be filled with the first
 -- inbound IQ with a matching ID that has type @result@ or @error@ or Nothing if
 -- the stanza could not be sent
-sendIQ :: Maybe Int -- ^ Timeout . When the timeout is reached the response
-                    -- TMVar will be filled with 'IQResponseTimeout' and the id
-                    -- is removed from the list of IQ handlers. 'Nothing'
-                    -- deactivates the timeout
+sendIQ :: Maybe Integer -- ^ Timeout . When the timeout is reached the response
+                        -- TMVar will be filled with 'IQResponseTimeout' and the
+                        -- id is removed from the list of IQ handlers. 'Nothing'
+                        -- deactivates the timeout
        -> Maybe Jid -- ^ Recipient (to)
        -> IQRequestType  -- ^ IQ type (@Get@ or @Set@)
        -> Maybe LangTag  -- ^ Language tag of the payload (@Nothing@ for
                          -- default)
        -> Element -- ^ The IQ body (there has to be exactly one)
        -> Session
-       -> IO (Maybe (TMVar IQResponse))
+       -> IO (Maybe (TMVar (Maybe IQResponse)))
 sendIQ timeOut to tp lang body session = do -- TODO: Add timeout
     newId <- idGenerator session
     ref <- atomically $ do
@@ -41,7 +43,7 @@ sendIQ timeOut to tp lang body session = do -- TODO: Add timeout
             case timeOut of
                 Nothing -> return ()
                 Just t -> void . forkIO $ do
-                          threadDelay t
+                          delay t
                           doTimeOut (iqHandlers session) newId ref
             return $ Just ref
         else return Nothing
@@ -53,16 +55,16 @@ sendIQ timeOut to tp lang body session = do -- TODO: Add timeout
           writeTVar handlers (byNS, Map.delete iqid byId)
       return ()
 
-
--- | Like 'sendIQ', but waits for the answer IQ. Times out after 30 seconds
-sendIQ' :: Maybe Jid
+-- | Like 'sendIQ', but waits for the answer IQ.
+sendIQ' :: Maybe Integer
+        -> Maybe Jid
         -> IQRequestType
         -> Maybe LangTag
         -> Element
         -> Session
         -> IO (Maybe IQResponse)
-sendIQ' to tp lang body session = do
-    ref <- sendIQ (Just 30000000) to tp lang body session
+sendIQ' timeout to tp lang body session = do
+    ref <- sendIQ timeout to tp lang body session
     maybe (return Nothing) (fmap Just . atomically . takeTMVar) ref
 
 

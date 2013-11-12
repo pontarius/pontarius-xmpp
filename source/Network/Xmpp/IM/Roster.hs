@@ -27,12 +27,16 @@ import           Network.Xmpp.IM.Roster.Types
 import           Network.Xmpp.Marshal
 import           Network.Xmpp.Types
 
+-- | Timeout to use with IQ requests
+timeout :: Maybe Integer
+timeout = Just 3000000 -- 3 seconds
+
 -- | Push a roster item to the server. The values for approved and ask are
 -- ignored and all values for subsciption except "remove" are ignored
 rosterPush :: Item -> Session -> IO (Maybe IQResponse)
 rosterPush item session = do
     let el = pickleElem xpQuery (Query Nothing [fromItem item])
-    sendIQ'  Nothing Set Nothing el session
+    sendIQ' timeout  Nothing Set Nothing el session
 
 -- | Add or update an item to the roster.
 --
@@ -51,7 +55,7 @@ rosterAdd j n gs session = do
                                             , qiSubscription = Nothing
                                             , qiGroups = nub gs
                                             }])
-    sendIQ'  Nothing Set Nothing el session
+    sendIQ' timeout Nothing Set Nothing el session
 
 -- | Remove an item from the roster. Return True when the item is sucessfully
 -- removed or if it wasn't in the roster to begin with.
@@ -121,9 +125,9 @@ retrieveRoster mbOldRoster sess = do
                       Nothing -> Just ""
                       Just oldRoster -> ver oldRoster
                 else Nothing
-    res <- sendIQ' Nothing Get Nothing
-        (pickleElem xpQuery (Query version []))
-        sess
+    res <- sendIQ' timeout Nothing Get Nothing
+                   (pickleElem xpQuery (Query version []))
+                   sess
     case res of
         Nothing -> do
             errorM "Pontarius.Xmpp.Roster" "getRoster: sending stanza failed"
