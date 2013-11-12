@@ -117,7 +117,7 @@ handleIQ iqHands out sta = do
         case Map.updateLookupWithKey (\_ _ -> Nothing) (iqID iq) byID of
             (Nothing, _) -> return () -- We are not supposed to send an error.
             (Just tmvar, byID') -> do
-                let answer = either IQResponseError IQResponseResult iq
+                let answer = Just $ either IQResponseError IQResponseResult iq
                 _ <- tryPutTMVar tmvar answer -- Don't block.
                 writeTVar handlers (byNS, byID')
       where

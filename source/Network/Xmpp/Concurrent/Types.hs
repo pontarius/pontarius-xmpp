@@ -97,7 +97,7 @@ data Session = Session
 -- TMVars of and TMVars for expected IQ responses (the second Text represent a
 -- stanza identifier.
 type IQHandlers = ( Map.Map (IQRequestType, Text) (TChan IQRequestTicket)
-                  , Map.Map Text (TMVar IQResponse)
+                  , Map.Map Text (TMVar (Maybe IQResponse))
                   )
 
 -- | Contains whether or not a reply has been sent, and the IQ request body to
@@ -110,3 +110,8 @@ data IQRequestTicket = IQRequestTicket
                       -- but failed (e.g. there is a connection failure)
     , iqRequestBody :: IQRequest
     }
+
+-- | Error that can occur during sendIQ'
+data IQSendError = IQSendError -- There was an error sending the IQ stanza
+                 | IQTimeOut -- No answer was received during the allotted time
+                   deriving (Show, Eq)

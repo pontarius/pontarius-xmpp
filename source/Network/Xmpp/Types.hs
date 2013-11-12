@@ -119,10 +119,9 @@ data IQRequest = IQRequest { iqRequestID      :: !Text
 data IQRequestType = Get | Set deriving (Eq, Ord, Read, Show)
 
 -- | A "response" Info/Query (IQ) stanza is either an 'IQError', an IQ stanza
--- of  type "result" ('IQResult') or a Timeout.
+-- of  type "result" ('IQResult')
 data IQResponse = IQResponseError IQError
                 | IQResponseResult IQResult
-                | IQResponseTimeout
                 deriving Show
 
 -- | The (non-error) answer to an IQ request.

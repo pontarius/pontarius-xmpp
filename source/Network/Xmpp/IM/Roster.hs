@@ -33,7 +33,7 @@ timeout = Just 3000000 -- 3 seconds
 
 -- | Push a roster item to the server. The values for approved and ask are
 -- ignored and all values for subsciption except "remove" are ignored
-rosterPush :: Item -> Session -> IO (Maybe IQResponse)
+rosterPush :: Item -> Session -> IO (Either IQSendError IQResponse)
 rosterPush item session = do
     let el = pickleElem xpQuery (Query Nothing [fromItem item])
     sendIQ' timeout  Nothing Set Nothing el session
@@ -45,7 +45,7 @@ rosterAdd :: Jid -- ^ JID of the item
           -> Maybe Text -- ^ Name alias
           -> [Text] -- ^ Groups (duplicates will be removed)
           -> Session
-          -> IO (Maybe IQResponse)
+          -> IO (Either IQSendError IQResponse)
 rosterAdd j n gs session = do
     let el = pickleElem xpQuery (Query Nothing
                                  [QueryItem { qiApproved = Nothing
@@ -67,7 +67,7 @@ rosterRemove j sess = do
         Just _ -> do
             res <- rosterPush (Item False False j Nothing Remove []) sess
             case res of
-                Just (IQResponseResult IQResult{}) -> return True
+                Right (IQResponseResult IQResult{}) -> return True
                 _ -> return False
 
 -- | Retrieve the current Roster state
@@ -82,7 +82,7 @@ initRoster session = do
                                                           else Nothing ) session
     case mbRoster of
         Nothing -> errorM "Pontarius.Xmpp"
-                          "Server did not return a roster"
+                          "Server did not return a roster: "
         Just roster -> atomically $ writeTVar (rosterRef session) roster
 
 handleRoster :: TVar Roster -> StanzaHandler
@@ -129,22 +129,19 @@ retrieveRoster mbOldRoster sess = do
                    (pickleElem xpQuery (Query version []))
                    sess
     case res of
-        Nothing -> do
-            errorM "Pontarius.Xmpp.Roster" "getRoster: sending stanza failed"
+        Left e -> do
+            errorM "Pontarius.Xmpp.Roster" $ "getRoster: " ++ show e
             return Nothing
-        Just (IQResponseResult (IQResult{iqResultPayload = Just ros}))
+        Right (IQResponseResult (IQResult{iqResultPayload = Just ros}))
             -> case unpickleElem xpQuery ros of
             Left _e -> do
                 errorM "Pontarius.Xmpp.Roster" "getRoster: invalid query element"
                 return Nothing
             Right ros' -> return . Just $ toRoster ros'
-        Just (IQResponseResult (IQResult{iqResultPayload = Nothing})) -> do
+        Right (IQResponseResult (IQResult{iqResultPayload = Nothing})) -> do
             return mbOldRoster
                 -- sever indicated that no roster updates are necessary
-        Just IQResponseTimeout -> do
-            errorM "Pontarius.Xmpp.Roster" "getRoster: request timed out"
-            return Nothing
-        Just (IQResponseError e) -> do
+        Right (IQResponseError e) -> do
             errorM "Pontarius.Xmpp.Roster" $ "getRoster: server returned error"
                    ++ show e
             return Nothing

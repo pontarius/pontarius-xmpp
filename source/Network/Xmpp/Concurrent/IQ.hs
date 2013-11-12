@@ -49,7 +49,7 @@ sendIQ timeOut to tp lang body session = do -- TODO: Add timeout
         else return Nothing
   where
     doTimeOut handlers iqid var = atomically $ do
-      p <- tryPutTMVar var IQResponseTimeout
+      p <- tryPutTMVar var Nothing
       when p $ do
           (byNS, byId) <- readTVar (iqHandlers session)
           writeTVar handlers (byNS, Map.delete iqid byId)
@@ -62,11 +62,11 @@ sendIQ' :: Maybe Integer
         -> Maybe LangTag
         -> Element
         -> Session
-        -> IO (Maybe IQResponse)
+        -> IO (Either IQSendError IQResponse)
 sendIQ' timeout to tp lang body session = do
     ref <- sendIQ timeout to tp lang body session
-    maybe (return Nothing) (fmap Just . atomically . takeTMVar) ref
-
+    maybe (return $ Left IQSendError) (fmap (maybe (Left IQTimeOut) Right)
+                                     . atomically . takeTMVar) ref
 
 -- | Retrieves an IQ listener channel. If the namespace/'IQRequestType' is not
 -- already handled, a new 'TChan' is created and returned as a 'Right' value.
