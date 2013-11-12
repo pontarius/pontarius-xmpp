@@ -32,11 +32,11 @@ sendStanza :: Stanza -> Session -> IO Bool
 sendStanza = flip sendStanza'
 
 -- | Get the channel of incoming stanzas.
-getStanzaChan :: Session -> TChan Stanza
+getStanzaChan :: Session -> TChan (Stanza, [Annotation])
 getStanzaChan session = stanzaCh session
 
 -- | Get the next incoming stanza
-getStanza :: Session -> IO Stanza
+getStanza :: Session -> IO (Stanza, [Annotation])
 getStanza session = atomically . readTChan $ stanzaCh session
 
 -- | Create a new session object with the inbound channel duplicated

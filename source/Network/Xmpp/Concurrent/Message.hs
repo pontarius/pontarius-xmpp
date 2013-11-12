@@ -8,21 +8,21 @@ import Network.Xmpp.Concurrent.Basic
 
 -- | Read an element from the inbound stanza channel, discardes any
 -- non-Message stanzas from the channel
-pullMessage :: Session -> IO (Either MessageError Message)
+pullMessage :: Session -> IO (Either (Annotated MessageError) (Annotated Message))
 pullMessage session = do
-    stanza <- atomically . readTChan $ stanzaCh session
+    (stanza, as) <- atomically . readTChan $ stanzaCh session
     case stanza of
-        MessageS m -> return $ Right m
-        MessageErrorS e -> return $ Left e
+        MessageS m      -> return $ Right (m, as)
+        MessageErrorS e -> return $ Left  (e, as)
         _ -> pullMessage session
 
 -- | Get the next received message
-getMessage :: Session -> IO Message
+getMessage :: Session -> IO (Annotated Message)
 getMessage = waitForMessage (const True)
 
 -- | Pulls a (non-error) message and returns it if the given predicate returns
 -- @True@.
-waitForMessage :: (Message -> Bool) -> Session -> IO Message
+waitForMessage :: (Annotated Message -> Bool) -> Session -> IO (Annotated Message)
 waitForMessage f session = do
     s <- pullMessage session
     case s of
@@ -31,7 +31,9 @@ waitForMessage f session = do
                 | otherwise -> waitForMessage f session
 
 -- | Pulls an error message and returns it if the given predicate returns @True@.
-waitForMessageError :: (MessageError -> Bool) -> Session -> IO MessageError
+waitForMessageError :: (Annotated MessageError -> Bool)
+                    -> Session
+                    -> IO (Annotated MessageError)
 waitForMessageError f session = do
     s <- pullMessage session
     case s of
@@ -41,9 +43,10 @@ waitForMessageError f session = do
 
 
 -- | Pulls a message and returns it if the given predicate returns @True@.
-filterMessages :: (MessageError -> Bool)
-               -> (Message -> Bool)
-               -> Session -> IO (Either MessageError Message)
+filterMessages :: (Annotated MessageError -> Bool)
+               -> (Annotated Message -> Bool)
+               -> Session -> IO (Either (Annotated MessageError)
+                                        (Annotated Message))
 filterMessages f g session = do
     s <- pullMessage session
     case s of

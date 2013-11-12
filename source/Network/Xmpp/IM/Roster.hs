@@ -33,10 +33,10 @@ timeout = Just 3000000 -- 3 seconds
 
 -- | Push a roster item to the server. The values for approved and ask are
 -- ignored and all values for subsciption except "remove" are ignored
-rosterPush :: Item -> Session -> IO (Either IQSendError IQResponse)
+rosterPush :: Item -> Session -> IO (Either IQSendError (Annotated IQResponse))
 rosterPush item session = do
     let el = pickleElem xpQuery (Query Nothing [fromItem item])
-    sendIQ' timeout  Nothing Set Nothing el session
+    sendIQ' timeout Nothing Set Nothing el session
 
 -- | Add or update an item to the roster.
 --
@@ -45,7 +45,7 @@ rosterAdd :: Jid -- ^ JID of the item
           -> Maybe Text -- ^ Name alias
           -> [Text] -- ^ Groups (duplicates will be removed)
           -> Session
-          -> IO (Either IQSendError IQResponse)
+          -> IO (Either IQSendError (Annotated IQResponse))
 rosterAdd j n gs session = do
     let el = pickleElem xpQuery (Query Nothing
                                  [QueryItem { qiApproved = Nothing
@@ -67,7 +67,7 @@ rosterRemove j sess = do
         Just _ -> do
             res <- rosterPush (Item False False j Nothing Remove []) sess
             case res of
-                Right (IQResponseResult IQResult{}) -> return True
+                Right (IQResponseResult IQResult{}, _) -> return True
                 _ -> return False
 
 -- | Retrieve the current Roster state
@@ -86,13 +86,13 @@ initRoster session = do
         Just roster -> atomically $ writeTVar (rosterRef session) roster
 
 handleRoster :: TVar Roster -> StanzaHandler
-handleRoster ref out sta = case sta of
+handleRoster ref out sta as = case sta of
     IQRequestS (iqr@IQRequest{iqRequestPayload =
                                    iqb@Element{elementName = en}})
         | nameNamespace en == Just "jabber:iq:roster" -> do
             case iqRequestFrom iqr of
-                Just _from -> return [sta] -- Don't handle roster pushes from
-                                           -- unauthorized sources
+                Just _from -> return [(sta, as)] -- Don't handle roster pushes
+                                                 -- from unauthorized sources
                 Nothing -> case unpickleElem xpQuery iqb of
                     Right Query{ queryVer = v
                                , queryItems = [update]
@@ -104,7 +104,7 @@ handleRoster ref out sta = case sta of
                         errorM "Pontarius.Xmpp" "Invalid roster query"
                         _ <- out $ badRequest iqr
                         return []
-    _ -> return [sta]
+    _ -> return [(sta, as)]
   where
     handleUpdate v' update = atomically $ modifyTVar ref $ \(Roster v is) ->
         Roster (v' `mplus` v) $ case qiSubscription update of
@@ -132,16 +132,16 @@ retrieveRoster mbOldRoster sess = do
         Left e -> do
             errorM "Pontarius.Xmpp.Roster" $ "getRoster: " ++ show e
             return Nothing
-        Right (IQResponseResult (IQResult{iqResultPayload = Just ros}))
+        Right (IQResponseResult (IQResult{iqResultPayload = Just ros}), _)
             -> case unpickleElem xpQuery ros of
             Left _e -> do
                 errorM "Pontarius.Xmpp.Roster" "getRoster: invalid query element"
                 return Nothing
             Right ros' -> return . Just $ toRoster ros'
-        Right (IQResponseResult (IQResult{iqResultPayload = Nothing})) -> do
+        Right (IQResponseResult (IQResult{iqResultPayload = Nothing}), _) -> do
             return mbOldRoster
                 -- sever indicated that no roster updates are necessary
-        Right (IQResponseError e) -> do
+        Right (IQResponseError e, _) -> do
             errorM "Pontarius.Xmpp.Roster" $ "getRoster: server returned error"
                    ++ show e
             return Nothing

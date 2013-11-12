@@ -1,3 +1,4 @@
+{-# LANGUAGE TupleSections #-}
 {-# OPTIONS_HADDOCK hide #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Network.Xmpp.Concurrent
@@ -8,7 +9,6 @@ module Network.Xmpp.Concurrent
   , module Network.Xmpp.Concurrent.Message
   , module Network.Xmpp.Concurrent.Presence
   , module Network.Xmpp.Concurrent.IQ
-  , StanzaHandler
   , newSession
   , session
   , newStanzaID
@@ -49,25 +49,30 @@ import           System.Random (randomRIO)
 
 import           Control.Monad.State.Strict
 
-runHandlers :: [Stanza -> IO [Stanza]] -> Stanza -> IO ()
-runHandlers []        _   = return ()
-runHandlers (h:hands) sta = do
-    res <- h sta
-    forM_ res $ runHandlers hands
 
-toChan :: TChan Stanza -> StanzaHandler
-toChan stanzaC _ sta = do
-    atomically $ writeTChan stanzaC sta
-    return [sta]
+runHandlers [] sta = do
+    errorM "Pontarius.Xmpp" $
+           "No stanza handlers set, discarding stanza" ++ show sta
+    return ()
+runHandlers hs sta = go hs sta []
+  where go []        _  _   = return ()
+        go (h:hands) sta' as = do
+            res <- h sta' as
+            forM_ res $ uncurry (go hands)
+
+toChan :: TChan (Annotated Stanza) -> StanzaHandler
+toChan stanzaC _ sta as = do
+    atomically $ writeTChan stanzaC (sta, as)
+    return [(sta, as)]
 
 handleIQ :: TVar IQHandlers
          -> StanzaHandler
-handleIQ iqHands out sta = do
+handleIQ iqHands out sta as = do
         case sta of
             IQRequestS     i -> handleIQRequest iqHands i >> return []
             IQResultS      i -> handleIQResponse iqHands (Right i) >> return []
             IQErrorS       i -> handleIQResponse iqHands (Left i)  >> return []
-            _                -> return [sta]
+            _                -> return [(sta, as)]
   where
     -- If the IQ request has a namespace, send it through the appropriate channel.
     handleIQRequest :: TVar IQHandlers -> IQRequest -> IO ()
@@ -104,7 +109,7 @@ handleIQ iqHands out sta = do
                                           False -> do
                                               atomically $ putTMVar sentRef False
                                               return $ Just False
-                  writeTChan ch $ IQRequestTicket answerT iq
+                  writeTChan ch $ IQRequestTicket answerT iq as
                   return Nothing
         maybe (return ()) (void . out) res
     serviceUnavailable (IQRequest iqid from _to lang _tp bd) =
@@ -117,7 +122,7 @@ handleIQ iqHands out sta = do
         case Map.updateLookupWithKey (\_ _ -> Nothing) (iqID iq) byID of
             (Nothing, _) -> return () -- We are not supposed to send an error.
             (Just tmvar, byID') -> do
-                let answer = Just $ either IQResponseError IQResponseResult iq
+                let answer = Just (either IQResponseError IQResponseResult iq, as)
                 _ <- tryPutTMVar tmvar answer -- Don't block.
                 writeTVar handlers (byNS, byID')
       where
@@ -139,7 +144,7 @@ newSession stream config realm mbSasl = runErrorT $ do
     ros <- liftIO . newTVarIO $ Roster Nothing Map.empty
     rew <- lift $ newTVarIO 60
     let out = writeStanza writeSem
-    let rosterH = if (enableRoster config) then [handleRoster ros out ]
+    let rosterH = if (enableRoster config) then [handleRoster ros out]
                                            else []
     (sStanza, ps) <- initPlugins out $ plugins config
     let stanzaHandler = runHandlers $ List.concat

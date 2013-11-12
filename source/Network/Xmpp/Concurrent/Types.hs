@@ -1,3 +1,4 @@
+{-# LANGUAGE ExistentialQuantification #-}
 {-# OPTIONS_HADDOCK hide #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 
@@ -19,8 +20,18 @@ import           Network.Xmpp.IM.Roster.Types
 import           Network.Xmpp.Sasl.Types
 import           Network.Xmpp.Types
 
+type StanzaHandler =  (Stanza -> IO Bool) -- ^ outgoing stanza
+                   -> Stanza       -- ^ stanza to handle
+                   -> [Annotation]
+                   -> IO [(Stanza, [Annotation])]  -- ^ modified stanzas (if any)
 
-data Plugin' = Plugin' { inHandler :: Stanza -> IO [Stanza]
+data Annotation = forall f. (Typeable f, Show f) => Annotation f
+
+type Annotated a = (a, [Annotation])
+
+data Plugin' = Plugin' { inHandler :: Stanza
+                                      -> [Annotation]
+                                      -> IO [(Stanza, [Annotation])]
                        , outHandler :: Stanza -> IO Bool
                           -- | In order to allow plugins to tie the knot (Plugin
                           -- / Session) we pass the plugin the completed Session
@@ -72,7 +83,7 @@ type WriteSemaphore = TMVar (BS.ByteString -> IO Bool)
 -- | The Session object represents a single session with an XMPP server. You can
 -- use 'session' to establish a session
 data Session = Session
-    { stanzaCh :: TChan Stanza -- All stanzas
+    { stanzaCh :: TChan (Stanza, [Annotation]) -- All stanzas
     , iqHandlers :: TVar IQHandlers
       -- Writing lock, so that only one thread could write to the stream at any
       -- given time.
@@ -97,7 +108,7 @@ data Session = Session
 -- TMVars of and TMVars for expected IQ responses (the second Text represent a
 -- stanza identifier.
 type IQHandlers = ( Map.Map (IQRequestType, Text) (TChan IQRequestTicket)
-                  , Map.Map Text (TMVar (Maybe IQResponse))
+                  , Map.Map Text (TMVar (Maybe (Annotated IQResponse)))
                   )
 
 -- | Contains whether or not a reply has been sent, and the IQ request body to
@@ -109,6 +120,8 @@ data IQRequestTicket = IQRequestTicket
                       -- answered and Just False when the answer was attempted,
                       -- but failed (e.g. there is a connection failure)
     , iqRequestBody :: IQRequest
+      -- | Annotations set by plugins in receive
+    , iqRequestAnnotations :: [Annotation]
     }
 
 -- | Error that can occur during sendIQ'

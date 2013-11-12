@@ -45,7 +45,6 @@ module Network.Xmpp.Types
     , StreamState(..)
     , ConnectionState(..)
     , StreamErrorInfo(..)
-    , StanzaHandler
     , ConnectionDetails(..)
     , StreamConfiguration(..)
     , Jid(..)
@@ -1041,10 +1040,6 @@ instance Default StreamConfiguration where
                                                                 , pCiphers = ciphersuite_strong
                                                                 }
                               }
-
-type StanzaHandler =  (Stanza -> IO Bool) -- ^ outgoing stanza
-                   -> Stanza       -- ^ stanza to handle
-                   -> IO [Stanza]  -- ^ modified stanzas (if any)
 
 -- | How the client should behave in regards to TLS.
 data TlsBehaviour = RequireTls -- ^ Require the use of TLS; disconnect if it's

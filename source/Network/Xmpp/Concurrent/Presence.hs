@@ -8,17 +8,20 @@ import Network.Xmpp.Concurrent.Basic
 
 -- | Read an element from the inbound stanza channel, discardes any non-Presence
 -- stanzas from the channel
-pullPresence :: Session -> IO (Either PresenceError Presence)
+pullPresence :: Session -> IO (Either (Annotated PresenceError)
+                                      (Annotated Presence))
 pullPresence session = do
-    stanza <- atomically . readTChan $ stanzaCh session
+    (stanza, as) <- atomically . readTChan $ stanzaCh session
     case stanza of
-        PresenceS p -> return $ Right p
-        PresenceErrorS e -> return $ Left e
+        PresenceS p -> return $ Right (p, as)
+        PresenceErrorS e -> return $ Left (e, as)
         _ -> pullPresence session
 
 -- | Pulls a (non-error) presence and returns it if the given predicate returns
 -- @True@.
-waitForPresence :: (Presence -> Bool) -> Session -> IO Presence
+waitForPresence :: (Annotated Presence -> Bool)
+                -> Session
+                -> IO (Annotated Presence)
 waitForPresence f session = do
     s <- pullPresence session
     case s of

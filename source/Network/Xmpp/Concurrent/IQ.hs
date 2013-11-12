@@ -28,7 +28,7 @@ sendIQ :: Maybe Integer -- ^ Timeout . When the timeout is reached the response
                          -- default)
        -> Element -- ^ The IQ body (there has to be exactly one)
        -> Session
-       -> IO (Maybe (TMVar (Maybe IQResponse)))
+       -> IO (Maybe (TMVar ( Maybe (Annotated IQResponse))))
 sendIQ timeOut to tp lang body session = do -- TODO: Add timeout
     newId <- idGenerator session
     ref <- atomically $ do
@@ -62,7 +62,7 @@ sendIQ' :: Maybe Integer
         -> Maybe LangTag
         -> Element
         -> Session
-        -> IO (Either IQSendError IQResponse)
+        -> IO (Either IQSendError (Annotated IQResponse))
 sendIQ' timeout to tp lang body session = do
     ref <- sendIQ timeout to tp lang body session
     maybe (return $ Left IQSendError) (fmap (maybe (Left IQTimeOut) Right)
