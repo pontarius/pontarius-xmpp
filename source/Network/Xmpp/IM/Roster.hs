@@ -86,12 +86,12 @@ initRoster session = do
         Just roster -> atomically $ writeTVar (rosterRef session) roster
 
 handleRoster :: TVar Roster -> StanzaHandler
-handleRoster ref out sta as = case sta of
+handleRoster ref out sta _ = case sta of
     IQRequestS (iqr@IQRequest{iqRequestPayload =
                                    iqb@Element{elementName = en}})
         | nameNamespace en == Just "jabber:iq:roster" -> do
             case iqRequestFrom iqr of
-                Just _from -> return [(sta, as)] -- Don't handle roster pushes
+                Just _from -> return [(sta, [])] -- Don't handle roster pushes
                                                  -- from unauthorized sources
                 Nothing -> case unpickleElem xpQuery iqb of
                     Right Query{ queryVer = v
@@ -104,7 +104,7 @@ handleRoster ref out sta as = case sta of
                         errorM "Pontarius.Xmpp" "Invalid roster query"
                         _ <- out $ badRequest iqr
                         return []
-    _ -> return [(sta, as)]
+    _ -> return [(sta, [])]
   where
     handleUpdate v' update = atomically $ modifyTVar ref $ \(Roster v is) ->
         Roster (v' `mplus` v) $ case qiSubscription update of

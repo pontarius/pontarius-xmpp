@@ -58,12 +58,12 @@ runHandlers hs sta = go hs sta []
   where go []        _  _   = return ()
         go (h:hands) sta' as = do
             res <- h sta' as
-            forM_ res $ uncurry (go hands)
+            forM_ res $ \(sta, as') -> go hands sta (as ++ as')
 
 toChan :: TChan (Annotated Stanza) -> StanzaHandler
 toChan stanzaC _ sta as = do
     atomically $ writeTChan stanzaC (sta, as)
-    return [(sta, as)]
+    return [(sta, [])]
 
 handleIQ :: TVar IQHandlers
          -> StanzaHandler
@@ -72,7 +72,7 @@ handleIQ iqHands out sta as = do
             IQRequestS     i -> handleIQRequest iqHands i >> return []
             IQResultS      i -> handleIQResponse iqHands (Right i) >> return []
             IQErrorS       i -> handleIQResponse iqHands (Left i)  >> return []
-            _                -> return [(sta, as)]
+            _                -> return [(sta, [])]
   where
     -- If the IQ request has a namespace, send it through the appropriate channel.
     handleIQRequest :: TVar IQHandlers -> IQRequest -> IO ()

@@ -22,8 +22,9 @@ import           Network.Xmpp.Types
 
 type StanzaHandler =  (Stanza -> IO Bool) -- ^ outgoing stanza
                    -> Stanza       -- ^ stanza to handle
-                   -> [Annotation]
-                   -> IO [(Stanza, [Annotation])]  -- ^ modified stanzas (if any)
+                   -> [Annotation] -- ^ annotations added by previous handlers
+                   -> IO [(Stanza, [Annotation])]  -- ^ modified stanzas and
+                                                   -- /additional/ annotations
 
 data Annotation = forall f. (Typeable f, Show f) => Annotation f
 
