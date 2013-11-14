@@ -26,9 +26,16 @@ type StanzaHandler =  (Stanza -> IO Bool) -- ^ outgoing stanza
                    -> IO [(Stanza, [Annotation])]  -- ^ modified stanzas and
                                                    -- /additional/ annotations
 
-data Annotation = forall f. (Typeable f, Show f) => Annotation f
+data Annotation = forall f.(Typeable f, Show f) => Annotation{fromAnnotation :: f}
+
+instance Show Annotation where
+    show (Annotation x) = "Annotation{ fromAnnotation = " ++ show x ++ "}"
 
 type Annotated a = (a, [Annotation])
+
+-- | Retrieve the first matching annotation
+getAnnotation :: Typeable b => Annotated a -> Maybe b
+getAnnotation = foldr (\(Annotation a) b -> maybe b Just $ cast a) Nothing . snd
 
 data Plugin' = Plugin' { inHandler :: Stanza
                                       -> [Annotation]
