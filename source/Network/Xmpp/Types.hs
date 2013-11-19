@@ -301,7 +301,11 @@ data StanzaErrorCondition = BadRequest            -- ^ Malformed XML.
                                                   --   this action.
                           | NotAuthorized         -- ^ Must provide proper
                                                   --   credentials.
-                          | PaymentRequired
+                          | PolicyViolation       -- ^ The entity has violated
+                                                  -- some local service policy
+                                                  -- (e.g., a message contains
+                                                  -- words that are prohibited
+                                                  -- by the service)
                           | RecipientUnavailable  -- ^ Temporarily unavailable.
                           | Redirect (Maybe Text) -- ^ Redirecting to other
                                                   --   entity, usually
