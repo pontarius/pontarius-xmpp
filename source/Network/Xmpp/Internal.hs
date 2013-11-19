@@ -33,13 +33,15 @@ module Network.Xmpp.Internal
   , SaslHandler
   , Stanza(..)
   , TlsBehaviour(..)
+  , iqErrorResponse
+  , associatedErrorType
  )
-
        where
 
-import Network.Xmpp.Stream
+import Network.Xmpp.Concurrent.Basic
 import Network.Xmpp.Sasl
 import Network.Xmpp.Sasl.Types
+import Network.Xmpp.Stanza
+import Network.Xmpp.Stream
 import Network.Xmpp.Tls
 import Network.Xmpp.Types
-import Network.Xmpp.Concurrent.Basic

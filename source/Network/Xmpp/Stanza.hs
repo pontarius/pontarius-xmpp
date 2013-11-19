@@ -54,3 +54,46 @@ answerMessage _ _ = Nothing
 -- | Add a recipient to a presence notification.
 presTo :: Presence -> Jid -> Presence
 presTo pres to = pres{presenceTo = Just to}
+
+-- | Create an IQ error response to an IQ request using the given condition. The
+-- error type is derived from the condition using 'associatedErrorType' and
+-- both text and the application specific condition are left empty
+iqErrorResponse :: StanzaErrorCondition -> IQRequest -> IQError
+iqErrorResponse condition (IQRequest iqid from _to lang _tp bd) =
+    IQError iqid Nothing from lang err Nothing
+  where
+    err = StanzaError (associatedErrorType condition) condition Nothing Nothing
+
+-- | The RECOMMENDED error type associated with an error condition. The
+-- following conditions allow for multiple types
+--
+-- * 'FeatureNotImplemented': 'Cancel' or 'Modify' (returns 'Cancel')
+--
+-- * 'PolicyViolation': 'Modify' or 'Wait' ('Modify')
+--
+-- * 'RemoteServerTimeout': Wait or unspecified other ('Wait')
+--
+-- * 'UndefinedCondition': Any condition ('Cancel')
+associatedErrorType :: StanzaErrorCondition -> StanzaErrorType
+associatedErrorType BadRequest            = Modify
+associatedErrorType Conflict              = Cancel
+associatedErrorType FeatureNotImplemented = Cancel -- Or Modify
+associatedErrorType Forbidden             = Auth
+associatedErrorType Gone{}                = Cancel
+associatedErrorType InternalServerError   = Cancel
+associatedErrorType ItemNotFound          = Cancel
+associatedErrorType JidMalformed          = Modify
+associatedErrorType NotAcceptable         = Modify
+associatedErrorType NotAllowed            = Cancel
+associatedErrorType NotAuthorized         = Auth
+associatedErrorType PolicyViolation       = Modify -- Or Wait
+associatedErrorType RecipientUnavailable  = Wait
+associatedErrorType Redirect{}            = Modify
+associatedErrorType RegistrationRequired  = Auth
+associatedErrorType RemoteServerNotFound  = Cancel
+associatedErrorType RemoteServerTimeout   = Wait -- Possibly Others
+associatedErrorType ResourceConstraint    = Wait
+associatedErrorType ServiceUnavailable    = Cancel
+associatedErrorType SubscriptionRequired  = Auth
+associatedErrorType UndefinedCondition    = Cancel -- This can be anything
+associatedErrorType UnexpectedRequest     = Modify
