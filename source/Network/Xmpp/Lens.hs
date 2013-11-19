@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE RankNTypes #-}
@@ -5,9 +6,9 @@
 {-# LANGUAGE FunctionalDependencies #-}
 
 -- | Van Laarhoven lenses for XMPP types. The lenses are designed to work with
--- the lens library. This module also provides 3 simple accessors ('view',
--- 'modify', 'set') so you don't need to pull in the lens library to get some
--- use out of them.
+-- the lens library. This module also provides a few simple accessors ('view',
+-- 'modify', 'set' and 'getAll') so you don't need to pull in the
+-- lens library to get some use out of them.
 --
 -- The name of the lenses corresponds to the field name of the data types with
 -- an upper-case L appended. For documentation of the fields refer to the documentation of the data types (linked in the section header)
@@ -18,11 +19,14 @@ module Network.Xmpp.Lens
          -- * Accessors
          -- | Reimplementation of the basic lens functions so you don't have to
          -- bring in all of lens library in to use the lenses
+
+         -- ** Lenses
        , view
        , modify
        , set
+         -- * Traversals
+       , getAll
          -- * Lenses
-
 
          -- ** Stanzas
        , IsStanza(..)
@@ -112,6 +116,37 @@ import           Network.Xmpp.Types
 type Lens a b = Functor f => (b -> f b) -> a -> f a
 
 type Traversal a b = Applicative f => (b -> f b) -> a -> f a
+
+
+-- Accessors
+---------------
+
+
+-- | Read the value the lens is pointing to
+view :: Lens a b -> a -> b
+view l x = getConst $ l Const x
+
+-- | Replace the value the lens is pointing to
+set :: Lens a b -> b -> a -> a
+set l b x = modify l (const b) x
+
+-- | modify the Value(s) a Lens or Traversal is pointing to
+modify :: Traversal a b -> (b -> b) -> a -> a
+modify t f = runIdentity . t (Identity . f)
+
+newtype Collect a b = Collect {getCollection :: [a]} deriving Functor
+
+instance Applicative (Collect a) where
+    pure _ = Collect []
+    Collect xs <*> Collect ys = Collect $ xs ++ ys
+
+-- | Return all the values a Traversal is pointing to in a list
+getAll :: Traversal a b -> a -> [b]
+getAll t = getCollection . t (Collect . pure)
+
+
+-- Xmpp Lenses
+--------------------
 
 class IsStanza s where
     -- | From-attribute of the stanza
@@ -380,19 +415,6 @@ ensableRosterL inj sc@SessionConfiguration{enableRoster = x}
 pluginsL :: Lens SessionConfiguration [Plugin]
 pluginsL inj sc@SessionConfiguration{plugins = x}
     = (\x' -> sc{plugins = x'}) <$> inj x
-
--- | Read the value the lens is pointing to
-view :: Lens a b -> a -> b
-view l x = getConst $ l Const x
-
--- | Modify the value the lens is pointing to
-modify :: Lens a b -> (b -> b) -> a -> a
-modify l f x = runIdentity $ l (fmap f . Identity) x
-
--- | Replace the value the lens is pointing to
-set :: Lens a b -> b -> a -> a
-set l b x = modify l (const b) x
-
 
 -- Roster
 ------------------
