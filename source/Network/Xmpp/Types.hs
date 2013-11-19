@@ -289,7 +289,7 @@ data StanzaErrorCondition = BadRequest            -- ^ Malformed XML.
                                                   --   name already exists.
                           | FeatureNotImplemented
                           | Forbidden             -- ^ Insufficient permissions.
-                          | Gone                  -- ^ Entity can no longer be
+                          | Gone (Maybe Text)     -- ^ Entity can no longer be
                                                   --   contacted at this
                                                   --   address.
                           | InternalServerError
@@ -303,7 +303,7 @@ data StanzaErrorCondition = BadRequest            -- ^ Malformed XML.
                                                   --   credentials.
                           | PaymentRequired
                           | RecipientUnavailable  -- ^ Temporarily unavailable.
-                          | Redirect              -- ^ Redirecting to other
+                          | Redirect (Maybe Text) -- ^ Redirecting to other
                                                   --   entity, usually
                                                   --   temporarily.
                           | RegistrationRequired
