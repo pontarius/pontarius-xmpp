@@ -17,22 +17,27 @@
 -- top of this API.
 
 module Network.Xmpp.Internal
-  ( Stream(..)
+  ( -- * Stream
+    Stream(..)
   , StreamConfiguration(..)
   , StreamState(..)
   , StreamHandle(..)
   , StreamFeatures(..)
   , openStream
   , withStream
+    -- * TLS
   , tls
+  , TlsBehaviour(..)
+    -- * Auth
+  , SaslHandler
   , auth
+    -- * Stanzas
+  , Stanza(..)
   , pushStanza
   , pullStanza
-  , pushIQ
   , writeStanza
-  , SaslHandler
-  , Stanza(..)
-  , TlsBehaviour(..)
+    -- ** IQ
+  , pushIQ
   , iqErrorResponse
   , associatedErrorType
  )
