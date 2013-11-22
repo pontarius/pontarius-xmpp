@@ -9,6 +9,7 @@ module Network.Xmpp.Stanza where
 
 import Data.XML.Types
 import Network.Xmpp.Types
+import Network.Xmpp.Lens
 
 -- | Request subscription with an entity.
 presenceSubscribe :: Jid -> Presence
@@ -58,11 +59,21 @@ presTo pres to = pres{presenceTo = Just to}
 -- | Create an IQ error response to an IQ request using the given condition. The
 -- error type is derived from the condition using 'associatedErrorType' and
 -- both text and the application specific condition are left empty
-iqErrorResponse :: StanzaErrorCondition -> IQRequest -> IQError
-iqErrorResponse condition (IQRequest iqid from _to lang _tp bd) =
+iqError :: StanzaErrorCondition -> IQRequest -> IQError
+iqError condition (IQRequest iqid from _to lang _tp _bd) =
     IQError iqid Nothing from lang err Nothing
   where
     err = StanzaError (associatedErrorType condition) condition Nothing Nothing
+
+-- | Create an IQ Result matching an IQ request
+iqResult ::  Maybe Element -> IQRequest -> IQResult
+iqResult pl iqr = IQResult
+              { iqResultID   = iqRequestID iqr
+              , iqResultFrom = Nothing
+              , iqResultTo   = view from iqr
+              , iqResultLangTag = view lang iqr
+              , iqResultPayload = pl
+              }
 
 -- | The RECOMMENDED error type associated with an error condition. The
 -- following conditions allow for multiple types
