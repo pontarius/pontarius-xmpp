@@ -13,19 +13,19 @@ import Network.Xmpp.Lens
 
 -- | Request subscription with an entity.
 presenceSubscribe :: Jid -> Presence
-presenceSubscribe to = presence { presenceTo = Just to
+presenceSubscribe to' = presence { presenceTo = Just to'
                                 , presenceType = Subscribe
                                 }
 
 -- | Approve a subscripton of an entity.
 presenceSubscribed :: Jid -> Presence
-presenceSubscribed to = presence { presenceTo = Just to
+presenceSubscribed to' = presence { presenceTo = Just to'
                                  , presenceType = Subscribed
                                  }
 
 -- | End a subscription with an entity.
 presenceUnsubscribe :: Jid -> Presence
-presenceUnsubscribe to = presence { presenceTo = Just to
+presenceUnsubscribe to' = presence { presenceTo = Just to'
                                   , presenceType = Unsubscribed
                                   }
 
@@ -43,25 +43,25 @@ presenceOffline = presence {presenceType = Unavailable}
 -- provided message message has no "from" attribute. Sets the "from" attribute
 -- to 'Nothing' to let the server assign one.
 answerMessage :: Message -> [Element] -> Maybe Message
-answerMessage Message{messageFrom = Just frm, ..} payload =
+answerMessage Message{messageFrom = Just frm, ..} payload' =
     Just Message{ messageFrom    = Nothing
                 , messageID      = Nothing
                 , messageTo      = Just frm
-                , messagePayload = payload
+                , messagePayload = payload'
                 , ..
                 }
 answerMessage _ _ = Nothing
 
 -- | Add a recipient to a presence notification.
 presTo :: Presence -> Jid -> Presence
-presTo pres to = pres{presenceTo = Just to}
+presTo pres to' = pres{presenceTo = Just to'}
 
 -- | Create an IQ error response to an IQ request using the given condition. The
 -- error type is derived from the condition using 'associatedErrorType' and
 -- both text and the application specific condition are left empty
 iqError :: StanzaErrorCondition -> IQRequest -> IQError
-iqError condition (IQRequest iqid from _to lang _tp _bd) =
-    IQError iqid Nothing from lang err Nothing
+iqError condition (IQRequest iqid from' _to lang' _tp _bd) =
+    IQError iqid Nothing from' lang' err Nothing
   where
     err = StanzaError (associatedErrorType condition) condition Nothing Nothing
 

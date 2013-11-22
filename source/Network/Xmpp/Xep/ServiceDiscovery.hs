@@ -9,9 +9,10 @@ module Network.Xmpp.Xep.ServiceDiscovery
   ( QueryInfoResult(..)
   , Identity(..)
   , queryInfo
-  , Item
+  , Item(..)
   , queryItems
   , DiscoError(..)
+  , disco
   )
   where
 
@@ -24,7 +25,6 @@ import           Data.XML.Types
 import           Network.Xmpp
 import           Network.Xmpp.Types
 import           Network.Xmpp.Concurrent.Types
-import           Network.Xmpp.Lens
 import           Network.Xmpp.Marshal
 import           Network.Xmpp.Plugins
 import           Network.Xmpp.Stanza
@@ -61,16 +61,16 @@ queryInfo :: Maybe Integer -- ^ timeout
           -> Maybe Text.Text -- ^ Node
           -> Session
           -> IO (Either DiscoError QueryInfoResult)
-queryInfo timeout to node context = do
-    res <- sendIQ' timeout (Just to) Get Nothing queryBody context
+queryInfo timeout to' node context = do
+    res <- sendIQ' timeout (Just to') Get Nothing queryBody context
     return $ case fst <$> res of
-        Left e -> Left $ DiscoIQError Nothing
+        Left _e -> Left $ DiscoIQError Nothing
         Right (IQResponseError e) -> Left $ DiscoIQError (Just e)
         Right (IQResponseResult r) -> case iqResultPayload r of
             Nothing -> Left DiscoNoQueryElement
             Just p -> case unpickleElem xpQueryInfo p of
                 Left e -> Left $ DiscoXmlError p e
-                Right r -> Right r
+                Right r' -> Right r'
   where
     queryBody = pickleElem xpQueryInfo (QIR node [] [])
 
@@ -111,8 +111,8 @@ queryItems :: Maybe Integer -- ^ Timeout
            -> Maybe Text.Text -- ^ Node
            -> Session
            -> IO (Either DiscoError (Maybe Text.Text, [Item]))
-queryItems timeout to node session = do
-    res <- sendIQ' timeout (Just to) Get Nothing queryBody session
+queryItems timeout to' node session' = do
+    res <- sendIQ' timeout (Just to') Get Nothing queryBody session'
     return $ case fst <$> res of
         Left _ -> Left $ DiscoIQError Nothing
         Right (IQResponseError e) -> Left $ DiscoIQError (Just e)
@@ -120,7 +120,7 @@ queryItems timeout to node session = do
             Nothing -> Left DiscoNoQueryElement
             Just p -> case unpickleElem xpQueryItems p of
                 Left e -> Left $ DiscoXmlError p e
-                Right r -> Right r
+                Right r' -> Right r'
   where
     queryBody = pickleElem xpQueryItems (node, [])
 
@@ -131,8 +131,8 @@ handleItemsRequest :: (Maybe Text.Text -> IO (Maybe [Item]))
                    -> [Annotation]
                    -> IO [Annotated Stanza]
 handleItemsRequest getItems = handleIQRequest Get pickler $ \iqr (node, _) _ -> do
-    is <- getItems node
-    case is of
+    mbIs <- getItems node
+    case mbIs of
         Nothing -> return . Left $ iqError ItemNotFound iqr
         Just is -> return $ Right ( Just $ pickle (xpRoot pickler) (node, is)
                                   , []
@@ -152,8 +152,8 @@ infoN :: Text.Text -> Name
 infoN name = Name name (Just discoInfoNS) Nothing
 
 xpIdentities :: PU [Node] [Identity]
-xpIdentities = xpWrap (map $(\(cat, n, tp, lang) -> Ident cat n tp lang) . fst)
-               (map $ \(Ident cat n tp lang) -> ((cat, n, tp, lang),())) $
+xpIdentities = xpWrap (map $(\(cat, n, tp, l) -> Ident cat n tp l) . fst)
+               (map $ \(Ident cat n tp l) -> ((cat, n, tp, l),())) $
               xpElems (infoN "identity")
                (xp4Tuple
                   (xpAttr        "category" xpText)

@@ -58,7 +58,7 @@ runHandlers hs sta = go hs sta []
   where go []        _  _   = return ()
         go (h:hands) sta' as = do
             res <- h sta' as
-            forM_ res $ \(sta, as') -> go hands sta (as ++ as')
+            forM_ res $ \(sta'', as') -> go hands sta'' (as ++ as')
 
 toChan :: TChan (Annotated Stanza) -> StanzaHandler
 toChan stanzaC _ sta as = do
