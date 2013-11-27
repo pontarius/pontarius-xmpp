@@ -38,7 +38,8 @@ module Network.Xmpp.Internal
   , writeStanza
     -- ** IQ
   , pushIQ
-  , iqErrorResponse
+  , iqError
+  , iqResult
   , associatedErrorType
  )
        where
