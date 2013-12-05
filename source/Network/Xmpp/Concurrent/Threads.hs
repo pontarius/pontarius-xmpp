@@ -94,9 +94,8 @@ startThreadsWith :: TMVar (BS.ByteString -> IO Bool)
                  -> TMVar EventHandlers
                  -> Stream
                  -> IO (Either XmppFailure (IO (),
-                  TMVar (BS.ByteString -> IO Bool),
-                  TMVar Stream,
-                  ThreadId))
+                                            TMVar Stream,
+                                            ThreadId))
 startThreadsWith writeSem stanzaHandler eh con = do
     -- read' <- withStream' (gets $ streamSend . streamHandle) con
     -- writeSem <- newTMVarIO read'
@@ -104,7 +103,6 @@ startThreadsWith writeSem stanzaHandler eh con = do
     cp <- forkIO $ connPersist writeSem
     rdw <- forkIO $ readWorker stanzaHandler (noCon eh) conS
     return $ Right ( killConnection [rdw, cp]
-                   , writeSem
                    , conS
                    , rdw
                    )

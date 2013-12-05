@@ -50,6 +50,7 @@ import           System.Random (randomRIO)
 import           Control.Monad.State.Strict
 
 
+runHandlers :: [Stanza -> [Annotation] -> IO [Annotated Stanza]] -> Stanza -> IO ()
 runHandlers [] sta = do
     errorM "Pontarius.Xmpp" $
            "No stanza handlers set, discarding stanza" ++ show sta
@@ -94,7 +95,7 @@ handleIQ iqHands out sta as = do
                                   Right res -> IQResultS $ IQResult iqid Nothing
                                                                     from lang res
                           Ex.bracketOnError (atomically $ takeTMVar sentRef)
-                                            (atomically .  putTMVar sentRef)
+                                            (atomically .  tryPutTMVar sentRef)
                                             $ \wasSent -> do
                               case wasSent of
                                   True -> do
@@ -154,11 +155,11 @@ newSession stream config realm mbSasl = runErrorT $ do
                           ]
                         , rosterH
                         ]
-    (kill, wLock, streamState, reader) <- ErrorT $ startThreadsWith writeSem stanzaHandler eh stream
+    (kill, streamState, reader) <- ErrorT $ startThreadsWith writeSem stanzaHandler eh stream
     idGen <- liftIO $ sessionStanzaIDs config
     let sess = Session { stanzaCh = stanzaChan
                        , iqHandlers = iqHands
-                       , writeSemaphore = wLock
+                       , writeSemaphore = writeSem
                        , readerThread = reader
                        , idGenerator = idGen
                        , streamRef = streamState
