@@ -45,26 +45,24 @@ readWorker onStanza onCClosed stateRef = forever . Ex.mask_ $ do
         Just s -> do
             res <- Ex.catches (do
                              allowInterrupt
-                             Just <$> pullStanza s
+                             res <- pullStanza s
+                             case res of
+                                 Left e -> do
+                                     errorM "Pontarius.Xmpp" $ "Read error: "
+                                         ++ show e
+                                     _ <- closeStreams s
+                                     onCClosed e
+                                     return Nothing
+                                 Right r -> return $ Just r
                               )
                        [ Ex.Handler $ \(Interrupt t) -> do
                               void $ handleInterrupts [t]
-                              return Nothing
-                       , Ex.Handler $ \(e :: XmppFailure) -> do
-                              errorM "Pontarius.Xmpp" $ "Read error: "
-                                                         ++ show e
-                              _ <- closeStreams s
-                              onCClosed e
                               return Nothing
                        ]
             case res of
                 Nothing -> return () -- Caught an exception, nothing to
                                      -- do. TODO: Can this happen?
-                Just (Left e) -> do
-                    errorM "Pontarius.Xmpp" $ "Stanza error:" ++ show e
-                    _ <- closeStreams s
-                    onCClosed e
-                Just (Right sta) -> void $ onStanza sta
+                Just sta -> void $ onStanza sta
   where
     -- Defining an Control.Exception.allowInterrupt equivalent for GHC 7
     -- compatibility.
@@ -89,7 +87,7 @@ readWorker onStanza onCClosed stateRef = forever . Ex.mask_ $ do
 -- | Runs thread in XmppState monad. Returns channel of incoming and outgoing
 -- stances, respectively, and an Action to stop the Threads and close the
 -- connection.
-startThreadsWith :: TMVar (BS.ByteString -> IO Bool)
+startThreadsWith :: TMVar (BS.ByteString -> IO (Either XmppFailure ()))
                  -> (Stanza -> IO ())
                  -> TMVar EventHandlers
                  -> Stream
@@ -110,7 +108,7 @@ startThreadsWith writeSem stanzaHandler eh con = do
     killConnection threads = liftIO $ do
         _ <- atomically $ do
             _ <- takeTMVar writeSem
-            putTMVar writeSem $ \_ -> return False
+            putTMVar writeSem $ \_ -> return $ Left XmppNoStream
         _ <- forM threads killThread
         return ()
     -- Call the connection closed handlers.
@@ -122,7 +120,7 @@ startThreadsWith writeSem stanzaHandler eh con = do
 
 -- Acquires the write lock, pushes a space, and releases the lock.
 -- | Sends a blank space every 30 seconds to keep the connection alive.
-connPersist :: TMVar (BS.ByteString -> IO Bool) -> IO ()
+connPersist :: TMVar (BS.ByteString -> IO a) -> IO ()
 connPersist sem = forever $ do
     pushBS <- atomically $ takeTMVar sem
     _ <- pushBS " "

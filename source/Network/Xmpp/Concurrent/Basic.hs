@@ -11,12 +11,12 @@ import           Network.Xmpp.Stream
 import           Network.Xmpp.Types
 import           Network.Xmpp.Utilities
 
-semWrite :: WriteSemaphore -> BS.ByteString -> IO Bool
+semWrite :: WriteSemaphore -> BS.ByteString -> IO (Either XmppFailure ())
 semWrite sem bs = Ex.bracket (atomically $ takeTMVar sem)
                           (atomically . putTMVar sem)
                           ($ bs)
 
-writeStanza :: WriteSemaphore -> Stanza -> IO Bool
+writeStanza :: WriteSemaphore -> Stanza -> IO (Either XmppFailure ())
 writeStanza sem a = do
     let outData = renderElement $ nsHack (pickleElem xpStanza a)
     semWrite sem outData
@@ -24,11 +24,11 @@ writeStanza sem a = do
 
 -- | Send a stanza to the server without running plugins. (The stanza is sent as
 -- is)
-sendRawStanza :: Stanza -> Session -> IO Bool
+sendRawStanza :: Stanza -> Session -> IO (Either XmppFailure ())
 sendRawStanza a session = writeStanza (writeSemaphore session) a
 
 -- | Send a stanza to the server, managed by plugins
-sendStanza :: Stanza -> Session -> IO Bool
+sendStanza :: Stanza -> Session -> IO (Either XmppFailure ())
 sendStanza = flip sendStanza'
 
 -- | Get the channel of incoming stanzas.

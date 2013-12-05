@@ -34,7 +34,10 @@ mkBackend con = Backend { backendSend = \bs -> void (streamSend con bs)
     bufferReceive recv n = BS.concat `liftM` (go n)
       where
         go m = do
-            bs <- recv m
+            mbBs <- recv m
+            bs <- case mbBs of
+                Left e -> Ex.throwIO e
+                Right r -> return r
             case BS.length bs of
                 0 -> return []
                 l -> if l < m
@@ -46,9 +49,11 @@ starttlsE = Element "{urn:ietf:params:xml:ns:xmpp-tls}starttls" [] []
 
 -- | Checks for TLS support and run starttls procedure if applicable
 tls :: Stream -> IO (Either XmppFailure ())
-tls con = Ex.handle (return . Left . TlsError)
-                      . flip withStream con
-                      . runErrorT $ do
+tls con = fmap join -- We can have Left values both from exceptions and the
+                    -- error monad. Join unifies them into one error layer
+          . wrapExceptions
+          . flip withStream con
+          . runErrorT $ do
     conf <- gets $ streamConfiguration
     sState <- gets streamConnectionState
     case sState of
@@ -77,10 +82,7 @@ tls con = Ex.handle (return . Left . TlsError)
     startTls = do
         liftIO $ infoM "Pontarius.Xmpp.Tls" "Running StartTLS"
         params <- gets $ tlsParams . streamConfiguration
-        sent <- ErrorT $ pushElement starttlsE
-        unless sent $ do
-            liftIO $ errorM "Pontarius.Xmpp.Tls" "Could not sent stanza."
-            throwError XmppOtherFailure
+        ErrorT $ pushElement starttlsE
         answer <- lift $ pullElement
         case answer of
             Left e -> throwError e
@@ -95,7 +97,7 @@ tls con = Ex.handle (return . Left . TlsError)
         hand <- gets streamHandle
         (_raw, _snk, psh, recv, ctx) <- lift $ tlsinit params (mkBackend hand)
         let newHand = StreamHandle { streamSend = catchPush . psh
-                                   , streamReceive = recv
+                                   , streamReceive = wrapExceptions . recv
                                    , streamFlush = contextFlush ctx
                                    , streamClose = bye ctx >> streamClose hand
                                    }
@@ -173,7 +175,19 @@ connectTls config params host = do
     let hand = handleToStreamHandle h
     (_raw, _snk, psh, recv, ctx) <- tlsinit params $ mkBackend hand
     return $ StreamHandle { streamSend = catchPush . psh
-                          , streamReceive = recv
+                          , streamReceive = wrapExceptions . recv
                           , streamFlush = contextFlush ctx
                           , streamClose = bye ctx >> streamClose hand
                           }
+
+wrapExceptions :: IO a -> IO (Either XmppFailure a)
+wrapExceptions f = Ex.catches (liftM Right $ f)
+                 [ Ex.Handler $ return . Left . XmppIOException
+                 , Ex.Handler $ wrap . XmppTlsError
+                 , Ex.Handler $ wrap . XmppTlsConnectionNotEstablished
+                 , Ex.Handler $ wrap . XmppTlsTerminated
+                 , Ex.Handler $ wrap . XmppTlsHandshakeFailed
+                 , Ex.Handler $ return . Left
+                 ]
+  where
+    wrap = return . Left . TlsError

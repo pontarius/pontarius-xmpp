@@ -36,7 +36,7 @@ timeout = Just 3000000 -- 3 seconds
 rosterPush :: Item -> Session -> IO (Either IQSendError (Annotated IQResponse))
 rosterPush item session = do
     let el = pickleElem xpQuery (Query Nothing [fromItem item])
-    sendIQ' timeout Nothing Set Nothing el session
+    sendIQA' timeout Nothing Set Nothing el session
 
 -- | Add or update an item to the roster.
 --
@@ -55,7 +55,7 @@ rosterAdd j n gs session = do
                                             , qiSubscription = Nothing
                                             , qiGroups = nub gs
                                             }])
-    sendIQ' timeout Nothing Set Nothing el session
+    sendIQA' timeout Nothing Set Nothing el session
 
 -- | Remove an item from the roster. Return True when the item is sucessfully
 -- removed or if it wasn't in the roster to begin with.
@@ -132,16 +132,16 @@ retrieveRoster mbOldRoster sess = do
         Left e -> do
             errorM "Pontarius.Xmpp.Roster" $ "getRoster: " ++ show e
             return Nothing
-        Right (IQResponseResult (IQResult{iqResultPayload = Just ros}), _)
+        Right (IQResponseResult IQResult{iqResultPayload = Just ros})
             -> case unpickleElem xpQuery ros of
             Left _e -> do
                 errorM "Pontarius.Xmpp.Roster" "getRoster: invalid query element"
                 return Nothing
             Right ros' -> return . Just $ toRoster ros'
-        Right (IQResponseResult (IQResult{iqResultPayload = Nothing}), _) -> do
+        Right (IQResponseResult IQResult{iqResultPayload = Nothing}) -> do
             return mbOldRoster
                 -- sever indicated that no roster updates are necessary
-        Right (IQResponseError e, _) -> do
+        Right (IQResponseError e) -> do
             errorM "Pontarius.Xmpp.Roster" $ "getRoster: server returned error"
                    ++ show e
             return Nothing

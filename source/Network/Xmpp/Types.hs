@@ -38,6 +38,7 @@ module Network.Xmpp.Types
     , StanzaErrorCondition(..)
     , StanzaErrorType(..)
     , XmppFailure(..)
+    , XmppTlsError(..)
     , StreamErrorCondition(..)
     , Version(..)
     , StreamHandle(..)
@@ -62,8 +63,6 @@ module Network.Xmpp.Types
     , domainpart
     , resourcepart
     , parseJid
-    , StreamEnd(..)
-    , InvalidXmppXml(..)
     , TlsBehaviour(..)
     , AuthFailure(..)
     )
@@ -486,6 +485,12 @@ data StreamErrorInfo = StreamErrorInfo
     , errorXml       :: !(Maybe Element)
     } deriving (Show, Eq)
 
+data XmppTlsError = XmppTlsError TLSError
+                  | XmppTlsConnectionNotEstablished ConnectionNotEstablished
+                  | XmppTlsTerminated Terminated
+                  | XmppTlsHandshakeFailed HandshakeFailed
+                    deriving (Show, Eq, Typeable)
+
 -- | Signals an XMPP stream error or another unpredicted stream-related
 -- situation. This error is fatal, and closes the XMPP stream.
 data XmppFailure = StreamErrorFailure StreamErrorInfo -- ^ An error XML stream
@@ -507,7 +512,7 @@ data XmppFailure = StreamErrorFailure StreamErrorInfo -- ^ An error XML stream
                                         -- failed.
                  | XmppIllegalTcpDetails -- ^ The TCP details provided did not
                                          -- validate.
-                 | TlsError TLSError -- ^ An error occurred in the
+                 | TlsError XmppTlsError -- ^ An error occurred in the
                                      -- TLS layer
                  | TlsNoServerSupport -- ^ The server does not support
                                       -- the use of TLS
@@ -522,6 +527,7 @@ data XmppFailure = StreamErrorFailure StreamErrorInfo -- ^ An error XML stream
                                     -- the log.
                  | XmppIOException IOException -- ^ An 'IOException'
                                                -- occurred
+                 | XmppInvalidXml String -- ^ Received data is not valid XML
                  deriving (Show, Eq, Typeable)
 
 instance Exception XmppFailure
@@ -649,9 +655,10 @@ data ConnectionState
 -- | Defines operations for sending, receiving, flushing, and closing on a
 -- stream.
 data StreamHandle =
-    StreamHandle { streamSend :: BS.ByteString -> IO Bool -- ^ Sends may not
+    StreamHandle { streamSend :: BS.ByteString
+                                 -> IO (Either XmppFailure ()) -- ^ Sends may not
                                                           -- interleave
-                 , streamReceive :: Int -> IO BS.ByteString
+                 , streamReceive :: Int -> IO (Either XmppFailure BS.ByteString)
                    -- This is to hold the state of the XML parser (otherwise we
                    -- will receive EventBeginDocument events and forget about
                    -- name prefixes). (TODO: Clarify)
@@ -665,7 +672,7 @@ data StreamState = StreamState
       -- | Functions to send, receive, flush, and close the stream
     , streamHandle :: StreamHandle
       -- | Event conduit source, and its associated finalizer
-    , streamEventSource :: Source IO Event
+    , streamEventSource :: Source (ErrorT XmppFailure IO) Event
       -- | Stream features advertised by the server
     , streamFeatures :: !StreamFeatures -- TODO: Maybe?
       -- | The hostname or IP specified for the connection
@@ -992,13 +999,6 @@ resourceprepProfile = SP.Profile { SP.maps = [SP.b1]
                                                    ]
                                  , SP.shouldCheckBidi = True
                                  }
-
-data StreamEnd = StreamEnd deriving (Typeable, Show)
-instance Exception StreamEnd
-
-data InvalidXmppXml = InvalidXmppXml String deriving (Show, Typeable)
-
-instance Exception InvalidXmppXml
 
 data ConnectionDetails = UseRealm -- ^ Use realm to resolv host
                        | UseSrv HostName -- ^ Use this hostname for a SRV lookup

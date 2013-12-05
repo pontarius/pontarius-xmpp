@@ -14,20 +14,20 @@ import Network.Xmpp.Lens
 -- | Request subscription with an entity.
 presenceSubscribe :: Jid -> Presence
 presenceSubscribe to' = presence { presenceTo = Just to'
-                                , presenceType = Subscribe
-                                }
+                                 , presenceType = Subscribe
+                                 }
 
 -- | Approve a subscripton of an entity.
 presenceSubscribed :: Jid -> Presence
 presenceSubscribed to' = presence { presenceTo = Just to'
-                                 , presenceType = Subscribed
-                                 }
+                                  , presenceType = Subscribed
+                                  }
 
 -- | End a subscription with an entity.
 presenceUnsubscribe :: Jid -> Presence
 presenceUnsubscribe to' = presence { presenceTo = Just to'
-                                  , presenceType = Unsubscribed
-                                  }
+                                   , presenceType = Unsubscribed
+                                   }
 
 -- | Signal to the server that the client is available for communication.
 presenceOnline :: Presence

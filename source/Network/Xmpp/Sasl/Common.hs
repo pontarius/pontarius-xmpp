@@ -139,8 +139,7 @@ saslInit mechanism payload = do
     r <- lift . pushElement . saslInitE mechanism $
         Text.decodeUtf8 . B64.encode <$> payload
     case r of
-        Right True -> return ()
-        Right False -> throwError $ AuthStreamFailure XmppNoStream
+        Right () -> return ()
         Left e  -> throwError $ AuthStreamFailure e
 
 -- | Pull the next element.
@@ -205,8 +204,7 @@ respond m = do
     r <- lift . pushElement . saslResponseE . fmap (Text.decodeUtf8 . B64.encode) $ m
     case r of
         Left e -> throwError $ AuthStreamFailure e
-        Right False -> throwError $ AuthStreamFailure XmppNoStream
-        Right True -> return ()
+        Right () -> return ()
 
 -- | Run the appropriate stringprep profiles on the credentials.
 -- May fail with 'AuthStringPrepFailure'

@@ -20,7 +20,7 @@ import           Network.Xmpp.IM.Roster.Types
 import           Network.Xmpp.Sasl.Types
 import           Network.Xmpp.Types
 
-type StanzaHandler =  (Stanza -> IO Bool) -- ^ outgoing stanza
+type StanzaHandler =  (Stanza -> IO (Either XmppFailure ()) ) -- ^ outgoing stanza
                    -> Stanza       -- ^ stanza to handle
                    -> [Annotation] -- ^ annotations added by previous handlers
                    -> IO [(Stanza, [Annotation])]  -- ^ modified stanzas and
@@ -40,14 +40,15 @@ getAnnotation = foldr (\(Annotation a) b -> maybe b Just $ cast a) Nothing . snd
 data Plugin' = Plugin' { inHandler :: Stanza
                                       -> [Annotation]
                                       -> IO [(Stanza, [Annotation])]
-                       , outHandler :: Stanza -> IO Bool
+                       , outHandler :: Stanza -> IO (Either XmppFailure ())
                           -- | In order to allow plugins to tie the knot (Plugin
                           -- / Session) we pass the plugin the completed Session
                           -- once it exists
                        , onSessionUp :: Session -> IO ()
                        }
 
-type Plugin = (Stanza -> IO Bool) -> ErrorT XmppFailure IO Plugin'
+type Plugin = (Stanza -> IO (Either XmppFailure ()))
+              -> ErrorT XmppFailure IO Plugin'
 
 -- | Configuration for the @Session@ object.
 data SessionConfiguration = SessionConfiguration
@@ -86,7 +87,7 @@ instance Show Interrupt where show _ = "<Interrupt>"
 
 instance Ex.Exception Interrupt
 
-type WriteSemaphore = TMVar (BS.ByteString -> IO Bool)
+type WriteSemaphore = TMVar (BS.ByteString -> IO (Either XmppFailure ()))
 
 -- | The Session object represents a single session with an XMPP server. You can
 -- use 'session' to establish a session
@@ -106,7 +107,7 @@ data Session = Session
     , stopThreads :: IO ()
     , rosterRef :: TVar Roster
     , conf :: SessionConfiguration
-    , sendStanza' :: Stanza -> IO Bool
+    , sendStanza' :: Stanza -> IO (Either XmppFailure ())
     , sRealm :: HostName
     , sSaslCredentials :: Maybe (ConnectionState -> [SaslHandler] , Maybe Text)
     , reconnectWait :: TVar Int
@@ -122,17 +123,19 @@ type IQHandlers = ( Map.Map (IQRequestType, Text) (TChan IQRequestTicket)
 -- | Contains whether or not a reply has been sent, and the IQ request body to
 -- reply to.
 data IQRequestTicket = IQRequestTicket
-    { answerTicket :: Either StanzaError (Maybe Element) -> IO (Maybe Bool)
+    { answerTicket :: Either StanzaError (Maybe Element)
+                      -> IO (Maybe (Either XmppFailure ()))
                       -- ^ Return Nothing when the IQ request was already
-                      -- answered before, Just True when it was sucessfully
-                      -- answered and Just False when the answer was attempted,
-                      -- but failed (e.g. there is a connection failure)
+                      -- answered before, Just (Right ()) when it was
+                      -- sucessfully answered and Just (Left error) when the
+                      -- answer was attempted, but failed (e.g. there is a
+                      -- connection failure)
     , iqRequestBody :: IQRequest
       -- | Annotations set by plugins in receive
     , iqRequestAnnotations :: [Annotation]
     }
 
 -- | Error that can occur during sendIQ'
-data IQSendError = IQSendError -- There was an error sending the IQ stanza
+data IQSendError = IQSendError XmppFailure -- There was an error sending the IQ stanza
                  | IQTimeOut -- No answer was received during the allotted time
                    deriving (Show, Eq)

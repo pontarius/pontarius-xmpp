@@ -104,12 +104,12 @@ handleIQ iqHands out sta as = do
                                   False -> do
                                       didSend <- out response
                                       case didSend of
-                                          True -> do
+                                          Right () -> do
                                               atomically $ putTMVar sentRef True
-                                              return $ Just True
-                                          False -> do
+                                              return $ Just (Right ())
+                                          er@Left{} -> do
                                               atomically $ putTMVar sentRef False
-                                              return $ Just False
+                                              return $ Just er
                   writeTChan ch $ IQRequestTicket answerT iq as
                   return Nothing
         maybe (return ()) (void . out) res

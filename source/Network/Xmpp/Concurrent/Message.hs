@@ -1,6 +1,7 @@
 {-# OPTIONS_HADDOCK hide #-}
 module Network.Xmpp.Concurrent.Message where
 
+import Control.Applicative((<$>))
 import Network.Xmpp.Concurrent.Types
 import Control.Concurrent.STM
 import Network.Xmpp.Types
@@ -16,46 +17,61 @@ pullMessage session = do
         MessageErrorS e -> return $ Left  (e, as)
         _ -> pullMessage session
 
+-- | Get the next received message with plugin Annotations
+getMessageA :: Session -> IO (Annotated Message)
+getMessageA = waitForMessageA (const True)
+
 -- | Get the next received message
-getMessage :: Session -> IO (Annotated Message)
-getMessage = waitForMessage (const True)
+getMessage :: Session -> IO Message
+getMessage s = fst <$> getMessageA s
 
 -- | Pulls a (non-error) message and returns it if the given predicate returns
 -- @True@.
-waitForMessage :: (Annotated Message -> Bool) -> Session -> IO (Annotated Message)
-waitForMessage f session = do
+waitForMessageA :: (Annotated Message -> Bool) -> Session -> IO (Annotated Message)
+waitForMessageA f session = do
     s <- pullMessage session
     case s of
-        Left _ -> waitForMessage f session
+        Left _ -> waitForMessageA f session
         Right m | f m -> return m
-                | otherwise -> waitForMessage f session
+                | otherwise -> waitForMessageA f session
+
+waitForMessage :: (Message -> Bool) -> Session -> IO Message
+waitForMessage f s  = fst <$> waitForMessageA (f . fst) s
 
 -- | Pulls an error message and returns it if the given predicate returns @True@.
-waitForMessageError :: (Annotated MessageError -> Bool)
+waitForMessageErrorA :: (Annotated MessageError -> Bool)
                     -> Session
                     -> IO (Annotated MessageError)
-waitForMessageError f session = do
+waitForMessageErrorA f session = do
     s <- pullMessage session
     case s of
-        Right _ -> waitForMessageError f session
+        Right _ -> waitForMessageErrorA f session
         Left  m | f m -> return m
-                | otherwise -> waitForMessageError f session
+                | otherwise -> waitForMessageErrorA f session
 
+waitForMessageError :: (MessageError -> Bool) -> Session -> IO MessageError
+waitForMessageError f s  = fst <$> waitForMessageErrorA (f . fst) s
 
 -- | Pulls a message and returns it if the given predicate returns @True@.
-filterMessages :: (Annotated MessageError -> Bool)
+filterMessagesA :: (Annotated MessageError -> Bool)
                -> (Annotated Message -> Bool)
                -> Session -> IO (Either (Annotated MessageError)
                                         (Annotated Message))
-filterMessages f g session = do
+filterMessagesA f g session = do
     s <- pullMessage session
     case s of
         Left  e | f e -> return $ Left e
-                | otherwise -> filterMessages f g session
+                | otherwise -> filterMessagesA f g session
         Right m | g m -> return $ Right m
-                | otherwise -> filterMessages f g session
+                | otherwise -> filterMessagesA f g session
+
+filterMessages :: (MessageError -> Bool)
+               -> (Message -> Bool)
+               -> Session
+               -> IO (Either (Annotated MessageError) (Annotated Message))
+filterMessages f g s = filterMessagesA (f . fst) (g . fst) s
 
 -- | Send a message stanza. Returns @False@ when the 'Message' could not be
 -- sent.
-sendMessage :: Message -> Session -> IO Bool
+sendMessage :: Message -> Session -> IO (Either XmppFailure ())
 sendMessage m session = sendStanza (MessageS m) session

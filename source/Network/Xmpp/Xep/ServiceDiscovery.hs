@@ -79,7 +79,7 @@ handleInfoRequest
   :: [Identity]
      -> [Text.Text]
      -> Map.Map Text.Text ([Identity], [Text.Text])
-     -> (Stanza -> IO Bool)
+     -> (Stanza -> IO (Either XmppFailure ()) )
      -> Stanza
      -> [Annotation]
      -> IO [Annotated Stanza]
@@ -126,7 +126,7 @@ queryItems timeout to' node session' = do
 
 
 handleItemsRequest :: (Maybe Text.Text -> IO (Maybe [Item]))
-                   -> (Stanza -> IO Bool)
+                   -> (Stanza -> IO (Either XmppFailure ()))
                    -> Stanza
                    -> [Annotation]
                    -> IO [Annotated Stanza]
