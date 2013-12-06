@@ -69,7 +69,7 @@ module Network.Xmpp.Types
     )
        where
 
-import           Control.Applicative ((<|>), many)
+import           Control.Applicative ((<$>), (<|>), many)
 import           Control.Concurrent.STM
 import           Control.Exception
 import           Control.Monad.Error
@@ -914,48 +914,23 @@ domainpart = domainpart_
 resourcepart :: Jid -> Maybe Text
 resourcepart = resourcepart_
 
--- Parses a JID string and returns its three parts. It performs no validation
--- or transformations.
 jidParts :: AP.Parser (Maybe Text, Text, Maybe Text)
 jidParts = do
-    -- Read until we reach an '@', a '/', or EOF.
-    a <- AP.takeWhile1 (AP.notInClass ['@', '/'])
-    -- Case 1: We found an '@', and thus the localpart. At least the domainpart
-    -- is remaining. Read the '@' and until a '/' or EOF.
-    do
-        b <- domainPartP
-        -- Case 1A: We found a '/' and thus have all the JID parts. Read the '/'
-        -- and until EOF.
-        do
-            c <- resourcePartP -- Parse resourcepart
-            return (Just a, b, Just c)
-        -- Case 1B: We have reached EOF; the JID is in the form
-        -- localpart@domainpart.
-            <|> do
-                AP.endOfInput
-                return (Just a, b, Nothing)
-          -- Case 2: We found a '/'; the JID is in the form
-          -- domainpart/resourcepart.
-          <|> do
-              b' <- resourcePartP
-              AP.endOfInput
-              return (Nothing, a, Just b')
-          -- Case 3: We have reached EOF; we have an JID consisting of only a
-          -- domainpart.
-        <|> do
-            AP.endOfInput
-            return (Nothing, a, Nothing)
+    maybeLocalPart <- Just <$> localPart <|> return Nothing
+    domainPart <- AP.takeWhile1 (AP.notInClass ['@', '/'])
+    maybeResourcePart <- Just <$> resourcePart <|> return Nothing
+    AP.endOfInput
+    return (maybeLocalPart, domainPart, maybeResourcePart)
   where
-    -- Read an '@' and everything until a '/'.
-    domainPartP :: AP.Parser Text
-    domainPartP = do
+    localPart = do
+        bytes <- AP.takeWhile1 (AP.notInClass ['@', '/'])
         _ <- AP.char '@'
-        AP.takeWhile1 (/= '/')
-    -- Read everything until a '/'.
-    resourcePartP :: AP.Parser Text
-    resourcePartP = do
+        return bytes
+    resourcePart = do
         _ <- AP.char '/'
-        AP.takeText
+        AP.takeWhile1 (AP.notInClass ['@', '/'])
+
+
 
 -- The `nodeprep' StringPrep profile.
 nodeprepProfile :: SP.StringPrepProfile
