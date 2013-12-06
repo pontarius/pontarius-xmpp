@@ -1,6 +1,6 @@
 Name:          pontarius-xmpp
 Version:       0.3.0.2
-Cabal-Version: >= 1.6
+Cabal-Version: >= 1.9.2
 Build-Type:    Simple
 License:       BSD3
 License-File:  LICENSE.md
@@ -114,7 +114,24 @@ Library
 
   if flag(with-th) && impl(ghc >= 7.6.1)
     CPP-Options: -DWITH_TEMPLATE_HASKELL
-  GHC-Options: -Wall
+  GHC-Options: -Wall -fwarn-tabs
+
+Test-Suite tests
+  Type: exitcode-stdio-1.0
+  main-is: Main.hs
+  Build-Depends: base
+               , tasty
+               , hspec
+               , tasty-hspec
+               , pontarius-xmpp
+               , Cabal
+               , smallcheck
+               , tasty-smallcheck
+               , tasty-th
+               , hspec-expectations
+               , async
+               , derive
+  HS-Source-Dirs: tests
 
 Source-Repository head
   Type: git
