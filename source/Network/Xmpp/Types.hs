@@ -48,6 +48,7 @@ module Network.Xmpp.Types
     , StreamErrorInfo(..)
     , ConnectionDetails(..)
     , StreamConfiguration(..)
+    , xmppDefaultParams
     , Jid(..)
 #if WITH_TEMPLATE_HASKELL
     , jidQ
@@ -1032,6 +1033,14 @@ data StreamConfiguration =
                         , tlsParams :: TLSParams
                         }
 
+-- | Default parameters for TLS. Those are the default client parameters from the tls package with the ciphers set to ciphersuite_strong
+xmppDefaultParams :: Params
+xmppDefaultParams = defaultParamsClient{ pCiphers = ciphersuite_strong
+                                                    ++ [ cipher_AES256_SHA1
+                                                       , cipher_AES128_SHA1
+                                                       ]
+                                       }
+
 instance Default StreamConfiguration where
     def = StreamConfiguration { preferredLang     = Nothing
                               , toJid             = Nothing
@@ -1039,10 +1048,7 @@ instance Default StreamConfiguration where
                               , resolvConf        = defaultResolvConf
                               , establishSession  = True
                               , tlsBehaviour      = PreferTls
-                              , tlsParams = defaultParamsClient { pConnectVersion = TLS10
-                                                                , pAllowedVersions = [TLS10, TLS11, TLS12]
-                                                                , pCiphers = ciphersuite_strong
-                                                                }
+                              , tlsParams         = xmppDefaultParams
                               }
 
 -- | How the client should behave in regards to TLS.

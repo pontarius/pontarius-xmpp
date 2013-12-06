@@ -19,6 +19,7 @@ import                 Data.IORef
 import                 Data.XML.Types
 import                 Network.DNS.Resolver (ResolvConf)
 import                 Network.TLS
+import                 Network.TLS.Extra
 import                 Network.Xmpp.Stream
 import                 Network.Xmpp.Types
 import                 System.Log.Logger (debugM, errorM, infoM)
@@ -110,9 +111,6 @@ tls con = fmap join -- We can have Left values both from exceptions and the
 client :: (MonadIO m, CPRG rng) => Params -> rng -> Backend -> m Context
 client params gen backend  = do
     contextNew backend params gen
-
-xmppDefaultParams :: Params
-xmppDefaultParams = defaultParamsClient
 
 tlsinit :: (MonadIO m, MonadIO m1) =>
         TLSParams
