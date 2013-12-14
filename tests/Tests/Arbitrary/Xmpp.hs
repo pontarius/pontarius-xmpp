@@ -26,9 +26,7 @@ instance Arbitrary Jid where
         tryJid = jidFromTexts <$> maybeGen (genString nodeprepProfile)
                               <*> genString (SP.namePrepProfile False)
                               <*> maybeGen (genString resourceprepProfile)
-        maybeGen g = oneof [ return Nothing
-                           , Just <$> g
-                           ]
+
         genString profile = Text.pack . take 1024 <$> listOf1 genChar
           where
             genChar = arbitrary `suchThat` (not . isProhibited)
@@ -55,14 +53,12 @@ instance Arbitrary LangTag where
     shrink (LangTag lt lts) = [LangTag lt' lts | lt' <- shrinkText1 lt] ++
                               [LangTag lt lts' | lts' <- filter (not . Text.null)
                                                          <$> shrink lts]
-
+`
 
 instance Arbitrary StanzaError where
     arbitrary = StanzaError <$> arbitrary
                             <*> arbitrary
-                            <*> oneof [ return Nothing
-                                      , Just <$> ((,) <$> arbitrary <*> genText1)
-                                      ]
+                            <*> maybeGen ((,) <$> arbitrary <*> genText1)
                             <*> arbitrary
 
 -- Auto-derive trivial instances
