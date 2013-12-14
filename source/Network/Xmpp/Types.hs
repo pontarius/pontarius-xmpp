@@ -886,7 +886,8 @@ jidFromTexts l d r = do
     return $ Jid localPart domainPart resourcePart
   where
     validDomainPart :: Text -> Bool
-    validDomainPart _s = True -- TODO
+    validDomainPart s = not $ Text.null s -- TODO: implement more stringent
+                                          -- checks
 
     validPartLength :: Text -> Bool
     validPartLength p = Text.length p > 0 && Text.length p < 1024
