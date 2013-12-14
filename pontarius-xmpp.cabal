@@ -120,18 +120,40 @@ Test-Suite tests
   Type: exitcode-stdio-1.0
   main-is: Main.hs
   Build-Depends: base
-               , tasty
-               , hspec
-               , tasty-hspec
-               , pontarius-xmpp
                , Cabal
-               , smallcheck
-               , tasty-smallcheck
-               , tasty-th
-               , hspec-expectations
+               , QuickCheck
                , async
+               , conduit
+               , containers
                , derive
+               , hspec
+               , hspec-expectations
+               , pontarius-xmpp
+               , quickcheck-instances
+               , ranges
+               , smallcheck
+               , stringprep >= 0.1.5
+               , tasty
+               , tasty-hspec
+               , tasty-quickcheck
+               , tasty-th
+               , text
+               , xml-picklers
+               , xml-types
   HS-Source-Dirs: tests
+  Other-modules: Tests.Arbitrary
+               , Tests.Arbitrary.Xml
+               , Tests.Arbitrary.Xmpp
+  ghc-options: -Wall -O2 -fno-warn-orphans
+
+benchmark benchmarks
+  type: exitcode-stdio-1.0
+  build-depends: base
+               , criterion
+               , pontarius-xmpp
+  hs-source-dirs: benchmarks
+  main-is: Bench.hs
+  ghc-options: -O2
 
 Source-Repository head
   Type: git

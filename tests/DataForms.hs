@@ -9,7 +9,7 @@ import qualified Text.XML.Stream.Elements as Elements
 import qualified Data.XML.Types as XML
 import Data.XML.Pickle
 
-test1 = TL.concat $
+exampleXML1 = TL.concat $
           ["<x xmlns='jabber:x:data' type='form'>"
           ,"<title>Bot Configuration</title>"
           ,"<instructions>Fill out this form to configure your new bot!</instructions>"
@@ -64,7 +64,7 @@ test1 = TL.concat $
           ,"</field>"
           ,"</x>"]
 
-test2 = TL.concat [
+exampleXml2 = TL.concat [
        "   <x xmlns='jabber:x:data' type='submit'>"
       ,"      <field type='hidden' var='FORM_TYPE'>"
       ,"        <value>jabber:bot</value>"
@@ -98,7 +98,7 @@ test2 = TL.concat [
       ,"    </x>"]
 
 
-test3 = TL.concat [
+exampleXml3 = TL.concat [
       " <x xmlns='jabber:x:data' type='result'>"
     , "      <field type='hidden' var='FORM_TYPE'>"
     , "        <value>jabber:bot</value>"
