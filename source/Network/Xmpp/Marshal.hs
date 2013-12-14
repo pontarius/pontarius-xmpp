@@ -1,6 +1,6 @@
 -- Picklers and unpicklers convert Haskell data to XML and XML to Haskell data,
--- respectively. By convensions, pickler/unpickler ("PU") function names start
--- out with "xp".
+-- respectively. By convention, pickler/unpickler ("PU") function names start
+-- with "xp".
 
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ViewPatterns #-}
@@ -137,7 +137,7 @@ xpStanzaError = ("xpStanzaError" , "") <?+> xpWrap
               xpErrorCondition
               (xpOption $ xpElem "{jabber:client}text"
                    (xpAttrImplied xmlLang xpLang)
-                   (xpContent xpId)
+                   (xpContent xpText)
               )
               (xpOption xpElemVerbatim)
          )
