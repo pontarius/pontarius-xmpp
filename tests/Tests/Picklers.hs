@@ -9,87 +9,82 @@ import Network.Xmpp.Types
 import Test.Tasty
 import Test.Tasty.TH
 import Test.Tasty.QuickCheck
+import Data.Text (Text)
 
 import Data.XML.Types
 
-testPicklerInvertible :: Eq a => PU t a -> a -> Bool
-testPicklerInvertible p = \x -> case unpickle p (pickle p x) of
+-- | Test Pickler self-inverse: Check that unpickling after pickling gives the
+-- original value
+tpsi :: Eq a => PU t a -> a -> Bool
+tpsi p = \x -> case unpickle p (pickle p x) of
     Left _ -> False
     Right x' -> x == x'
 
+testPickler :: PU t a -> a -> IO ()
 testPickler p x = case unpickle p (pickle p x) of
     Left e -> putStrLn $ ppUnpickleError e
-    Right r -> putStrLn "OK."
+    Right _ -> putStrLn "OK."
 
-prop_errorConditionPicklerInvertible :: StanzaErrorCondition -> Bool
-prop_errorConditionPicklerInvertible = testPicklerInvertible xpErrorCondition
-
-prop_stanzaErrorPicklerInvertible :: StanzaError -> Bool
-prop_stanzaErrorPicklerInvertible = testPicklerInvertible xpStanzaError
-
-prop_messagePicklerInvertible :: Message -> Bool
-prop_messagePicklerInvertible = testPicklerInvertible xpMessage
-
-prop_messageErrorPicklerInvertible :: MessageError -> Bool
-prop_messageErrorPicklerInvertible = testPicklerInvertible xpMessageError
-
-prop_presencePicklerInvertible :: Presence -> Bool
-prop_presencePicklerInvertible = testPicklerInvertible xpPresence
-
-prop_presenceErrorPicklerInvertible :: PresenceError -> Bool
-prop_presenceErrorPicklerInvertible = testPicklerInvertible xpPresenceError
-
-prop_iqRequestPicklerInvertible :: IQRequest -> Bool
-prop_iqRequestPicklerInvertible = testPicklerInvertible xpIQRequest
-
-prop_iqResultPicklerInvertible :: IQResult -> Bool
-prop_iqResultPicklerInvertible = testPicklerInvertible xpIQResult
-
-prop_iqErrorPicklerInvertible :: IQError -> Bool
-prop_iqErrorPicklerInvertible = testPicklerInvertible xpIQError
-
-prop_langTagPicklerInvertible :: Maybe LangTag -> Bool
-prop_langTagPicklerInvertible = testPicklerInvertible xpLangTag
-
-prop_langPicklerInvertible :: LangTag -> Bool
-prop_langPicklerInvertible = testPicklerInvertible xpLang
+prop_xpStreamStanza_invertibe :: Either StreamErrorInfo Stanza -> Bool
+prop_xpStreamStanza_invertibe         = tpsi xpStreamStanza
+prop_xpStanza_invertibe :: Stanza -> Bool
+prop_xpStanza_invertibe               = tpsi xpStanza
+prop_xpMessage_invertibe :: Message -> Bool
+prop_xpMessage_invertibe              = tpsi xpMessage
+prop_xpPresence_invertibe             = tpsi xpPresence
+prop_xpPresence_invertibe :: Presence -> Bool
+prop_xpIQRequest_invertibe            = tpsi xpIQRequest
+prop_xpIQRequest_invertibe :: IQRequest -> Bool
+prop_xpIQResult_invertibe             = tpsi xpIQResult
+prop_xpIQResult_invertibe :: IQResult -> Bool
+prop_xpErrorCondition_invertibe       = tpsi xpErrorCondition
+prop_xpErrorCondition_invertibe :: StanzaErrorCondition -> Bool
+prop_xpStanzaError_invertibe          = tpsi xpStanzaError
+prop_xpStanzaError_invertibe :: StanzaError -> Bool
+prop_xpMessageError_invertibe         = tpsi xpMessageError
+prop_xpMessageError_invertibe :: MessageError -> Bool
+prop_xpPresenceError_invertibe        = tpsi xpPresenceError
+prop_xpPresenceError_invertibe :: PresenceError -> Bool
+prop_xpIQError_invertibe              = tpsi xpIQError
+prop_xpIQError_invertibe :: IQError -> Bool
+prop_xpStreamError_invertibe          = tpsi xpStreamError
+prop_xpStreamError_invertibe :: StreamErrorInfo -> Bool
+prop_xpLangTag_invertibe              = tpsi xpLangTag
+prop_xpLangTag_invertibe :: Maybe LangTag -> Bool
+prop_xpLang_invertibe                 = tpsi xpLang
+prop_xpLang_invertibe :: LangTag -> Bool
+prop_xpStream_invertibe               = tpsi xpStream
+prop_xpStream_invertibe :: ( Text
+                           , Maybe Jid
+                           , Maybe Jid
+                           , Maybe Text
+                           , Maybe LangTag )
+                           -> Bool
+prop_xpJid_invertibe                  = tpsi xpJid
+prop_xpJid_invertibe :: Jid -> Bool
+prop_xpIQRequestType_invertibe        = tpsi xpIQRequestType
+prop_xpIQRequestType_invertibe :: IQRequestType -> Bool
+prop_xpMessageType_invertibe          = tpsi xpMessageType
+prop_xpMessageType_invertibe :: MessageType -> Bool
+prop_xpPresenceType_invertibe         = tpsi xpPresenceType
+prop_xpPresenceType_invertibe :: PresenceType -> Bool
+prop_xpStanzaErrorType_invertibe      = tpsi xpStanzaErrorType
+prop_xpStanzaErrorType_invertibe :: StanzaErrorType -> Bool
+prop_xpStanzaErrorCondition_invertibe = tpsi xpStanzaErrorCondition
+prop_xpStanzaErrorCondition_invertibe :: StanzaErrorCondition -> Bool
+prop_xpStreamErrorCondition_invertibe = tpsi xpStreamErrorCondition
+prop_xpStreamErrorCondition_invertibe :: StreamErrorCondition -> Bool
+-- prop_xpStreamFeatures_invertibe = testPicklerInvertible xpStreamFeatures
 
 picklerTests :: TestTree
 picklerTests = $testGroupGenerator
 
-bad1 = StanzaError { stanzaErrorType = Cancel
-                  , stanzaErrorCondition = Forbidden
-                  , stanzaErrorText = Just $ (Just $ LangTag "v" [], "")
-                  , stanzaErrorApplicationSpecificCondition =
-                      Just (Element {elementName =
-                                          Name { nameLocalName = "\231"
-                                               , nameNamespace = Nothing
-                                               , namePrefix = Nothing}
-                                    , elementAttributes = []
-                                    , elementNodes = []
-                                    })
-                  }
-
-bad2StanzaError = StanzaError { stanzaErrorType = Continue
-                              , stanzaErrorCondition = NotAllowed
-                              , stanzaErrorText = Just (Just $ parseLangTag "W-o","\f")
-                              , stanzaErrorApplicationSpecificCondition =
-                                  Just (Element {elementName =
-                                                      Name { nameLocalName = "\8204"
-                                                           , nameNamespace = Nothing
-                                                           , namePrefix = Just "\8417A"}
-                                                , elementAttributes = []
-                                                , elementNodes = []})}
-
-bad2 = MessageError { messageErrorID = Just ""
-                    , messageErrorFrom = Just $ parseJid "a@y/\177"
-                    , messageErrorTo = Just $ parseJid "\250@7"
-                    , messageErrorLangTag = Nothing
-                    , messageErrorStanzaError = bad2StanzaError
-                    , messageErrorPayload =
-                            [Element {elementName =
-                                           Name { nameLocalName = "\12226C"
-                                                , nameNamespace = Nothing
-                                                , namePrefix = Nothing}
-                                     , elementAttributes = []
-                                     , elementNodes = []}]}
+bad = StreamErrorInfo { errorCondition = StreamInvalidFrom
+                      , errorText = Just (Nothing,"")
+                      , errorXml = Just (
+                          Element { elementName =
+                                         Name { nameLocalName = "\65044"
+                                              , nameNamespace = Just "\14139"
+                                              , namePrefix = Just "\651"}
+                                  , elementAttributes = []
+                                  , elementNodes = []})}

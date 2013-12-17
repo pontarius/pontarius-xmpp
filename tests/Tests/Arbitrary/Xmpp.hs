@@ -2,6 +2,7 @@
 module Tests.Arbitrary.Xmpp where
 
 import           Control.Applicative ((<$>), (<*>))
+import           Data.Char
 import           Data.Maybe
 import qualified Data.Text as Text
 import           Network.Xmpp.Types
@@ -17,6 +18,12 @@ import           Tests.Arbitrary.Xml ()
 import           Data.Derive.Arbitrary
 import           Data.DeriveTH
 
+
+instance Arbitrary NonemptyText where
+    arbitrary = Nonempty . Text.pack <$> listOf1
+                  (arbitrary `suchThat` (not . isSpace))
+    shrink (Nonempty txt) = map Nonempty
+                            . filter (not . Text.all isSpace) $ shrink txt
 
 instance Arbitrary Jid where
     arbitrary = do
@@ -34,9 +41,9 @@ instance Arbitrary Jid where
             isProhibited x = Ranges.member x prohibited
                              || x `elem` "@/"
 
-    shrink (Jid lp dp rp) = [ Jid lp' dp rp  | lp' <- shrinkTextMaybe lp]
-                         ++ [ Jid lp dp' rp  | dp' <- shrinkText1 dp]
-                         ++ [ Jid lp dp  rp' | rp' <- shrinkTextMaybe rp]
+    shrink (Jid lp dp rp) = [ Jid lp' dp  rp  | lp' <- shrinkMaybe shrink lp]
+                         ++ [ Jid lp  dp' rp  | dp' <- shrink dp]
+                         ++ [ Jid lp  dp  rp' | rp' <- shrinkMaybe shrink rp]
 
 
 string :: SP.StringPrepProfile -> Gen [Char]
@@ -53,17 +60,12 @@ instance Arbitrary LangTag where
     shrink (LangTag lt lts) = [LangTag lt' lts | lt' <- shrinkText1 lt] ++
                               [LangTag lt lts' | lts' <- filter (not . Text.null)
                                                          <$> shrink lts]
-`
-
-instance Arbitrary StanzaError where
-    arbitrary = StanzaError <$> arbitrary
-                            <*> arbitrary
-                            <*> maybeGen ((,) <$> arbitrary <*> genText1)
-                            <*> arbitrary
 
 -- Auto-derive trivial instances
 concat <$> mapM (derive makeArbitrary) [ ''StanzaErrorType
                                        , ''StanzaErrorCondition
+                                       , ''StanzaError
+                                       , ''StreamErrorInfo
                                        , ''IQRequestType
                                        , ''IQRequest
                                        , ''IQResult
@@ -79,7 +81,7 @@ concat <$> mapM (derive makeArbitrary) [ ''StanzaErrorType
                                        , ''SaslError
                                        , ''SaslFailure
                                        , ''StreamErrorCondition
-                                       , ''StreamErrorInfo
+
                                        -- , ''HandshakeFailed
                                        -- , ''XmppTlsError
 --                                       , ''AuthFailure

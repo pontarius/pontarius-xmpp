@@ -126,7 +126,7 @@ startStream = runErrorT $ do
             ErrorT . pushOpenElement . streamNSHack $
                 pickleElem xpStream ( "1.0"
                                     , expectedTo
-                                    , Just (Jid Nothing address Nothing)
+                                    , Just (Jid Nothing (Nonempty address) Nothing)
                                     , Nothing
                                     , preferredLang $ streamConfiguration st
                                     )
@@ -145,7 +145,7 @@ startStream = runErrorT $ do
 
     -- If `from' is set, we verify that it's the correct one. TODO: Should we
     -- check against the realm instead?
-        | isJust from && (from /= Just (Jid Nothing (fromJust $ streamAddress st) Nothing)) ->
+        | isJust from && (from /= Just (Jid Nothing (Nonempty . fromJust $ streamAddress st) Nothing)) ->
             closeStreamWithError StreamInvalidFrom Nothing
                 "Stream from is invalid"
         | to /= expectedTo ->

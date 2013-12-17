@@ -17,6 +17,9 @@ import Data.Text
 
 import Network.Xmpp.Types
 
+xpNonemptyText :: PU Text NonemptyText
+xpNonemptyText = ("xpNonemptyText" , "") <?+> xpWrap Nonempty fromNonempty xpText
+
 xpStreamStanza :: PU [Node] (Either StreamErrorInfo Stanza)
 xpStreamStanza = xpEither xpStreamError xpStanza
 
@@ -124,7 +127,7 @@ xpErrorCondition = ("xpErrorCondition" , "") <?+> xpWrapEither
         "urn:ietf:params:xml:ns:xmpp-stanzas"
         xpStanzaErrorCondition
         xpUnit
-        (xpOption $ xpContent xpId)
+        (xpOption $ xpContent xpNonemptyText)
     )
 
 xpStanzaError :: PU [Node] StanzaError
@@ -137,7 +140,7 @@ xpStanzaError = ("xpStanzaError" , "") <?+> xpWrap
               xpErrorCondition
               (xpOption $ xpElem "{jabber:client}text"
                    (xpAttrImplied xmlLang xpLang)
-                   (xpContent xpText)
+                   (xpContent xpNonemptyText)
               )
               (xpOption xpElemVerbatim)
          )
@@ -215,7 +218,7 @@ xpStreamError = ("xpStreamError" , "") <?+> xpWrap
               (xpOption $ xpElem
                    "{urn:ietf:params:xml:ns:xmpp-streams}text"
                    xpLangTag
-                   (xpContent xpId)
+                   (xpContent xpNonemptyText)
               )
               (xpOption xpElemVerbatim) -- Application specific error conditions
          )

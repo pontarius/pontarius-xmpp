@@ -354,7 +354,7 @@ stanzaErrorConditionL :: Lens StanzaError StanzaErrorCondition
 stanzaErrorConditionL inj se@StanzaError{stanzaErrorCondition = x} =
     (\x' -> se{stanzaErrorCondition = x'}) <$> inj x
 
-stanzaErrorTextL :: Lens StanzaError (Maybe (Maybe LangTag, Text))
+stanzaErrorTextL :: Lens StanzaError (Maybe (Maybe LangTag, NonemptyText))
 stanzaErrorTextL inj se@StanzaError{stanzaErrorText = x} =
     (\x' -> se{stanzaErrorText = x'}) <$> inj x
 

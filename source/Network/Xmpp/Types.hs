@@ -13,7 +13,10 @@
 {-# OPTIONS_HADDOCK hide #-}
 
 module Network.Xmpp.Types
-    ( IQError(..)
+    ( NonemptyText(..)
+    , nonEmpty
+    , text
+    , IQError(..)
     , IQRequest(..)
     , IQRequestType(..)
     , IQResponse(..)
@@ -68,8 +71,7 @@ module Network.Xmpp.Types
     , parseJid
     , TlsBehaviour(..)
     , AuthFailure(..)
-    )
-       where
+    ) where
 
 import           Control.Applicative ((<$>), (<|>), many)
 import           Control.Concurrent.STM
@@ -77,9 +79,11 @@ import           Control.Exception
 import           Control.Monad.Error
 import qualified Data.Attoparsec.Text as AP
 import qualified Data.ByteString as BS
+import           Data.Char (isSpace)
 import           Data.Conduit
 import           Data.Default
 import qualified Data.Set as Set
+import           Data.String (IsString, fromString)
 import           Data.Text (Text)
 import qualified Data.Text as Text
 import           Data.Typeable(Typeable)
@@ -87,6 +91,7 @@ import           Data.XML.Types
 #if WITH_TEMPLATE_HASKELL
 import           Language.Haskell.TH
 import           Language.Haskell.TH.Quote
+import qualified Language.Haskell.TH.Syntax as TH
 #endif
 import           Network
 import           Network.DNS
@@ -94,6 +99,25 @@ import           Network.TLS hiding (Version)
 import           Network.TLS.Extra
 import qualified Text.StringPrep as SP
 import qualified Text.StringPrep.Profiles as SP
+
+-- | Type of Texts that contain at least on non-space character
+newtype NonemptyText = Nonempty {fromNonempty :: Text}
+                       deriving (Show, Read, Eq, Ord)
+
+instance IsString NonemptyText where
+    fromString str = case nonEmpty (Text.pack str) of
+        Nothing -> error $ "NonemptyText fromString called on empty or " ++
+                            "all-whitespace string"
+        Just r -> r
+
+-- | Check that Text contains at least one non-space character wrap it
+nonEmpty :: Text -> Maybe NonemptyText
+nonEmpty txt = if Text.all isSpace txt then Nothing else Just (Nonempty txt)
+
+-- | Same as 'fromNonempty'
+text :: NonemptyText -> Text
+text (Nonempty txt) = txt
+{-# INLINE text #-}
 
 -- | The Xmpp communication primities (Message, Presence and Info/Query) are
 -- called stanzas.
@@ -150,8 +174,6 @@ data Message = Message { messageID      :: !(Maybe Text)
                        , messageType    :: !MessageType
                        , messagePayload :: ![Element]
                        } deriving (Eq, Show)
-
-
 
 -- | An empty message
 message :: Message
@@ -272,7 +294,7 @@ data PresenceType = Subscribe    | -- ^ Sender wants to subscribe to presence
 data StanzaError = StanzaError
     { stanzaErrorType                         :: StanzaErrorType
     , stanzaErrorCondition                    :: StanzaErrorCondition
-    , stanzaErrorText                         :: Maybe (Maybe LangTag, Text)
+    , stanzaErrorText                         :: Maybe (Maybe LangTag, NonemptyText)
     , stanzaErrorApplicationSpecificCondition :: Maybe Element
     } deriving (Eq, Show)
 
@@ -291,9 +313,9 @@ data StanzaErrorCondition = BadRequest            -- ^ Malformed XML.
                                                   --   name already exists.
                           | FeatureNotImplemented
                           | Forbidden             -- ^ Insufficient permissions.
-                          | Gone (Maybe Text)     -- ^ Entity can no longer be
-                                                  --   contacted at this
-                                                  --   address.
+                          | Gone (Maybe NonemptyText) -- ^ Entity can no longer
+                                                      -- be contacted at this
+                                                      -- address.
                           | InternalServerError
                           | ItemNotFound
                           | JidMalformed
@@ -309,9 +331,10 @@ data StanzaErrorCondition = BadRequest            -- ^ Malformed XML.
                                                   -- words that are prohibited
                                                   -- by the service)
                           | RecipientUnavailable  -- ^ Temporarily unavailable.
-                          | Redirect (Maybe Text) -- ^ Redirecting to other
-                                                  --   entity, usually
-                                                  --   temporarily.
+                          | Redirect (Maybe NonemptyText) -- ^ Redirecting to
+                                                          -- other entity,
+                                                          -- usually
+                                                          -- temporarily.
                           | RegistrationRequired
                           | RemoteServerNotFound
                           | RemoteServerTimeout
@@ -484,7 +507,7 @@ data StreamErrorCondition
 -- | Encapsulates information about an XMPP stream error.
 data StreamErrorInfo = StreamErrorInfo
     { errorCondition :: !StreamErrorCondition
-    , errorText      :: !(Maybe (Maybe LangTag, Text))
+    , errorText      :: !(Maybe (Maybe LangTag, NonemptyText))
     , errorXml       :: !(Maybe Element)
     } deriving (Show, Eq)
 
@@ -645,7 +668,7 @@ data StreamFeatures = StreamFeatures
                                             -- non-standard "optional" element
                                             -- (observed with prosody).
     , streamOtherFeatures  :: ![Element] -- TODO: All feature elements instead?
-    } deriving Show
+    } deriving (Eq, Show)
 
 -- | Signals the state of the stream connection.
 data ConnectionState
@@ -736,21 +759,23 @@ newtype Stream = Stream { unStream :: TMVar StreamState }
 -- the entity associated with an XMPP localpart at a domain
 -- (i.e., @localpart\@domainpart/resourcepart@).
 
-data Jid = Jid { localpart_ :: !(Maybe Text)
-               , domainpart_ :: !Text
-               , resourcepart_ :: !(Maybe Text)
+data Jid = Jid { localpart_    :: !(Maybe NonemptyText)
+               , domainpart_   :: !NonemptyText
+               , resourcepart_ :: !(Maybe NonemptyText)
                } deriving (Eq, Ord)
 
 -- | Converts a JID to a Text.
 jidToText :: Jid -> Text
-jidToText (Jid nd dmn res) =
-    Text.pack $ (maybe "" ((++ "@") . Text.unpack) nd) ++ (Text.unpack dmn) ++
-        maybe "" (('/' :) . Text.unpack) res
+jidToText (Jid nd dmn res) = Text.concat . concat $
+                             [ maybe [] (:["@"]) (text <$> nd)
+                             , [text dmn]
+                             , maybe [] (\r -> ["/",r]) (text <$> res)
+                             ]
 
 -- | Converts a JID to up to three Text values: (the optional) localpart, the
 -- domainpart, and (the optional) resourcepart.
 jidToTexts :: Jid -> (Maybe Text, Text, Maybe Text)
-jidToTexts (Jid nd dmn res) = (nd, dmn, res)
+jidToTexts (Jid nd dmn res) = (text <$> nd, text dmn, text <$> res)
 
 -- Produces a Jid value in the format "parseJid \"<jid>\"".
 instance Show Jid where
@@ -775,6 +800,17 @@ instance Read Jid where
                                             -- or the `parseJid' error message (see below)
 
 #if WITH_TEMPLATE_HASKELL
+
+instance TH.Lift Jid where
+    lift (Jid lp dp rp) = [| Jid $(mbTextE $ text <$> lp)
+                                 $(textE   $ text dp)
+                                 $(mbTextE $ text <$> rp)
+                           |]
+     where
+        textE t = [| Nonempty $ Text.pack $(stringE $ Text.unpack t) |]
+        mbTextE Nothing = [| Nothing |]
+        mbTextE (Just s) = [| Just $(textE s) |]
+
 -- | Constructs a @Jid@ value at compile time.
 --
 -- Syntax:
@@ -788,18 +824,12 @@ jidQ = QuasiQuoter { quoteExp = \s -> do
                           when (Text.last t == ' ') . reportWarning $ "Trailing whitespace in JID " ++ show s
                           case jidFromText t of
                               Nothing -> fail $ "Could not parse JID " ++ s
-                              Just j -> [| Jid $(mbTextE $ localpart_ j)
-                                               $(textE   $ domainpart_ j)
-                                               $(mbTextE $ resourcepart_ j)
-                                        |]
+                              Just j -> TH.lift j
                   , quotePat = fail "Jid patterns aren't implemented"
                   , quoteType = fail "jid QQ can't be used in type context"
                   , quoteDec  = fail "jid QQ can't be used in declaration context"
                   }
-  where
-    textE t = [| Text.pack $(stringE $ Text.unpack t) |]
-    mbTextE Nothing = [| Nothing |]
-    mbTextE (Just s) = [| Just $(textE s) |]
+
 #endif
 
 -- Produces a LangTag value in the format "parseLangTag \"<jid>\"".
@@ -874,15 +904,18 @@ jidFromTexts l d r = do
             guard $ validPartLength l''
             let prohibMap = Set.fromList nodeprepExtraProhibitedCharacters
             guard $ Text.all (`Set.notMember` prohibMap) l''
-            return $ Just l''
-    domainPart <- SP.runStringPrep (SP.namePrepProfile False) d
-    guard $ validDomainPart domainPart
+            l''' <- nonEmpty l''
+            return $ Just l'''
+    domainPart' <- SP.runStringPrep (SP.namePrepProfile False) d
+    guard $ validDomainPart domainPart'
+    domainPart <- nonEmpty domainPart'
     resourcePart <- case r of
         Nothing -> return Nothing
         Just r' -> do
             r'' <- SP.runStringPrep resourceprepProfile r'
             guard $ validPartLength r''
-            return $ Just r''
+            r''' <- nonEmpty r''
+            return $ Just r'''
     return $ Jid localPart domainPart resourcePart
   where
     validDomainPart :: Text -> Bool
@@ -907,15 +940,15 @@ toBare j  = j{resourcepart_ = Nothing}
 
 -- | Returns the localpart of the @Jid@ (if any).
 localpart :: Jid -> Maybe Text
-localpart = localpart_
+localpart = fmap text . localpart_
 
 -- | Returns the domainpart of the @Jid@.
 domainpart :: Jid -> Text
-domainpart = domainpart_
+domainpart = text . domainpart_
 
 -- | Returns the resourcepart of the @Jid@ (if any).
 resourcepart :: Jid -> Maybe Text
-resourcepart = resourcepart_
+resourcepart = fmap text . resourcepart_
 
 jidParts :: AP.Parser (Maybe Text, Text, Maybe Text)
 jidParts = do

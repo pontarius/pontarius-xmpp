@@ -21,3 +21,7 @@ maybeGen :: Gen a -> Gen (Maybe a)
 maybeGen g = oneof [ return Nothing
                    , Just <$> g
                    ]
+
+shrinkMaybe :: (t -> [t]) -> Maybe t -> [Maybe t]
+shrinkMaybe _s Nothing = []
+shrinkMaybe s (Just x) = Nothing : map Just (s x)
