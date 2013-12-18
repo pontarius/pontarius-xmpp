@@ -37,7 +37,7 @@ prop_xpIQRequest_invertibe            = tpsi xpIQRequest
 prop_xpIQRequest_invertibe :: IQRequest -> Bool
 prop_xpIQResult_invertibe             = tpsi xpIQResult
 prop_xpIQResult_invertibe :: IQResult -> Bool
-prop_xpErrorCondition_invertibe       = tpsi xpErrorCondition
+prop_xpErrorCondition_invertibe       = tpsi xpStanzaErrorCondition
 prop_xpErrorCondition_invertibe :: StanzaErrorCondition -> Bool
 prop_xpStanzaError_invertibe          = tpsi xpStanzaError
 prop_xpStanzaError_invertibe :: StanzaError -> Bool

@@ -109,8 +109,8 @@ xpIQResult = ("xpIQResult" , "") <?+> xpWrap
 -- Errors
 ----------------------------------------------------------
 
-xpErrorCondition :: PU [Node] StanzaErrorCondition
-xpErrorCondition = ("xpErrorCondition" , "") <?+> xpWrapEither
+xpStanzaErrorCondition :: PU [Node] StanzaErrorCondition
+xpStanzaErrorCondition = ("xpErrorCondition" , "") <?+> xpWrapEither
                    (\(cond, (),cont) -> case (cond, cont) of
                          (Gone _, x) -> Right $ Gone x
                          (Redirect _, x) -> Right $ Redirect x
@@ -125,10 +125,66 @@ xpErrorCondition = ("xpErrorCondition" , "") <?+> xpWrapEither
                          c -> (c, (), Nothing))
     (xpElemByNamespace
         "urn:ietf:params:xml:ns:xmpp-stanzas"
-        xpStanzaErrorCondition
+        xpStanzaErrorConditionShape
         xpUnit
         (xpOption $ xpContent xpNonemptyText)
     )
+  where
+    -- Create the "shape" of the error condition. In case of Gone and Redirect
+    -- the optional field is left empty and must be filled in by the caller
+    xpStanzaErrorConditionShape :: PU Text StanzaErrorCondition
+    xpStanzaErrorConditionShape = ("xpStanzaErrorCondition", "") <?>
+            xpPartial ( \input -> case stanzaErrorConditionFromText input of
+                                       Nothing -> Left "Could not parse stanza error condition."
+                                       Just j -> Right j)
+                      stanzaErrorConditionToText
+    stanzaErrorConditionToText BadRequest = "bad-request"
+    stanzaErrorConditionToText Conflict = "conflict"
+    stanzaErrorConditionToText FeatureNotImplemented = "feature-not-implemented"
+    stanzaErrorConditionToText Forbidden = "forbidden"
+    stanzaErrorConditionToText (Gone _) = "gone"
+    stanzaErrorConditionToText InternalServerError = "internal-server-error"
+    stanzaErrorConditionToText ItemNotFound = "item-not-found"
+    stanzaErrorConditionToText JidMalformed = "jid-malformed"
+    stanzaErrorConditionToText NotAcceptable = "not-acceptable"
+    stanzaErrorConditionToText NotAllowed = "not-allowed"
+    stanzaErrorConditionToText NotAuthorized = "not-authorized"
+    stanzaErrorConditionToText PolicyViolation = "policy-violation"
+    stanzaErrorConditionToText RecipientUnavailable = "recipient-unavailable"
+    stanzaErrorConditionToText (Redirect _) = "redirect"
+    stanzaErrorConditionToText RegistrationRequired = "registration-required"
+    stanzaErrorConditionToText RemoteServerNotFound = "remote-server-not-found"
+    stanzaErrorConditionToText RemoteServerTimeout = "remote-server-timeout"
+    stanzaErrorConditionToText ResourceConstraint = "resource-constraint"
+    stanzaErrorConditionToText ServiceUnavailable = "service-unavailable"
+    stanzaErrorConditionToText SubscriptionRequired = "subscription-required"
+    stanzaErrorConditionToText UndefinedCondition = "undefined-condition"
+    stanzaErrorConditionToText UnexpectedRequest = "unexpected-request"
+    stanzaErrorConditionFromText "bad-request" = Just BadRequest
+    stanzaErrorConditionFromText "conflict" = Just Conflict
+    stanzaErrorConditionFromText "feature-not-implemented" = Just FeatureNotImplemented
+    stanzaErrorConditionFromText "forbidden" = Just Forbidden
+    stanzaErrorConditionFromText "gone" = Just $ Gone Nothing
+    stanzaErrorConditionFromText "internal-server-error" = Just InternalServerError
+    stanzaErrorConditionFromText "item-not-found" = Just ItemNotFound
+    stanzaErrorConditionFromText "jid-malformed" = Just JidMalformed
+    stanzaErrorConditionFromText "not-acceptable" = Just NotAcceptable
+    stanzaErrorConditionFromText "not-allowed" = Just NotAllowed
+    stanzaErrorConditionFromText "not-authorized" = Just NotAuthorized
+    stanzaErrorConditionFromText "policy-violation" = Just PolicyViolation
+    stanzaErrorConditionFromText "recipient-unavailable" = Just RecipientUnavailable
+    stanzaErrorConditionFromText "redirect" = Just $ Redirect Nothing
+    stanzaErrorConditionFromText "registration-required" = Just RegistrationRequired
+    stanzaErrorConditionFromText "remote-server-not-found" = Just RemoteServerNotFound
+    stanzaErrorConditionFromText "remote-server-timeout" = Just RemoteServerTimeout
+    stanzaErrorConditionFromText "resource-constraint" = Just ResourceConstraint
+    stanzaErrorConditionFromText "service-unavailable" = Just ServiceUnavailable
+    stanzaErrorConditionFromText "subscription-required" = Just SubscriptionRequired
+    stanzaErrorConditionFromText "undefined-condition" = Just UndefinedCondition
+    stanzaErrorConditionFromText "unexpected-request" = Just UnexpectedRequest
+    stanzaErrorConditionFromText _ = Nothing
+
+
 
 xpStanzaError :: PU [Node] StanzaError
 xpStanzaError = ("xpStanzaError" , "") <?+> xpWrap
@@ -137,7 +193,7 @@ xpStanzaError = ("xpStanzaError" , "") <?+> xpWrap
     (xpElem "{jabber:client}error"
          (xpAttr "type" xpStanzaErrorType)
          (xp3Tuple
-              xpErrorCondition
+              xpStanzaErrorCondition
               (xpOption $ xpElem "{jabber:client}text"
                    (xpAttrImplied xmlLang xpLang)
                    (xpContent xpNonemptyText)
@@ -378,58 +434,6 @@ xpStanzaErrorType = ("xpStanzaErrorType", "") <?>
     stanzaErrorTypeToText Modify = "modify"
     stanzaErrorTypeToText Wait = "wait"
 
-xpStanzaErrorCondition :: PU Text StanzaErrorCondition
-xpStanzaErrorCondition = ("xpStanzaErrorCondition", "") <?>
-        xpPartial ( \input -> case stanzaErrorConditionFromText input of
-                                   Nothing -> Left "Could not parse stanza error condition."
-                                   Just j -> Right j)
-                  stanzaErrorConditionToText
-  where
-    stanzaErrorConditionToText BadRequest = "bad-request"
-    stanzaErrorConditionToText Conflict = "conflict"
-    stanzaErrorConditionToText FeatureNotImplemented = "feature-not-implemented"
-    stanzaErrorConditionToText Forbidden = "forbidden"
-    stanzaErrorConditionToText (Gone _) = "gone"
-    stanzaErrorConditionToText InternalServerError = "internal-server-error"
-    stanzaErrorConditionToText ItemNotFound = "item-not-found"
-    stanzaErrorConditionToText JidMalformed = "jid-malformed"
-    stanzaErrorConditionToText NotAcceptable = "not-acceptable"
-    stanzaErrorConditionToText NotAllowed = "not-allowed"
-    stanzaErrorConditionToText NotAuthorized = "not-authorized"
-    stanzaErrorConditionToText PolicyViolation = "policy-violation"
-    stanzaErrorConditionToText RecipientUnavailable = "recipient-unavailable"
-    stanzaErrorConditionToText (Redirect _) = "redirect"
-    stanzaErrorConditionToText RegistrationRequired = "registration-required"
-    stanzaErrorConditionToText RemoteServerNotFound = "remote-server-not-found"
-    stanzaErrorConditionToText RemoteServerTimeout = "remote-server-timeout"
-    stanzaErrorConditionToText ResourceConstraint = "resource-constraint"
-    stanzaErrorConditionToText ServiceUnavailable = "service-unavailable"
-    stanzaErrorConditionToText SubscriptionRequired = "subscription-required"
-    stanzaErrorConditionToText UndefinedCondition = "undefined-condition"
-    stanzaErrorConditionToText UnexpectedRequest = "unexpected-request"
-    stanzaErrorConditionFromText "bad-request" = Just BadRequest
-    stanzaErrorConditionFromText "conflict" = Just Conflict
-    stanzaErrorConditionFromText "feature-not-implemented" = Just FeatureNotImplemented
-    stanzaErrorConditionFromText "forbidden" = Just Forbidden
-    stanzaErrorConditionFromText "gone" = Just $ Gone Nothing
-    stanzaErrorConditionFromText "internal-server-error" = Just InternalServerError
-    stanzaErrorConditionFromText "item-not-found" = Just ItemNotFound
-    stanzaErrorConditionFromText "jid-malformed" = Just JidMalformed
-    stanzaErrorConditionFromText "not-acceptable" = Just NotAcceptable
-    stanzaErrorConditionFromText "not-allowed" = Just NotAllowed
-    stanzaErrorConditionFromText "not-authorized" = Just NotAuthorized
-    stanzaErrorConditionFromText "policy-violation" = Just PolicyViolation
-    stanzaErrorConditionFromText "recipient-unavailable" = Just RecipientUnavailable
-    stanzaErrorConditionFromText "redirect" = Just $ Redirect Nothing
-    stanzaErrorConditionFromText "registration-required" = Just RegistrationRequired
-    stanzaErrorConditionFromText "remote-server-not-found" = Just RemoteServerNotFound
-    stanzaErrorConditionFromText "remote-server-timeout" = Just RemoteServerTimeout
-    stanzaErrorConditionFromText "resource-constraint" = Just ResourceConstraint
-    stanzaErrorConditionFromText "service-unavailable" = Just ServiceUnavailable
-    stanzaErrorConditionFromText "subscription-required" = Just SubscriptionRequired
-    stanzaErrorConditionFromText "undefined-condition" = Just UndefinedCondition
-    stanzaErrorConditionFromText "unexpected-request" = Just UnexpectedRequest
-    stanzaErrorConditionFromText _ = Nothing
 
 xpStreamErrorCondition :: PU Text StreamErrorCondition
 xpStreamErrorCondition = ("xpStreamErrorCondition", "") <?>
