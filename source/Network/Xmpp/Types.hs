@@ -55,6 +55,7 @@ module Network.Xmpp.Types
     , Jid(..)
 #if WITH_TEMPLATE_HASKELL
     , jidQ
+    , jid
 #endif
     , isBare
     , isFull
@@ -817,8 +818,8 @@ instance TH.Lift Jid where
 -- @
 --     [jidQ|localpart\@domainpart/resourcepart|]
 -- @
-jidQ :: QuasiQuoter
-jidQ = QuasiQuoter { quoteExp = \s -> do
+jid :: QuasiQuoter
+jid = QuasiQuoter { quoteExp = \s -> do
                           when (head s == ' ') . fail $ "Leading whitespaces in JID" ++ show s
                           let t = Text.pack s
                           when (Text.last t == ' ') . reportWarning $ "Trailing whitespace in JID " ++ show s
@@ -830,6 +831,9 @@ jidQ = QuasiQuoter { quoteExp = \s -> do
                   , quoteDec  = fail "jid QQ can't be used in declaration context"
                   }
 
+-- | synonym for 'jid'
+jidQ :: QuasiQuoter
+jidQ = jidQ
 #endif
 
 -- Produces a LangTag value in the format "parseLangTag \"<jid>\"".

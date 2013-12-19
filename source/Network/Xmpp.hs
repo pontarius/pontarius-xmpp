@@ -51,6 +51,7 @@ module Network.Xmpp
   , Jid
 #if WITH_TEMPLATE_HASKELL
   , jidQ
+  , jid
 #endif
   , isBare
   , isFull
