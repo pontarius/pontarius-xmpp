@@ -930,27 +930,52 @@ jidFromTexts l d r = do
     validPartLength p = Text.length p > 0 && Text.length p < 1024
 
 -- | Returns 'True' if the JID is /bare/, and 'False' otherwise.
+--
+-- >>> isBare [jidQ|foo@bar|]
+-- True
+--
+-- >>> isBare [jidQ|foo@bar/quux|]
+-- False
 isBare :: Jid -> Bool
 isBare j | resourcepart j == Nothing = True
          | otherwise                 = False
 
 -- | Returns 'True' if the JID is /full/, and 'False' otherwise.
+-- isFull = not . isBare
+--
+-- >>> isBare [jidQ|foo@bar|]
+-- True
+--
+-- >>> isBare [jidQ|foo@bar/quux|]
+-- False
 isFull :: Jid -> Bool
 isFull = not . isBare
 
 -- | Returns the @Jid@ without the resourcepart (if any).
+--
+-- >>> toBare [jidQ|foo@bar/quux|] == [jidQ|foo@bar|]
+-- True
 toBare :: Jid -> Jid
 toBare j  = j{resourcepart_ = Nothing}
 
 -- | Returns the localpart of the @Jid@ (if any).
+--
+-- >>> localpart [jidQ|foo@bar/quux|]
+-- Just "foo"
 localpart :: Jid -> Maybe Text
 localpart = fmap text . localpart_
 
 -- | Returns the domainpart of the @Jid@.
+--
+-- >>> domainpart [jidQ|foo@bar/quux|]
+-- "bar"
 domainpart :: Jid -> Text
 domainpart = text . domainpart_
 
 -- | Returns the resourcepart of the @Jid@ (if any).
+--
+-- >>> resourcepart [jidQ|foo@bar/quux|]
+-- Just "quux"
 resourcepart :: Jid -> Maybe Text
 resourcepart = fmap text . resourcepart_
 

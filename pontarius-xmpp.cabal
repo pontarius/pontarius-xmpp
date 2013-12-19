@@ -1,7 +1,7 @@
 Name:          pontarius-xmpp
 Version:       0.3.0.2
 Cabal-Version: >= 1.9.2
-Build-Type:    Simple
+Build-Type:    Custom
 License:       BSD3
 License-File:  LICENSE.md
 Copyright:     Dmitry Astapov, Pierre Kovalev, Mahdi Abdinejadi, Jon Kristensen,
@@ -153,6 +153,16 @@ Test-Suite tests
                , Tests.Arbitrary.Xml
                , Tests.Arbitrary.Xmpp
   ghc-options: -Wall -O2 -fno-warn-orphans
+
+Test-Suite doctest
+  Type: exitcode-stdio-1.0
+  hs-source-dirs: tests
+  main-is: Doctest.hs
+  GHC-Options: -Wall -threaded
+  Build-Depends: base
+               , doctest
+               , directory
+               , filepath
 
 benchmark benchmarks
   type: exitcode-stdio-1.0
