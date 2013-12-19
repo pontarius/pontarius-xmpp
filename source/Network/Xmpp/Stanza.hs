@@ -56,14 +56,20 @@ answerMessage _ _ = Nothing
 presTo :: Presence -> Jid -> Presence
 presTo pres to' = pres{presenceTo = Just to'}
 
+-- | Create a StanzaError with @condition@ and the 'associatedErrorType'. Leave
+-- the error text and the application specific condition empty
+mkStanzaError :: StanzaErrorCondition -- ^ condition
+              -> StanzaError
+mkStanzaError condition = StanzaError (associatedErrorType condition)
+                                      condition Nothing Nothing
+
 -- | Create an IQ error response to an IQ request using the given condition. The
 -- error type is derived from the condition using 'associatedErrorType' and
 -- both text and the application specific condition are left empty
 iqError :: StanzaErrorCondition -> IQRequest -> IQError
 iqError condition (IQRequest iqid from' _to lang' _tp _bd) =
-    IQError iqid Nothing from' lang' err Nothing
-  where
-    err = StanzaError (associatedErrorType condition) condition Nothing Nothing
+    IQError iqid Nothing from' lang' (mkStanzaError condition) Nothing
+
 
 -- | Create an IQ Result matching an IQ request
 iqResult ::  Maybe Element -> IQRequest -> IQResult
@@ -82,7 +88,7 @@ iqResult pl iqr = IQResult
 --
 -- * 'PolicyViolation': 'Modify' or 'Wait' ('Modify')
 --
--- * 'RemoteServerTimeout': Wait or unspecified other ('Wait')
+-- * 'RemoteServerTimeout': 'Wait' or unspecified other ('Wait')
 --
 -- * 'UndefinedCondition': Any condition ('Cancel')
 associatedErrorType :: StanzaErrorCondition -> StanzaErrorType

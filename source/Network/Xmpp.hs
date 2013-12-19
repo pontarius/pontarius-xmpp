@@ -164,11 +164,14 @@ module Network.Xmpp
   , sendIQ
   , sendIQ'
   , answerIQ
+  , iqResult
   , listenIQChan
   , dropIQChan
   -- * Errors
-  , StanzaError(..)
   , StanzaErrorType(..)
+  , StanzaError(..)
+  , associatedErrorType
+  , mkStanzaError
   , StanzaErrorCondition(..)
   , SaslFailure(..)
   -- * Threads
