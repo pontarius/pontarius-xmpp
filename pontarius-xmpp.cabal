@@ -123,21 +123,29 @@ Test-Suite tests
                , Cabal
                , QuickCheck
                , async
+               , async
                , conduit
                , containers
+               , data-default
                , derive
+               , hslogger
                , hspec
                , hspec-expectations
+               , lens
+               , network
                , pontarius-xmpp
                , quickcheck-instances
                , ranges
                , smallcheck
+               , stm
                , stringprep >= 0.1.5
                , tasty
                , tasty-hspec
+               , tasty-hunit
                , tasty-quickcheck
                , tasty-th
                , text
+               , transformers
                , xml-picklers
                , xml-types
   HS-Source-Dirs: tests
