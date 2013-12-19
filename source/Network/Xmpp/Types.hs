@@ -288,9 +288,9 @@ data PresenceType = Subscribe    | -- ^ Sender wants to subscribe to presence
                     Unavailable deriving (Eq, Read, Show)
 
 -- | All stanzas (IQ, message, presence) can cause errors, which in the Xmpp
--- stream looks like <stanza-kind to='sender' type='error'>. These errors are
--- wrapped in the @StanzaError@ type.
--- TODO: Sender XML is (optional and is) not yet included.
+-- stream looks like @\<stanza-kind to=\'sender\' type=\'error\'\>@ . These
+-- errors are wrapped in the @StanzaError@ type.  TODO: Sender XML is (optional
+-- and is) not yet included.
 data StanzaError = StanzaError
     { stanzaErrorType                         :: StanzaErrorType
     , stanzaErrorCondition                    :: StanzaErrorCondition
