@@ -175,6 +175,7 @@ module Network.Xmpp
   , mkStanzaError
   , StanzaErrorCondition(..)
   , SaslFailure(..)
+  , IQSendError(..)
   -- * Threads
   , dupSession
   -- * Lenses
