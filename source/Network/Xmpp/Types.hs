@@ -98,7 +98,7 @@ import           Network.DNS
 import           Network.TLS hiding (Version)
 import           Network.TLS.Extra
 import qualified Text.StringPrep as SP
-import qualified Text.StringPrep.Profiles as SP
+import qualified Text.NamePrep as SP
 
 -- | Type of Texts that contain at least on non-space character
 newtype NonemptyText = Nonempty {fromNonempty :: Text}
