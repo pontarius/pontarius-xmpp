@@ -99,7 +99,12 @@ import           Network.DNS
 import           Network.TLS hiding (Version)
 import           Network.TLS.Extra
 import qualified Text.StringPrep as SP
+-- TODO: Remove once next version of stringprep is released
+#if MIN_VERSION_stringprep(1,0,0)
 import qualified Text.StringPrep.Profiles as SP
+#else
+import qualified Text.NamePrep as SP
+#endif
 
 -- | Type of Texts that contain at least on non-space character
 newtype NonemptyText = Nonempty {fromNonempty :: Text}
