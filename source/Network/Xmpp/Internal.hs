@@ -41,10 +41,15 @@ module Network.Xmpp.Internal
   , iqError
   , iqResult
   , associatedErrorType
+    -- * Plugins
+  , Plugin(..)
+  , Plugin'(..)
+  , Annotation(..)
  )
        where
 
 import Network.Xmpp.Concurrent.Basic
+import Network.Xmpp.Concurrent.Types
 import Network.Xmpp.Sasl
 import Network.Xmpp.Sasl.Types
 import Network.Xmpp.Stanza
