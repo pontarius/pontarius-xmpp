@@ -827,7 +827,8 @@ elements = do
     goE n as = do
         (y, ns) <- many' goN
         if y == Just (EventEndElement n)
-            then return $ Element n as $ compressNodes ns
+            then return $ Element n (map (id >< compressContents) as)
+                                    (compressNodes ns)
             else throwError . XmppInvalidXml $ "Missing close tag: " ++ show n
     goN = do
         x <- await
@@ -845,6 +846,13 @@ elements = do
     compressNodes (NodeContent (ContentText x) : NodeContent (ContentText y) : z) =
         compressNodes $ NodeContent (ContentText $ x `Text.append` y) : z
     compressNodes (x:xs) = x : compressNodes xs
+
+    compressContents :: [Content] -> [Content]
+    compressContents cs = [ContentText $ Text.concat (map unwrap cs)]
+        where unwrap (ContentText t) = t
+              unwrap (ContentEntity t) = t
+
+    (><) f g (x, y) = (f x, g y)
 
 withStream :: StateT StreamState IO a -> Stream -> IO a
 withStream action (Stream stream) = Ex.bracketOnError
