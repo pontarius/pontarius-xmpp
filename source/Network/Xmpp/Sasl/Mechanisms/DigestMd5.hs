@@ -107,9 +107,9 @@ xmppDigestMd5 authcid' authzid' password' = do
               ha2 = hash ["AUTHENTICATE", digestURI]
           in hash [ha1, nonce, nc, cnonce, qop, ha2]
 
-digestMd5 :: Text -- ^ Authentication identity (authcid or username)
-          -> Maybe Text -- ^ Authorization identity (authzid)
-          -> Text -- ^ Password
+digestMd5 :: Username -- ^ Authentication identity (authcid or username)
+          -> Maybe AuthZID -- ^ Authorization identity (authzid)
+          -> Password -- ^ Password
           -> SaslHandler
 digestMd5 authcid authzid password =
     ( "DIGEST-MD5"

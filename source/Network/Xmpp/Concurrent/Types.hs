@@ -26,6 +26,18 @@ type StanzaHandler =  (Stanza -> IO (Either XmppFailure ()) ) -- ^ outgoing stan
                    -> IO [(Stanza, [Annotation])]  -- ^ modified stanzas and
                                                    -- /additional/ annotations
 
+type Resource = Text
+
+-- | SASL handlers and the desired JID resource
+--
+-- Nothing to disable authentication
+--
+-- The allowed SASL mecahnism can depend on the connection state. For example,
+-- 'plain' should be avoided unless the connection state is 'Secured'
+--
+-- It is recommended to leave the resource up to the server
+type AuthData = Maybe (ConnectionState -> [SaslHandler] , Maybe Resource)
+
 data Annotation = forall f.(Typeable f, Show f) => Annotation{fromAnnotation :: f}
 
 instance Show Annotation where
@@ -54,11 +66,17 @@ type Plugin = (Stanza -> IO (Either XmppFailure ()))
 data SessionConfiguration = SessionConfiguration
     { -- | Configuration for the @Stream@ object.
       sessionStreamConfiguration :: StreamConfiguration
-      -- | Handler to be run when the conection to the XMPP server is closed.
+      -- | Handler to be run when the conection to the XMPP server is
+      -- closed. See also 'reconnect' and 'reconnect\'' for easy
+      -- reconnection. The default does nothing
     , onConnectionClosed         :: Session -> XmppFailure -> IO ()
-      -- | Function to generate the stream of stanza identifiers.
+      -- | Function to generate new stanza identifiers.
     , sessionStanzaIDs           :: IO (IO Text)
+      -- | Plugins can modify incoming and outgoing stanzas, for example to en-
+      -- and decrypt them, respectively
     , plugins                    :: [Plugin]
+      -- | Enable roster handling according to rfc 6121. See 'getRoster' to
+      -- acquire the current roster
     , enableRoster               :: Bool
     }
 

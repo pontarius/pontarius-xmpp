@@ -160,7 +160,10 @@ mkReadBuffer recv = do
 
 -- | Connect to an XMPP server and secure the connection with TLS before
 -- starting the XMPP streams
-connectTls :: ResolvConf -- ^ Resolv conf to use (try defaultResolvConf as a
+--
+-- /NB/ RFC 6120 does not specify this method, but some servers, notably GCS,
+-- seem to use it.
+connectTls :: ResolvConf -- ^ Resolv conf to use (try 'defaultResolvConf' as a
                          -- default)
            -> TLSParams  -- ^ TLS parameters to use when securing the connection
            -> String     -- ^ Host to use when connecting (will be resolved

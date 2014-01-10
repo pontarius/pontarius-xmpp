@@ -20,7 +20,27 @@
 --
 -- For low-level access to Pontarius XMPP, see the "Network.Xmpp.Internal"
 -- module.
-
+--
+-- Getting Started
+--
+-- We use 'session' to create a session object and connect to a server. Here we
+-- use the default 'SessionConfiguration'.
+--
+-- @
+-- sess <- session realm (simpleAuth \"myUsername\" \"mypassword\") def
+-- @
+--
+-- Defining 'AuthData' can be a bit unwieldy, so 'simpleAuth' gives us a
+-- reasonable default. Though, for improved security, we should consider
+-- restricting the mecahnisms to 'scramSha1' whenever we can.
+--
+-- Next we have to set the presence to online, otherwise we won't be able to
+-- send or receive stanzas to/from other entities.
+--
+-- @
+-- sendPresence presenceOnline sess
+-- @
+--
 {-# LANGUAGE CPP, NoMonomorphismRestriction, OverloadedStrings #-}
 
 module Network.Xmpp
@@ -37,10 +57,13 @@ module Network.Xmpp
   , closeConnection
   , endSession
   , waitForStream
-    -- TODO: Close session, etc.
     -- ** Authentication handlers
     -- | The use of 'scramSha1' is /recommended/, but 'digestMd5' might be
     -- useful for interaction with older implementations.
+  , AuthData
+  , Username
+  , Password
+  , AuthZID
   , scramSha1
   , plain
   , digestMd5
@@ -50,8 +73,8 @@ module Network.Xmpp
   -- address, but contains three parts instead of two.
   , Jid
 #if WITH_TEMPLATE_HASKELL
-  , jidQ
   , jid
+  , jidQ
 #endif
   , isBare
   , isFull
@@ -180,7 +203,7 @@ module Network.Xmpp
   , dupSession
   -- * Lenses
   -- | Network.Xmpp doesn't re-export the accessors to avoid name
-  -- clashes. If you want to use them import Network.Xmpp.Lens
+  -- clashes. To use them import Network.Xmpp.Lens
   , module Network.Xmpp.Lens
   -- * Miscellaneous
   , LangTag
@@ -195,6 +218,8 @@ module Network.Xmpp
                , AuthIllegalCredentials
                , AuthOtherFailure )
   , SaslHandler
+  , Plugin
+  , Plugin'
   , ConnectionState(..)
   , connectTls
   ) where

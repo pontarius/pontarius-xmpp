@@ -147,9 +147,9 @@ scram hToken authcid authzid password = do
                 u1 = hmac str (slt +++ (BS.pack [0,0,0,1]))
                 us = iterate (hmac str) u1
 
-scramSha1 :: Text.Text  -- ^ username
-          -> Maybe Text.Text -- ^ authorization ID
-          -> Text.Text   -- ^ password
+scramSha1 :: Username  -- ^ username
+          -> Maybe AuthZID -- ^ authorization ID
+          -> Password   -- ^ password
           -> SaslHandler
 scramSha1 authcid authzid passwd =
     ( "SCRAM-SHA-1"

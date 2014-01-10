@@ -6,6 +6,10 @@ import           Data.ByteString(ByteString)
 import qualified Data.Text as Text
 import           Network.Xmpp.Types
 
+type Username = Text.Text
+type Password = Text.Text
+type AuthZID  = Text.Text
+
 data SaslElement = SaslSuccess   (Maybe Text.Text)
                  | SaslChallenge (Maybe Text.Text)
 

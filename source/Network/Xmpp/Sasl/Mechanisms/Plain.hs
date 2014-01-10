@@ -44,9 +44,9 @@ xmppPlain authcid' authzid' password  = do
       where
         authzid'' = maybe "" Text.encodeUtf8 authzid'
 
-plain :: Text.Text -- ^ authentication ID (username)
-      -> Maybe Text.Text -- ^ authorization ID
-      -> Text.Text -- ^ password
+plain :: Username -- ^ authentication ID (username)
+      -> Maybe AuthZID -- ^ authorization ID
+      -> Password -- ^ password
       -> SaslHandler
 plain authcid authzid passwd =
     ( "PLAIN"

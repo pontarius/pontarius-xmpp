@@ -101,6 +101,13 @@ import           Network.TLS.Extra
 import qualified Text.StringPrep as SP
 import qualified Text.StringPrep.Profiles as SP
 
+
+-- $setup
+-- :set -itests
+-- >>> :add tests/Tests/Arbitrary.hs
+-- >>> import Network.Xmpp.Types
+-- >>> import Control.Applicative((<$>))
+
 -- | Type of Texts that contain at least on non-space character
 newtype NonemptyText = Nonempty {fromNonempty :: Text}
                        deriving (Show, Read, Eq, Ord)
@@ -111,14 +118,13 @@ instance IsString NonemptyText where
                             "all-whitespace string"
         Just r -> r
 
--- | Check that Text contains at least one non-space character wrap it
+-- | Check that Text contains at least one non-space character and wrap it
 nonEmpty :: Text -> Maybe NonemptyText
 nonEmpty txt = if Text.all isSpace txt then Nothing else Just (Nonempty txt)
 
 -- | Same as 'fromNonempty'
 text :: NonemptyText -> Text
 text (Nonempty txt) = txt
-{-# INLINE text #-}
 
 -- | The Xmpp communication primities (Message, Presence and Info/Query) are
 -- called stanzas.
@@ -177,6 +183,16 @@ data Message = Message { messageID      :: !(Maybe Text)
                        } deriving (Eq, Show)
 
 -- | An empty message
+--
+-- @
+-- message = Message { messageID      = Nothing
+--                   , messageFrom    = Nothing
+--                   , messageTo      = Nothing
+--                   , messageLangTag = Nothing
+--                   , messageType    = Normal
+--                   , messagePayload = []
+--                   }
+-- @
 message :: Message
 message = Message { messageID      = Nothing
                   , messageFrom    = Nothing
@@ -187,6 +203,8 @@ message = Message { messageID      = Nothing
                   }
 
 -- | Empty message stanza
+--
+-- @messageS = 'MessageS' 'message'@
 messageS :: Stanza
 messageS = MessageS message
 
@@ -759,6 +777,8 @@ newtype Stream = Stream { unStream :: TMVar StreamState }
 -- (e.g., an occupant in a multi-user chat room) belonging to
 -- the entity associated with an XMPP localpart at a domain
 -- (i.e., @localpart\@domainpart/resourcepart@).
+--
+-- For more details see RFC 6122 <http://xmpp.org/rfcs/rfc6122.html>
 
 data Jid = Jid { localpart_    :: !(Maybe NonemptyText)
                , domainpart_   :: !NonemptyText
@@ -775,6 +795,17 @@ jidToText (Jid nd dmn res) = Text.concat . concat $
 
 -- | Converts a JID to up to three Text values: (the optional) localpart, the
 -- domainpart, and (the optional) resourcepart.
+--
+-- >>> jidToTexts [jid|foo@bar/quux|]
+-- (Just "foo","bar",Just "quux")
+--
+-- >>> jidToTexts [jid|bar/quux|]
+-- (Nothing,"bar",Just "quux")
+--
+-- >>> jidToTexts [jid|foo@bar|]
+-- (Just "foo","bar",Nothing)
+--
+-- prop> jidToTexts j == (localpart j, domainpart j, resourcepart j)
 jidToTexts :: Jid -> (Maybe Text, Text, Maybe Text)
 jidToTexts (Jid nd dmn res) = (text <$> nd, text dmn, text <$> res)
 
@@ -812,12 +843,23 @@ instance TH.Lift Jid where
         mbTextE Nothing = [| Nothing |]
         mbTextE (Just s) = [| Just $(textE s) |]
 
--- | Constructs a @Jid@ value at compile time.
+-- | Constructs and validates a @Jid@ at compile time.
 --
 -- Syntax:
 -- @
---     [jidQ|localpart\@domainpart/resourcepart|]
+--     [jid|localpart\@domainpart/resourcepart|]
 -- @
+--
+-- >>> [jid|foo@bar/quux|]
+-- parseJid "foo@bar/quux"
+--
+-- >>> Just [jid|foo@bar/quux|] == jidFromTexts (Just "foo") "bar" (Just "quux")
+-- True
+--
+-- >>> Just [jid|foo@bar/quux|] == jidFromText "foo@bar/quux"
+-- True
+--
+-- See also 'jidFromText'
 jid :: QuasiQuoter
 jid = QuasiQuoter { quoteExp = \s -> do
                           when (head s == ' ') . fail $ "Leading whitespaces in JID" ++ show s
@@ -831,7 +873,7 @@ jid = QuasiQuoter { quoteExp = \s -> do
                   , quoteDec  = fail "jid QQ can't be used in declaration context"
                   }
 
--- | synonym for 'jid'
+-- | Synonym for 'jid'
 jidQ :: QuasiQuoter
 jidQ = jidQ
 #endif
@@ -889,7 +931,45 @@ parseJid s = case jidFromText $ Text.pack s of
                  Just j -> j
                  Nothing -> error $ "Jid value (" ++ s ++ ") did not validate"
 
--- | Converts a Text to a JID.
+-- | Parse a JID
+--
+-- >>> localpart <$> jidFromText "foo@bar/quux"
+-- Just (Just "foo")
+--
+-- >>> domainpart <$> jidFromText "foo@bar/quux"
+-- Just "bar"
+--
+-- >>> resourcepart <$> jidFromText "foo@bar/quux"
+-- Just (Just "quux")
+--
+-- * Counterexamples
+--
+-- A JID must only have one \'\@\':
+--
+-- >>> jidFromText "foo@bar@quux"
+-- Nothing
+--
+-- \'\@\' must come before \'/\':
+--
+-- >>> jidFromText "foo/bar@quux"
+-- Nothing
+--
+-- The domain part can\'t be empty:
+--
+-- >>> jidFromText "foo@/quux"
+-- Nothing
+--
+-- Both the local part and the resource part can be omitted (but the
+-- \'\@\' and \'\/\', must also be removed):
+--
+-- >>> jidToTexts <$> jidFromText "bar"
+-- Just (Nothing,"bar",Nothing)
+--
+-- >>> jidToTexts <$> jidFromText "@bar"
+-- Nothing
+--
+-- >>> jidToTexts <$> jidFromText "bar/"
+-- Nothing
 jidFromText :: Text -> Maybe Jid
 jidFromText t = do
     (l, d, r) <- eitherToMaybe $ AP.parseOnly jidParts t
@@ -897,8 +977,13 @@ jidFromText t = do
   where
     eitherToMaybe = either (const Nothing) Just
 
--- | Converts localpart, domainpart, and resourcepart strings to a JID. Runs the
+-- | Convert localpart, domainpart, and resourcepart to a JID. Runs the
 -- appropriate stringprep profiles and validates the parts.
+--
+-- >>> jidFromTexts (Just "foo") "bar" (Just "baz") == jidFromText "foo@bar/baz"
+-- True
+--
+-- prop> jidFromTexts (localpart j) (domainpart j) (resourcepart j) == Just j
 jidFromTexts :: Maybe Text -> Text -> Maybe Text -> Maybe Jid
 jidFromTexts l d r = do
     localPart <- case l of
@@ -929,56 +1014,60 @@ jidFromTexts l d r = do
     validPartLength :: Text -> Bool
     validPartLength p = Text.length p > 0 && Text.length p < 1024
 
--- | Returns 'True' if the JID is /bare/, and 'False' otherwise.
+-- | Returns 'True' if the JID is /bare/, that is, it doesn't have a resource
+-- part, and 'False' otherwise.
 --
--- >>> isBare [jidQ|foo@bar|]
+-- >>> isBare [jid|foo@bar|]
 -- True
 --
--- >>> isBare [jidQ|foo@bar/quux|]
+-- >>> isBare [jid|foo@bar/quux|]
 -- False
 isBare :: Jid -> Bool
 isBare j | resourcepart j == Nothing = True
          | otherwise                 = False
 
 -- | Returns 'True' if the JID is /full/, and 'False' otherwise.
--- isFull = not . isBare
 --
--- >>> isBare [jidQ|foo@bar|]
+-- @isFull = not . isBare@
+--
+-- >>> isBare [jid|foo@bar|]
 -- True
 --
--- >>> isBare [jidQ|foo@bar/quux|]
+-- >>> isBare [jid|foo@bar/quux|]
 -- False
 isFull :: Jid -> Bool
 isFull = not . isBare
 
 -- | Returns the @Jid@ without the resourcepart (if any).
 --
--- >>> toBare [jidQ|foo@bar/quux|] == [jidQ|foo@bar|]
+-- >>> toBare [jid|foo@bar/quux|] == [jid|foo@bar|]
 -- True
 toBare :: Jid -> Jid
 toBare j  = j{resourcepart_ = Nothing}
 
 -- | Returns the localpart of the @Jid@ (if any).
 --
--- >>> localpart [jidQ|foo@bar/quux|]
+-- >>> localpart [jid|foo@bar/quux|]
 -- Just "foo"
 localpart :: Jid -> Maybe Text
 localpart = fmap text . localpart_
 
 -- | Returns the domainpart of the @Jid@.
 --
--- >>> domainpart [jidQ|foo@bar/quux|]
+-- >>> domainpart [jid|foo@bar/quux|]
 -- "bar"
 domainpart :: Jid -> Text
 domainpart = text . domainpart_
 
 -- | Returns the resourcepart of the @Jid@ (if any).
 --
--- >>> resourcepart [jidQ|foo@bar/quux|]
+-- >>> resourcepart [jid|foo@bar/quux|]
 -- Just "quux"
 resourcepart :: Jid -> Maybe Text
 resourcepart = fmap text . resourcepart_
 
+-- | Parse the parts of a JID. The parts need to be validated with stringprep
+-- before the JID can be constructed
 jidParts :: AP.Parser (Maybe Text, Text, Maybe Text)
 jidParts = do
     maybeLocalPart <- Just <$> localPart <|> return Nothing
@@ -997,7 +1086,7 @@ jidParts = do
 
 
 
--- The `nodeprep' StringPrep profile.
+-- | The `nodeprep' StringPrep profile.
 nodeprepProfile :: SP.StringPrepProfile
 nodeprepProfile = SP.Profile { SP.maps = [SP.b1, SP.b2]
                              , SP.shouldNormalize = True
@@ -1017,12 +1106,12 @@ nodeprepProfile = SP.Profile { SP.maps = [SP.b1, SP.b2]
                              , SP.shouldCheckBidi = True
                              }
 
--- These characters needs to be checked for after normalization.
+-- | These characters needs to be checked for after normalization.
 nodeprepExtraProhibitedCharacters :: [Char]
 nodeprepExtraProhibitedCharacters = ['\x22', '\x26', '\x27', '\x2F', '\x3A',
                                      '\x3C', '\x3E', '\x40']
 
--- The `resourceprep' StringPrep profile.
+-- | The `resourceprep' StringPrep profile.
 resourceprepProfile :: SP.StringPrepProfile
 resourceprepProfile = SP.Profile { SP.maps = [SP.b1]
                                  , SP.shouldNormalize = True
@@ -1040,11 +1129,17 @@ resourceprepProfile = SP.Profile { SP.maps = [SP.b1]
                                                    ]
                                  , SP.shouldCheckBidi = True
                                  }
-
-data ConnectionDetails = UseRealm -- ^ Use realm to resolv host
+-- | Specify the method with which the connection is (re-)established
+data ConnectionDetails = UseRealm -- ^ Use realm to resolv host. This is the
+                                  -- default.
                        | UseSrv HostName -- ^ Use this hostname for a SRV lookup
                        | UseHost HostName PortID -- ^ Use specified host
                        | UseConnection (ErrorT XmppFailure IO StreamHandle)
+                         -- ^ Use custom method to create a StreamHandle. This
+                         -- will also be used by reconnect. For example, to
+                         -- establish TLS before starting the stream as done by
+                         -- GCM, see 'connectTls'. You can also return an
+                         -- already established connection.
 
 -- | Configuration settings related to the stream.
 data StreamConfiguration =

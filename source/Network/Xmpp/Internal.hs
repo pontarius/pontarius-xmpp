@@ -42,9 +42,10 @@ module Network.Xmpp.Internal
   , iqResult
   , associatedErrorType
     -- * Plugins
-  , Plugin(..)
+  , Plugin
   , Plugin'(..)
   , Annotation(..)
+  , connectTls
  )
        where
 

@@ -186,7 +186,7 @@ newSession stream config realm mbSasl = runErrorT $ do
 
 connectStream :: HostName
               -> SessionConfiguration
-              -> Maybe (ConnectionState -> [SaslHandler], Maybe Text)
+              -> AuthData
               -> IO (Either XmppFailure Stream)
 connectStream realm config mbSasl = do
     Ex.bracketOnError (openStream realm (sessionStreamConfiguration config))
@@ -223,9 +223,7 @@ connectStream realm config mbSasl = do
 -- third parameter is a 'Just' value, @session@ will attempt to authenticate and
 -- acquire an XMPP resource.
 session :: HostName                          -- ^ The hostname / realm
-        -> Maybe (ConnectionState -> [SaslHandler] , Maybe Text)
-           -- ^ SASL handlers and the desired JID resource (or Nothing to let
-           -- the server decide)
+        -> AuthData
         -> SessionConfiguration              -- ^ configuration details
         -> IO (Either XmppFailure Session)
 session realm mbSasl config = runErrorT $ do
@@ -233,6 +231,23 @@ session realm mbSasl config = runErrorT $ do
     ses <- ErrorT $ newSession stream config realm mbSasl
     liftIO $ when (enableRoster config) $ initRoster ses
     return ses
+
+-- | Authenticate using, in order of preference, 'scramSha1', 'digestMd5' and
+-- finally, if both of those are not support and the stream is 'Secured' with
+-- TLS, try 'plain'
+--
+-- The resource will be decided by the server
+simpleAuth :: Username -> Password -> AuthData
+simpleAuth uname pwd = Just (\cstate ->
+                              [ scramSha1 uname Nothing pwd
+                              , digestMd5 uname Nothing pwd
+                              ] ++
+                              if (cstate == Secured)
+                              then [plain uname Nothing pwd]
+                              else []
+                            , Nothing)
+
+
 
 -- | Reconnect immediately with the stored settings. Returns @Just@ the error
 -- when the reconnect attempt fails and Nothing when no failure was encountered.

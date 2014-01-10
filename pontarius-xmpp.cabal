@@ -163,6 +163,9 @@ Test-Suite doctest
                , doctest
                , directory
                , filepath
+               , QuickCheck
+               , derive
+               , quickcheck-instances
 
 benchmark benchmarks
   type: exitcode-stdio-1.0
