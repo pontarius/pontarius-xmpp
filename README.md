@@ -117,3 +117,5 @@ More information
 
 Feel free to [contact Jon Kristensen](http://www.jonkri.com/contact/) if you
 have any questions or comments.
+
+You are also welcome to join the #pontarius IRC channel at Freenode.
