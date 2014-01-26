@@ -15,6 +15,7 @@ module Network.Xmpp.Concurrent
   , reconnect
   , reconnect'
   , reconnectNow
+  , simpleAuth
   ) where
 
 import           Control.Applicative ((<$>))

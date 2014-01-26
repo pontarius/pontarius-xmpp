@@ -64,6 +64,7 @@ module Network.Xmpp
   , Username
   , Password
   , AuthZID
+  , simpleAuth
   , scramSha1
   , plain
   , digestMd5
@@ -222,6 +223,7 @@ module Network.Xmpp
   , Plugin'
   , ConnectionState(..)
   , connectTls
+  , def
   ) where
 
 import Network.Xmpp.Concurrent
@@ -231,3 +233,4 @@ import Network.Xmpp.Stanza
 import Network.Xmpp.Types
 import Network.Xmpp.Tls
 import Network.Xmpp.Lens hiding (view, set, modify)
+import Data.Default (def)
