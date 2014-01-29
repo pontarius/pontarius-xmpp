@@ -33,10 +33,11 @@ sendIQ :: Maybe Integer -- ^ Timeout . When the timeout is reached the response
        -> IO (Either XmppFailure (TMVar (Maybe (Annotated IQResponse))))
 sendIQ timeOut to tp lang body session = do -- TODO: Add timeout
     newId <- idGenerator session
+    let key = (newId, to)
     ref <- atomically $ do
         resRef <- newEmptyTMVar
         (byNS, byId) <- readTVar (iqHandlers session)
-        writeTVar (iqHandlers session) (byNS, Map.insert newId resRef byId)
+        writeTVar (iqHandlers session) (byNS, Map.insert key resRef byId)
           -- TODO: Check for id collisions (shouldn't happen?)
         return resRef
     res <- sendStanza (IQRequestS $ IQRequest newId Nothing to lang tp body) session
@@ -46,7 +47,7 @@ sendIQ timeOut to tp lang body session = do -- TODO: Add timeout
                 Nothing -> return ()
                 Just t -> void . forkIO $ do
                           delay t
-                          doTimeOut (iqHandlers session) newId ref
+                          doTimeOut (iqHandlers session) key ref
             return $ Right ref
         Left e -> return $ Left e
   where

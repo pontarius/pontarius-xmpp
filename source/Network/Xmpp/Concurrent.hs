@@ -121,7 +121,8 @@ handleIQ iqHands out sta as = do
     handleIQResponse :: TVar IQHandlers -> Either IQError IQResult -> IO ()
     handleIQResponse handlers iq = atomically $ do
         (byNS, byID) <- readTVar handlers
-        case Map.updateLookupWithKey (\_ _ -> Nothing) (iqID iq) byID of
+        case Map.updateLookupWithKey (\_ _ -> Nothing) (iqID iq, iqFrom iq)
+                                     byID of
             (Nothing, _) -> return () -- We are not supposed to send an error.
             (Just tmvar, byID') -> do
                 let answer = Just (either IQResponseError IQResponseResult iq, as)
@@ -130,6 +131,8 @@ handleIQ iqHands out sta as = do
       where
         iqID (Left err') = iqErrorID err'
         iqID (Right iq') = iqResultID iq'
+        iqFrom (Left err') = iqErrorFrom err'
+        iqFrom (Right iq') = iqResultFrom iq'
 
 -- | Creates and initializes a new Xmpp context.
 newSession :: Stream

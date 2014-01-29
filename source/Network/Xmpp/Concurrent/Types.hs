@@ -135,7 +135,7 @@ data Session = Session
 -- TMVars of and TMVars for expected IQ responses (the second Text represent a
 -- stanza identifier.
 type IQHandlers = ( Map.Map (IQRequestType, Text) (TChan IQRequestTicket)
-                  , Map.Map Text (TMVar (Maybe (Annotated IQResponse)))
+                  , Map.Map (Text, Maybe Jid) (TMVar (Maybe (Annotated IQResponse)))
                   )
 
 -- | Contains whether or not a reply has been sent, and the IQ request body to
