@@ -155,6 +155,7 @@ module Network.Xmpp
   , presenceSubscribe
   , presenceSubscribed
   , presenceUnsubscribe
+  , presenceUnsubscribed
   , presTo
   -- *** Sending
   -- | Sends a presence stanza. In general, the presence stanza should have no

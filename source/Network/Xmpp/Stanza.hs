@@ -26,8 +26,15 @@ presenceSubscribed to' = presence { presenceTo = Just to'
 -- | End a subscription with an entity.
 presenceUnsubscribe :: Jid -> Presence
 presenceUnsubscribe to' = presence { presenceTo = Just to'
-                                   , presenceType = Unsubscribed
+                                   , presenceType = Unsubscribe
                                    }
+
+-- | Deny a not-yet approved or terminate a previously approved subscription of
+-- an entity
+presenceUnsubscribed :: Jid -> Presence
+presenceUnsubscribed to' = presence { presenceTo = Just to'
+                                    , presenceType = Unsubscribed
+                                    }
 
 -- | Signal to the server that the client is available for communication.
 presenceOnline :: Presence
