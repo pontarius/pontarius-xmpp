@@ -121,13 +121,31 @@ handleIQ iqHands out sta as = do
     handleIQResponse :: TVar IQHandlers -> Either IQError IQResult -> IO ()
     handleIQResponse handlers iq = atomically $ do
         (byNS, byID) <- readTVar handlers
-        case Map.updateLookupWithKey (\_ _ -> Nothing) (iqID iq, iqFrom iq)
-                                     byID of
-            (Nothing, _) -> return () -- We are not supposed to send an error.
-            (Just tmvar, byID') -> do
-                let answer = Just (either IQResponseError IQResponseResult iq, as)
-                _ <- tryPutTMVar tmvar answer -- Don't block.
-                writeTVar handlers (byNS, byID')
+        case Map.updateLookupWithKey (\_ _ -> Nothing) (iqID iq) byID of
+            (Nothing, _) -> return () -- The handler might be removed due to
+                                      -- timeout
+            (Just (expectedJid, tmvar), byID') -> do
+                let expected = case expectedJid of
+                    -- IQ was sent to the server and we didn't have a bound JID
+                    -- We just accept any matching response
+                        Left Nothing -> True
+                    -- IQ was sent to the server and we had a bound JID. Valid
+                    -- responses might have no to attribute, the domain of the
+                    -- server, our bare JID or our full JID
+                        Left (Just j) -> case iqFrom iq of
+                            Nothing -> True
+                            Just jf -> jf <~ j
+                    -- IQ was sent to a (full) JID. The answer has to come from
+                    -- the same exact JID.
+                        Right j -> iqFrom iq == Just j
+                        _ -> False
+                case expected of
+                    True -> do
+                        let answer = Just (either IQResponseError
+                                                  IQResponseResult iq, as)
+                        _ <- tryPutTMVar tmvar answer -- Don't block.
+                        writeTVar handlers (byNS, byID')
+                    False -> return ()
       where
         iqID (Left err') = iqErrorID err'
         iqID (Right iq') = iqResultID iq'

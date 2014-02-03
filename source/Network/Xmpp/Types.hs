@@ -61,6 +61,7 @@ module Network.Xmpp.Types
     , isFull
     , jidFromText
     , jidFromTexts
+    , (<~)
     , nodeprepProfile
     , resourceprepProfile
     , jidToText
@@ -877,6 +878,19 @@ jid = QuasiQuoter { quoteExp = \s -> do
 jidQ :: QuasiQuoter
 jidQ = jidQ
 #endif
+
+-- | The partial order of "definiteness". JID1 is less than or equal JID2 iff
+-- the domain parts are equal and JID1's local part and resource part each are
+-- either Nothing or equal to Jid2's
+(<~) :: Jid -> Jid -> Bool
+(Jid lp1 dp1 rp1) <~ (Jid lp2 dp2 rp2) =
+    dp1 ==  dp2 &&
+    lp1 ~<~ lp2 &&
+    rp1 ~<~ rp2
+  where
+   Nothing  ~<~ _ = True
+   Just x  ~<~ Just y = x == y
+   _  ~<~ _ = False
 
 -- Produces a LangTag value in the format "parseLangTag \"<jid>\"".
 instance Show LangTag where

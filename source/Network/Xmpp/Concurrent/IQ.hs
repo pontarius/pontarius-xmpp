@@ -5,13 +5,10 @@ import           Control.Applicative ((<$>))
 import           Control.Concurrent (forkIO)
 import           Control.Concurrent.STM
 import           Control.Concurrent.Thread.Delay (delay)
-
 import           Control.Monad
-
 import qualified Data.Map as Map
 import           Data.Text (Text)
 import           Data.XML.Types
-
 import           Network.Xmpp.Concurrent.Basic
 import           Network.Xmpp.Concurrent.Types
 import           Network.Xmpp.Types
@@ -31,14 +28,16 @@ sendIQ :: Maybe Integer -- ^ Timeout . When the timeout is reached the response
        -> Element -- ^ The IQ body (there has to be exactly one)
        -> Session
        -> IO (Either XmppFailure (TMVar (Maybe (Annotated IQResponse))))
-sendIQ timeOut to tp lang body session = do -- TODO: Add timeout
+sendIQ timeOut to tp lang body session = do
     newId <- idGenerator session
-    let key = (newId, to)
+    j <- case to of
+        Just t -> return $ Right t
+        Nothing -> Left <$> getJid session
     ref <- atomically $ do
         resRef <- newEmptyTMVar
+        let value = (j, resRef)
         (byNS, byId) <- readTVar (iqHandlers session)
-        writeTVar (iqHandlers session) (byNS, Map.insert key resRef byId)
-          -- TODO: Check for id collisions (shouldn't happen?)
+        writeTVar (iqHandlers session) (byNS, Map.insert newId value byId)
         return resRef
     res <- sendStanza (IQRequestS $ IQRequest newId Nothing to lang tp body) session
     case res of
@@ -47,7 +46,7 @@ sendIQ timeOut to tp lang body session = do -- TODO: Add timeout
                 Nothing -> return ()
                 Just t -> void . forkIO $ do
                           delay t
-                          doTimeOut (iqHandlers session) key ref
+                          doTimeOut (iqHandlers session) newId ref
             return $ Right ref
         Left e -> return $ Left e
   where
