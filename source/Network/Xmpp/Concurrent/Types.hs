@@ -38,6 +38,10 @@ type Resource = Text
 -- It is recommended to leave the resource up to the server
 type AuthData = Maybe (ConnectionState -> [SaslHandler] , Maybe Resource)
 
+-- | Annotations are auxiliary data attached to received stanzas by 'Plugin's to
+-- convey information regarding their operation. For example, a plugin for
+-- encryption might attach information about whether a received stanza was
+-- encrypted and which algorithm was used.
 data Annotation = forall f.(Typeable f, Show f) => Annotation{fromAnnotation :: f}
 
 instance Show Annotation where
@@ -49,17 +53,19 @@ type Annotated a = (a, [Annotation])
 getAnnotation :: Typeable b => Annotated a -> Maybe b
 getAnnotation = foldr (\(Annotation a) b -> maybe b Just $ cast a) Nothing . snd
 
-data Plugin' = Plugin' { inHandler :: Stanza
-                                      -> [Annotation]
-                                      -> IO [(Stanza, [Annotation])]
-                       , outHandler :: Stanza -> IO (Either XmppFailure ())
-                          -- | In order to allow plugins to tie the knot (Plugin
-                          -- / Session) we pass the plugin the completed Session
-                          -- once it exists
-                       , onSessionUp :: Session -> IO ()
-                       }
+data Plugin' = Plugin'
+    { -- | Resulting stanzas and additional Annotations
+      inHandler :: Stanza
+                -> [Annotation]
+                -> IO [(Stanza, [Annotation])]
+    , outHandler :: Stanza -> IO (Either XmppFailure ())
+    -- | In order to allow plugins to tie the knot (Plugin / Session) we pass
+    -- the plugin the completed Session once it exists
+    , onSessionUp :: Session -> IO ()
+    }
 
-type Plugin = (Stanza -> IO (Either XmppFailure ()))
+type Plugin = (Stanza -> IO (Either XmppFailure ())) -- ^ pass stanza to next
+                                                     -- plugin
               -> ErrorT XmppFailure IO Plugin'
 
 -- | Configuration for the @Session@ object.

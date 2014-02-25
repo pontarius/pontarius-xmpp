@@ -54,12 +54,14 @@ module Network.Xmpp
   , StreamConfiguration(..)
   , SessionConfiguration(..)
   , ConnectionDetails(..)
+  , ConnectionState(..)
   , closeConnection
   , endSession
   , waitForStream
     -- ** Authentication handlers
     -- | The use of 'scramSha1' is /recommended/, but 'digestMd5' might be
     -- useful for interaction with older implementations.
+  , SaslHandler
   , AuthData
   , Username
   , Password
@@ -211,11 +213,19 @@ module Network.Xmpp
   -- | Network.Xmpp doesn't re-export the accessors to avoid name
   -- clashes. To use them import Network.Xmpp.Lens
   , module Network.Xmpp.Lens
-  -- * Miscellaneous
+  -- * Plugins
+  -- Plugins modify incoming and outgoing stanzas. They can, for example, handle
+  -- encryption, compression or other protocol extensions.
+  , Annotated(..)
+  , Annotation(..)
+  , Plugin
+  , Plugin'(..)
+  -- * LangTag
   , LangTag
   , langTagFromText
   , langTagToText
   , parseLangTag
+  -- * Miscellaneous
   , XmppFailure(..)
   , StreamErrorInfo(..)
   , StreamErrorCondition(..)
@@ -223,10 +233,6 @@ module Network.Xmpp
                , AuthSaslFailure
                , AuthIllegalCredentials
                , AuthOtherFailure )
-  , SaslHandler
-  , Plugin
-  , Plugin'
-  , ConnectionState(..)
   , connectTls
   , def
   ) where
