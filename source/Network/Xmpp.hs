@@ -216,7 +216,7 @@ module Network.Xmpp
   -- * Plugins
   -- Plugins modify incoming and outgoing stanzas. They can, for example, handle
   -- encryption, compression or other protocol extensions.
-  , Annotated(..)
+  , Annotated
   , Annotation(..)
   , Plugin
   , Plugin'(..)
