@@ -13,10 +13,11 @@ import           Network.Xmpp.Concurrent.Basic
 import           Network.Xmpp.Concurrent.Types
 import           Network.Xmpp.Types
 
--- | Sends an IQ, returns Right 'TMVar' that will be filled with the first
--- inbound IQ with a matching ID that has type @result@ or @error@ or Nothing if
--- the stanza could not be sent.
--- Returns Left 'XmppFailure' when sending the stanza failed
+-- | Sends an IQ, returns an STM action that returns the first inbound IQ with a
+-- matching ID that has type @result@ or @error@ or Nothing if the timeout was
+-- reached.
+--
+-- When sending the action fails, an XmppFailure is returned.
 sendIQ :: Maybe Integer -- ^ Timeout . When the timeout is reached the response
                         -- TMVar will be filled with 'IQResponseTimeout' and the
                         -- id is removed from the list of IQ handlers. 'Nothing'
@@ -27,7 +28,7 @@ sendIQ :: Maybe Integer -- ^ Timeout . When the timeout is reached the response
                          -- default)
        -> Element -- ^ The IQ body (there has to be exactly one)
        -> Session
-       -> IO (Either XmppFailure (TMVar (Maybe (Annotated IQResponse))))
+       -> IO (Either XmppFailure (STM (Maybe (Annotated IQResponse))))
 sendIQ timeOut to tp lang body session = do
     newId <- idGenerator session
     j <- case to of
@@ -47,7 +48,7 @@ sendIQ timeOut to tp lang body session = do
                 Just t -> void . forkIO $ do
                           delay t
                           doTimeOut (iqHandlers session) newId ref
-            return $ Right ref
+            return . Right $ readTMVar ref
         Left e -> return $ Left e
   where
     doTimeOut handlers iqid var = atomically $ do
@@ -68,7 +69,7 @@ sendIQA' :: Maybe Integer
 sendIQA' timeout to tp lang body session = do
     ref <- sendIQ timeout to tp lang body session
     either (return . Left . IQSendError) (fmap (maybe (Left IQTimeOut) Right)
-                                     . atomically . takeTMVar) ref
+                                     . atomically) ref
 
 -- | Like 'sendIQ', but waits for the answer IQ. Discards plugin Annotations
 sendIQ' :: Maybe Integer
@@ -80,21 +81,17 @@ sendIQ' :: Maybe Integer
         -> IO (Either IQSendError IQResponse)
 sendIQ' timeout to tp lang body session = fmap fst <$> sendIQA' timeout to tp lang body session
 
--- | Retrieves an IQ listener channel. If the namespace/'IQRequestType' is not
--- already handled, a new 'TChan' is created and returned as a 'Right' value.
--- Otherwise, the already existing channel will be returned wrapped in a 'Left'
--- value. The 'Left' channel might need to be duplicated in order not
--- to interfere with existing consumers.
+-- | Register your interest in inbound IQ stanzas of a specific type and
+-- namespace. The returned STM action yields the received, matching IQ stanzas.
 --
--- Note thet every 'IQRequest' must be answered exactly once. To insure this,
--- the incoming requests are wrapped in an 'IQRequestTicket' that prevents
--- multiple responses. Use 'iqRequestBody' to extract the corresponding request
--- and 'answerIQ' to send the response
-listenIQChan :: IQRequestType  -- ^ Type of IQs to receive ('Get' or 'Set')
-             -> Text -- ^ Namespace of the child element
-             -> Session
-             -> IO (Either (TChan IQRequestTicket) (TChan IQRequestTicket))
-listenIQChan tp ns session = do
+-- If a handler for IQ stanzas with the given type and namespace is already
+-- registered, the producer will be wrapped in Left. In this case the returned
+-- request tickets may already be processed elsewhere.
+listenIQ :: IQRequestType  -- ^ Type of IQs to receive ('Get' or 'Set')
+         -> Text -- ^ Namespace of the child element
+         -> Session
+         -> IO (Either (STM IQRequestTicket) (STM IQRequestTicket))
+listenIQ tp ns session = do
     let handlers = (iqHandlers session)
     atomically $ do
         (byNS, byID) <- readTVar handlers
@@ -105,18 +102,20 @@ listenIQChan tp ns session = do
                 iqCh
                 byNS
         writeTVar handlers (byNS', byID)
-        return $ case present of
-            Nothing -> Right iqCh
-            Just iqCh' -> Left iqCh'
+        case present of
+            Nothing -> return . Right $ readTChan iqCh
+            Just iqCh' -> do
+                clonedChan <- cloneTChan iqCh'
+                return . Left $ readTChan clonedChan
 
--- | Unregister a previously acquired IQ channel. Please make sure that you
--- where the one who acquired it in the first place as no check for ownership
--- can be made
-dropIQChan :: IQRequestType  -- ^ Type of IQ ('Get' or 'Set')
-             -> Text -- ^ Namespace of the child element
-             -> Session
-             -> IO ()
-dropIQChan tp ns session = do
+
+-- | Unregister a previously registered IQ handler. No more IQ stanzas will be
+-- delivered to any of the returned producers.
+unlistenIQ :: IQRequestType  -- ^ Type of IQ ('Get' or 'Set')
+           -> Text -- ^ Namespace of the child element
+           -> Session
+           -> IO ()
+unlistenIQ tp ns session = do
     let handlers = (iqHandlers session)
     atomically $ do
         (byNS, byID) <- readTVar handlers
