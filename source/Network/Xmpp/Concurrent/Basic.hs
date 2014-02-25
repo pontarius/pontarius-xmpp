@@ -45,7 +45,7 @@ getStanza session = atomically . readTChan $ stanzaCh session
 -- and can still be handled somewhere else.
 dupSession :: Session -> IO Session
 dupSession session = do
-    stanzaCh' <- atomically $ dupTChan (stanzaCh session)
+    stanzaCh' <- atomically $ cloneTChan (stanzaCh session)
     return $ session {stanzaCh = stanzaCh'}
 
 -- | Return the JID assigned to us by the server
