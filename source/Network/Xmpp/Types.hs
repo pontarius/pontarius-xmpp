@@ -449,7 +449,7 @@ data StreamErrorCondition
                              -- than \"http://etherx.jabber.org/streams\" (see
                              -- Section 11.2) or the content namespace declared
                              -- as the default namespace is not supported (e.g.,
-                             -- something other than "jabber:client" or
+                             -- something other than \"jabber:client\" or
                              -- \"jabber:server\").
     | StreamInvalidXml -- ^ The entity has sent invalid XML over the stream to a
                        -- server that performs validation
@@ -474,8 +474,8 @@ data StreamErrorCondition
                                    -- not to be used when the cause of the error
                                    -- is within the administrative domain of the
                                    -- XMPP service provider, in which case the
-                                   -- <internal-server-error/> condition is more
-                                   -- appropriate.
+                                   -- \<internal-server-error /\> condition is
+                                   -- more appropriate.
     | StreamReset -- ^ The server is closing the stream because it has new
                   -- (typically security-critical) features to offer, because
                   -- the keys or certificates used to establish a secure context

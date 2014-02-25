@@ -94,7 +94,7 @@ is the same as <code>Presence Nothing Nothing Nothing Nothing Available
 []</code>.
 
 Now, let's say that we want to receive all message stanzas, and echo the stanzas
-back to the recipient. This can be done like so:
+back to the sender. This can be done like so:
 
     forever $ do
         msg <- getMessage sess

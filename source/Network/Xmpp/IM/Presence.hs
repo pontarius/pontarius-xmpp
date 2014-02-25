@@ -29,8 +29,8 @@ imPresence = IMP { showStatus = Nothing
 instance Default IMPresence where
     def = imPresence
 
--- | Try to extract RFC6121 IM presence information from presence stanza
--- Returns Nothing when the data is malformed, (Just IMPresence) otherwise
+-- | Try to extract RFC6121 IM presence information from presence stanza.
+-- Returns Nothing when the data is malformed, (Just IMPresence) otherwise.
 getIMPresence :: Presence -> Maybe IMPresence
 getIMPresence pres = case unpickle xpIMPresence (presencePayload pres) of
     Left _ -> Nothing

@@ -32,7 +32,7 @@ timeout :: Maybe Integer
 timeout = Just 3000000 -- 3 seconds
 
 -- | Push a roster item to the server. The values for approved and ask are
--- ignored and all values for subsciption except "remove" are ignored
+-- ignored and all values for subsciption except "remove" are ignored.
 rosterPush :: Item -> Session -> IO (Either IQSendError (Annotated IQResponse))
 rosterPush item session = do
     let el = pickleElem xpQuery (Query Nothing [fromItem item])
@@ -40,7 +40,7 @@ rosterPush item session = do
 
 -- | Add or update an item to the roster.
 --
--- To update the item just send the complete set of new data
+-- To update the item just send the complete set of new data.
 rosterAdd :: Jid -- ^ JID of the item
           -> Maybe Text -- ^ Name alias
           -> [Text] -- ^ Groups (duplicates will be removed)
@@ -57,7 +57,7 @@ rosterAdd j n gs session = do
                                             }])
     sendIQA' timeout Nothing Set Nothing el session
 
--- | Remove an item from the roster. Return True when the item is sucessfully
+-- | Remove an item from the roster. Return 'True' when the item is sucessfully
 -- removed or if it wasn't in the roster to begin with.
 rosterRemove :: Jid -> Session -> IO Bool
 rosterRemove j sess = do
@@ -74,7 +74,8 @@ rosterRemove j sess = do
 getRoster :: Session -> IO Roster
 getRoster session = atomically $ readTVar (rosterRef session)
 
--- | Get the initial roster / refresh the roster. You don't need to call this on your own
+-- | Get the initial roster or refresh the roster. You don't need to call this
+-- on your own.
 initRoster :: Session -> IO ()
 initRoster session = do
     oldRoster <- getRoster session

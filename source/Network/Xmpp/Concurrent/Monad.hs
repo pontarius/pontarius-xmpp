@@ -93,7 +93,7 @@ runHandler h session = h =<< atomically (readTMVar $ eventHandlers session)
 -- | End the current XMPP session. Kills the associated threads and closes the
 -- connection.
 --
--- Note that XMPP clients (that has signalled availability) should send
+-- Note that XMPP clients (that have signalled availability) should send
 -- \"Unavailable\" presence prior to disconnecting.
 --
 -- The connectionClosedHandler will not be called (to avoid possibly
