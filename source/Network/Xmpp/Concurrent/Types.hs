@@ -139,22 +139,21 @@ type IQHandlers = ( Map.Map (IQRequestType, Text) (TChan IQRequestTicket)
                                   TMVar (Maybe (Annotated IQResponse)))
                   )
 
--- | Contains whether or not a reply has been sent, and the IQ request body to
--- reply to.
+-- | A received and wrapped up IQ request. Prevents you from (illegally)
+-- answering a single IQ request multiple times
 data IQRequestTicket = IQRequestTicket
-    { answerTicket :: Either StanzaError (Maybe Element)
+    {   -- | Send an answer to an IQ request once. Subsequent calls will do
+        -- nothing and return Nothing
+      answerTicket :: Either StanzaError (Maybe Element)
                       -> IO (Maybe (Either XmppFailure ()))
-                      -- ^ Return Nothing when the IQ request was already
-                      -- answered before, Just (Right ()) when it was
-                      -- sucessfully answered and Just (Left error) when the
-                      -- answer was attempted, but failed (e.g. there is a
-                      -- connection failure)
+      -- | The actual IQ request that created this ticket.
     , iqRequestBody :: IQRequest
       -- | Annotations set by plugins in receive
     , iqRequestAnnotations :: [Annotation]
     }
 
 -- | Error that can occur during sendIQ'
-data IQSendError = IQSendError XmppFailure -- There was an error sending the IQ stanza
+data IQSendError = IQSendError XmppFailure -- There was an error sending the IQ
+                                           -- stanza
                  | IQTimeOut -- No answer was received during the allotted time
                    deriving (Show, Eq)

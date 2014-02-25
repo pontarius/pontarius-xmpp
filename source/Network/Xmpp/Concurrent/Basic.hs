@@ -39,7 +39,10 @@ getStanzaChan session = stanzaCh session
 getStanza :: Session -> IO (Stanza, [Annotation])
 getStanza session = atomically . readTChan $ stanzaCh session
 
--- | Create a new session object with the inbound channel duplicated
+-- | Duplicate the inbound channel of the session object. Most receiving
+-- functions discard stanzas they are not interested in from the inbound
+-- channel. Duplicating the channel ensures that those stanzas can aren't lost
+-- and can still be handled somewhere else.
 dupSession :: Session -> IO Session
 dupSession session = do
     stanzaCh' <- atomically $ dupTChan (stanzaCh session)

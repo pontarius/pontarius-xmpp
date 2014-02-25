@@ -15,7 +15,7 @@
 -- presence-aware clients and servers.
 --
 -- Pontarius XMPP is an XMPP client library, implementing the core capabilities
--- of XMPP (RFC 6120): setup and teardown of XML streams, channel encryption,
+-- of XMPP (RFC 6120): setup and tear-down of XML streams, channel encryption,
 -- authentication, error handling, and communication primitives for messaging.
 --
 -- For low-level access to Pontarius XMPP, see the "Network.Xmpp.Internal"
@@ -32,7 +32,7 @@
 --
 -- Defining 'AuthData' can be a bit unwieldy, so 'simpleAuth' gives us a
 -- reasonable default. Though, for improved security, we should consider
--- restricting the mecahnisms to 'scramSha1' whenever we can.
+-- restricting the mechanisms to 'scramSha1' whenever we can.
 --
 -- Next we have to set the presence to online, otherwise we won't be able to
 -- send or receive stanzas to/from other entities.
@@ -137,9 +137,13 @@ module Network.Xmpp
   -- *** Receiving
   , pullMessage
   , getMessage
+  , getMessageA
   , waitForMessage
+  , waitForMessageA
   , waitForMessageError
+  , waitForMessageErrorA
   , filterMessages
+  , filterMessagesA
   -- ** Presence
   -- | XMPP includes the ability for an entity to advertise its network
   -- availability, or "presence", to other entities. In XMPP, this availability

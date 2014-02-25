@@ -7,8 +7,8 @@ import Network.Xmpp.Types
 import Network.Xmpp.Concurrent.Types
 import Network.Xmpp.Concurrent.Basic
 
--- | Read an element from the inbound stanza channel, discardes any non-Presence
--- stanzas from the channel
+-- | Read a presence stanza from the inbound stanza channel, discards any other
+-- stanzas. Returns the presence stanza with annotations.
 pullPresenceA :: Session -> IO (Either (Annotated PresenceError)
                                       (Annotated Presence))
 pullPresenceA session = do
@@ -18,11 +18,12 @@ pullPresenceA session = do
         PresenceErrorS e -> return $ Left (e, as)
         _ -> pullPresenceA session
 
+-- | Read a presence stanza from the inbound stanza channel, discards any other
+-- stanzas. Returns the presence stanza.
 pullPresence :: Session -> IO (Either PresenceError Presence)
 pullPresence s = either (Left . fst) (Right . fst) <$> pullPresenceA s
 
--- | Pulls a (non-error) presence and returns it if the given predicate returns
--- @True@.
+-- | Draw and discard stanzas from the inbound channel until a presence stanza matching the given predicate is found. Return the presence stanza with annotations.
 waitForPresenceA :: (Annotated Presence -> Bool)
                 -> Session
                 -> IO (Annotated Presence)
@@ -33,6 +34,7 @@ waitForPresenceA f session = do
         Right m | f m -> return m
                 | otherwise -> waitForPresenceA f session
 
+-- | Draw and discard stanzas from the inbound channel until a presence stanza matching the given predicate is found. Return the presence stanza with annotations.
 waitForPresence :: (Presence -> Bool) -> Session -> IO Presence
 waitForPresence f s = fst <$> waitForPresenceA (f . fst) s
 
