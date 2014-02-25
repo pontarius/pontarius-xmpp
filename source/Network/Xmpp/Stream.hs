@@ -111,12 +111,12 @@ startStream = runErrorT $ do
     -- state of the stream.
     let expectedTo = case ( streamConnectionState st
                           , toJid $ streamConfiguration st) of
-          (Plain    , (Just (jid, True)))  -> Just jid
-          (Plain    , _                 )  -> Nothing
-          (Secured  , (Just (jid, _   )))  -> Just jid
-          (Secured  , Nothing           )  -> Nothing
-          (Closed   , _                 )  -> Nothing
-          (Finished , _                 )  -> Nothing
+          (Plain    , (Just (j, True)))  -> Just j
+          (Plain    , _               )  -> Nothing
+          (Secured  , (Just (j, _   )))  -> Just j
+          (Secured  , Nothing         )  -> Nothing
+          (Closed   , _               )  -> Nothing
+          (Finished , _               )  -> Nothing
     case streamAddress st of
         Nothing -> do
             lift $ lift $ errorM "Pontarius.Xmpp" "Server sent no hostname."

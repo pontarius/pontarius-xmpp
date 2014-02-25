@@ -138,7 +138,6 @@ handleIQ iqHands out sta as = do
                     -- IQ was sent to a (full) JID. The answer has to come from
                     -- the same exact JID.
                         Right j -> iqFrom iq == Just j
-                        _ -> False
                 case expected of
                     True -> do
                         let answer = Just (either IQResponseError

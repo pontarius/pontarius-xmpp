@@ -102,8 +102,8 @@ xmppBind rsrc c = runErrorT $ do
     case answer of
         Right IQResult{iqResultPayload = Just b} -> do
             lift $ debugM "Pontarius.Xmpp" "xmppBind: IQ result received; unpickling JID..."
-            let jid = unpickleElem xpJid' b
-            case jid of
+            let j = unpickleElem xpJid' b
+            case j of
                 Right jid' -> do
                     lift $ infoM "Pontarius.Xmpp" $ "Bound JID: " ++ show jid'
                     _ <- lift $ withStream ( do modify $ \s ->

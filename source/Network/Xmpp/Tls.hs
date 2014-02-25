@@ -19,7 +19,6 @@ import                 Data.IORef
 import                 Data.XML.Types
 import                 Network.DNS.Resolver (ResolvConf)
 import                 Network.TLS
-import                 Network.TLS.Extra
 import                 Network.Xmpp.Stream
 import                 Network.Xmpp.Types
 import                 System.Log.Logger (debugM, errorM, infoM)
