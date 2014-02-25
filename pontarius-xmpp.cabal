@@ -18,9 +18,10 @@ Description:   Pontarius XMPP is a work in progress implementation of RFC 6120
                While in alpha, Pontarius XMPP works quite well and fulfills most
                requirements of the RFCs.
 Category:      Network
-Tested-With:   GHC >=7.0.1 && <=7.6.3
+Tested-With:   GHC ==7.6.3
 
 Extra-Source-Files: README.md
+                  , ChangeLog.md
                   , examples/echoclient/echoclient.cabal
                   , examples/echoclient/LICENSE.md
                   , examples/echoclient/Main.hs
