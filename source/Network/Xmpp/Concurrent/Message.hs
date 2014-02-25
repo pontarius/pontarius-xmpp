@@ -9,13 +9,18 @@ import Network.Xmpp.Concurrent.Basic
 
 -- | Draw and discard stanzas from the inbound channel until a message or
 -- message error is found. Returns the message or message error with annotations.
-pullMessage :: Session -> IO (Either (Annotated MessageError) (Annotated Message))
-pullMessage session = do
+pullMessageA :: Session -> IO (Either (Annotated MessageError) (Annotated Message))
+pullMessageA session = do
     (stanza, as) <- atomically . readTChan $ stanzaCh session
     case stanza of
         MessageS m      -> return $ Right (m, as)
         MessageErrorS e -> return $ Left  (e, as)
-        _ -> pullMessage session
+        _ -> pullMessageA session
+
+-- | Draw and discard stanzas from the inbound channel until a message or
+-- message error is found. Returns the message or message error.
+pullMessage :: Session -> IO (Either MessageError Message)
+pullMessage s = either (Left . fst) (Right . fst) <$> pullMessageA s
 
 -- | Draw and discard stanzas from the inbound channel until a message is
 -- found. Returns the message with annotations.
@@ -31,7 +36,7 @@ getMessage s = fst <$> getMessageA s
 -- the given predicate is found. Returns the matching message with annotations.
 waitForMessageA :: (Annotated Message -> Bool) -> Session -> IO (Annotated Message)
 waitForMessageA f session = do
-    s <- pullMessage session
+    s <- pullMessageA session
     case s of
         Left _ -> waitForMessageA f session
         Right m | f m -> return m
@@ -49,7 +54,7 @@ waitForMessageErrorA :: (Annotated MessageError -> Bool)
                     -> Session
                     -> IO (Annotated MessageError)
 waitForMessageErrorA f session = do
-    s <- pullMessage session
+    s <- pullMessageA session
     case s of
         Right _ -> waitForMessageErrorA f session
         Left  m | f m -> return m
@@ -68,7 +73,7 @@ filterMessagesA :: (Annotated MessageError -> Bool)
                -> Session -> IO (Either (Annotated MessageError)
                                         (Annotated Message))
 filterMessagesA f g session = do
-    s <- pullMessage session
+    s <- pullMessageA session
     case s of
         Left  e | f e -> return $ Left e
                 | otherwise -> filterMessagesA f g session
@@ -81,8 +86,9 @@ filterMessagesA f g session = do
 filterMessages :: (MessageError -> Bool)
                -> (Message -> Bool)
                -> Session
-               -> IO (Either (Annotated MessageError) (Annotated Message))
-filterMessages f g s = filterMessagesA (f . fst) (g . fst) s
+               -> IO (Either MessageError Message)
+filterMessages f g s = either (Left . fst) (Right . fst) <$>
+                          filterMessagesA (f . fst) (g . fst) s
 
 -- | Send a message stanza. Returns @False@ when the 'Message' could not be
 -- sent.
