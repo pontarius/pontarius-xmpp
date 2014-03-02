@@ -17,43 +17,58 @@
 -- top of this API.
 
 module Network.Xmpp.Internal
-  ( -- * Stream
-    Stream(..)
-  , StreamConfiguration(..)
-  , StreamState(..)
-  , StreamHandle(..)
-  , StreamFeatures(..)
-  , openStream
-  , withStream
-    -- * TLS
-  , tls
-  , TlsBehaviour(..)
-    -- * Auth
-  , SaslHandler
-  , auth
-    -- * Stanzas
-  , Stanza(..)
-  , pushStanza
-  , pullStanza
-  , writeStanza
-    -- ** IQ
-  , pushIQ
-  , iqError
-  , iqResult
-  , associatedErrorType
-    -- * Plugins
-  , Plugin
-  , Plugin'(..)
-  , Annotation(..)
-  , connectTls
- )
-       where
+  ( module Network.Xmpp.Concurrent
+  , module Network.Xmpp.Concurrent.Basic
+  , module Network.Xmpp.Concurrent.IQ
+  , module Network.Xmpp.Concurrent.Message
+  , module Network.Xmpp.Concurrent.Monad
+  , module Network.Xmpp.Concurrent.Presence
+  , module Network.Xmpp.Concurrent.Threads
+  , module Network.Xmpp.Concurrent.Types
+  , module Network.Xmpp.IM.Message
+  , module Network.Xmpp.IM.Presence
+  , module Network.Xmpp.IM.Roster
+  , module Network.Xmpp.IM.Roster.Types
+  , module Network.Xmpp.Marshal
+  , module Network.Xmpp.Sasl
+  , module Network.Xmpp.Sasl.Common
+  , module Network.Xmpp.Sasl.Mechanisms
+  , module Network.Xmpp.Sasl.Mechanisms.DigestMd5
+  , module Network.Xmpp.Sasl.Mechanisms.Plain
+  , module Network.Xmpp.Sasl.Mechanisms.Scram
+  , module Network.Xmpp.Sasl.StringPrep
+  , module Network.Xmpp.Sasl.Types
+  , module Network.Xmpp.Stanza
+  , module Network.Xmpp.Stream
+  , module Network.Xmpp.Tls
+  , module Network.Xmpp.Types
+  , module Network.Xmpp.Utilities
+  ) where
 
+
+import Network.Xmpp.Concurrent
 import Network.Xmpp.Concurrent.Basic
+import Network.Xmpp.Concurrent.IQ
+import Network.Xmpp.Concurrent.Message
+import Network.Xmpp.Concurrent.Monad
+import Network.Xmpp.Concurrent.Presence
+import Network.Xmpp.Concurrent.Threads
 import Network.Xmpp.Concurrent.Types
+import Network.Xmpp.IM.Message
+import Network.Xmpp.IM.Presence
+import Network.Xmpp.IM.Roster
+import Network.Xmpp.IM.Roster.Types
+import Network.Xmpp.Marshal
 import Network.Xmpp.Sasl
+import Network.Xmpp.Sasl.Common
+import Network.Xmpp.Sasl.Mechanisms
+import Network.Xmpp.Sasl.Mechanisms.DigestMd5
+import Network.Xmpp.Sasl.Mechanisms.Plain
+import Network.Xmpp.Sasl.Mechanisms.Scram
+import Network.Xmpp.Sasl.StringPrep
 import Network.Xmpp.Sasl.Types
 import Network.Xmpp.Stanza
-import Network.Xmpp.Stream
+import Network.Xmpp.Stream hiding (mbl, lmb)
 import Network.Xmpp.Tls
 import Network.Xmpp.Types
+import Network.Xmpp.Utilities
