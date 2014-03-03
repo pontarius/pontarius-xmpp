@@ -188,10 +188,12 @@ xpStanzaErrorCondition = ("xpErrorCondition" , "") <?+> xpWrapEither
 
 xpStanzaError :: PU [Node] StanzaError
 xpStanzaError = ("xpStanzaError" , "") <?+> xpWrap
-    (\(tp, (cond, txt, ext)) -> StanzaError tp cond txt ext)
-    (\(StanzaError tp cond txt ext) -> (tp, (cond, txt, ext)))
+    (\((tp, _code), (cond, txt, ext)) -> StanzaError tp cond txt ext)
+    (\(StanzaError tp cond txt ext) -> ((tp, Nothing), (cond, txt, ext)))
     (xpElem "{jabber:client}error"
-         (xpAttr "type" xpStanzaErrorType)
+         (xp2Tuple
+             (xpAttr "type" xpStanzaErrorType)
+             (xpAttribute' "code" xpId))
          (xp3Tuple
               xpStanzaErrorCondition
               (xpOption $ xpElem "{jabber:client}text"
