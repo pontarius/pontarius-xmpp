@@ -184,9 +184,7 @@ wrapExceptions :: IO a -> IO (Either XmppFailure a)
 wrapExceptions f = Ex.catches (liftM Right $ f)
                  [ Ex.Handler $ return . Left . XmppIOException
                  , Ex.Handler $ wrap . XmppTlsError
-                 , Ex.Handler $ wrap . XmppTlsConnectionNotEstablished
-                 , Ex.Handler $ wrap . XmppTlsTerminated
-                 , Ex.Handler $ wrap . XmppTlsHandshakeFailed
+                 , Ex.Handler $ wrap . XmppTlsException
                  , Ex.Handler $ return . Left
                  ]
   where

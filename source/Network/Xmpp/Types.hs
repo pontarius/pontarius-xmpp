@@ -532,9 +532,7 @@ data StreamErrorInfo = StreamErrorInfo
     } deriving (Show, Eq)
 
 data XmppTlsError = XmppTlsError TLSError
-                  | XmppTlsConnectionNotEstablished TLSException
-                  | XmppTlsTerminated TLSException
-                  | XmppTlsHandshakeFailed TLSException
+                  | XmppTlsException TLSException
                     deriving (Show, Eq, Typeable)
 
 -- | Signals an XMPP stream error or another unpredicted stream-related
