@@ -105,7 +105,7 @@ import qualified Data.Text as Text
 import           Data.Text(Text)
 import           Data.XML.Types(Element)
 import           Network.DNS(ResolvConf)
-import           Network.TLS (TLSParams)
+import           Network.TLS (ClientParams)
 import           Network.Xmpp.Concurrent.Types
 import           Network.Xmpp.IM.Roster.Types
 import           Network.Xmpp.IM.Message
@@ -390,7 +390,7 @@ tlsBehaviourL :: Lens StreamConfiguration TlsBehaviour
 tlsBehaviourL inj sc@StreamConfiguration{tlsBehaviour = x}
     = (\x' -> sc{tlsBehaviour = x'}) <$> inj x
 
-tlsParamsL :: Lens StreamConfiguration TLSParams
+tlsParamsL :: Lens StreamConfiguration ClientParams
 tlsParamsL inj sc@StreamConfiguration{tlsParams = x}
     = (\x' -> sc{tlsParams = x'}) <$> inj x
 
