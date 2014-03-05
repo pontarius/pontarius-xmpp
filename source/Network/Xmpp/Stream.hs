@@ -464,7 +464,7 @@ pullStanza = withStream' $ do
         Right (Right r) -> return $ Right r
 
 -- Performs the given IO operation, catches any errors and re-throws everything
--- except 'ResourceVanished' and IllegalOperation, in which case it will return False instead
+-- except 'ResourceVanished' and IllegalOperation, which it will return.
 catchPush :: IO () -> IO (Either XmppFailure ())
 catchPush p = ExL.catch
     (p >> return (Right ()))
@@ -547,11 +547,7 @@ createStream realm config = do
             "."
         return d
 
--- Connects to the provided hostname or IP address. If a hostname is provided, a
--- DNS-SRV lookup is performed (unless `sockAddr' has been specified, in which
--- case that address is used instead). If an A(AAA) record results are
--- encountered, all IP addresses will be tried until a successful connection
--- attempt has been made. Will return the Handle acquired, if any.
+-- Connects using the specified method. Returns the Handle acquired, if any.
 connect :: HostName -> StreamConfiguration -> ErrorT XmppFailure IO
            (Maybe StreamHandle)
 connect realm config = do
