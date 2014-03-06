@@ -25,6 +25,7 @@ module Network.Xmpp.Types
     , langTagFromText
     , langTagToText
     , parseLangTag
+    , ExtendedAttribute
     , Message(..)
     , message
     , MessageError(..)
@@ -89,7 +90,7 @@ import           Data.String (IsString, fromString)
 import           Data.Text (Text)
 import qualified Data.Text as Text
 import           Data.Typeable(Typeable)
-import           Data.XML.Types
+import           Data.XML.Types as XML
 #if WITH_TEMPLATE_HASKELL
 import           Language.Haskell.TH
 import           Language.Haskell.TH.Quote
@@ -138,6 +139,8 @@ data Stanza = IQRequestS     !IQRequest
             | PresenceErrorS !PresenceError
               deriving (Eq, Show)
 
+type ExtendedAttribute = (XML.Name, Text)
+
 -- | A "request" Info/Query (IQ) stanza is one with either "get" or "set" as
 -- type. It always contains an xml payload.
 data IQRequest = IQRequest { iqRequestID      :: !Text
@@ -146,6 +149,7 @@ data IQRequest = IQRequest { iqRequestID      :: !Text
                            , iqRequestLangTag :: !(Maybe LangTag)
                            , iqRequestType    :: !IQRequestType
                            , iqRequestPayload :: !Element
+                           , iqRequestAttributes :: ![ExtendedAttribute]
                            } deriving (Eq, Show)
 
 -- | The type of IQ request that is made.
@@ -163,6 +167,7 @@ data IQResult = IQResult { iqResultID      :: !Text
                          , iqResultTo      :: !(Maybe Jid)
                          , iqResultLangTag :: !(Maybe LangTag)
                          , iqResultPayload :: !(Maybe Element)
+                         , iqResultAttributes :: ![ExtendedAttribute]
                          } deriving (Eq, Show)
 
 -- | The answer to an IQ request that generated an error.
@@ -172,6 +177,7 @@ data IQError = IQError { iqErrorID          :: !Text
                        , iqErrorLangTag     :: !(Maybe LangTag)
                        , iqErrorStanzaError :: !StanzaError
                        , iqErrorPayload     :: !(Maybe Element) -- should this be []?
+                       , iqErrorAttributes  :: ![ExtendedAttribute]
                        } deriving (Eq, Show)
 
 -- | The message stanza. Used for /push/ type communication.
@@ -181,6 +187,7 @@ data Message = Message { messageID      :: !(Maybe Text)
                        , messageLangTag :: !(Maybe LangTag)
                        , messageType    :: !MessageType
                        , messagePayload :: ![Element]
+                       , messageAttributes :: ![ExtendedAttribute]
                        } deriving (Eq, Show)
 
 -- | An empty message
@@ -201,6 +208,7 @@ message = Message { messageID      = Nothing
                   , messageLangTag = Nothing
                   , messageType    = Normal
                   , messagePayload = []
+                  , messageAttributes = []
                   }
 
 -- | Empty message stanza
@@ -219,6 +227,7 @@ data MessageError = MessageError { messageErrorID          :: !(Maybe Text)
                                  , messageErrorLangTag     :: !(Maybe LangTag)
                                  , messageErrorStanzaError :: !StanzaError
                                  , messageErrorPayload     :: ![Element]
+                                 , messageErrorAttributes  :: ![ExtendedAttribute]
                                  } deriving (Eq, Show)
 
 
@@ -266,6 +275,7 @@ data Presence = Presence { presenceID      :: !(Maybe Text)
                          , presenceLangTag :: !(Maybe LangTag)
                          , presenceType    :: !PresenceType
                          , presencePayload :: ![Element]
+                         , presenceAttributes :: ![ExtendedAttribute]
                          } deriving (Eq, Show)
 
 -- | An empty presence.
@@ -276,6 +286,7 @@ presence = Presence { presenceID       = Nothing
                     , presenceLangTag  = Nothing
                     , presenceType     = Available
                     , presencePayload  = []
+                    , presenceAttributes = []
                     }
 
 -- | Empty presence stanza
@@ -292,6 +303,7 @@ data PresenceError = PresenceError { presenceErrorID          :: !(Maybe Text)
                                    , presenceErrorLangTag     :: !(Maybe LangTag)
                                    , presenceErrorStanzaError :: !StanzaError
                                    , presenceErrorPayload     :: ![Element]
+                                   , presenceErrorAttributes  :: ![ExtendedAttribute]
                                    } deriving (Eq, Show)
 
 -- | @PresenceType@ holds Xmpp presence types. The "error" message type is left

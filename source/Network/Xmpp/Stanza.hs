@@ -74,8 +74,8 @@ mkStanzaError condition = StanzaError (associatedErrorType condition)
 -- error type is derived from the condition using 'associatedErrorType' and
 -- both text and the application specific condition are left empty
 iqError :: StanzaErrorCondition -> IQRequest -> IQError
-iqError condition (IQRequest iqid from' _to lang' _tp _bd) =
-    IQError iqid Nothing from' lang' (mkStanzaError condition) Nothing
+iqError condition (IQRequest iqid from' _to lang' _tp _bd _attr) =
+    IQError iqid Nothing from' lang' (mkStanzaError condition) Nothing []
 
 
 -- | Create an IQ Result matching an IQ request
@@ -86,6 +86,7 @@ iqResult pl iqr = IQResult
               , iqResultTo   = view from iqr
               , iqResultLangTag = view lang iqr
               , iqResultPayload = pl
+              , iqResultAttributes = []
               }
 
 -- | The RECOMMENDED error type associated with an error condition. The

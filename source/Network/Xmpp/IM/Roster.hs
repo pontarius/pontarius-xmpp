@@ -36,7 +36,7 @@ timeout = Just 3000000 -- 3 seconds
 rosterPush :: Item -> Session -> IO (Either IQSendError (Annotated IQResponse))
 rosterPush item session = do
     let el = pickleElem xpQuery (Query Nothing [fromItem item])
-    sendIQA' timeout Nothing Set Nothing el session
+    sendIQA' timeout Nothing Set Nothing el [] session
 
 -- | Add or update an item to the roster.
 --
@@ -55,7 +55,7 @@ rosterAdd j n gs session = do
                                             , qiSubscription = Nothing
                                             , qiGroups = nub gs
                                             }])
-    sendIQA' timeout Nothing Set Nothing el session
+    sendIQA' timeout Nothing Set Nothing el [] session
 
 -- | Remove an item from the roster. Return 'True' when the item is sucessfully
 -- removed or if it wasn't in the roster to begin with.
@@ -112,11 +112,11 @@ handleRoster ref out sta _ = case sta of
             Just Remove -> Map.delete (qiJid update) is
             _ -> Map.insert (qiJid update) (toItem update) is
 
-    badRequest (IQRequest iqid from _to lang _tp bd) =
-        IQErrorS $ IQError iqid Nothing from lang errBR (Just bd)
+    badRequest (IQRequest iqid from _to lang _tp bd _attrs) =
+        IQErrorS $ IQError iqid Nothing from lang errBR (Just bd) []
     errBR = StanzaError Cancel BadRequest Nothing Nothing
-    result (IQRequest iqid from _to lang _tp _bd) =
-        IQResultS $ IQResult iqid Nothing from lang Nothing
+    result (IQRequest iqid from _to lang _tp _bd _attrs) =
+        IQResultS $ IQResult iqid Nothing from lang Nothing []
 
 retrieveRoster :: Maybe Roster -> Session -> IO (Maybe Roster)
 retrieveRoster mbOldRoster sess = do
@@ -128,6 +128,7 @@ retrieveRoster mbOldRoster sess = do
                 else Nothing
     res <- sendIQ' timeout Nothing Get Nothing
                    (pickleElem xpQuery (Query version []))
+                   []
                    sess
     case res of
         Left e -> do

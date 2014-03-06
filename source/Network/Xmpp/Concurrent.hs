@@ -87,14 +87,15 @@ handleIQ iqHands out sta as = do
                 Nothing -> return . Just $ serviceUnavailable iq
                 Just ch -> do
                   sentRef <- newTMVar False
-                  let answerT answer = do
-                          let IQRequest iqid from _to lang _tp bd = iq
+                  let answerT answer attrs = do
+                          let IQRequest iqid from _to lang _tp bd _attrs = iq
                               response = case answer of
                                   Left er  -> IQErrorS $ IQError iqid Nothing
                                                                   from lang er
-                                                                  (Just bd)
+                                                                  (Just bd) attrs
                                   Right res -> IQResultS $ IQResult iqid Nothing
                                                                     from lang res
+                                                                    attrs
                           Ex.bracketOnError (atomically $ takeTMVar sentRef)
                                             (atomically .  tryPutTMVar sentRef)
                                             $ \wasSent -> do
@@ -114,8 +115,8 @@ handleIQ iqHands out sta as = do
                   writeTChan ch $ IQRequestTicket answerT iq as
                   return Nothing
         maybe (return ()) (void . out) res
-    serviceUnavailable (IQRequest iqid from _to lang _tp bd) =
-        IQErrorS $ IQError iqid Nothing from lang err (Just bd)
+    serviceUnavailable (IQRequest iqid from _to lang _tp bd _attrs) =
+        IQErrorS $ IQError iqid Nothing from lang err (Just bd) []
     err = StanzaError Cancel ServiceUnavailable Nothing Nothing
 
     handleIQResponse :: TVar IQHandlers -> Either IQError IQResult -> IO ()

@@ -771,7 +771,7 @@ pushIQ :: Text
        -> IO (Either XmppFailure (Either IQError IQResult))
 pushIQ iqID to tp lang body stream = runErrorT $ do
     ErrorT $ pushStanza
-        (IQRequestS $ IQRequest iqID Nothing to lang tp body) stream
+        (IQRequestS $ IQRequest iqID Nothing to lang tp body []) stream
     res <- lift $ pullStanza stream
     case res of
         Left e -> throwError e

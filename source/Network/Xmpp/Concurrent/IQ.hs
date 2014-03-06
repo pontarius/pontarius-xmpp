@@ -27,9 +27,10 @@ sendIQ :: Maybe Integer -- ^ Timeout . When the timeout is reached the response
        -> Maybe LangTag  -- ^ Language tag of the payload (@Nothing@ for
                          -- default)
        -> Element -- ^ The IQ body (there has to be exactly one)
+       -> [ExtendedAttribute] -- ^ Additional stanza attributes
        -> Session
        -> IO (Either XmppFailure (STM (Maybe (Annotated IQResponse))))
-sendIQ timeOut to tp lang body session = do
+sendIQ timeOut to tp lang body attrs session = do
     newId <- idGenerator session
     j <- case to of
         Just t -> return $ Right t
@@ -40,7 +41,8 @@ sendIQ timeOut to tp lang body session = do
         (byNS, byId) <- readTVar (iqHandlers session)
         writeTVar (iqHandlers session) (byNS, Map.insert newId value byId)
         return resRef
-    res <- sendStanza (IQRequestS $ IQRequest newId Nothing to lang tp body) session
+    res <- sendStanza (IQRequestS $ IQRequest newId Nothing to lang tp body attrs)
+                      session
     case res of
         Right () -> do
             case timeOut of
@@ -60,14 +62,15 @@ sendIQ timeOut to tp lang body session = do
 
 -- | Like 'sendIQ', but waits for the answer IQ.
 sendIQA' :: Maybe Integer
-        -> Maybe Jid
-        -> IQRequestType
-        -> Maybe LangTag
-        -> Element
-        -> Session
-        -> IO (Either IQSendError (Annotated IQResponse))
-sendIQA' timeout to tp lang body session = do
-    ref <- sendIQ timeout to tp lang body session
+         -> Maybe Jid
+         -> IQRequestType
+         -> Maybe LangTag
+         -> Element
+         -> [ExtendedAttribute]
+         -> Session
+         -> IO (Either IQSendError (Annotated IQResponse))
+sendIQA' timeout to tp lang body attrs session = do
+    ref <- sendIQ timeout to tp lang body attrs session
     either (return . Left . IQSendError) (fmap (maybe (Left IQTimeOut) Right)
                                      . atomically) ref
 
@@ -77,9 +80,11 @@ sendIQ' :: Maybe Integer
         -> IQRequestType
         -> Maybe LangTag
         -> Element
+        -> [ExtendedAttribute]
         -> Session
         -> IO (Either IQSendError IQResponse)
-sendIQ' timeout to tp lang body session = fmap fst <$> sendIQA' timeout to tp lang body session
+sendIQ' timeout to tp lang body attrs session =
+    fmap fst <$> sendIQA' timeout to tp lang body attrs session
 
 -- | Register your interest in inbound IQ stanzas of a specific type and
 -- namespace. The returned STM action yields the received, matching IQ stanzas.
@@ -130,5 +135,6 @@ unlistenIQ tp ns session = do
 -- (False is returned in that case)
 answerIQ :: IQRequestTicket
          -> Either StanzaError (Maybe Element)
+         -> [ExtendedAttribute]
          -> IO (Maybe (Either XmppFailure ()))
-answerIQ ticket = answerTicket ticket
+answerIQ = answerTicket

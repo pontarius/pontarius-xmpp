@@ -10,18 +10,30 @@
 
 module Network.Xmpp.Marshal where
 
-import Data.XML.Pickle
-import Data.XML.Types
+import           Data.XML.Pickle
+import           Data.XML.Types
 
-import Data.Text
+import qualified Control.Exception as Ex
+import           Data.Text (Text)
+import qualified Data.Text as Text
 
-import Network.Xmpp.Types
+import           Network.Xmpp.Types
 
 xpNonemptyText :: PU Text NonemptyText
 xpNonemptyText = ("xpNonemptyText" , "") <?+> xpWrap Nonempty fromNonempty xpText
 
 xpStreamStanza :: PU [Node] (Either StreamErrorInfo Stanza)
 xpStreamStanza = xpEither xpStreamError xpStanza
+
+xpExtendedAttrs :: PU [Attribute] [ExtendedAttribute]
+xpExtendedAttrs = ("xpAttrVerbatim" , "") <?+>
+                    xpIso (map (\(name, cs) -> (name, flattenContents cs)))
+                          (map (\(name, c) -> (name, [ContentText c])))
+  where
+    flattenContents = Text.concat . filterContentText
+    filterContentText = map (\c -> case c of
+        ContentText t -> t
+        ContentEntity{} -> Ex.throw UnresolvedEntityException )
 
 xpStanza :: PU [Node] Stanza
 xpStanza = ("xpStanza" , "") <?+> xpAlt stanzaSel
@@ -46,15 +58,16 @@ xpStanza = ("xpStanza" , "") <?+> xpAlt stanzaSel
 
 xpMessage :: PU [Node] (Message)
 xpMessage = ("xpMessage" , "") <?+> xpWrap
-    (\((tp, qid, from, to, lang), ext) -> Message qid from to lang tp ext)
-    (\(Message qid from to lang tp ext) -> ((tp, qid, from, to, lang), ext))
+    (\((tp, qid, from, to, lang, attrs), ext) -> Message qid from to lang tp ext attrs)
+    (\(Message qid from to lang tp ext attrs) -> ((tp, qid, from, to, lang, attrs), ext))
     (xpElem "{jabber:client}message"
-         (xp5Tuple
+         (xp6Tuple
              (xpDefault Normal $ xpAttr "type" xpMessageType)
              (xpAttrImplied "id"   xpId)
              (xpAttrImplied "from" xpJid)
              (xpAttrImplied "to"   xpJid)
              xpLangTag
+             xpExtendedAttrs
              -- TODO: NS?
          )
          (xpAll xpElemVerbatim)
@@ -62,45 +75,54 @@ xpMessage = ("xpMessage" , "") <?+> xpWrap
 
 xpPresence :: PU [Node] Presence
 xpPresence = ("xpPresence" , "") <?+> xpWrap
-    (\((qid, from, to, lang, tp), ext) -> Presence qid from to lang tp ext)
-    (\(Presence qid from to lang tp ext) -> ((qid, from, to, lang, tp), ext))
+    (\((qid, from, to, lang, tp, attr), ext)
+        -> Presence qid from to lang tp ext attr)
+    (\(Presence qid from to lang tp ext attr)
+       -> ((qid, from, to, lang, tp, attr), ext))
     (xpElem "{jabber:client}presence"
-         (xp5Tuple
+         (xp6Tuple
               (xpAttrImplied "id"   xpId)
               (xpAttrImplied "from" xpJid)
               (xpAttrImplied "to"   xpJid)
               xpLangTag
               (xpDefault Available $ xpAttr "type" xpPresenceType)
+              xpExtendedAttrs
          )
          (xpAll xpElemVerbatim)
     )
 
 xpIQRequest :: PU [Node] IQRequest
 xpIQRequest = ("xpIQRequest" , "") <?+> xpWrap
-    (\((qid, from, to, lang, tp),body) -> IQRequest qid from to lang tp body)
-    (\(IQRequest qid from to lang tp body) -> ((qid, from, to, lang, tp), body))
+    (\((qid, from, to, lang, tp, attr),body)
+       -> IQRequest qid from to lang tp body attr)
+    (\(IQRequest qid from to lang tp body attr)
+        -> ((qid, from, to, lang, tp, attr), body))
     (xpElem "{jabber:client}iq"
-         (xp5Tuple
+         (xp6Tuple
              (xpAttr        "id"   xpId)
              (xpAttrImplied "from" xpJid)
              (xpAttrImplied "to"   xpJid)
              xpLangTag
              ((xpAttr        "type" xpIQRequestType))
+             xpExtendedAttrs
          )
          xpElemVerbatim
     )
 
 xpIQResult :: PU [Node] IQResult
 xpIQResult = ("xpIQResult" , "") <?+> xpWrap
-    (\((qid, from, to, lang, _tp),body) -> IQResult qid from to lang body)
-    (\(IQResult qid from to lang body) -> ((qid, from, to, lang, ()), body))
+    (\((qid, from, to, lang, _tp, attr),body)
+        -> IQResult qid from to lang body attr)
+    (\(IQResult qid from to lang body attr)
+        -> ((qid, from, to, lang, (), attr ), body))
     (xpElem "{jabber:client}iq"
-         (xp5Tuple
+         (xp6Tuple
              (xpAttr        "id"   xpId)
              (xpAttrImplied "from" xpJid)
              (xpAttrImplied "to"   xpJid)
              xpLangTag
              ((xpAttrFixed "type" "result"))
+             xpExtendedAttrs
          )
          (xpOption xpElemVerbatim)
     )
@@ -206,52 +228,54 @@ xpStanzaError = ("xpStanzaError" , "") <?+> xpWrap
 
 xpMessageError :: PU [Node] (MessageError)
 xpMessageError = ("xpMessageError" , "") <?+> xpWrap
-    (\((_, qid, from, to, lang), (err, ext)) ->
-        MessageError qid from to lang err ext)
-    (\(MessageError qid from to lang err ext) ->
-        (((), qid, from, to, lang), (err, ext)))
+    (\((_, qid, from, to, lang, attr), (err, ext)) ->
+        MessageError qid from to lang err ext attr)
+    (\(MessageError qid from to lang err ext attr) ->
+        (((), qid, from, to, lang, attr), (err, ext)))
     (xpElem "{jabber:client}message"
-         (xp5Tuple
+         (xp6Tuple
               (xpAttrFixed   "type" "error")
               (xpAttrImplied "id"   xpId)
               (xpAttrImplied "from" xpJid)
               (xpAttrImplied "to"   xpJid)
               (xpAttrImplied xmlLang xpLang)
-              -- TODO: NS?
+              xpExtendedAttrs
          )
          (xp2Tuple xpStanzaError (xpAll xpElemVerbatim))
     )
 
 xpPresenceError :: PU [Node] PresenceError
 xpPresenceError = ("xpPresenceError" , "") <?+> xpWrap
-    (\((qid, from, to, lang, _),(err, ext)) ->
-        PresenceError qid from to lang err ext)
-    (\(PresenceError qid from to lang err ext) ->
-        ((qid, from, to, lang, ()), (err, ext)))
+    (\((qid, from, to, lang, _, attr),(err, ext)) ->
+        PresenceError qid from to lang err ext attr)
+    (\(PresenceError qid from to lang err ext attr) ->
+        ((qid, from, to, lang, (), attr), (err, ext)))
     (xpElem "{jabber:client}presence"
-         (xp5Tuple
+         (xp6Tuple
               (xpAttrImplied "id"   xpId)
               (xpAttrImplied "from" xpJid)
               (xpAttrImplied "to"   xpJid)
               xpLangTag
               (xpAttrFixed "type" "error")
+              xpExtendedAttrs
          )
          (xp2Tuple xpStanzaError (xpAll xpElemVerbatim))
     )
 
 xpIQError :: PU [Node] IQError
 xpIQError = ("xpIQError" , "") <?+> xpWrap
-    (\((qid, from, to, lang, _tp),(err, body)) ->
-        IQError qid from to lang err body)
-    (\(IQError qid from to lang err body) ->
-        ((qid, from, to, lang, ()), (err, body)))
+    (\((qid, from, to, lang, _tp, attr),(err, body)) ->
+        IQError qid from to lang err body attr)
+    (\(IQError qid from to lang err body attr) ->
+        ((qid, from, to, lang, (), attr), (err, body)))
     (xpElem "{jabber:client}iq"
-         (xp5Tuple
+         (xp6Tuple
               (xpAttr        "id"   xpId)
               (xpAttrImplied "from" xpJid)
               (xpAttrImplied "to"   xpJid)
               xpLangTag
               ((xpAttrFixed "type" "error"))
+              xpExtendedAttrs
          )
          (xp2Tuple xpStanzaError (xpOption xpElemVerbatim))
     )

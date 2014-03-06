@@ -151,6 +151,7 @@ data IQRequestTicket = IQRequestTicket
     {   -- | Send an answer to an IQ request once. Subsequent calls will do
         -- nothing and return Nothing
       answerTicket :: Either StanzaError (Maybe Element)
+                      -> [ExtendedAttribute]
                       -> IO (Maybe (Either XmppFailure ()))
       -- | The actual IQ request that created this ticket.
     , iqRequestBody :: IQRequest
