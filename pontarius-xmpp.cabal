@@ -168,6 +168,28 @@ Test-Suite doctest
                , derive
                , quickcheck-instances
 
+Test-Suite runtests
+  Type: exitcode-stdio-1.0
+  hs-source-dirs: tests
+  main-is: Run.hs
+  other-modules: Run.Payload
+  GHC-Options: -Wall -threaded
+  Build-Depends: base
+               , HUnit
+               , configurator
+               , directory
+               , filepath
+               , hslogger
+               , hspec
+               , hspec-expectations
+               , mtl
+               , network
+               , pontarius-xmpp
+               , stm
+               , text
+               , xml-picklers
+               , xml-types
+
 benchmark benchmarks
   type: exitcode-stdio-1.0
   build-depends: base

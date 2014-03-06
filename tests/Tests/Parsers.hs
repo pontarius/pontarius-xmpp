@@ -5,7 +5,7 @@
 module Tests.Parsers where
 
 import Control.Applicative ((<$>))
-import Network.Xmpp.Types
+import Network.Xmpp.Internal
 import Test.Hspec
 import Test.Tasty.QuickCheck
 import Test.Tasty

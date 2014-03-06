@@ -5,7 +5,7 @@ import           Control.Applicative ((<$>), (<*>))
 import           Data.Char
 import           Data.Maybe
 import qualified Data.Text as Text
-import           Network.Xmpp.Types
+import           Network.Xmpp.Internal hiding (elements)
 import           Test.QuickCheck
 import           Test.QuickCheck.Instances()
 import qualified Text.CharRanges as Ranges

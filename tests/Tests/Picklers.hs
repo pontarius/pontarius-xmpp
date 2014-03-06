@@ -4,8 +4,7 @@ module Tests.Picklers where
 
 import Tests.Arbitrary ()
 import Data.XML.Pickle
-import Network.Xmpp.Marshal
-import Network.Xmpp.Types
+import Network.Xmpp.Internal
 import Test.Tasty
 import Test.Tasty.TH
 import Test.Tasty.QuickCheck
