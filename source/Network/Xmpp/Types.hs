@@ -544,9 +544,7 @@ data StreamErrorInfo = StreamErrorInfo
     } deriving (Show, Eq)
 
 data XmppTlsError = XmppTlsError TLSError
-                  | XmppTlsConnectionNotEstablished ConnectionNotEstablished
-                  | XmppTlsTerminated Terminated
-                  | XmppTlsHandshakeFailed HandshakeFailed
+                  | XmppTlsException TLSException
                     deriving (Show, Eq, Typeable)
 
 -- | Signals an XMPP stream error or another unpredicted stream-related
@@ -1191,16 +1189,19 @@ data StreamConfiguration =
                           -- | How the client should behave in regards to TLS.
                         , tlsBehaviour :: TlsBehaviour
                           -- | Settings to be used for TLS negotitation
-                        , tlsParams :: TLSParams
+                        , tlsParams :: ClientParams
                         }
 
 -- | Default parameters for TLS. Those are the default client parameters from the tls package with the ciphers set to ciphersuite_strong
-xmppDefaultParams :: Params
-xmppDefaultParams = defaultParamsClient{ pCiphers = ciphersuite_strong
-                                                    ++ [ cipher_AES256_SHA1
-                                                       , cipher_AES128_SHA1
-                                                       ]
-                                       }
+xmppDefaultParams :: ClientParams
+xmppDefaultParams = (defaultParamsClient "" BS.empty)
+                        { clientSupported = def
+                            { supportedCiphers = ciphersuite_strong
+                                                 ++ [ cipher_AES256_SHA1
+                                                    , cipher_AES128_SHA1
+                                                    ]
+                            }
+                        }
 
 instance Default StreamConfiguration where
     def = StreamConfiguration { preferredLang     = Nothing
