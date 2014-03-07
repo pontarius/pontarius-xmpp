@@ -1158,12 +1158,15 @@ data ConnectionDetails = UseRealm -- ^ Use realm to resolv host. This is the
                                   -- default.
                        | UseSrv HostName -- ^ Use this hostname for a SRV lookup
                        | UseHost HostName PortID -- ^ Use specified host
-                       | UseConnection (ErrorT XmppFailure IO StreamHandle)
-                         -- ^ Use custom method to create a StreamHandle. This
+                       | UseConnection (ErrorT XmppFailure IO (HostName, StreamHandle))
+                         -- ^ Use a custom method to create a StreamHandle. This
                          -- will also be used by reconnect. For example, to
                          -- establish TLS before starting the stream as done by
                          -- GCM, see 'connectTls'. You can also return an
-                         -- already established connection.
+                         -- already established connection. This method should
+                         -- also return a hostname that is used for TLS
+                         -- signature verification. If startTLS is not used it
+                         -- can be left empty
 
 -- | Configuration settings related to the stream.
 data StreamConfiguration =
@@ -1201,6 +1204,7 @@ xmppDefaultParams = (defaultParamsClient "" BS.empty)
                                                     , cipher_AES128_SHA1
                                                     ]
                             }
+                        , clientUseServerNameIndication = True
                         }
 
 instance Default StreamConfiguration where

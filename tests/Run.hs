@@ -16,13 +16,14 @@ import qualified Data.Text as Text
 import           Network
 import           Network.Xmpp
 import           System.Directory
+import           System.Exit
 import           System.FilePath
 import           System.Log.Logger
 import           System.Timeout
 import           Test.HUnit
 import           Test.Hspec.Expectations
 
-import Run.Payload
+import           Run.Payload
 
 xmppConfig :: ConnectionDetails -> SessionConfiguration
 xmppConfig det = def{sessionStreamConfiguration
@@ -82,10 +83,20 @@ main = void $ do
         Just "emergency" -> return EMERGENCY
         Just e -> error $ "Log level " ++ (Text.unpack e) ++ " unknown"
     updateGlobalLogger "Pontarius.Xmpp" $ setLevel loglevel
-    Right sess1 <- session realm (simpleAuth uname1 pwd1)
+    mbSess1 <- session realm (simpleAuth uname1 pwd1)
                                 ((xmppConfig conDetails))
-    Right sess2 <- session realm (simpleAuth uname2 pwd2)
+    sess1 <- case mbSess1 of
+        Left e -> do
+            assertFailure $ "session 1 could not be initialized" ++ show e
+            exitFailure
+        Right r -> return r
+    mbSess2 <- session realm (simpleAuth uname2 pwd2)
                                 ((xmppConfig conDetails))
+    sess2 <- case mbSess2 of
+        Left e -> do
+            assertFailure $ "session 2 could not be initialized" ++ show e
+            exitFailure
+        Right r -> return r
     Just jid1 <- getJid sess1
     Just jid2 <- getJid sess2
     _ <- sendPresence presenceOnline sess1

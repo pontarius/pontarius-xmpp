@@ -16,12 +16,14 @@ import qualified       Data.ByteString.Char8 as BSC8
 import qualified       Data.ByteString.Lazy as BL
 import                 Data.Conduit
 import                 Data.IORef
+import                 Data.Monoid
 import                 Data.XML.Types
 import                 Network.DNS.Resolver (ResolvConf)
 import                 Network.TLS
 import                 Network.Xmpp.Stream
 import                 Network.Xmpp.Types
 import                 System.Log.Logger (debugM, errorM, infoM)
+import                 System.X509
 
 mkBackend :: StreamHandle -> Backend
 mkBackend con = Backend { backendSend = \bs -> void (streamSend con bs)
@@ -54,7 +56,7 @@ tls con = fmap join -- We can have Left values both from exceptions and the
           . wrapExceptions
           . flip withStream con
           . runErrorT $ do
-    conf <- gets $ streamConfiguration
+    conf <- gets streamConfiguration
     sState <- gets streamConnectionState
     case sState of
         Plain -> return ()
@@ -123,7 +125,11 @@ tlsinit :: (MonadIO m, MonadIO m1) =>
 tlsinit params backend = do
     liftIO $ debugM "Pontarius.Xmpp.Tls" "TLS with debug mode enabled."
     gen <- liftIO (cprgCreate <$> createEntropyPool :: IO SystemRNG)
-    con <- client params gen backend
+    sysCStore <- liftIO getSystemCertificateStore
+    let params' = params{clientShared =
+                      (clientShared params){ sharedCAStore =
+                          sysCStore <> sharedCAStore (clientShared params)}}
+    con <- client params' gen backend
     handshake con
     let src = forever $ do
             dt <- liftIO $ recvData con
@@ -167,18 +173,20 @@ connectTls :: ResolvConf -- ^ Resolv conf to use (try 'defaultResolvConf' as a
            -> ClientParams  -- ^ TLS parameters to use when securing the connection
            -> String     -- ^ Host to use when connecting (will be resolved
                          -- using SRV records)
-           -> ErrorT XmppFailure IO StreamHandle
+           -> ErrorT XmppFailure IO (String, StreamHandle)
 connectTls config params host = do
-    h <- connectSrv config host >>= \h' -> case h' of
+    (hn, h) <- connectSrv config host >>= \h' -> case h' of
         Nothing -> throwError TcpConnectionFailure
         Just h'' -> return h''
     let hand = handleToStreamHandle h
     (_raw, _snk, psh, recv, ctx) <- tlsinit params $ mkBackend hand
-    return $ StreamHandle { streamSend = catchPush . psh
-                          , streamReceive = wrapExceptions . recv
-                          , streamFlush = contextFlush ctx
-                          , streamClose = bye ctx >> streamClose hand
-                          }
+    return $ ( hn
+             , StreamHandle { streamSend = catchPush . psh
+                            , streamReceive = wrapExceptions . recv
+                            , streamFlush = contextFlush ctx
+                            , streamClose = bye ctx >> streamClose hand
+                            }
+             )
 
 wrapExceptions :: IO a -> IO (Either XmppFailure a)
 wrapExceptions f = Ex.catches (liftM Right $ f)
