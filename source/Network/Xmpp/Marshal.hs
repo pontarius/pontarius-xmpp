@@ -156,10 +156,8 @@ xpStanzaErrorCondition = ("xpErrorCondition" , "") <?+> xpWrapEither
     -- the optional field is left empty and must be filled in by the caller
     xpStanzaErrorConditionShape :: PU Text StanzaErrorCondition
     xpStanzaErrorConditionShape = ("xpStanzaErrorCondition", "") <?>
-            xpPartial ( \input -> case stanzaErrorConditionFromText input of
-                                       Nothing -> Left "Could not parse stanza error condition."
-                                       Just j -> Right j)
-                      stanzaErrorConditionToText
+            xpIso stanzaErrorConditionFromText
+                  stanzaErrorConditionToText
     stanzaErrorConditionToText BadRequest = "bad-request"
     stanzaErrorConditionToText Conflict = "conflict"
     stanzaErrorConditionToText FeatureNotImplemented = "feature-not-implemented"
@@ -182,29 +180,29 @@ xpStanzaErrorCondition = ("xpErrorCondition" , "") <?+> xpWrapEither
     stanzaErrorConditionToText SubscriptionRequired = "subscription-required"
     stanzaErrorConditionToText UndefinedCondition = "undefined-condition"
     stanzaErrorConditionToText UnexpectedRequest = "unexpected-request"
-    stanzaErrorConditionFromText "bad-request" = Just BadRequest
-    stanzaErrorConditionFromText "conflict" = Just Conflict
-    stanzaErrorConditionFromText "feature-not-implemented" = Just FeatureNotImplemented
-    stanzaErrorConditionFromText "forbidden" = Just Forbidden
-    stanzaErrorConditionFromText "gone" = Just $ Gone Nothing
-    stanzaErrorConditionFromText "internal-server-error" = Just InternalServerError
-    stanzaErrorConditionFromText "item-not-found" = Just ItemNotFound
-    stanzaErrorConditionFromText "jid-malformed" = Just JidMalformed
-    stanzaErrorConditionFromText "not-acceptable" = Just NotAcceptable
-    stanzaErrorConditionFromText "not-allowed" = Just NotAllowed
-    stanzaErrorConditionFromText "not-authorized" = Just NotAuthorized
-    stanzaErrorConditionFromText "policy-violation" = Just PolicyViolation
-    stanzaErrorConditionFromText "recipient-unavailable" = Just RecipientUnavailable
-    stanzaErrorConditionFromText "redirect" = Just $ Redirect Nothing
-    stanzaErrorConditionFromText "registration-required" = Just RegistrationRequired
-    stanzaErrorConditionFromText "remote-server-not-found" = Just RemoteServerNotFound
-    stanzaErrorConditionFromText "remote-server-timeout" = Just RemoteServerTimeout
-    stanzaErrorConditionFromText "resource-constraint" = Just ResourceConstraint
-    stanzaErrorConditionFromText "service-unavailable" = Just ServiceUnavailable
-    stanzaErrorConditionFromText "subscription-required" = Just SubscriptionRequired
-    stanzaErrorConditionFromText "undefined-condition" = Just UndefinedCondition
-    stanzaErrorConditionFromText "unexpected-request" = Just UnexpectedRequest
-    stanzaErrorConditionFromText _ = Nothing
+    stanzaErrorConditionFromText "bad-request" = BadRequest
+    stanzaErrorConditionFromText "conflict" = Conflict
+    stanzaErrorConditionFromText "feature-not-implemented" = FeatureNotImplemented
+    stanzaErrorConditionFromText "forbidden" = Forbidden
+    stanzaErrorConditionFromText "gone" = Gone Nothing
+    stanzaErrorConditionFromText "internal-server-error" = InternalServerError
+    stanzaErrorConditionFromText "item-not-found" = ItemNotFound
+    stanzaErrorConditionFromText "jid-malformed" = JidMalformed
+    stanzaErrorConditionFromText "not-acceptable" = NotAcceptable
+    stanzaErrorConditionFromText "not-allowed" = NotAllowed
+    stanzaErrorConditionFromText "not-authorized" = NotAuthorized
+    stanzaErrorConditionFromText "policy-violation" = PolicyViolation
+    stanzaErrorConditionFromText "recipient-unavailable" = RecipientUnavailable
+    stanzaErrorConditionFromText "redirect" = Redirect Nothing
+    stanzaErrorConditionFromText "registration-required" = RegistrationRequired
+    stanzaErrorConditionFromText "remote-server-not-found" = RemoteServerNotFound
+    stanzaErrorConditionFromText "remote-server-timeout" = RemoteServerTimeout
+    stanzaErrorConditionFromText "resource-constraint" = ResourceConstraint
+    stanzaErrorConditionFromText "service-unavailable" = ServiceUnavailable
+    stanzaErrorConditionFromText "subscription-required" = SubscriptionRequired
+    stanzaErrorConditionFromText "undefined-condition" = UndefinedCondition
+    stanzaErrorConditionFromText "unexpected-request" = UnexpectedRequest
+    stanzaErrorConditionFromText _ = UndefinedCondition
 
 
 
@@ -218,7 +216,7 @@ xpStanzaError = ("xpStanzaError" , "") <?+> xpWrap
              (xpAttribute' "code" xpId))
          (xp3Tuple
               xpStanzaErrorCondition
-              (xpOption $ xpElem "{jabber:client}text"
+              (xpOption $ xpElem "{urn:ietf:params:xml:ns:xmpp-stanzas}text"
                    (xpAttrImplied xmlLang xpLang)
                    (xpContent xpNonemptyText)
               )
@@ -463,10 +461,8 @@ xpStanzaErrorType = ("xpStanzaErrorType", "") <?>
 
 xpStreamErrorCondition :: PU Text StreamErrorCondition
 xpStreamErrorCondition = ("xpStreamErrorCondition", "") <?>
-        xpPartial ( \input -> case streamErrorConditionFromText input of
-                                   Nothing -> Left "Could not parse stream error condition."
-                                   Just j -> Right j)
-                  streamErrorConditionToText
+        xpIso streamErrorConditionFromText
+              streamErrorConditionToText
   where
     streamErrorConditionToText StreamBadFormat              = "bad-format"
     streamErrorConditionToText StreamBadNamespacePrefix     = "bad-namespace-prefix"
@@ -493,29 +489,29 @@ xpStreamErrorCondition = ("xpStreamErrorCondition", "") <?>
     streamErrorConditionToText StreamUnsupportedFeature     = "unsupported-feature"
     streamErrorConditionToText StreamUnsupportedStanzaType  = "unsupported-stanza-type"
     streamErrorConditionToText StreamUnsupportedVersion     = "unsupported-version"
-    streamErrorConditionFromText "bad-format" = Just StreamBadFormat
-    streamErrorConditionFromText "bad-namespace-prefix" = Just StreamBadNamespacePrefix
-    streamErrorConditionFromText "conflict" = Just StreamConflict
-    streamErrorConditionFromText "connection-timeout" = Just StreamConnectionTimeout
-    streamErrorConditionFromText "host-gone" = Just StreamHostGone
-    streamErrorConditionFromText "host-unknown" = Just StreamHostUnknown
-    streamErrorConditionFromText "improper-addressing" = Just StreamImproperAddressing
-    streamErrorConditionFromText "internal-server-error" = Just StreamInternalServerError
-    streamErrorConditionFromText "invalid-from" = Just StreamInvalidFrom
-    streamErrorConditionFromText "invalid-namespace" = Just StreamInvalidNamespace
-    streamErrorConditionFromText "invalid-xml" = Just StreamInvalidXml
-    streamErrorConditionFromText "not-authorized" = Just StreamNotAuthorized
-    streamErrorConditionFromText "not-well-formed" = Just StreamNotWellFormed
-    streamErrorConditionFromText "policy-violation" = Just StreamPolicyViolation
-    streamErrorConditionFromText "remote-connection-failed" = Just StreamRemoteConnectionFailed
-    streamErrorConditionFromText "reset" = Just StreamReset
-    streamErrorConditionFromText "resource-constraint" = Just StreamResourceConstraint
-    streamErrorConditionFromText "restricted-xml" = Just StreamRestrictedXml
-    streamErrorConditionFromText "see-other-host" = Just StreamSeeOtherHost
-    streamErrorConditionFromText "system-shutdown" = Just StreamSystemShutdown
-    streamErrorConditionFromText "undefined-condition" = Just StreamUndefinedCondition
-    streamErrorConditionFromText "unsupported-encoding" = Just StreamUnsupportedEncoding
-    streamErrorConditionFromText "unsupported-feature" = Just StreamUnsupportedFeature
-    streamErrorConditionFromText "unsupported-stanza-type" = Just StreamUnsupportedStanzaType
-    streamErrorConditionFromText "unsupported-version" = Just StreamUnsupportedVersion
-    streamErrorConditionFromText _ = Nothing
+    streamErrorConditionFromText "bad-format" = StreamBadFormat
+    streamErrorConditionFromText "bad-namespace-prefix" = StreamBadNamespacePrefix
+    streamErrorConditionFromText "conflict" = StreamConflict
+    streamErrorConditionFromText "connection-timeout" = StreamConnectionTimeout
+    streamErrorConditionFromText "host-gone" = StreamHostGone
+    streamErrorConditionFromText "host-unknown" = StreamHostUnknown
+    streamErrorConditionFromText "improper-addressing" = StreamImproperAddressing
+    streamErrorConditionFromText "internal-server-error" = StreamInternalServerError
+    streamErrorConditionFromText "invalid-from" = StreamInvalidFrom
+    streamErrorConditionFromText "invalid-namespace" = StreamInvalidNamespace
+    streamErrorConditionFromText "invalid-xml" = StreamInvalidXml
+    streamErrorConditionFromText "not-authorized" = StreamNotAuthorized
+    streamErrorConditionFromText "not-well-formed" = StreamNotWellFormed
+    streamErrorConditionFromText "policy-violation" = StreamPolicyViolation
+    streamErrorConditionFromText "remote-connection-failed" = StreamRemoteConnectionFailed
+    streamErrorConditionFromText "reset" = StreamReset
+    streamErrorConditionFromText "resource-constraint" = StreamResourceConstraint
+    streamErrorConditionFromText "restricted-xml" = StreamRestrictedXml
+    streamErrorConditionFromText "see-other-host" = StreamSeeOtherHost
+    streamErrorConditionFromText "system-shutdown" = StreamSystemShutdown
+    streamErrorConditionFromText "undefined-condition" = StreamUndefinedCondition
+    streamErrorConditionFromText "unsupported-encoding" = StreamUnsupportedEncoding
+    streamErrorConditionFromText "unsupported-feature" = StreamUnsupportedFeature
+    streamErrorConditionFromText "unsupported-stanza-type" = StreamUnsupportedStanzaType
+    streamErrorConditionFromText "unsupported-version" = StreamUnsupportedVersion
+    streamErrorConditionFromText _ = StreamUndefinedCondition -- §4.9.2

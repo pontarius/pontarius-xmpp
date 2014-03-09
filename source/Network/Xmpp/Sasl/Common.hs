@@ -86,10 +86,7 @@ xpFailure = xpWrap
 
 xpSaslError :: PU Text.Text SaslError
 xpSaslError = ("xpSaslError", "") <?>
-        xpPartial ( \input -> case saslErrorFromText input of
-                                   Nothing -> Left "Could not parse SASL error."
-                                   Just j -> Right j)
-                  saslErrorToText
+        xpIso saslErrorFromText saslErrorToText
   where
     saslErrorToText SaslAborted              = "aborted"
     saslErrorToText SaslAccountDisabled      = "account-disabled"
@@ -102,18 +99,18 @@ xpSaslError = ("xpSaslError", "") <?>
     saslErrorToText SaslMechanismTooWeak     = "mechanism-too-weak"
     saslErrorToText SaslNotAuthorized        = "not-authorized"
     saslErrorToText SaslTemporaryAuthFailure = "temporary-auth-failure"
-    saslErrorFromText "aborted" = Just SaslAborted
-    saslErrorFromText "account-disabled" = Just SaslAccountDisabled
-    saslErrorFromText "credentials-expired" = Just SaslCredentialsExpired
-    saslErrorFromText "encryption-required" = Just SaslEncryptionRequired
-    saslErrorFromText "incorrect-encoding" = Just SaslIncorrectEncoding
-    saslErrorFromText "invalid-authzid" = Just SaslInvalidAuthzid
-    saslErrorFromText "invalid-mechanism" = Just SaslInvalidMechanism
-    saslErrorFromText "malformed-request" = Just SaslMalformedRequest
-    saslErrorFromText "mechanism-too-weak" = Just SaslMechanismTooWeak
-    saslErrorFromText "not-authorized" = Just SaslNotAuthorized
-    saslErrorFromText "temporary-auth-failure" = Just SaslTemporaryAuthFailure
-    saslErrorFromText _ = Nothing
+    saslErrorFromText "aborted" = SaslAborted
+    saslErrorFromText "account-disabled" = SaslAccountDisabled
+    saslErrorFromText "credentials-expired" = SaslCredentialsExpired
+    saslErrorFromText "encryption-required" = SaslEncryptionRequired
+    saslErrorFromText "incorrect-encoding" = SaslIncorrectEncoding
+    saslErrorFromText "invalid-authzid" = SaslInvalidAuthzid
+    saslErrorFromText "invalid-mechanism" = SaslInvalidMechanism
+    saslErrorFromText "malformed-request" = SaslMalformedRequest
+    saslErrorFromText "mechanism-too-weak" = SaslMechanismTooWeak
+    saslErrorFromText "not-authorized" = SaslNotAuthorized
+    saslErrorFromText "temporary-auth-failure" = SaslTemporaryAuthFailure
+    saslErrorFromText _ = SaslNotAuthorized
 
 -- Challenge element pickler.
 xpChallenge :: PU [Node] (Maybe Text.Text)
