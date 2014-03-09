@@ -179,7 +179,12 @@ connectTls config params host = do
         Nothing -> throwError TcpConnectionFailure
         Just h'' -> return h''
     let hand = handleToStreamHandle h
-    (_raw, _snk, psh, recv, ctx) <- tlsinit params $ mkBackend hand
+    let params' = params{clientServerIdentification
+                   = case clientServerIdentification params of
+                       ("", _) -> (host, "")
+                       csi -> csi
+                       }
+    (_raw, _snk, psh, recv, ctx) <- tlsinit params' $ mkBackend hand
     return $ ( hn
              , StreamHandle { streamSend = catchPush . psh
                             , streamReceive = wrapExceptions . recv

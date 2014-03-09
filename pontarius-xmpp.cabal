@@ -36,11 +36,6 @@ Flag with-th {
 Library
   hs-source-dirs: source
   Exposed: True
-
-  -- The only different between the below two blocks is that the first one caps
-  -- the range for the `bytestring' package, and that the second one includes
-  -- `template-haskell' for GHC 7.6.1 and above.
-
   Build-Depends: attoparsec           >=0.10.0.3
                , base                 >4 && <5
                , base64-bytestring    >=0.1.0.0
@@ -189,6 +184,9 @@ Test-Suite runtests
                , text
                , xml-picklers
                , xml-types
+               , tasty
+               , tasty-hunit
+               , tls
 
 benchmark benchmarks
   type: exitcode-stdio-1.0

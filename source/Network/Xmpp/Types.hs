@@ -1195,17 +1195,25 @@ data StreamConfiguration =
                         , tlsParams :: ClientParams
                         }
 
--- | Default parameters for TLS. Those are the default client parameters from the tls package with the ciphers set to ciphersuite_strong
-xmppDefaultParams :: ClientParams
-xmppDefaultParams = (defaultParamsClient "" BS.empty)
+-- | Default parameters for TLS restricted to strong ciphers
+xmppDefaultParamsStrong :: ClientParams
+xmppDefaultParamsStrong = (defaultParamsClient "" BS.empty)
                         { clientSupported = def
                             { supportedCiphers = ciphersuite_strong
                                                  ++ [ cipher_AES256_SHA1
                                                     , cipher_AES128_SHA1
                                                     ]
                             }
-                        , clientUseServerNameIndication = True
                         }
+
+-- | Default parameters for TLS
+xmppDefaultParams :: ClientParams
+xmppDefaultParams = (defaultParamsClient "" BS.empty)
+                        { clientSupported = def
+                            { supportedCiphers = ciphersuite_all
+                            }
+                        }
+
 
 instance Default StreamConfiguration where
     def = StreamConfiguration { preferredLang     = Nothing

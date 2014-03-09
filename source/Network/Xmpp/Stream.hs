@@ -521,6 +521,7 @@ createStream realm config = do
         Just (host, hand) -> ErrorT $ do
             debugM "Pontarius.Xmpp" "Acquired handle."
             debugM "Pontarius.Xmpp" "Setting NoBuffering mode on handle."
+            debugM "Pontarius.Xmpp" $ "Setting TLS expected host to " ++ show host
             eSource <- liftIO . bufferSrc $
                          (sourceStreamHandle hand $= logConduit)
                            $= XP.parseBytes def
@@ -631,10 +632,11 @@ connectTcp ((address, port):remainder) = do
         connectTo address port) :: IO (Either Ex.IOException Handle)
     case result of
         Right handle -> do
-            debugM "Pontarius.Xmpp" "Successfully connected to HostName."
+            debugM "Pontarius.Xmpp" $ "Successfully connected to " ++ show address
             return $ Just handle
         Left _ -> do
-            debugM "Pontarius.Xmpp" "Connection to HostName could not be established."
+            debugM "Pontarius.Xmpp" $
+                "Connection to " ++ show address ++ " could not be established."
             connectTcp remainder
 
 #if MIN_VERSION_dns(1, 0, 0)
