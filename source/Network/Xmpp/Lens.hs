@@ -48,6 +48,16 @@ module Network.Xmpp.Lens
        , establishSessionL
        , tlsBehaviourL
        , tlsParamsL
+         -- **** TLS parameters
+       , clientServerIdentificationL
+       , tlsServerIdentificationL
+       , clientSupportedL
+       , supportedCiphersL
+       , supportedVersionsL
+       , tlsSupportedCiphersL
+       , tlsSupportedVersionsL
+       , clientUseServerNameIndicationL
+       , tlsUseNameIndicationL
          -- *** 'SessionConfiguration'
        , streamConfigurationL
        , onConnectionClosedL
@@ -105,12 +115,13 @@ import qualified Data.Text as Text
 import           Data.Text(Text)
 import           Data.XML.Types(Element)
 import           Network.DNS(ResolvConf)
-import           Network.TLS (ClientParams)
+import           Network.TLS as TLS
 import           Network.Xmpp.Concurrent.Types
-import           Network.Xmpp.IM.Roster.Types
 import           Network.Xmpp.IM.Message
 import           Network.Xmpp.IM.Presence
+import           Network.Xmpp.IM.Roster.Types
 import           Network.Xmpp.Types
+import qualified Data.ByteString as BS
 
 -- | Van-Laarhoven lenses.
 type Lens a b = Functor f => (b -> f b) -> a -> f a
@@ -120,7 +131,6 @@ type Traversal a b = Applicative f => (b -> f b) -> a -> f a
 
 -- Accessors
 ---------------
-
 
 -- | Read the value the lens is pointing to
 view :: Lens a b -> a -> b
@@ -390,11 +400,36 @@ tlsBehaviourL :: Lens StreamConfiguration TlsBehaviour
 tlsBehaviourL inj sc@StreamConfiguration{tlsBehaviour = x}
     = (\x' -> sc{tlsBehaviour = x'}) <$> inj x
 
+
 tlsParamsL :: Lens StreamConfiguration ClientParams
 tlsParamsL inj sc@StreamConfiguration{tlsParams = x}
     = (\x' -> sc{tlsParams = x'}) <$> inj x
 
--- SessioConfiguration
+-- TLS parameters
+-----------------
+
+clientServerIdentificationL  :: Lens ClientParams (String, BS.ByteString)
+clientServerIdentificationL inj cp@ClientParams{clientServerIdentification = x}
+    = (\x' -> cp{clientServerIdentification = x'}) <$> inj x
+
+clientSupportedL  :: Lens ClientParams Supported
+clientSupportedL inj cp@ClientParams{clientSupported = x}
+    = (\x' -> cp{clientSupported = x'}) <$> inj x
+
+clientUseServerNameIndicationL  :: Lens ClientParams Bool
+clientUseServerNameIndicationL inj
+    cp@ClientParams{clientUseServerNameIndication = x}
+    = (\x' -> cp{clientUseServerNameIndication = x'}) <$> inj x
+
+supportedCiphersL :: Lens Supported [Cipher]
+supportedCiphersL inj s@Supported{supportedCiphers = x}
+    = (\x' -> s{supportedCiphers = x'}) <$> inj x
+
+supportedVersionsL :: Lens Supported [TLS.Version]
+supportedVersionsL inj s@Supported{supportedVersions = x}
+    = (\x' -> s{supportedVersions = x'}) <$> inj x
+
+-- SessionConfiguration
 -----------------------
 streamConfigurationL :: Lens SessionConfiguration StreamConfiguration
 streamConfigurationL inj sc@SessionConfiguration{sessionStreamConfiguration = x}
@@ -415,6 +450,29 @@ ensableRosterL inj sc@SessionConfiguration{enableRoster = x}
 pluginsL :: Lens SessionConfiguration [Plugin]
 pluginsL inj sc@SessionConfiguration{plugins = x}
     = (\x' -> sc{plugins = x'}) <$> inj x
+
+-- | Access clientServerIdentification inside tlsParams inside streamConfiguration
+tlsServerIdentificationL  :: Lens SessionConfiguration (String, BS.ByteString)
+tlsServerIdentificationL = streamConfigurationL
+                         . tlsParamsL
+                         . clientServerIdentificationL
+
+-- | Access clientUseServerNameIndication inside tlsParams
+tlsUseNameIndicationL :: Lens SessionConfiguration Bool
+tlsUseNameIndicationL = streamConfigurationL
+                      . tlsParamsL
+                      . clientUseServerNameIndicationL
+
+-- | Access supportedCiphers inside clientSupported inside tlsParams
+tlsSupportedCiphersL :: Lens SessionConfiguration [Cipher]
+tlsSupportedCiphersL =  streamConfigurationL
+                     .  tlsParamsL . clientSupportedL . supportedCiphersL
+
+-- | Access supportedVersions inside clientSupported inside tlsParams
+tlsSupportedVersionsL :: Lens SessionConfiguration [TLS.Version]
+tlsSupportedVersionsL = streamConfigurationL
+                      . tlsParamsL . clientSupportedL . supportedVersionsL
+
 
 -- Roster
 ------------------

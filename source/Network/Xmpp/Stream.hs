@@ -36,7 +36,6 @@ import           Data.XML.Pickle
 import           Data.XML.Types
 import qualified GHC.IO.Exception as GIE
 import           Network
-import           Network.TLS
 import           Network.DNS hiding (encode, lookup)
 import           Network.Xmpp.Marshal
 import           Network.Xmpp.Types
@@ -47,6 +46,7 @@ import           System.Random (randomRIO)
 import           Text.XML.Stream.Parse as XP
 
 import           Network.Xmpp.Utilities
+import qualified Network.Xmpp.Lens as L
 
 -- "readMaybe" definition, as readMaybe is not introduced in the `base' package
 -- until version 4.6.
@@ -518,10 +518,9 @@ createStream :: HostName -> StreamConfiguration -> ErrorT XmppFailure IO (Stream
 createStream realm config = do
     result <- connect realm config
     case result of
-        Just (host, hand) -> ErrorT $ do
+        Just hand -> ErrorT $ do
             debugM "Pontarius.Xmpp" "Acquired handle."
             debugM "Pontarius.Xmpp" "Setting NoBuffering mode on handle."
-            debugM "Pontarius.Xmpp" $ "Setting TLS expected host to " ++ show host
             eSource <- liftIO . bufferSrc $
                          (sourceStreamHandle hand $= logConduit)
                            $= XP.parseBytes def
@@ -535,7 +534,7 @@ createStream realm config = do
                   , streamId = Nothing
                   , streamLang = Nothing
                   , streamJid = Nothing
-                  , streamConfiguration = setCertificateHost host config
+                  , streamConfiguration = maybeSetTlsHost realm config
                   }
             stream' <- mkStream stream
             return $ Right stream'
@@ -548,17 +547,14 @@ createStream realm config = do
         liftIO . debugM "Pontarius.Xmpp" $ "In: " ++ (BSC8.unpack d) ++
             "."
         return d
-    setCertificateHost host conf =
-        conf{tlsParams =
-            (tlsParams conf){clientServerIdentification =
-                case clientServerIdentification(tlsParams conf) of
-                    (_, blob) -> (host, blob)}}
-
+    tlsIdentL = L.tlsParamsL . L.clientServerIdentificationL
+    updateHost host ("", _) = (host, "")
+    updateHost _ hst = hst
+    maybeSetTlsHost host = L.modify tlsIdentL (updateHost host)
 
 -- Connects using the specified method. Returns the Handle acquired, if any.
-connect :: HostName
-        -> StreamConfiguration
-        -> ErrorT XmppFailure IO (Maybe (HostName, StreamHandle))
+connect :: HostName -> StreamConfiguration -> ErrorT XmppFailure IO
+           (Maybe StreamHandle)
 connect realm config = do
     case connectionDetails config of
         UseHost host port -> lift $ do
@@ -568,26 +564,24 @@ connect realm config = do
                 Nothing -> return Nothing
                 Just h' -> do
                     liftIO $ hSetBuffering h' NoBuffering
-                    return . Just $ (host, handleToStreamHandle h')
+                    return . Just $ handleToStreamHandle h'
         UseSrv host -> do
             h <- connectSrv (resolvConf config) host
             case h of
                 Nothing -> return Nothing
-                Just (hn, h') -> do
+                Just h' -> do
                     liftIO $ hSetBuffering h' NoBuffering
-                    return . Just $ (hn, handleToStreamHandle h')
+                    return . Just $ handleToStreamHandle h'
         UseRealm -> do
             h <- connectSrv (resolvConf config) realm
             case h of
                 Nothing -> return Nothing
-                Just (hn, h') -> do
+                Just h' -> do
                     liftIO $ hSetBuffering h' NoBuffering
-                    return $ Just (hn, handleToStreamHandle h')
+                    return . Just $ handleToStreamHandle h'
         UseConnection mkC -> Just <$> mkC
 
-connectSrv :: ResolvConf
-           -> String
-           -> ErrorT XmppFailure IO (Maybe (HostName, Handle))
+connectSrv :: ResolvConf -> String -> ErrorT XmppFailure IO (Maybe Handle)
 connectSrv config host = do
     case checkHostName (Text.pack host) of
         Just host' -> do
@@ -598,9 +592,8 @@ connectSrv config host = do
                 Nothing -> do
                     lift $ debugM "Pontarius.Xmpp"
                         "No SRV records, using fallback process."
-                    h <- lift $ resolvAndConnectTcp resolvSeed (BSC8.pack $ host)
-                                                    5222
-                    return $ (\h' -> (host, h')) <$> h
+                    lift $ resolvAndConnectTcp resolvSeed (BSC8.pack $ host)
+                                               5222
                 Just srvRecords' -> do
                     lift $ debugM "Pontarius.Xmpp"
                         "SRV records found, performing A/AAAA lookups."
@@ -681,17 +674,12 @@ resolvAndConnectTcp resolvSeed domain port = do
 
 -- Tries `resolvAndConnectTcp' for every SRV record, stopping if a handle is
 -- acquired.
-resolvSrvsAndConnectTcp :: ResolvSeed
-                        -> [(Domain, Int)]
-                        -> IO (Maybe (HostName, Handle))
+resolvSrvsAndConnectTcp :: ResolvSeed -> [(Domain, Int)] -> IO (Maybe Handle)
 resolvSrvsAndConnectTcp _ [] = return Nothing
 resolvSrvsAndConnectTcp resolvSeed ((domain, port):remaining) = do
     result <- resolvAndConnectTcp resolvSeed domain port
     case result of
-        -- The last character of the target is always a dot in SRV records, so
-        -- we drop it. (Presumably the dns library should do that?)
-        Just handle -> return $ Just ( init . Text.unpack $ Text.decodeUtf8 $ domain
-                                     , handle)
+        Just handle -> return $ Just handle
         Nothing -> resolvSrvsAndConnectTcp resolvSeed remaining
 
 

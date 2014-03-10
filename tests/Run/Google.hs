@@ -6,6 +6,7 @@ module Run.Google where
 
 import qualified Data.Configurator as Conf
 import           Network.Xmpp
+import           Network.Xmpp.Lens
 import           System.Exit
 import           System.Log.Logger
 import           Test.HUnit
@@ -13,9 +14,7 @@ import           Network.TLS
 
 import           Run.Config
 
-xmppConf = def {sessionStreamConfiguration =
-    def{tlsParams = (tlsParams def){clientUseServerNameIndication = False}}
-    }
+xmppConf = set tlsServerIdentificationL ("talk.google.com", "") $ def
 
 connectGoogle = do
     conf <- loadConfig

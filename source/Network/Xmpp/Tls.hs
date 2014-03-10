@@ -173,9 +173,9 @@ connectTls :: ResolvConf -- ^ Resolv conf to use (try 'defaultResolvConf' as a
            -> ClientParams  -- ^ TLS parameters to use when securing the connection
            -> String     -- ^ Host to use when connecting (will be resolved
                          -- using SRV records)
-           -> ErrorT XmppFailure IO (String, StreamHandle)
+           -> ErrorT XmppFailure IO StreamHandle
 connectTls config params host = do
-    (hn, h) <- connectSrv config host >>= \h' -> case h' of
+    h <- connectSrv config host >>= \h' -> case h' of
         Nothing -> throwError TcpConnectionFailure
         Just h'' -> return h''
     let hand = handleToStreamHandle h
@@ -185,13 +185,11 @@ connectTls config params host = do
                        csi -> csi
                        }
     (_raw, _snk, psh, recv, ctx) <- tlsinit params' $ mkBackend hand
-    return $ ( hn
-             , StreamHandle { streamSend = catchPush . psh
-                            , streamReceive = wrapExceptions . recv
-                            , streamFlush = contextFlush ctx
-                            , streamClose = bye ctx >> streamClose hand
-                            }
-             )
+    return StreamHandle{ streamSend = catchPush . psh
+                       , streamReceive = wrapExceptions . recv
+                       , streamFlush = contextFlush ctx
+                       , streamClose = bye ctx >> streamClose hand
+                       }
 
 wrapExceptions :: IO a -> IO (Either XmppFailure a)
 wrapExceptions f = Ex.catches (liftM Right $ f)
