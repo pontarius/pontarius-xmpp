@@ -1223,7 +1223,6 @@ instance Default StreamConfiguration where
                               , establishSession  = True
                               , tlsBehaviour      = PreferTls
                               , tlsParams         = xmppDefaultParams
-                              , tlsOverrideHostname = Nothing
                               }
 
 -- | How the client should behave in regards to TLS.
