@@ -594,6 +594,10 @@ connectSrv config host = do
                         "No SRV records, using fallback process."
                     lift $ resolvAndConnectTcp resolvSeed (BSC8.pack $ host)
                                                5222
+                Just [(".", _)] -> do
+                    liftIO $ infoM "Pontarius.Xmpp"
+                                "SRV lookup returned \".\"; service not available"
+                    throwError TcpConnectionFailure
                 Just srvRecords' -> do
                     lift $ debugM "Pontarius.Xmpp"
                         "SRV records found, performing A/AAAA lookups."
