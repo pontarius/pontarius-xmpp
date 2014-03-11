@@ -134,10 +134,14 @@ quote x = BS.concat ["\"",x,"\""]
 saslInit :: Text.Text -> Maybe BS.ByteString -> ErrorT AuthFailure (StateT StreamState IO) ()
 saslInit mechanism payload = do
     r <- lift . pushElement . saslInitE mechanism $
-        Text.decodeUtf8 . B64.encode <$> payload
+        Text.decodeUtf8 . encodeEmpty . B64.encode <$> payload
     case r of
         Right () -> return ()
         Left e  -> throwError $ AuthStreamFailure e
+  where
+    -- §6.4.2
+    encodeEmpty "" = "="
+    encodeEmpty x = x
 
 -- | Pull the next element.
 pullSaslElement :: ErrorT AuthFailure (StateT StreamState IO) SaslElement
