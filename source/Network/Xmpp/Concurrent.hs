@@ -172,8 +172,8 @@ newSession stream config realm mbSasl = runErrorT $ do
     (sStanza, ps) <- initPlugins out $ plugins config
     let stanzaHandler = runHandlers $ List.concat
                         [ inHandler <$> ps
-                        , [ toChan stanzaChan out
-                          , handleIQ iqHands out
+                        , [ toChan stanzaChan sStanza
+                          , handleIQ iqHands sStanza
                           ]
                         , rosterH
                         ]
