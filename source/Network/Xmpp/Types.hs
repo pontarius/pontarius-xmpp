@@ -91,6 +91,7 @@ import           Data.Text (Text)
 import qualified Data.Text as Text
 import           Data.Typeable(Typeable)
 import           Data.XML.Types as XML
+import qualified Data.Text.Encoding as Text
 #if WITH_TEMPLATE_HASKELL
 import           Language.Haskell.TH
 import           Language.Haskell.TH.Quote
@@ -1019,8 +1020,9 @@ jidFromTexts l d r = do
             guard $ Text.all (`Set.notMember` prohibMap) l''
             l''' <- nonEmpty l''
             return $ Just l'''
-    domainPart' <- SP.runStringPrep (SP.namePrepProfile False) d
+    domainPart' <- SP.runStringPrep (SP.namePrepProfile False) (stripSuffix d)
     guard $ validDomainPart domainPart'
+    guard $ validPartLength domainPart'
     domainPart <- nonEmpty domainPart'
     resourcePart <- case r of
         Nothing -> return Nothing
@@ -1036,7 +1038,10 @@ jidFromTexts l d r = do
                                           -- checks
 
     validPartLength :: Text -> Bool
-    validPartLength p = Text.length p > 0 && Text.length p < 1024
+    validPartLength p = Text.length p > 0
+                        && BS.length (Text.encodeUtf8 p) < 1024
+    -- RFC6122 §2.2
+    stripSuffix t = if Text.last t == '.' then Text.init t else t
 
 -- | Returns 'True' if the JID is /bare/, that is, it doesn't have a resource
 -- part, and 'False' otherwise.

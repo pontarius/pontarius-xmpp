@@ -31,22 +31,15 @@ import           Network.Xmpp.Types
 timeout :: Maybe Integer
 timeout = Just 3000000 -- 3 seconds
 
--- | Push a roster item to the server. The values for approved and ask are
--- ignored and all values for subsciption except "remove" are ignored.
-rosterPush :: Item -> Session -> IO (Either IQSendError (Annotated IQResponse))
-rosterPush item session = do
-    let el = pickleElem xpQuery (Query Nothing [fromItem item])
-    sendIQA' timeout Nothing Set Nothing el [] session
-
 -- | Add or update an item to the roster.
 --
 -- To update the item just send the complete set of new data.
-rosterAdd :: Jid -- ^ JID of the item
+rosterSet :: Jid -- ^ JID of the item
           -> Maybe Text -- ^ Name alias
           -> [Text] -- ^ Groups (duplicates will be removed)
           -> Session
           -> IO (Either IQSendError (Annotated IQResponse))
-rosterAdd j n gs session = do
+rosterSet j n gs session = do
     let el = pickleElem xpQuery (Query Nothing
                                  [QueryItem { qiApproved = Nothing
                                             , qiAsk = False
@@ -56,6 +49,14 @@ rosterAdd j n gs session = do
                                             , qiGroups = nub gs
                                             }])
     sendIQA' timeout Nothing Set Nothing el [] session
+
+-- | Synonym to rosterSet
+rosterAdd :: Jid
+          -> Maybe Text
+          -> [Text]
+          -> Session
+          -> IO (Either IQSendError (Annotated IQResponse))
+rosterAdd = rosterSet
 
 -- | Remove an item from the roster. Return 'True' when the item is sucessfully
 -- removed or if it wasn't in the roster to begin with.
@@ -69,6 +70,13 @@ rosterRemove j sess = do
             case res of
                 Right (IQResponseResult IQResult{}, _) -> return True
                 _ -> return False
+  where
+    rosterPush :: Item
+               -> Session
+               -> IO (Either IQSendError (Annotated IQResponse))
+    rosterPush item session = do
+        let el = pickleElem xpQuery (Query Nothing [fromItem item])
+        sendIQA' timeout Nothing Set Nothing el [] session
 
 -- | Retrieve the current Roster state
 getRoster :: Session -> IO Roster
@@ -157,9 +165,13 @@ toItem qi = Item { riApproved = fromMaybe False (qiApproved qi)
                  , riAsk = qiAsk qi
                  , riJid = qiJid qi
                  , riName = qiName qi
-                 , riSubscription = fromMaybe None (qiSubscription qi)
+                 , riSubscription = fromSubscription (qiSubscription qi)
                  , riGroups = nub $ qiGroups qi
                  }
+  where
+    fromSubscription Nothing = None
+    fromSubscription (Just s) | s `elem` [None, To, From, Both] = s
+                              | otherwise = None
 
 fromItem :: Item -> QueryItem
 fromItem i = QueryItem { qiApproved = Nothing
@@ -198,17 +210,15 @@ xpQuery = xpWrap (\(ver_, items_) -> Query ver_ items_ )
 
 xpSubscription :: PU Text Subscription
 xpSubscription = ("xpSubscription", "") <?>
-        xpPartial ( \input -> case subscriptionFromText input of
-                                   Nothing -> Left "Could not parse subscription."
-                                   Just j -> Right j)
-                  subscriptionToText
+        xpIso subscriptionFromText
+              subscriptionToText
   where
-    subscriptionFromText "none" = Just None
-    subscriptionFromText "to" = Just To
-    subscriptionFromText "from" = Just From
-    subscriptionFromText "both" = Just Both
-    subscriptionFromText "remove" = Just Remove
-    subscriptionFromText _ = Nothing
+    subscriptionFromText "none" = None
+    subscriptionFromText "to" = To
+    subscriptionFromText "from" = From
+    subscriptionFromText "both" = Both
+    subscriptionFromText "remove" = Remove
+    subscriptionFromText _ = None
     subscriptionToText None = "none"
     subscriptionToText To = "to"
     subscriptionToText From = "from"

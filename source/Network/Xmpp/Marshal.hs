@@ -400,16 +400,14 @@ xpIQRequestType = ("xpIQRequestType", "") <?>
 
 xpMessageType :: PU Text MessageType
 xpMessageType = ("xpMessageType", "") <?>
-        xpPartial ( \input -> case messageTypeFromText input of
-                                   Nothing -> Left "Could not parse message type."
-                                   Just j -> Right j)
-                  messageTypeToText
+        xpIso messageTypeFromText
+              messageTypeToText
   where
-    messageTypeFromText "chat" = Just Chat
-    messageTypeFromText "groupchat" = Just GroupChat
-    messageTypeFromText "headline" = Just Headline
-    messageTypeFromText "normal" = Just Normal
-    messageTypeFromText _ = Just Normal
+    messageTypeFromText "chat" = Chat
+    messageTypeFromText "groupchat" = GroupChat
+    messageTypeFromText "headline" = Headline
+    messageTypeFromText "normal" = Normal
+    messageTypeFromText _ = Normal
     messageTypeToText Chat = "chat"
     messageTypeToText GroupChat = "groupchat"
     messageTypeToText Headline = "headline"

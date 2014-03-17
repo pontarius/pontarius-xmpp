@@ -6,6 +6,7 @@ import Control.Concurrent.STM
 import Network.Xmpp.Types
 import Network.Xmpp.Concurrent.Types
 import Network.Xmpp.Concurrent.Basic
+import Network.Xmpp.Lens
 
 -- | Read a presence stanza from the inbound stanza channel, discards any other
 -- stanzas. Returns the presence stanza with annotations.
@@ -40,4 +41,11 @@ waitForPresence f s = fst <$> waitForPresenceA (f . fst) s
 
 -- | Send a presence stanza.
 sendPresence :: Presence -> Session -> IO (Either XmppFailure ())
-sendPresence p session = sendStanza (PresenceS p) session
+sendPresence p session = sendStanza (PresenceS checkedP) session
+  where
+    -- | RFC 6121 §3.1.1: When a user sends a presence subscription request to a
+    -- potential instant messaging and presence contact, the value of the 'to'
+    -- attribute MUST be a bare JID rather than a full JID
+    checkedP = case presenceType p of
+        Subscribe -> modify to (fmap toBare) p
+        _ -> p
