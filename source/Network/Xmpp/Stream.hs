@@ -134,10 +134,13 @@ startStream = runErrorT $ do
     response <- ErrorT $ runEventsSink $ streamS expectedTo
     case response of
       Right (ver, from, to, sid, lt, features)
-        | (Text.unpack ver) /= "1.0" ->
+        | versionFromText ver == Nothing -> closeStreamWithError
+                                            StreamUnsupportedVersion Nothing
+                                            "Unspecified version"
+        | let v = versionFromText ver
+          in isJust v && majorVersion (fromJust v) >= 2 ->
             closeStreamWithError StreamUnsupportedVersion Nothing
-                "Unknown version"
-
+              "Non-1.x version"
     -- HACK: We ignore MUST-strength requirement (section 4.7.4. of RFC
     -- 6120) for the sake of compatibility with jabber.org
         --  | lt == Nothing ->
