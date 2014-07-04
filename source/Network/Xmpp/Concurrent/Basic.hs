@@ -1,6 +1,7 @@
 {-# OPTIONS_HADDOCK hide #-}
 module Network.Xmpp.Concurrent.Basic where
 
+import           Control.Applicative
 import           Control.Concurrent.STM
 import qualified Control.Exception as Ex
 import           Control.Monad.State.Strict
@@ -70,3 +71,8 @@ waitForStream Session{streamRef = sr} = atomically $ do
         Plain -> return ()
         Secured -> return ()
         _ -> retry
+
+streamState :: Session -> STM ConnectionState
+streamState Session{streamRef = sr}  = do
+    s <- readTMVar sr
+    streamConnectionState <$> (readTMVar $ unStream s)
