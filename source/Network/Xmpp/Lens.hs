@@ -5,20 +5,32 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FunctionalDependencies #-}
 
--- | Van Laarhoven lenses for XMPP types. The lenses are designed to work with
--- the lens library. This module also provides a few simple accessors ('view',
--- 'modify', 'set' and 'getAll') so you don't need to pull in the
--- lens library to get some use out of them.
+-- | (More than just) Van Laarhoven lenses for XMPP types. The accessors in here
+-- are designed to work with an optics library like lens or lens-family. This
+-- module also provides a few simple functions ('view', 'modify', 'set' and
+-- 'getAll') so you don't need to pull in another library to get some use out
+-- of them.
 --
--- The name of the lenses corresponds to the field name of the data types with
+-- * The name of the lenses corresponds to the field name of the data types with
 -- an upper-case L appended. For documentation of the fields refer to the documentation of the data types (linked in the section header)
+--
+-- * Same goes for Traversals, except they are suffixed with a \'T\'
+--
+-- * Prism generally start with an underscore
+--
+-- /NB/ you do not need to import this module to get access to the optics
+-- defined herein. They are also exported from Network.Xmpp. You only need to
+-- import this module if you want to use the complementary accessor functions
+-- without using an optics library like lens or lens-family
 
 module Network.Xmpp.Lens
        ( Lens
        , Traversal
+       , Prism
+       , Iso
          -- * Accessors
          -- | Reimplementation of the basic lens functions so you don't have to
-         -- bring in all of lens library in to use the lenses
+         -- bring in a lens library to use the optics
 
          -- ** Lenses
        , view
@@ -26,9 +38,27 @@ module Network.Xmpp.Lens
        , set
          -- * Traversals
        , getAll
+         -- * Prisms
+
+         -- ** Construction
+       , prism'
+       , mkLens
+
          -- * Lenses
 
+         -- ** JID
+       , _JidText
+       , _isFull
+       , _isBare
+
          -- ** Stanzas
+       , _IQRequest
+       , _IQResult
+       , _IQError
+       , _Message
+       , _MessageError
+       , _Presence
+       , _PresenceError
        , IsStanza(..)
        , HasStanzaPayload(..)
        , IsErrorStanza(..)
@@ -109,25 +139,39 @@ module Network.Xmpp.Lens
        where
 
 import           Control.Applicative
-import           Data.Functor.Identity(Identity(..))
+import qualified Data.ByteString as BS
+import           Data.Functor.Identity (Identity(..))
 import qualified Data.Map as Map
+import           Data.Profunctor
+import           Data.Text (Text)
 import qualified Data.Text as Text
-import           Data.Text(Text)
-import           Data.XML.Types(Element)
-import           Network.DNS(ResolvConf)
+import           Data.XML.Types (Element)
+import           Network.DNS (ResolvConf)
 import           Network.TLS as TLS
 import           Network.Xmpp.Concurrent.Types
 import           Network.Xmpp.IM.Message
 import           Network.Xmpp.IM.Presence
 import           Network.Xmpp.IM.Roster.Types
 import           Network.Xmpp.Types
-import qualified Data.ByteString as BS
 
 -- | Van-Laarhoven lenses.
 type Lens a b = Functor f => (b -> f b) -> a -> f a
 
 type Traversal a b = Applicative f => (b -> f b) -> a -> f a
 
+type Prism a b = forall p f. (Choice p, Applicative f) => p b (f b) -> p a (f a)
+
+type Iso a b = forall p f. (Profunctor p, Functor f) => p a (f a) -> p b (f b)
+
+prism' :: (b -> s) -> (s -> Maybe b) -> Prism s b
+prism' bs sma = dimap (\s -> maybe (Left s) Right (sma s))
+                      (either pure (fmap bs)) . right'
+
+mkLens :: (a -> b) -> (b -> a ->  a) -> Lens a b
+mkLens get set = \inj x -> fmap (flip set x) (inj $ get x)
+
+mkIso :: (a -> b) -> (b -> a) -> Iso a b
+mkIso to from = dimap from (fmap to)
 
 -- Accessors
 ---------------
@@ -154,9 +198,17 @@ instance Applicative (Collect a) where
 getAll :: Traversal a b -> a -> [b]
 getAll t = getCollection . t (Collect . pure)
 
-
 -- Xmpp Lenses
 --------------------
+
+_JidText :: Prism Text Jid
+_JidText = prism' jidToText jidFromText
+
+_isFull :: Prism Jid Jid
+_isFull = prism' id (\j -> if isFull j then Just j else Nothing)
+
+_isBare :: Prism Jid Jid
+_isBare = prism' toBare (\j -> if isBare j then Just j else Nothing)
 
 class IsStanza s where
     -- | From-attribute of the stanza
@@ -287,6 +339,48 @@ maybeNonempty :: Lens Text (Maybe Text)
 maybeNonempty inj x = (maybe Text.empty id)
                       <$> inj (if Text.null x then Nothing else Just x)
 
+
+_IQRequest :: Prism Stanza IQRequest
+_IQRequest = prism' IQRequestS fromIQRequestS
+  where
+    fromIQRequestS (IQRequestS s) = Just s
+    fromIQRequestS _ = Nothing
+
+_IQResult :: Prism Stanza IQResult
+_IQResult = prism' IQResultS fromIQResultS
+  where
+    fromIQResultS (IQResultS s) = Just s
+    fromIQResultS _ = Nothing
+
+_IQError :: Prism Stanza IQError
+_IQError = prism' IQErrorS fromIQErrorS
+  where
+    fromIQErrorS (IQErrorS s) = Just s
+    fromIQErrorS _ = Nothing
+
+_Message :: Prism Stanza Message
+_Message = prism' MessageS fromMessageS
+  where
+    fromMessageS (MessageS s) = Just s
+    fromMessageS _ = Nothing
+
+_MessageError :: Prism Stanza MessageError
+_MessageError = prism' MessageErrorS fromMessageErrorS
+  where
+    fromMessageErrorS (MessageErrorS s) = Just s
+    fromMessageErrorS _ = Nothing
+
+_Presence :: Prism Stanza Presence
+_Presence = prism' PresenceS fromPresenceS
+  where
+    fromPresenceS (PresenceS s) = Just s
+    fromPresenceS _ = Nothing
+
+_PresenceError :: Prism Stanza PresenceError
+_PresenceError = prism' PresenceErrorS fromPresenceErrorS
+  where
+    fromPresenceErrorS (PresenceErrorS s) = Just s
+    fromPresenceErrorS _ = Nothing
 
 class IsErrorStanza s where
     -- | Error element of the stanza

@@ -4,11 +4,11 @@
 
 module Network.Xmpp.IM.Presence where
 
-import Data.Default
-import Data.Text (Text)
-import Data.XML.Pickle
-import Data.XML.Types
-import Network.Xmpp.Types
+import           Data.Default
+import           Data.Text (Text)
+import           Data.XML.Pickle
+import           Data.XML.Types
+import           Network.Xmpp.Types
 
 data ShowStatus = StatusAway
                 | StatusChat
@@ -53,6 +53,7 @@ xpIMPresence = xpUnliftElems .
                xp3Tuple
                   (xpOption $ xpElemNodes "{jabber:client}show"
                      (xpContent xpShow))
+                  -- TODO: Multiple status elements with different lang tags
                   (xpOption $ xpElemNodes "{jabber:client}status"
                      (xpContent xpText))
                   (xpOption $ xpElemNodes "{jabber:client}priority"

@@ -22,6 +22,7 @@ module Network.Xmpp.Types
     , IQResponse(..)
     , IQResult(..)
     , LangTag (..)
+    , langTagQ
     , langTagFromText
     , langTagToText
     , parseLangTag
@@ -38,6 +39,8 @@ module Network.Xmpp.Types
     , SaslFailure(..)
     , StreamFeatures(..)
     , Stanza(..)
+    , messageS
+    , presenceS
     , StanzaError(..)
     , StanzaErrorCondition(..)
     , StanzaErrorType(..)
@@ -45,6 +48,7 @@ module Network.Xmpp.Types
     , XmppTlsError(..)
     , StreamErrorCondition(..)
     , Version(..)
+    , versionFromText
     , StreamHandle(..)
     , Stream(..)
     , StreamState(..)
@@ -53,6 +57,7 @@ module Network.Xmpp.Types
     , ConnectionDetails(..)
     , StreamConfiguration(..)
     , xmppDefaultParams
+    , xmppDefaultParamsStrong
     , Jid(..)
 #if WITH_TEMPLATE_HASKELL
     , jidQ
@@ -704,10 +709,10 @@ data StreamFeatures = StreamFeatures
 
 -- | Signals the state of the stream connection.
 data ConnectionState
-    = Closed  -- ^ No stream has been established
+    = Closed  -- ^ Stream has not been established yet
     | Plain   -- ^ Stream established, but not secured via TLS
     | Secured -- ^ Stream established and secured via TLS
-    | Finished -- ^ Stream is closed
+    | Finished -- ^ Stream was closed
       deriving (Show, Eq, Typeable)
 
 -- | Defines operations for sending, receiving, flushing, and closing on a
