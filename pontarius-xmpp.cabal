@@ -50,12 +50,14 @@ Library
                , dns                  >=0.3.0
                , hslogger             >=1.1.0
                , iproute              >=1.2.4
+               , lens-family
                , lifted-base          >=0.1.0.1
                , mtl                  >=2.0.0.0
                , network              >=2.3.1.0
+               , profunctors          >= 4
                , pureMD5              >=2.1.2.1
-               , resourcet            >=0.3.0
                , random               >=1.0.0.0
+               , resourcet            >=0.3.0
                , split                >=0.1.2.3
                , stm                  >=2.4
                , stringprep           >=1.0.0
@@ -64,12 +66,10 @@ Library
                , transformers         >=0.2.2.0
                , unbounded-delays     >=0.1
                , void                 >=0.5.5
-               , xml-types            >=0.3.1
+               , x509-system          >=1.4
                , xml-conduit          >=1.1.0.7
                , xml-picklers         >=0.3.3
-               , x509-system          >=1.4
-               , profunctors          >= 4
-               , lens-family
+               , xml-types            >=0.3.1
 
   If impl(ghc ==7.0.1) {
     Build-Depends: bytestring         >=0.9.1.9 && <=0.9.2.1

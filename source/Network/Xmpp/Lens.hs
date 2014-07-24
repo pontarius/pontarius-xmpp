@@ -33,9 +33,9 @@ module Network.Xmpp.Lens
          -- bring in a lens library to use the optics
 
          -- ** Lenses
-       , view
+       , LF.view
        , modify
-       , set
+       , LF.set
          -- * Traversals
        , getAll
          -- * Prisms
@@ -43,7 +43,7 @@ module Network.Xmpp.Lens
          -- ** Construction
        , prism'
        , mkLens
-
+       , mkIso
          -- * Lenses
 
          -- ** JID
@@ -146,6 +146,7 @@ import           Data.Profunctor
 import           Data.Text (Text)
 import qualified Data.Text as Text
 import           Data.XML.Types (Element)
+import qualified Lens.Family2 as LF
 import           Network.DNS (ResolvConf)
 import           Network.TLS as TLS
 import           Network.Xmpp.Concurrent.Types
@@ -155,13 +156,15 @@ import           Network.Xmpp.IM.Roster.Types
 import           Network.Xmpp.Types
 
 -- | Van-Laarhoven lenses.
+{-# DEPRECATED Lens "Use Lens' from lens-family or lens" #-}
 type Lens a b = Functor f => (b -> f b) -> a -> f a
 
+{-# DEPRECATED Traversal "Use Traversal' from lens-family or lens" #-}
 type Traversal a b = Applicative f => (b -> f b) -> a -> f a
 
 type Prism a b = forall p f. (Choice p, Applicative f) => p b (f b) -> p a (f a)
 
-type Iso a b = forall p f. (Profunctor p, Functor f) => p a (f a) -> p b (f b)
+type Iso a b = forall p f. (Profunctor p, Functor f) => p b (f b) -> p a (f a)
 
 prism' :: (b -> s) -> (s -> Maybe b) -> Prism s b
 prism' bs sma = dimap (\s -> maybe (Left s) Right (sma s))
@@ -171,22 +174,7 @@ mkLens :: (a -> b) -> (b -> a ->  a) -> Lens a b
 mkLens get set = \inj x -> fmap (flip set x) (inj $ get x)
 
 mkIso :: (a -> b) -> (b -> a) -> Iso a b
-mkIso to from = dimap from (fmap to)
-
--- Accessors
----------------
-
--- | Read the value the lens is pointing to
-view :: Lens a b -> a -> b
-view l x = getConst $ l Const x
-
--- | Replace the value the lens is pointing to
-set :: Lens a b -> b -> a -> a
-set l b x = modify l (const b) x
-
--- | modify the Value(s) a Lens or Traversal is pointing to
-modify :: Traversal a b -> (b -> b) -> a -> a
-modify t f = runIdentity . t (Identity . f)
+mkIso t f = dimap t (fmap f)
 
 newtype Collect a b = Collect {getCollection :: [a]} deriving Functor
 
@@ -194,9 +182,14 @@ instance Applicative (Collect a) where
     pure _ = Collect []
     Collect xs <*> Collect ys = Collect $ xs ++ ys
 
+{-# DEPRECATED getAll "use toListOf (lens-family), partsOf (lens) or similar" #-}
 -- | Return all the values a Traversal is pointing to in a list
 getAll :: Traversal a b -> a -> [b]
 getAll t = getCollection . t (Collect . pure)
+
+{-# DEPRECATED modify "use over (lens-family, lens)" #-}
+modify :: Traversal a b -> (b -> b) -> a -> a
+modify t f = runIdentity . t (Identity . f)
 
 -- Xmpp Lenses
 --------------------

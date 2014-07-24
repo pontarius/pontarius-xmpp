@@ -44,6 +44,7 @@ import           System.IO
 import           System.Log.Logger
 import           System.Random (randomRIO)
 import           Text.XML.Stream.Parse as XP
+import           Lens.Family2 (over)
 
 import           Network.Xmpp.Utilities
 import qualified Network.Xmpp.Lens as L
@@ -553,7 +554,7 @@ createStream realm config = do
     tlsIdentL = L.tlsParamsL . L.clientServerIdentificationL
     updateHost host ("", _) = (host, "")
     updateHost _ hst = hst
-    maybeSetTlsHost host = L.modify tlsIdentL (updateHost host)
+    maybeSetTlsHost host = over tlsIdentL (updateHost host)
 
 -- Connects using the specified method. Returns the Handle acquired, if any.
 connect :: HostName -> StreamConfiguration -> ErrorT XmppFailure IO

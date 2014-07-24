@@ -79,7 +79,6 @@ module Network.Xmpp.Types
     , parseJid
     , TlsBehaviour(..)
     , AuthFailure(..)
-    , versionFromText
     ) where
 
 import           Control.Applicative ((<$>), (<|>), many)
