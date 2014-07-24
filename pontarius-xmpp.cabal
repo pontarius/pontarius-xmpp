@@ -93,6 +93,7 @@ Library
                  , Network.Xmpp.Concurrent.Types
                  , Network.Xmpp.IM.Message
                  , Network.Xmpp.IM.Presence
+                 , Network.Xmpp.IM.PresenceTracker
                  , Network.Xmpp.IM.Roster
                  , Network.Xmpp.IM.Roster.Types
                  , Network.Xmpp.Marshal
