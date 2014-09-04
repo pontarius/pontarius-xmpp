@@ -3,10 +3,12 @@ module Network.Xmpp.Concurrent.Presence where
 
 import Control.Applicative ((<$>))
 import Control.Concurrent.STM
-import Network.Xmpp.Types
-import Network.Xmpp.Concurrent.Types
+import Lens.Family2 hiding (to)
+import Lens.Family2.Stock
 import Network.Xmpp.Concurrent.Basic
+import Network.Xmpp.Concurrent.Types
 import Network.Xmpp.Lens
+import Network.Xmpp.Types
 
 -- | Read a presence stanza from the inbound stanza channel, discards any other
 -- stanzas. Returns the presence stanza with annotations.
@@ -47,5 +49,5 @@ sendPresence p session = sendStanza (PresenceS checkedP) session
     -- potential instant messaging and presence contact, the value of the 'to'
     -- attribute MUST be a bare JID rather than a full JID
     checkedP = case presenceType p of
-        Subscribe -> modify to (fmap toBare) p
+        Subscribe -> p & to . _Just %~ toBare
         _ -> p

@@ -17,6 +17,7 @@ import           Data.Typeable
 import           Data.XML.Types (Element)
 import           Network
 import           Network.Xmpp.IM.Roster.Types
+import           Network.Xmpp.IM.PresenceTracker.Types
 import           Network.Xmpp.Sasl.Types
 import           Network.Xmpp.Types
 
@@ -84,6 +85,8 @@ data SessionConfiguration = SessionConfiguration
       -- | Enable roster handling according to rfc 6121. See 'getRoster' to
       -- acquire the current roster
     , enableRoster               :: Bool
+      -- | Track incomming presence stancas.
+    , enablePresenceTracking     :: Bool
     }
 
 instance Default SessionConfiguration where
@@ -97,6 +100,7 @@ instance Default SessionConfiguration where
                                          return . Text.pack . show $ curId
                                , plugins = []
                                , enableRoster = True
+                               , enablePresenceTracking = True
                                }
 
 -- | Handlers to be run when the Xmpp session ends and when the Xmpp connection is
@@ -130,6 +134,7 @@ data Session = Session
     , eventHandlers :: TMVar EventHandlers
     , stopThreads :: IO ()
     , rosterRef :: TVar Roster
+    , presenceRef :: TVar Peers
     , conf :: SessionConfiguration
     , sendStanza' :: Stanza -> IO (Either XmppFailure ())
     , sRealm :: HostName

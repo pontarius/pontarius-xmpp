@@ -40,6 +40,8 @@ import           Network.Xmpp.Concurrent.Threads
 import           Network.Xmpp.Concurrent.Types
 import           Network.Xmpp.IM.Roster
 import           Network.Xmpp.IM.Roster.Types
+import           Network.Xmpp.IM.PresenceTracker
+import           Network.Xmpp.IM.PresenceTracker.Types
 import           Network.Xmpp.Sasl
 import           Network.Xmpp.Sasl.Types
 import           Network.Xmpp.Stream
@@ -165,30 +167,37 @@ newSession stream config realm mbSasl = runErrorT $ do
     iqHands  <- lift $ newTVarIO (Map.empty, Map.empty)
     eh <- lift $ newEmptyTMVarIO
     ros <- liftIO . newTVarIO $ Roster Nothing Map.empty
+    peers <- liftIO . newTVarIO $ Peers Map.empty
     rew <- lift $ newTVarIO 60
     let out = writeStanza writeSem
     let rosterH = if (enableRoster config) then [handleRoster ros out]
                                            else []
+    let presenceH = if (enablePresenceTracking config)
+                    then [handlePresence peers out]
+                    else []
     (sStanza, ps) <- initPlugins out $ plugins config
     let stanzaHandler = runHandlers $ List.concat
                         [ inHandler <$> ps
                         , [ toChan stanzaChan sStanza
                           , handleIQ iqHands sStanza
                           ]
+                        , presenceH
                         , rosterH
                         ]
-    (kill, streamState, reader) <- ErrorT $ startThreadsWith writeSem stanzaHandler eh stream
+    (kill, sState, reader) <- ErrorT $ startThreadsWith writeSem stanzaHandler
+                                                        eh stream
     idGen <- liftIO $ sessionStanzaIDs config
     let sess = Session { stanzaCh = stanzaChan
                        , iqHandlers = iqHands
                        , writeSemaphore = writeSem
                        , readerThread = reader
                        , idGenerator = idGen
-                       , streamRef = streamState
+                       , streamRef = sState
                        , eventHandlers = eh
                        , stopThreads = kill
                        , conf = config
                        , rosterRef = ros
+                       , presenceRef = peers
                        , sendStanza' = sStanza
                        , sRealm = realm
                        , sSaslCredentials = mbSasl
@@ -196,9 +205,11 @@ newSession stream config realm mbSasl = runErrorT $ do
                        }
     liftIO . atomically $ putTMVar eh $ EventHandlers { connectionClosedHandler =
                                                  onConnectionClosed config sess }
+    -- Pass the new session to the plugins so they can "tie the knot"
     liftIO . forM_ ps $ \p -> onSessionUp p sess
     return sess
   where
+    -- Pass the stanza out action to each plugin
     initPlugins out' = go out' []
       where
         go out ps' [] = return (out, ps')
@@ -268,8 +279,6 @@ simpleAuth uname pwd = Just (\cstate ->
                               then [plain uname Nothing pwd]
                               else []
                             , Nothing)
-
-
 
 -- | Reconnect immediately with the stored settings. Returns @Just@ the error
 -- when the reconnect attempt fails and Nothing when no failure was encountered.
