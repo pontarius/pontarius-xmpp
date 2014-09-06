@@ -24,9 +24,15 @@ module Network.Xmpp.IM
   , getRoster
   , rosterAdd
   , rosterRemove
+  -- * presenceTracker
+  , isPeerAvailable
+  , getEntityStatus
+  , getAvailablePeers
+  , getPeerEntities
   ) where
 
 import Network.Xmpp.IM.Message
 import Network.Xmpp.IM.Presence
 import Network.Xmpp.IM.Roster
 import Network.Xmpp.IM.Roster.Types
+import Network.Xmpp.IM.PresenceTracker

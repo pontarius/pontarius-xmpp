@@ -14,3 +14,7 @@ import           Network.Xmpp.IM.Presence
 -- * The inner map keys' local and domain part coincide with the outer keys'
 newtype Peers = Peers { unPeers :: Map Jid (Map Jid (Maybe IMPresence))}
                 deriving (Show)
+
+data PeerStatus = PeerAvailable (Maybe IMPresence)
+                | PeerUnavailable
+                  deriving (Show)

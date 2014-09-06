@@ -20,10 +20,6 @@ import           Network.Xmpp.IM.PresenceTracker.Types
 _peers :: Iso Peers (Map Jid (Map Jid (Maybe IMPresence)))
 _peers = mkIso unPeers Peers
 
-data PeerStatus = PeerAvailable (Maybe IMPresence)
-                | PeerUnavailable
-                  deriving (Show)
-
 _PeerAvailable :: Prism PeerStatus (Maybe IMPresence)
 _PeerAvailable = prism' PeerAvailable fromPeerAvailable
   where
@@ -52,11 +48,14 @@ maybeMap = mkIso maybeToMap mapToMaybe
     mapToMaybe m | Map.null m = Nothing
                  | otherwise = Just m
 
+
+-- | Status of give full JID
 peerStatusL :: Jid -> Lens' Peers PeerStatus
 peerStatusL j = _peers . at (toBare j)  . maybeMap . at j . _PeerStatus
 
 peerMapPeerAvailable :: Jid -> Peers -> Bool
-peerMapPeerAvailable j =  not . nullOf (peerStatusL j . _PeerAvailable)
+peerMapPeerAvailable j | isFull j = not . nullOf (peerStatusL j . _PeerAvailable)
+                       | otherwise = not . nullOf (_peers . at j . _Just)
 
 handlePresence :: TVar Peers -> StanzaHandler
 handlePresence peers _ st _  = do
@@ -74,5 +73,26 @@ handlePresence peers _ st _  = do
                 _ -> return ()
         return [(st, [])]
 
-isPeerAvailable :: Jid -> TVar Peers -> STM Bool
-isPeerAvailable j peerRef = peerMapPeerAvailable j <$> readTVar peerRef
+-- | Check whether a given jid is available
+isPeerAvailable :: Jid -> Session -> STM Bool
+isPeerAvailable j sess = peerMapPeerAvailable j <$> readTVar (presenceRef sess)
+
+-- | Get status of given full JID
+getEntityStatus :: Jid -> Session -> STM PeerStatus
+getEntityStatus j sess = do
+    peers <- readTVar (presenceRef sess)
+    return $ peers ^. peerStatusL j
+
+-- | Get list of (bare) Jids with available entities
+getAvailablePeers :: Session -> STM [Jid]
+getAvailablePeers sess = do
+    Peers peers <- readTVar (presenceRef sess)
+    return $ Map.keys peers
+
+-- | Get all available full JIDs to the given JID
+getPeerEntities :: Jid -> Session -> STM (Map Jid (Maybe IMPresence))
+getPeerEntities j sess = do
+    Peers peers <- readTVar (presenceRef sess)
+    case Map.lookup (toBare j) peers of
+        Nothing -> return Map.empty
+        Just js -> return js
