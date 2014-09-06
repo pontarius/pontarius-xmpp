@@ -98,26 +98,37 @@ initRoster session = do
                           "Server did not return a roster: "
         Just roster -> atomically $ writeTVar (rosterRef session) roster
 
-handleRoster :: TVar Roster -> StanzaHandler
-handleRoster ref out sta _ = case sta of
-    IQRequestS (iqr@IQRequest{iqRequestPayload =
-                                   iqb@Element{elementName = en}})
-        | nameNamespace en == Just "jabber:iq:roster" -> do
-            case iqRequestFrom iqr of
-                Just _from -> return [(sta, [])] -- Don't handle roster pushes
-                                                 -- from unauthorized sources
-                Nothing -> case unpickleElem xpQuery iqb of
-                    Right Query{ queryVer = v
-                               , queryItems = [update]
-                               } -> do
-                        handleUpdate v update
-                        _ <- out $ result iqr
-                        return []
-                    _ -> do
-                        errorM "Pontarius.Xmpp" "Invalid roster query"
-                        _ <- out $ badRequest iqr
-                        return []
-    _ -> return [(sta, [])]
+handleRoster :: Maybe Jid -> TVar Roster -> StanzaHandler
+handleRoster mbBoundJid ref out sta _ = do
+    case sta of
+        IQRequestS (iqr@IQRequest{iqRequestPayload =
+                                       iqb@Element{elementName = en}})
+            | nameNamespace en == Just "jabber:iq:roster" -> do
+                let doHandle = case (iqRequestFrom iqr, mbBoundJid) of
+                        -- We don't need to check our own JID when the IQ
+                        -- request was sent without a from address
+                        (Nothing, _) -> True
+                        -- We don't have a Jid bound, so we can't verify that
+                        -- the from address matches our bare jid
+                        (Just _fr, Nothing) -> False
+                        -- Check that the from address matches our bare jid
+                        (Just fr, Just boundJid) | fr == toBare boundJid -> True
+                                                 | otherwise -> False
+                if doHandle
+                    then case unpickleElem xpQuery iqb of
+                        Right Query{ queryVer = v
+                                   , queryItems = [update]
+                                   } -> do
+                            handleUpdate v update
+                            _ <- out $ result iqr
+                            return []
+                        _ -> do
+                            errorM "Pontarius.Xmpp" "Invalid roster query"
+                            _ <- out $ badRequest iqr
+                            return []
+                    -- Don't handle roster pushes from unauthorized sources
+                    else return [(sta, [])]
+        _ -> return [(sta, [])]
   where
     handleUpdate v' update = atomically $ modifyTVar ref $ \(Roster v is) ->
         Roster (v' `mplus` v) $ case qiSubscription update of

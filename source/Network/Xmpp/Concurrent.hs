@@ -170,19 +170,20 @@ newSession stream config realm mbSasl = runErrorT $ do
     peers <- liftIO . newTVarIO $ Peers Map.empty
     rew <- lift $ newTVarIO 60
     let out = writeStanza writeSem
-    let rosterH = if (enableRoster config) then [handleRoster ros out]
-                                           else []
+    boundJid <- liftIO $ withStream' (gets streamJid) stream
+    let rosterH = if (enableRoster config)
+                  then [handleRoster boundJid ros out]
+                  else []
     let presenceH = if (enablePresenceTracking config)
                     then [handlePresence peers out]
                     else []
     (sStanza, ps) <- initPlugins out $ plugins config
     let stanzaHandler = runHandlers $ List.concat
                         [ inHandler <$> ps
-                        , [ toChan stanzaChan sStanza
-                          , handleIQ iqHands sStanza
-                          ]
+                        , [ toChan stanzaChan sStanza]
                         , presenceH
                         , rosterH
+                        , [ handleIQ iqHands sStanza]
                         ]
     (kill, sState, reader) <- ErrorT $ startThreadsWith writeSem stanzaHandler
                                                         eh stream
