@@ -168,4 +168,6 @@ data IQRequestTicket = IQRequestTicket
 data IQSendError = IQSendError XmppFailure -- There was an error sending the IQ
                                            -- stanza
                  | IQTimeOut -- No answer was received during the allotted time
-                   deriving (Show, Eq)
+                   deriving (Show, Eq, Typeable)
+
+instance Ex.Exception IQSendError

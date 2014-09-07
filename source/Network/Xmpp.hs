@@ -194,11 +194,15 @@ module Network.Xmpp
   , IQResult(..)
   , IQError(..)
   , IQResponse(..)
+  , IQRequestClass(..)
+  , IQRequestHandler
   , sendIQ
   , sendIQ'
+  , sendIQRequest
   , answerIQ
   , iqResult
   , listenIQ
+  , runIQHandler
   , unlistenIQ
   -- * Errors
   , StanzaErrorType(..)
@@ -208,6 +212,7 @@ module Network.Xmpp
   , StanzaErrorCondition(..)
   , SaslFailure(..)
   , IQSendError(..)
+  , IQRequestError(..)
   -- * Threads
   , dupSession
   -- * Lenses

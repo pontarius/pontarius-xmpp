@@ -1,3 +1,6 @@
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# OPTIONS_HADDOCK hide #-}
 module Network.Xmpp.Concurrent.IQ where
 
@@ -6,12 +9,20 @@ import           Control.Concurrent (forkIO)
 import           Control.Concurrent.STM
 import           Control.Concurrent.Thread.Delay (delay)
 import           Control.Monad
+import           Control.Monad.Except
+import           Control.Monad.Trans
 import qualified Data.Map as Map
+import           Data.Maybe
 import           Data.Text (Text)
+import           Data.XML.Pickle
 import           Data.XML.Types
+import           Lens.Family2 (toListOf, (&), (^.))
 import           Network.Xmpp.Concurrent.Basic
 import           Network.Xmpp.Concurrent.Types
+import           Network.Xmpp.Lens
+import           Network.Xmpp.Stanza
 import           Network.Xmpp.Types
+import           System.Log.Logger
 
 -- | Sends an IQ, returns an STM action that returns the first inbound IQ with a
 -- matching ID that has type @result@ or @error@ or Nothing if the timeout was
@@ -30,9 +41,9 @@ sendIQ :: Maybe Integer -- ^ Timeout . When the timeout is reached the response
        -> [ExtendedAttribute] -- ^ Additional stanza attributes
        -> Session
        -> IO (Either XmppFailure (STM (Maybe (Annotated IQResponse))))
-sendIQ timeOut to tp lang body attrs session = do
+sendIQ timeOut t tp lang body attrs session = do
     newId <- idGenerator session
-    j <- case to of
+    j <- case t of
         Just t -> return $ Right t
         Nothing -> Left <$> getJid session
     ref <- atomically $ do
@@ -41,7 +52,7 @@ sendIQ timeOut to tp lang body attrs session = do
         (byNS, byId) <- readTVar (iqHandlers session)
         writeTVar (iqHandlers session) (byNS, Map.insert newId value byId)
         return resRef
-    res <- sendStanza (IQRequestS $ IQRequest newId Nothing to lang tp body attrs)
+    res <- sendStanza (IQRequestS $ IQRequest newId Nothing t lang tp body attrs)
                       session
     case res of
         Right () -> do
@@ -138,3 +149,64 @@ answerIQ :: IQRequestTicket
          -> [ExtendedAttribute]
          -> IO (Maybe (Either XmppFailure ()))
 answerIQ = answerTicket
+
+
+-- Class
+
+class IQRequestClass a where
+    data IQResponseType a
+    pickleRequest :: PU Element a
+    pickleResponse :: PU [Element] (IQResponseType a)
+    requestType :: a -> IQRequestType
+    requestNamespace :: a -> Text
+
+data IQRequestError = IQRequestSendError XmppFailure
+                    | IQRequestTimeout
+                    | IQRequestUnpickleError UnpickleError
+                      deriving Show
+
+-- | Send an IQ request. May throw IQSendError, UnpickleError,
+
+sendIQRequest  :: (IQRequestClass a, MonadError IQRequestError m, MonadIO m) =>
+                  Maybe Integer
+               -> Maybe Jid
+               -> a
+               -> Session
+               -> m (Either IQError (IQResponseType a))
+sendIQRequest timeout t req con = do
+    mbRes <- liftIO $ sendIQ' timeout t (requestType req) Nothing
+                              (pickle pickleRequest req) [] con
+    case mbRes of
+        Left (IQTimeOut) -> throwError IQRequestTimeout
+        Left (IQSendError e) -> throwError $ IQRequestSendError e
+        Right (IQResponseError e) -> return $ Left e
+        Right (IQResponseResult res) ->
+              case unpickle pickleResponse (res & toListOf payloadT) of
+                   Left e -> throwError $ IQRequestUnpickleError e
+                   Right r -> return $ Right r
+
+type IQRequestHandler a = a -> IO (Either StanzaError (IQResponseType a))
+
+runIQHandler :: IQRequestClass a =>
+                IQRequestHandler a
+             -> Session
+             -> IO ()
+runIQHandler (handler :: a -> IO (Either StanzaError (IQResponseType a)))
+             sess = do
+    let prx = undefined :: a
+        ns = (requestNamespace prx)
+    mbChan <- listenIQ (requestType prx) ns sess
+    case mbChan of
+        Left _ -> warningM "Pontarius.Xmpp" $ "IQ namespace " ++ show ns
+                            ++ " is already handled"
+        Right getNext -> forever $ do
+            ticket <- atomically getNext
+            case unpickle pickleRequest (iqRequestBody ticket ^. payload) of
+                Left _ -> answerIQ ticket (Left $ mkStanzaError BadRequest) []
+                Right req -> do
+                    res <- handler req
+                    case res of
+                        Left e -> answerIQ ticket (Left e) []
+                        Right r -> do
+                            let answer = (pickle pickleResponse r)
+                            answerIQ ticket (Right $ listToMaybe answer ) []
