@@ -30,6 +30,7 @@ module Network.Xmpp.Types
     , Message(..)
     , message
     , MessageError(..)
+    , messageError
     , MessageType(..)
     , Presence(..)
     , presence
@@ -40,6 +41,7 @@ module Network.Xmpp.Types
     , StreamFeatures(..)
     , Stanza(..)
     , messageS
+    , messageErrorS
     , presenceS
     , StanzaError(..)
     , StanzaErrorCondition(..)
@@ -236,6 +238,27 @@ data MessageError = MessageError { messageErrorID          :: !(Maybe Text)
                                  , messageErrorAttributes  :: ![ExtendedAttribute]
                                  } deriving (Eq, Show)
 
+messageError :: MessageError
+messageError = MessageError { messageErrorID          = Nothing
+                            , messageErrorFrom        = Nothing
+                            , messageErrorTo          = Nothing
+                            , messageErrorLangTag     = Nothing
+                            , messageErrorStanzaError =
+                                StanzaError { stanzaErrorType = Cancel
+                                            , stanzaErrorCondition =
+                                                  ServiceUnavailable
+                                            , stanzaErrorText = Nothing
+                                            , stanzaErrorApplicationSpecificCondition = Nothing
+                                            }
+                            , messageErrorPayload     = []
+                            , messageErrorAttributes  = []
+                            }
+
+instance Default MessageError where
+    def = messageError
+
+messageErrorS :: Stanza
+messageErrorS = MessageErrorS def
 
 -- | The type of a Message being sent
 -- (<http://xmpp.org/rfcs/rfc6121.html#message-syntax-type>)
