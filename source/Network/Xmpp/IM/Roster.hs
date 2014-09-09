@@ -79,12 +79,12 @@ rosterRemove j sess = do
         sendIQA' timeout Nothing Set Nothing el [] session
 
 -- | Retrieve the current Roster state (STM version)
-getRoster' :: Session -> STM Roster
-getRoster' session = readTVar (rosterRef session)
+getRosterSTM :: Session -> STM Roster
+getRosterSTM session = readTVar (rosterRef session)
 
 -- | Retrieve the current Roster state
 getRoster :: Session -> IO Roster
-getRoster session = atomically $ getRoster' session
+getRoster session = atomically $ getRosterSTM session
 
 -- | Get the initial roster or refresh the roster. You don't need to call this
 -- on your own.

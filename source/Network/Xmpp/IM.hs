@@ -22,6 +22,7 @@ module Network.Xmpp.IM
   , Roster(..)
   , Item(..)
   , getRoster
+  , getRosterSTM
   , rosterAdd
   , rosterRemove
   -- * presenceTracker
