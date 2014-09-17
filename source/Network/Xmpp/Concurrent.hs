@@ -175,7 +175,7 @@ newSession stream config realm mbSasl = runErrorT $ do
                   then [handleRoster boundJid ros out]
                   else []
     let presenceH = if (enablePresenceTracking config)
-                    then [handlePresence peers out]
+                    then [handlePresence (onPresenceChange config) peers out]
                     else []
     (sStanza, ps) <- initPlugins out $ plugins config
     let stanzaHandler = runHandlers $ List.concat

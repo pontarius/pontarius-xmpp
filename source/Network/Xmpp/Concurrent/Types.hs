@@ -87,6 +87,7 @@ data SessionConfiguration = SessionConfiguration
     , enableRoster               :: Bool
       -- | Track incomming presence stancas.
     , enablePresenceTracking     :: Bool
+    , onPresenceChange           :: Maybe (PeerStatus -> PeerStatus -> IO ())
     }
 
 instance Default SessionConfiguration where
@@ -101,6 +102,7 @@ instance Default SessionConfiguration where
                                , plugins = []
                                , enableRoster = True
                                , enablePresenceTracking = True
+                               , onPresenceChange = Nothing
                                }
 
 -- | Handlers to be run when the Xmpp session ends and when the Xmpp connection is

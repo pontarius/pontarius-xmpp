@@ -13,12 +13,12 @@ import           Network.Xmpp.Types
 data ShowStatus = StatusAway
                 | StatusChat
                 | StatusDnd
-                | StatusXa deriving (Read, Show)
+                | StatusXa deriving (Read, Show, Eq)
 
 data IMPresence = IMP { showStatus :: Maybe ShowStatus
                       , status     :: Maybe Text
                       , priority   :: Maybe Int
-                      } deriving Show
+                      } deriving (Show, Eq)
 
 imPresence :: IMPresence
 imPresence = IMP { showStatus = Nothing

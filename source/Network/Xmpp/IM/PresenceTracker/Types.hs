@@ -17,4 +17,4 @@ newtype Peers = Peers { unPeers :: Map Jid (Map Jid (Maybe IMPresence))}
 
 data PeerStatus = PeerAvailable (Maybe IMPresence)
                 | PeerUnavailable
-                  deriving (Show)
+                  deriving (Show, Eq)
