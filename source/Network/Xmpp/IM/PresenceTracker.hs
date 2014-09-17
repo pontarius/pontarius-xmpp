@@ -59,7 +59,7 @@ peerMapPeerAvailable :: Jid -> Peers -> Bool
 peerMapPeerAvailable j | isFull j = not . nullOf (peerStatusL j . _PeerAvailable)
                        | otherwise = not . nullOf (_peers . at j . _Just)
 
-handlePresence :: Maybe (PeerStatus -> PeerStatus -> IO ())
+handlePresence :: Maybe (Jid -> PeerStatus -> PeerStatus -> IO ())
                -> TVar Peers
                -> StanzaHandler
 handlePresence onChange peers _ st _  = do
@@ -82,7 +82,7 @@ handlePresence onChange peers _ st _  = do
             return oldStatus
         unless (os == newStatus) $ case onChange of
             Nothing -> return ()
-            Just oc -> void . forkIO $ oc os newStatus
+            Just oc -> void . forkIO $ oc fr os newStatus
         return ()
 
 -- | Check whether a given jid is available
