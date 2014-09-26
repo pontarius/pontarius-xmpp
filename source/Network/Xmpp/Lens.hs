@@ -94,6 +94,7 @@ module Network.Xmpp.Lens
        , sessionStanzaIDsL
        , ensableRosterL
        , pluginsL
+       , onPresenceChangeL
          -- ** IM
          -- *** Roster
          -- **** 'Roster'
@@ -152,6 +153,7 @@ import           Network.TLS as TLS
 import           Network.Xmpp.Concurrent.Types
 import           Network.Xmpp.IM.Message
 import           Network.Xmpp.IM.Presence
+import           Network.Xmpp.IM.PresenceTracker.Types
 import           Network.Xmpp.IM.Roster.Types
 import           Network.Xmpp.Types
 
@@ -537,6 +539,11 @@ ensableRosterL inj sc@SessionConfiguration{enableRoster = x}
 pluginsL :: Lens SessionConfiguration [Plugin]
 pluginsL inj sc@SessionConfiguration{plugins = x}
     = (\x' -> sc{plugins = x'}) <$> inj x
+
+onPresenceChangeL :: Lens SessionConfiguration (Maybe ( Jid -> PeerStatus
+                                                        -> PeerStatus -> IO ()))
+onPresenceChangeL inj sc@SessionConfiguration{onPresenceChange = x}
+    = (\x' -> sc{onPresenceChange = x'}) <$> inj x
 
 -- | Access clientServerIdentification inside tlsParams inside streamConfiguration
 tlsServerIdentificationL  :: Lens SessionConfiguration (String, BS.ByteString)

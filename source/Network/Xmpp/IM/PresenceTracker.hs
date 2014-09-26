@@ -2,8 +2,10 @@
 module Network.Xmpp.IM.PresenceTracker where
 
 import           Control.Applicative
+import           Control.Concurrent
 import           Control.Concurrent.STM
-import           Data.Foldable
+import           Control.Monad
+import qualified Data.Foldable as Foldable
 import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import           Data.Maybe
@@ -57,21 +59,31 @@ peerMapPeerAvailable :: Jid -> Peers -> Bool
 peerMapPeerAvailable j | isFull j = not . nullOf (peerStatusL j . _PeerAvailable)
                        | otherwise = not . nullOf (_peers . at j . _Just)
 
-handlePresence :: TVar Peers -> StanzaHandler
-handlePresence peers _ st _  = do
+handlePresence :: Maybe (Jid -> PeerStatus -> PeerStatus -> IO ())
+               -> TVar Peers
+               -> StanzaHandler
+handlePresence onChange peers _ st _  = do
         let mbPr = do
                 pr <- st ^? _Presence -- Only act on presence stanzas
                 fr <- pr ^? from . _Just . _isFull -- Only act on full JIDs
                 return (pr, fr)
-        forM_ mbPr $ \(pr, fr) ->
+        Foldable.forM_ mbPr $ \(pr, fr) ->
             case presenceType pr of
-                Available -> atomically . modifyTVar peers
-                                 $ set (peerStatusL fr)
-                                       (PeerAvailable (getIMPresence pr))
-                Unavailable -> atomically . modifyTVar peers
-                                 $ set (peerStatusL fr) PeerUnavailable
+                Available -> setStatus fr   (PeerAvailable (getIMPresence pr))
+                Unavailable -> setStatus fr PeerUnavailable
                 _ -> return ()
         return [(st, [])]
+  where
+    setStatus fr newStatus = do
+        os <- atomically $ do
+            ps <- readTVar peers
+            let oldStatus = ps ^. peerStatusL fr
+            writeTVar peers $ ps & set (peerStatusL fr) newStatus
+            return oldStatus
+        unless (os == newStatus) $ case onChange of
+            Nothing -> return ()
+            Just oc -> void . forkIO $ oc fr os newStatus
+        return ()
 
 -- | Check whether a given jid is available
 isPeerAvailable :: Jid -> Session -> STM Bool

@@ -87,6 +87,15 @@ data SessionConfiguration = SessionConfiguration
     , enableRoster               :: Bool
       -- | Track incomming presence stancas.
     , enablePresenceTracking     :: Bool
+      -- | Callback that is invoked when the presence status of a peer changes,
+      -- i.e. it comes online, goes offline or its IM presence changes. The
+      -- arguments are the (full) JID of the peer, the old state and the new
+      -- state. The function is called in a new thread to avoid blocking
+      -- handling stanzas
+    , onPresenceChange           :: Maybe ( Jid
+                                          -> PeerStatus
+                                          -> PeerStatus
+                                          -> IO ())
     }
 
 instance Default SessionConfiguration where
@@ -101,6 +110,7 @@ instance Default SessionConfiguration where
                                , plugins = []
                                , enableRoster = True
                                , enablePresenceTracking = True
+                               , onPresenceChange = Nothing
                                }
 
 -- | Handlers to be run when the Xmpp session ends and when the Xmpp connection is
