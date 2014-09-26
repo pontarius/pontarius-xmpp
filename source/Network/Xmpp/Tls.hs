@@ -107,12 +107,12 @@ tls con = fmap join -- We can have Left values both from exceptions and the
         modify (\s -> s{streamConnectionState = Secured})
         return ()
 
-client :: (MonadIO m, CPRG rng) => Params -> rng -> Backend -> m Context
+client :: (MonadIO m, CPRG rng) => ClientParams -> rng -> Backend -> m Context
 client params gen backend  = do
     contextNew backend params gen
 
 tlsinit :: (MonadIO m, MonadIO m1) =>
-        TLSParams
+        ClientParams
      -> Backend
      -> m ( Source m1 BS.ByteString
           , Sink BS.ByteString m1 ()
@@ -164,7 +164,7 @@ mkReadBuffer recv = do
 -- seem to use it.
 connectTls :: ResolvConf -- ^ Resolv conf to use (try 'defaultResolvConf' as a
                          -- default)
-           -> TLSParams  -- ^ TLS parameters to use when securing the connection
+           -> ClientParams  -- ^ TLS parameters to use when securing the connection
            -> String     -- ^ Host to use when connecting (will be resolved
                          -- using SRV records)
            -> ErrorT XmppFailure IO StreamHandle
