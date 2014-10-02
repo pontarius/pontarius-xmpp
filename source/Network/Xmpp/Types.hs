@@ -22,7 +22,9 @@ module Network.Xmpp.Types
     , IQResponse(..)
     , IQResult(..)
     , LangTag (..)
+#if WITH_TEMPLATE_HASKELL
     , langTagQ
+#endif
     , langTagFromText
     , langTagToText
     , parseLangTag
