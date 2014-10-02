@@ -1,6 +1,7 @@
 {-# OPTIONS_HADDOCK hide #-}
 {-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 module Network.Xmpp.Sasl.Common where
 
