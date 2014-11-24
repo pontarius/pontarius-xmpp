@@ -187,6 +187,7 @@ newSession stream config realm mbSasl = runErrorT $ do
                         ]
     (kill, sState, reader) <- ErrorT $ startThreadsWith writeSem stanzaHandler
                                                         eh stream
+                                                        (keepAlive config)
     idGen <- liftIO $ sessionStanzaIDs config
     let sess = Session { stanzaCh = stanzaChan
                        , iqHandlers = iqHands

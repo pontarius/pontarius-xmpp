@@ -96,6 +96,9 @@ data SessionConfiguration = SessionConfiguration
                                           -> PeerStatus
                                           -> PeerStatus
                                           -> IO ())
+      -- | How often to send keep-alives
+      --   'Nothing' disables keep-alive
+    , keepAlive                  :: Maybe Int
     }
 
 instance Default SessionConfiguration where
@@ -111,6 +114,7 @@ instance Default SessionConfiguration where
                                , enableRoster = True
                                , enablePresenceTracking = True
                                , onPresenceChange = Nothing
+                               , keepAlive = Just 30
                                }
 
 -- | Handlers to be run when the Xmpp session ends and when the Xmpp connection is
