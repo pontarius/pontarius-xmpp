@@ -9,7 +9,7 @@ import           Control.Concurrent (forkIO)
 import           Control.Concurrent.STM
 import           Control.Concurrent.Thread.Delay (delay)
 import           Control.Monad
-import           Control.Monad.Except
+import           Control.Monad.Error
 import           Control.Monad.Trans
 import qualified Data.Map as Map
 import           Data.Maybe
