@@ -86,14 +86,15 @@ startThreadsWith :: TMVar (BS.ByteString -> IO (Either XmppFailure ()))
                  -> (Stanza -> IO ())
                  -> TMVar EventHandlers
                  -> Stream
+                 -> Maybe Int
                  -> IO (Either XmppFailure (IO (),
                                             TMVar Stream,
                                             ThreadId))
-startThreadsWith writeSem stanzaHandler eh con = do
+startThreadsWith writeSem stanzaHandler eh con keepAlive = do
     -- read' <- withStream' (gets $ streamSend . streamHandle) con
     -- writeSem <- newTMVarIO read'
     conS <- newTMVarIO con
-    cp <- forkIO $ connPersist writeSem
+    cp <- forkIO $ connPersist keepAlive writeSem
     rdw <- forkIO $ readWorker stanzaHandler (noCon eh) conS
     return $ Right ( killConnection [rdw, cp]
                    , conS
@@ -115,9 +116,10 @@ startThreadsWith writeSem stanzaHandler eh con = do
 
 -- Acquires the write lock, pushes a space, and releases the lock.
 -- | Sends a blank space every 30 seconds to keep the connection alive.
-connPersist :: TMVar (BS.ByteString -> IO a) -> IO ()
-connPersist sem = forever $ do
+connPersist :: Maybe Int -> TMVar (BS.ByteString -> IO a) -> IO ()
+connPersist (Just delay) sem = forever $ do
     pushBS <- atomically $ takeTMVar sem
     _ <- pushBS " "
     atomically $ putTMVar sem pushBS
-    threadDelay 30000000 -- 30s
+    threadDelay (delay*1000000)
+connPersist Nothing _ = return ()
