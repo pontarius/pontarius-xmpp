@@ -21,7 +21,7 @@ import           Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BSC8
 import           Data.Char (isSpace)
-import           Data.Conduit
+import           Data.Conduit hiding (connect)
 import qualified Data.Conduit.Internal as DCI
 import qualified Data.Conduit.List as CL
 import           Data.IP
@@ -260,7 +260,7 @@ sourceStreamHandle s = loopRead $ streamReceive s
 bufferSrc :: Source (ErrorT XmppFailure IO) o
           -> IO (ConduitM i o (ErrorT XmppFailure IO) ())
 bufferSrc src = do
-    ref <- newTMVarIO $ DCI.ResumableSource src (return ())
+    ref <- newTMVarIO $ DCI.newResumableSource src
     let go = do
             dt <- liftIO $ Ex.bracketOnError
                       (atomically $ takeTMVar ref)
@@ -281,7 +281,7 @@ bufferSrc src = do
                 Right (Just d) -> yield d >> go
     return go
   where
-    zeroResumableSource = DCI.ResumableSource zeroSource (return ())
+    zeroResumableSource = DCI.newResumableSource zeroSource
 
 -- Reads the (partial) stream:stream and the server features from the stream.
 -- Returns the (unvalidated) stream attributes, the unparsed element, or
