@@ -110,9 +110,8 @@ tls con = fmap join -- We can have Left values both from exceptions and the
         modify (\s -> s{streamConnectionState = Secured})
         return ()
 
-client :: (MonadIO m, CPRG rng) => ClientParams -> rng -> Backend -> m Context
-client params gen backend  = do
-    contextNew backend params gen
+client :: MonadIO m => ClientParams -> Backend -> m Context
+client params backend = contextNew backend params
 
 tlsinit :: (MonadIO m, MonadIO m1) =>
         ClientParams
@@ -125,12 +124,12 @@ tlsinit :: (MonadIO m, MonadIO m1) =>
           )
 tlsinit params backend = do
     liftIO $ debugM "Pontarius.Xmpp.Tls" "TLS with debug mode enabled."
-    gen <- liftIO (cprgCreate <$> createEntropyPool :: IO SystemRNG)
+    -- gen <- liftIO (cprgCreate <$> createEntropyPool :: IO SystemRNG)
     sysCStore <- liftIO getSystemCertificateStore
     let params' = params{clientShared =
                       (clientShared params){ sharedCAStore =
                           sysCStore <> sharedCAStore (clientShared params)}}
-    con <- client params' gen backend
+    con <- client params' backend
     handshake con
     let src = forever $ do
             dt <- liftIO $ recvData con
