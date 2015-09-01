@@ -37,6 +37,8 @@ import           Data.XML.Types
 import qualified GHC.IO.Exception as GIE
 import           Network
 import           Network.DNS hiding (encode, lookup)
+import qualified Network.Socket as S
+import           Network.Socket (AddrInfo)
 import           Network.Xmpp.Marshal
 import           Network.Xmpp.Types
 import           System.IO
@@ -563,7 +565,7 @@ connect realm config = do
     case connectionDetails config of
         UseHost host port -> lift $ do
             debugM "Pontarius.Xmpp" "Connecting to configured address."
-            h <- connectTcp $ [(host, port)]
+            h <- resolveAndConnectTcp host port
             case h of
                 Nothing -> return Nothing
                 Just h' -> do
@@ -596,20 +598,23 @@ connectSrv config host = do
                 Nothing -> do
                     lift $ debugM "Pontarius.Xmpp"
                         "No SRV records, using fallback process."
-                    lift $ resolvAndConnectTcp resolvSeed (BSC8.pack $ host)
-                                               5222
+                    lift $ resolveAndConnectTcp host 5222
                 Just [(".", _)] -> do
                     liftIO $ infoM "Pontarius.Xmpp"
                                 "SRV lookup returned \".\"; service not available"
                     throwError TcpConnectionFailure
                 Just srvRecords' -> do
                     lift $ debugM "Pontarius.Xmpp"
-                        "SRV records found, performing A/AAAA lookups."
-                    lift $ resolvSrvsAndConnectTcp resolvSeed srvRecords'
+                        "SRV records found, looking up host."
+                    lift $ resolvSrvsAndConnectTcp
+                           ( for srvRecords' $
+                              \(domain, port) -> ( BSC8.unpack domain
+                                                 , fromIntegral port))
         Nothing -> do
                 lift $ errorM "Pontarius.Xmpp"
                     "The hostname could not be validated."
                 throwError XmppIllegalTcpDetails
+  where for = flip fmap
 
 showPort :: PortID -> String
 #if MIN_VERSION_network(2, 4, 1)
@@ -622,22 +627,28 @@ showPort (UnixSocket x) = "UnixSocket " ++ show x
 #endif
 #endif
 
+connectHandle :: AddrInfo -> IO Handle
+connectHandle addrInfo = do
+    s <- S.socket (S.addrFamily addrInfo) S.Stream S.defaultProtocol
+    S.connect s (S.addrAddress addrInfo)
+    S.socketToHandle s ReadWriteMode
+
 -- Connects to a list of addresses and ports. Surpresses any exceptions from
 -- connectTcp.
-connectTcp :: [(HostName, PortID)] -> IO (Maybe Handle)
+connectTcp :: [AddrInfo] -> IO (Maybe Handle)
 connectTcp [] = return Nothing
-connectTcp ((address, port):remainder) = do
+connectTcp (addrInfo:remainder) = do
+    let addr = (show $ S.addrAddress addrInfo)
     result <- Ex.try $ (do
-        debugM "Pontarius.Xmpp" $ "Connecting to " ++ address ++ " on port " ++
-            (showPort port) ++ "."
-        connectTo address port) :: IO (Either Ex.IOException Handle)
+        debugM "Pontarius.Xmpp" $ "Connecting to " ++ addr
+        connectHandle addrInfo) :: IO (Either Ex.IOException Handle)
     case result of
         Right handle -> do
-            debugM "Pontarius.Xmpp" $ "Successfully connected to " ++ show address
+            debugM "Pontarius.Xmpp" $ "Successfully connected to " ++ addr
             return $ Just handle
         Left _ -> do
             debugM "Pontarius.Xmpp" $
-                "Connection to " ++ show address ++ " could not be established."
+                "Connection to " ++ addr ++ " could not be established."
             connectTcp remainder
 
 #if MIN_VERSION_dns(1, 0, 0)
@@ -651,44 +662,26 @@ fixDnsResult = id
 -- Makes an AAAA query to acquire a IPs, and tries to connect to all of them. If
 -- a handle can not be acquired this way, an analogous A query is performed.
 -- Surpresses all IO exceptions.
-resolvAndConnectTcp :: ResolvSeed -> Domain -> Int -> IO (Maybe Handle)
-resolvAndConnectTcp resolvSeed domain port = do
-    aaaaResults <- (Ex.try $ rethrowErrorCall $ withResolver resolvSeed $
-                        \resolver -> fmap fixDnsResult $ lookupAAAA resolver domain) :: IO (Either Ex.IOException (Maybe [IPv6]))
-    handle <- case aaaaResults of
-        Right Nothing -> return Nothing
-        Right (Just ipv6s) -> connectTcp $
-                                  map (\ip -> ( show ip
-                                                , PortNumber $ fromIntegral port))
-                                      ipv6s
-        Left _e -> return Nothing
-    case handle of
-        Nothing -> do
-            aResults <- (Ex.try $ rethrowErrorCall $ withResolver resolvSeed $
-                             \resolver -> fmap fixDnsResult $ lookupA resolver domain) :: IO (Either Ex.IOException (Maybe [IPv4]))
-            handle' <- case aResults of
-                Left  _       -> return Nothing
-                Right Nothing -> return Nothing
-
-                Right (Just ipv4s) -> connectTcp $
-                                          map (\ip -> (show ip
-                                                        , PortNumber
-                                                          $ fromIntegral port))
-                                              ipv4s
-            case handle' of
-                Nothing -> return Nothing
-                Just handle'' -> return $ Just handle''
-        Just handle' -> return $ Just handle'
+resolveAndConnectTcp :: HostName -> PortNumber -> IO (Maybe Handle)
+resolveAndConnectTcp hostName port = do
+    ais <- S.getAddrInfo Nothing (Just hostName) Nothing
+    connectTcp $ setPort <$> ais
+  where
+    setPort ai = ai {S.addrAddress = setAddressPort port (S.addrAddress ai)}
+    setAddressPort port (S.SockAddrInet _ addr) = S.SockAddrInet port addr
+    setAddressPort port (S.SockAddrInet6 _ flow addr scope) =
+        S.SockAddrInet6 port flow addr scope
+    setAddressPort _ addr = addr
 
 -- Tries `resolvAndConnectTcp' for every SRV record, stopping if a handle is
 -- acquired.
-resolvSrvsAndConnectTcp :: ResolvSeed -> [(Domain, Int)] -> IO (Maybe Handle)
-resolvSrvsAndConnectTcp _ [] = return Nothing
-resolvSrvsAndConnectTcp resolvSeed ((domain, port):remaining) = do
-    result <- resolvAndConnectTcp resolvSeed domain port
+resolvSrvsAndConnectTcp :: [(HostName, PortNumber)] -> IO (Maybe Handle)
+resolvSrvsAndConnectTcp [] = return Nothing
+resolvSrvsAndConnectTcp ((domain, port):remaining) = do
+    result <- resolveAndConnectTcp domain port
     case result of
         Just handle -> return $ Just handle
-        Nothing -> resolvSrvsAndConnectTcp resolvSeed remaining
+        Nothing -> resolvSrvsAndConnectTcp remaining
 
 
 -- The DNS functions may make error calls. This function catches any such

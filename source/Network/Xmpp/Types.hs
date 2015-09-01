@@ -1192,7 +1192,7 @@ resourceprepProfile = SP.Profile { SP.maps = [SP.b1]
 data ConnectionDetails = UseRealm -- ^ Use realm to resolv host. This is the
                                   -- default.
                        | UseSrv HostName -- ^ Use this hostname for a SRV lookup
-                       | UseHost HostName PortID -- ^ Use specified host
+                       | UseHost HostName PortNumber -- ^ Use specified host
                        | UseConnection (ErrorT XmppFailure IO StreamHandle)
                          -- ^ Use a custom method to create a StreamHandle. This
                          -- will also be used by reconnect. For example, to
