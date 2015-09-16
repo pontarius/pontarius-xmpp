@@ -59,6 +59,9 @@ module Network.Xmpp
   , endSession
   , waitForStream
   , streamState
+    -- ** Feature
+  , StreamFeatures(..)
+  , getFeatures
     -- ** Authentication handlers
     -- | The use of 'scramSha1' is /recommended/, but 'digestMd5' might be
     -- useful for interaction with older implementations.

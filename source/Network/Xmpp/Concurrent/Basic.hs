@@ -56,7 +56,7 @@ getJid Session{streamRef = st} = do
     s <- atomically $ readTMVar st
     withStream' (gets streamJid) s
 
--- | Return the JID assigned to us by the server
+-- | Return the stream features the server announced
 getFeatures :: Session -> IO StreamFeatures
 getFeatures Session{streamRef = st} = do
     s <- atomically $ readTMVar st
