@@ -350,18 +350,21 @@ xpStream = xpElemAttrs
 -- Pickler/Unpickler for the stream features - TLS, SASL, and the rest.
 xpStreamFeatures :: PU [Node] StreamFeatures
 xpStreamFeatures = ("xpStreamFeatures","") <?> xpWrap
-    (\(tls, sasl, ver, rest) -> StreamFeatures tls (mbl sasl) ver rest)
-    (\(StreamFeatures tls sasl ver rest) -> (tls, lmb sasl, ver, rest))
+    (\(tls, sasl, ver, preAppr, rest)
+       -> StreamFeatures tls (mbl sasl) ver preAppr rest)
+    (\(StreamFeatures tls sasl ver preAppr rest)
+     -> (tls, lmb sasl, ver, preAppr, rest))
     (xpElemNodes
          (Name
              "features"
              (Just "http://etherx.jabber.org/streams")
              (Just "stream")
          )
-         (xp4Tuple
+         (xp5Tuple
               (xpOption pickleTlsFeature)
               (xpOption pickleSaslFeature)
               (xpOption pickleRosterVer)
+              picklePreApproval
               (xpAll xpElemVerbatim)
          )
     )
@@ -377,6 +380,8 @@ xpStreamFeatures = ("xpStreamFeatures","") <?> xpWrap
              "{urn:ietf:params:xml:ns:xmpp-sasl}mechanism" (xpContent xpId))
     pickleRosterVer = xpElemNodes "{urn:xmpp:features:rosterver}ver" $
                            xpElemExists "{urn:xmpp:features:rosterver}optional"
+    picklePreApproval = xpElemExists "{urn:xmpp:features:pre-approval}sub"
+
 
 xpJid :: PU Text Jid
 xpJid = ("xpJid", "") <?>

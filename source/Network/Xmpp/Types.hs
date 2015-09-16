@@ -728,6 +728,7 @@ data StreamFeatures = StreamFeatures
                                             -- when the server sends the
                                             -- non-standard "optional" element
                                             -- (observed with prosody).
+    , streamSubPreApproval :: !Bool -- ^ Does the server support pre-approval
     , streamOtherFeatures  :: ![Element] -- TODO: All feature elements instead?
     } deriving (Eq, Show)
 
