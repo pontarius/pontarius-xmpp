@@ -720,17 +720,38 @@ langTagParser = do
     tagChars = ['a'..'z'] ++ ['A'..'Z']
 
 data StreamFeatures = StreamFeatures
-    { streamTls            :: !(Maybe Bool)
-    , streamSaslMechanisms :: ![Text.Text]
-    , rosterVer            :: !(Maybe Bool) -- ^ @Nothing@ for no roster
-                                            -- versioning, @Just False@ for
-                                            -- roster versioning and @Just True@
-                                            -- when the server sends the
-                                            -- non-standard "optional" element
-                                            -- (observed with prosody).
-    , streamSubPreApproval :: !Bool -- ^ Does the server support pre-approval
-    , streamOtherFeatures  :: ![Element] -- TODO: All feature elements instead?
+    { streamFeaturesTls         :: !(Maybe Bool)
+    , streamFeaturesMechanisms  :: ![Text.Text]
+    , streamFeaturesRosterVer   :: !(Maybe Bool)
+      -- ^ @Nothing@ for no roster versioning, @Just False@ for roster
+      -- versioning and @Just True@ when the server sends the non-standard
+      -- "optional" element (observed with prosody).
+    , streamFeaturesPreApproval :: !Bool -- ^ Does the server support pre-approval
+    , streamFeaturesOther       :: ![Element]
+      -- TODO: All feature elements instead?
     } deriving (Eq, Show)
+
+instance Monoid StreamFeatures where
+    mempty = StreamFeatures
+               { streamFeaturesTls         = Nothing
+               , streamFeaturesMechanisms  = []
+               , streamFeaturesRosterVer   = Nothing
+               , streamFeaturesPreApproval = False
+               , streamFeaturesOther       = []
+               }
+    mappend sf1 sf2 =
+        StreamFeatures
+               { streamFeaturesTls = mplusOn streamFeaturesTls
+               , streamFeaturesMechanisms  = mplusOn streamFeaturesMechanisms
+               , streamFeaturesRosterVer   = mplusOn streamFeaturesRosterVer
+               , streamFeaturesPreApproval =
+                 streamFeaturesPreApproval sf1
+                 || streamFeaturesPreApproval sf2
+               , streamFeaturesOther       = mplusOn streamFeaturesOther
+
+               }
+      where
+        mplusOn f = f sf1 `mplus` f sf2
 
 -- | Signals the state of the stream connection.
 data ConnectionState

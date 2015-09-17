@@ -143,7 +143,7 @@ handleRoster mbBoundJid ref out sta _ = do
 
 retrieveRoster :: Maybe Roster -> Session -> IO (Maybe Roster)
 retrieveRoster mbOldRoster sess = do
-    useVersioning <- isJust . rosterVer <$> getFeatures sess
+    useVersioning <- isJust . streamFeaturesRosterVer <$> getFeatures sess
     let version = if useVersioning
                 then case mbOldRoster of
                       Nothing -> Just ""

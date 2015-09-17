@@ -70,6 +70,14 @@ module Network.Xmpp.Lens
        , stanzaErrorConditionL
        , stanzaErrorTextL
        , stanzaErrorApplL
+         -- ** Stream
+
+         -- ** Stream Features
+       , featureTlsL
+       , featureMechanismsL
+       , featureRosterVerL
+       , featurePreApprovalL
+       , featuresOtherL
          -- *** 'StreamConfiguration'
        , preferredLangL
        , toJidL
@@ -159,10 +167,10 @@ import           Network.Xmpp.Types
 
 -- | Van-Laarhoven lenses.
 {-# DEPRECATED Lens "Use Lens' from lens-family or lens" #-}
-type Lens a b = Functor f => (b -> f b) -> a -> f a
+type Lens a b = forall f . Functor f => (b -> f b) -> a -> f a
 
 {-# DEPRECATED Traversal "Use Traversal' from lens-family or lens" #-}
-type Traversal a b = Applicative f => (b -> f b) -> a -> f a
+type Traversal a b = forall f . Applicative f => (b -> f b) -> a -> f a
 
 type Prism a b = forall p f. (Choice p, Applicative f) => p b (f b) -> p a (f a)
 
@@ -577,7 +585,7 @@ verL inj r@Roster{ver = x} = (\x' -> r{ver = x'}) <$> inj x
 itemsL :: Lens Roster (Map.Map Jid Item)
 itemsL inj r@Roster{items = x} = (\x' -> r{items = x'}) <$> inj x
 
--- Item
+-- Service Discovery Item
 ----------------------
 
 riApprovedL :: Lens Item Bool
@@ -682,3 +690,25 @@ statusL inj m@IMP{status = bc} =
 priorityL :: Lens IMPresence (Maybe Int)
 priorityL inj m@IMP{priority = bc} =
     (\bc' -> m{priority = bc'}) <$> inj bc
+
+-- StreamFeatures
+-------------------
+
+featureTlsL :: Lens StreamFeatures (Maybe Bool)
+featureTlsL = mkLens streamFeaturesTls (\x sf -> sf{streamFeaturesTls = x})
+
+featureMechanismsL :: Lens StreamFeatures [Text]
+featureMechanismsL =
+    mkLens streamFeaturesMechanisms (\x sf -> sf{streamFeaturesMechanisms = x})
+
+featureRosterVerL :: Lens StreamFeatures (Maybe Bool)
+featureRosterVerL =
+    mkLens streamFeaturesRosterVer (\x sf -> sf{streamFeaturesRosterVer = x})
+
+featurePreApprovalL :: Lens StreamFeatures Bool
+featurePreApprovalL =
+    mkLens streamFeaturesPreApproval (\x sf -> sf{streamFeaturesPreApproval = x})
+
+featuresOtherL :: Lens StreamFeatures [Element]
+featuresOtherL =
+    mkLens streamFeaturesOther (\x sf -> sf{streamFeaturesOther = x})

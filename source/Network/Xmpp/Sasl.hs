@@ -39,7 +39,7 @@ xmppSasl handlers stream = do
     flip withStream stream $ do
         -- Chooses the first mechanism that is acceptable by both the client and the
         -- server.
-        mechanisms <- gets $ streamSaslMechanisms . streamFeatures
+        mechanisms <- gets $ streamFeaturesMechanisms . streamFeatures
         case (filter (\(name, _) -> name `elem` mechanisms)) handlers of
             [] -> return $ Right $ Just $ AuthNoAcceptableMechanism mechanisms
             (_name, handler):_ -> do

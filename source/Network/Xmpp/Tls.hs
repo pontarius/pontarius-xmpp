@@ -71,7 +71,7 @@ tls con = fmap join -- We can have Left values both from exceptions and the
             liftIO $ errorM "Pontarius.Xmpp.Tls" "The stream is already secured."
             throwError TlsStreamSecured
     features <- lift $ gets streamFeatures
-    case (tlsBehaviour conf, streamTls features) of
+    case (tlsBehaviour conf, streamFeaturesTls features) of
         (RequireTls  , Just _   ) -> startTls
         (RequireTls  , Nothing  ) -> throwError TlsNoServerSupport
         (PreferTls   , Just _   ) -> startTls
