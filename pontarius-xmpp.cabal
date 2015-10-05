@@ -154,6 +154,8 @@ Test-Suite tests
   Other-modules: Tests.Arbitrary
                , Tests.Arbitrary.Xml
                , Tests.Arbitrary.Xmpp
+               , Tests.Parsers
+               , Tests.Picklers
   ghc-options: -Wall -O2 -fno-warn-orphans
 
 Test-Suite doctest

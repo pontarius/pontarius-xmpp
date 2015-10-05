@@ -60,7 +60,7 @@ run = void $ do
             Nothing -> UseRealm
             Just srv -> case port of
                 Nothing -> UseSrv srv
-                Just p -> UseHost srv (PortNumber $ fromIntegral p)
+                Just p -> UseHost srv (fromIntegral p)
     _ <- configuredLoglevel conf
     mbSess1 <- session realm (simpleAuth uname1 pwd1)
                                 ((xmppConfig conDetails))
