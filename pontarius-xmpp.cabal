@@ -152,6 +152,7 @@ Test-Suite tests
                , xml-types
   HS-Source-Dirs: tests
   Other-modules: Tests.Arbitrary
+               , Tests.Arbitrary.Common
                , Tests.Arbitrary.Xml
                , Tests.Arbitrary.Xmpp
                , Tests.Parsers
