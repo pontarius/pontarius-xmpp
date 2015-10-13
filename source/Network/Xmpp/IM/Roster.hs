@@ -98,8 +98,11 @@ initRoster session = do
                           "Server did not return a roster: "
         Just roster -> atomically $ writeTVar (rosterRef session) roster
 
-handleRoster :: Maybe Jid -> TVar Roster -> StanzaHandler
-handleRoster mbBoundJid ref out sta _ = do
+handleRoster :: Maybe Jid
+             -> TVar Roster
+             -> (QueryItem -> IO ())
+             -> StanzaHandler
+handleRoster mbBoundJid ref onUpdate out sta _ = do
     case sta of
         IQRequestS (iqr@IQRequest{iqRequestPayload =
                                        iqb@Element{elementName = en}})
@@ -120,6 +123,7 @@ handleRoster mbBoundJid ref out sta _ = do
                                    , queryItems = [update]
                                    } -> do
                             handleUpdate v update
+                            onUpdate update
                             _ <- out $ result iqr
                             return []
                         _ -> do

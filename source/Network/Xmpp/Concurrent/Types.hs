@@ -85,6 +85,9 @@ data SessionConfiguration = SessionConfiguration
       -- | Enable roster handling according to rfc 6121. See 'getRoster' to
       -- acquire the current roster
     , enableRoster               :: Bool
+      -- | Callback called on a roster Push. The callback is called after the
+      -- roster is updated
+    , onRosterPush               :: Maybe (QueryItem -> IO ())
       -- | Track incomming presence stancas.
     , enablePresenceTracking     :: Bool
       -- | Callback that is invoked when the presence status of a peer changes,
@@ -112,6 +115,7 @@ instance Default SessionConfiguration where
                                          return . Text.pack . show $ curId
                                , plugins = []
                                , enableRoster = True
+                               , onRosterPush = Nothing
                                , enablePresenceTracking = True
                                , onPresenceChange = Nothing
                                , keepAlive = Just 30

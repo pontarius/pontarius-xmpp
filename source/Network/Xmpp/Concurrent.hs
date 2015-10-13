@@ -172,7 +172,9 @@ newSession stream config realm mbSasl = runErrorT $ do
     let out = writeStanza writeSem
     boundJid <- liftIO $ withStream' (gets streamJid) stream
     let rosterH = if (enableRoster config)
-                  then [handleRoster boundJid ros out]
+                  then [handleRoster boundJid ros
+                          (fromMaybe (\_ -> return ()) $ onRosterPush config)
+                          out]
                   else []
     let presenceH = if (enablePresenceTracking config)
                     then [handlePresence (onPresenceChange config) peers out]
