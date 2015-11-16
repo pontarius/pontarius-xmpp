@@ -85,6 +85,8 @@ data SessionConfiguration = SessionConfiguration
       -- | Enable roster handling according to rfc 6121. See 'getRoster' to
       -- acquire the current roster
     , enableRoster               :: Bool
+      -- | Initial Roster to user when versioned rosters are supported
+    , initialRoster              :: IO (Maybe Roster)
       -- | Callback called on a roster Push. The callback is called after the
       -- roster is updated
     , onRosterPush               :: Maybe (QueryItem -> IO ())
@@ -115,6 +117,7 @@ instance Default SessionConfiguration where
                                          return . Text.pack . show $ curId
                                , plugins = []
                                , enableRoster = True
+                               , initialRoster = return Nothing
                                , onRosterPush = Nothing
                                , enablePresenceTracking = True
                                , onPresenceChange = Nothing

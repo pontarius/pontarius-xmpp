@@ -166,13 +166,20 @@ newSession stream config realm mbSasl = runErrorT $ do
     stanzaChan <- lift newTChanIO
     iqHands  <- lift $ newTVarIO (Map.empty, Map.empty)
     eh <- lift $ newEmptyTMVarIO
-    ros <- liftIO . newTVarIO $ Roster Nothing Map.empty
+    ros <- case enableRoster config of
+                False -> return $ Roster Nothing Map.empty
+                True -> do
+                    mbRos <- liftIO $ initialRoster config
+                    return $ case mbRos of
+                              Nothing -> Roster Nothing Map.empty
+                              Just r -> r
+    rosRef <- liftIO $ newTVarIO ros
     peers <- liftIO . newTVarIO $ Peers Map.empty
     rew <- lift $ newTVarIO 60
     let out = writeStanza writeSem
     boundJid <- liftIO $ withStream' (gets streamJid) stream
     let rosterH = if (enableRoster config)
-                  then [handleRoster boundJid ros
+                  then [handleRoster boundJid rosRef
                           (fromMaybe (\_ -> return ()) $ onRosterPush config)
                           out]
                   else []
@@ -200,7 +207,7 @@ newSession stream config realm mbSasl = runErrorT $ do
                        , eventHandlers = eh
                        , stopThreads = kill
                        , conf = config
-                       , rosterRef = ros
+                       , rosterRef = rosRef
                        , presenceRef = peers
                        , sendStanza' = sStanza
                        , sRealm = realm
