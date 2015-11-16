@@ -83,7 +83,6 @@ module Network.Xmpp.Lens
        , toJidL
        , connectionDetailsL
        , resolvConfL
-       , establishSessionL
        , tlsBehaviourL
        , tlsParamsL
          -- **** TLS parameters
@@ -488,10 +487,6 @@ connectionDetailsL inj sc@StreamConfiguration{connectionDetails = x}
 resolvConfL :: Lens StreamConfiguration ResolvConf
 resolvConfL inj sc@StreamConfiguration{resolvConf = x}
     = (\x' -> sc{resolvConf = x'}) <$> inj x
-
-establishSessionL :: Lens StreamConfiguration Bool
-establishSessionL inj sc@StreamConfiguration{establishSession = x}
-    = (\x' -> sc{establishSession = x'}) <$> inj x
 
 tlsBehaviourL :: Lens StreamConfiguration TlsBehaviour
 tlsBehaviourL inj sc@StreamConfiguration{tlsBehaviour = x}

@@ -350,21 +350,22 @@ xpStream = xpElemAttrs
 -- Pickler/Unpickler for the stream features - TLS, SASL, and the rest.
 xpStreamFeatures :: PU [Node] StreamFeatures
 xpStreamFeatures = ("xpStreamFeatures","") <?> xpWrap
-    (\(tls, sasl, ver, preAppr, rest)
-       -> StreamFeatures tls (mbl sasl) ver preAppr rest)
-    (\(StreamFeatures tls sasl ver preAppr rest)
-     -> (tls, lmb sasl, ver, preAppr, rest))
+    (\(tls, sasl, ver, preAppr, session, rest)
+       -> StreamFeatures tls (mbl sasl) ver preAppr session rest )
+    (\(StreamFeatures tls sasl ver preAppr session rest)
+     -> (tls, lmb sasl, ver, preAppr, session, rest))
     (xpElemNodes
          (Name
              "features"
              (Just "http://etherx.jabber.org/streams")
              (Just "stream")
          )
-         (xp5Tuple
+         (xp6Tuple
               (xpOption pickleTlsFeature)
               (xpOption pickleSaslFeature)
               (xpOption pickleRosterVer)
               picklePreApproval
+              (xpOption pickleSessionFeature)
               (xpAll xpElemVerbatim)
          )
     )
@@ -381,6 +382,10 @@ xpStreamFeatures = ("xpStreamFeatures","") <?> xpWrap
     pickleRosterVer = xpElemNodes "{urn:xmpp:features:rosterver}ver" $
                            xpElemExists "{urn:xmpp:features:rosterver}optional"
     picklePreApproval = xpElemExists "{urn:xmpp:features:pre-approval}sub"
+    pickleSessionFeature :: PU [Node] Bool
+    pickleSessionFeature = ("pickleSessionFeature", "") <?>
+        xpElemNodes "{urn:ietf:params:xml:ns:xmpp-session}session"
+        (xpElemExists "{urn:ietf:params:xml:ns:xmpp-session}optional")
 
 
 xpJid :: PU Text Jid

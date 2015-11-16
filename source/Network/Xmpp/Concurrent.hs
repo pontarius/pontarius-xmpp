@@ -207,8 +207,8 @@ newSession stream config realm mbSasl = runErrorT $ do
                        , sSaslCredentials = mbSasl
                        , reconnectWait = rew
                        }
-    liftIO . atomically $ putTMVar eh $ EventHandlers { connectionClosedHandler =
-                                                 onConnectionClosed config sess }
+    liftIO . atomically $ putTMVar eh $
+        EventHandlers { connectionClosedHandler = onConnectionClosed config sess }
     -- Pass the new session to the plugins so they can "tie the knot"
     liftIO . forM_ ps $ \p -> onSessionUp p sess
     return sess

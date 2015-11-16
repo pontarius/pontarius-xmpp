@@ -48,7 +48,7 @@ Library
                , cryptohash-cryptoapi >=0.1
                , data-default         >=0.2
                , dns                  >=0.3.0
-               , exceptions >= 0.6
+               , exceptions           >=0.6
                , hslogger             >=1.1.0
                , iproute              >=1.2.4
                , lens-family

@@ -77,12 +77,19 @@ auth mechanisms resource con = runErrorT $ do
             _jid <- ErrorT $ xmppBind resource con
             ErrorT $ flip withStream' con $ do
                 s <- get
-                case establishSession $ streamConfiguration s of
+
+                case sendStreamElement s of
                     False -> return $ Right Nothing
                     True -> do
-                        _ <-liftIO $ startSession con
+                        _ <- liftIO $ startSession con
                         return $ Right Nothing
         f -> return f
+  where
+    sendStreamElement s =
+        and [ -- Check that the stream feature is set and not optional
+              streamFeaturesSession (streamFeatures s) == Just False
+            ]
+
 
 -- Produces a `bind' element, optionally wrapping a resource.
 bindBody :: Maybe Text -> Element

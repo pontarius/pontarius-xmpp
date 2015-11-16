@@ -727,6 +727,9 @@ data StreamFeatures = StreamFeatures
       -- versioning and @Just True@ when the server sends the non-standard
       -- "optional" element (observed with prosody).
     , streamFeaturesPreApproval :: !Bool -- ^ Does the server support pre-approval
+    , streamFeaturesSession     :: !(Maybe Bool)
+       -- ^ Does this server allow the stream elelemt? (See
+       -- https://tools.ietf.org/html/draft-cridland-xmpp-session-01)
     , streamFeaturesOther       :: ![Element]
       -- TODO: All feature elements instead?
     } deriving (Eq, Show)
@@ -737,6 +740,7 @@ instance Monoid StreamFeatures where
                , streamFeaturesMechanisms  = []
                , streamFeaturesRosterVer   = Nothing
                , streamFeaturesPreApproval = False
+               , streamFeaturesSession     = Nothing
                , streamFeaturesOther       = []
                }
     mappend sf1 sf2 =
@@ -747,6 +751,7 @@ instance Monoid StreamFeatures where
                , streamFeaturesPreApproval =
                  streamFeaturesPreApproval sf1
                  || streamFeaturesPreApproval sf2
+               , streamFeaturesSession   = mplusOn streamFeaturesSession
                , streamFeaturesOther       = mplusOn streamFeaturesOther
 
                }
@@ -1245,8 +1250,6 @@ data StreamConfiguration =
                           -- | Whether or not to perform the legacy
                           -- session bind as defined in the (outdated)
                           -- RFC 3921 specification
-                        , establishSession :: Bool
-                          -- | How the client should behave in regards to TLS.
                         , tlsBehaviour :: TlsBehaviour
                           -- | Settings to be used for TLS negotitation
                         , tlsParams :: ClientParams
@@ -1271,13 +1274,11 @@ xmppDefaultParams = (defaultParamsClient "" BS.empty)
                             }
                         }
 
-
 instance Default StreamConfiguration where
     def = StreamConfiguration { preferredLang     = Nothing
                               , toJid             = Nothing
                               , connectionDetails = UseRealm
                               , resolvConf        = defaultResolvConf
-                              , establishSession  = True
                               , tlsBehaviour      = PreferTls
                               , tlsParams         = xmppDefaultParams
                               }
