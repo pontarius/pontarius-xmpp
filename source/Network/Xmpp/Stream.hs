@@ -373,13 +373,20 @@ debugOut outData = liftIO $ debugM "Pontarius.Xmpp"
              ("Out: " ++ (Text.unpack . Text.decodeUtf8 $ outData))
 
 wrapIOException :: MonadIO m =>
-                   IO a -> m (Either XmppFailure a)
-wrapIOException action = do
+                   String
+                -> IO a
+                -> m (Either XmppFailure a)
+wrapIOException tag action = do
     r <- liftIO $ tryIOError action
     case r of
         Right b -> return $ Right b
         Left e -> do
-            liftIO $ warningM "Pontarius.Xmpp" $ "wrapIOException: Exception wrapped: " ++ (show e)
+            liftIO $ warningM "Pontarius.Xmpp" $ concat
+                [ "wrapIOException ("
+                , tag
+                , ") : Exception wrapped: "
+                , show e
+                ]
             return $ Left $ XmppIOException e
 
 pushElement :: Element -> StateT StreamState IO (Either XmppFailure ())
@@ -513,9 +520,11 @@ zeroSource = do
 
 handleToStreamHandle :: Handle -> StreamHandle
 handleToStreamHandle h = StreamHandle { streamSend = \d ->
-                                         wrapIOException $ BS.hPut h d
+                                         wrapIOException "streamSend"
+                                           $ BS.hPut h d
                                       , streamReceive = \n ->
-                                         wrapIOException $ BS.hGetSome h n
+                                         wrapIOException "streamReceive"
+                                           $ BS.hGetSome h n
                                       , streamFlush = hFlush h
                                       , streamClose = hClose h
                                       }
@@ -762,7 +771,7 @@ srvLookup realm resolvSeed = ErrorT $ do
 killStream :: Stream -> IO (Either XmppFailure ())
 killStream = withStream $ do
     cc <- gets (streamClose . streamHandle)
-    err <- wrapIOException cc
+    err <- wrapIOException "killStream" cc
     -- (ExL.try cc :: IO (Either ExL.SomeException ()))
     put xmppNoStream{ streamConnectionState = Finished }
     return err
@@ -813,7 +822,10 @@ elements = do
                                                  elements
             -- This might be an XML error if the end element tag is not
             -- "</stream>". TODO: We might want to check this at a later time
-            Just (EventEndElement _) -> throwError StreamEndFailure
+            Just EventEndElement{} -> throwError StreamEndFailure
+            -- This happens when the connection to the server is closed without
+            -- the stream being properly terminated
+            Just EventEndDocument -> throwError StreamEndFailure
             Just (EventContent (ContentText ct)) | Text.all isSpace ct ->
                 elements
             Nothing -> return ()

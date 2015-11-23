@@ -318,7 +318,6 @@ reconnectNow sess@Session{conf = config, reconnectWait = rw} = do
             when (enableRoster config) $ initRoster sess
             return Nothing
 
-
 -- | Reconnect with the stored settings.
 --
 -- Waits a random amount of seconds (between 0 and 60 inclusive) before the

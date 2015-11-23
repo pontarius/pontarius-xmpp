@@ -29,7 +29,7 @@ withConnection a session =  do
         -- We acquire the write and stateRef locks, to make sure that this is
         -- the only thread that can write to the stream and to perform a
         -- withConnection calculation. Afterwards, we release the lock and
-        -- fetches an updated state.
+        -- fetch an updated state.
         s <- Ex.catch
             (atomically $ do
                  _ <- takeTMVar (writeSemaphore session)

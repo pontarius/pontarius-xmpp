@@ -24,7 +24,6 @@ readWorker :: (Stanza -> IO ())
            -> TMVar Stream
            -> IO a
 readWorker onStanza onCClosed stateRef = forever . Ex.mask_ $ do
-
     s' <- Ex.catches ( do
                         atomically $ do
                             s@(Stream con) <- readTMVar stateRef
@@ -38,9 +37,9 @@ readWorker onStanza onCClosed stateRef = forever . Ex.mask_ $ do
                      return Nothing
 
                ]
-    case s' of
+    case s' of -- Maybe Stream
         Nothing -> return ()
-        Just s -> do
+        Just s -> do -- Stream
             res <- Ex.catches (do
                    -- we don't know whether pull will
                    -- necessarily be interruptible
@@ -95,16 +94,22 @@ startThreadsWith writeSem stanzaHandler eh con keepAlive = do
     -- writeSem <- newTMVarIO read'
     conS <- newTMVarIO con
     cp <- forkIO $ connPersist keepAlive writeSem
-    rdw <- forkIO $ readWorker stanzaHandler (noCon eh) conS
+    let onConClosed failure = do
+            stopWrites
+            noCon eh failure
+    rdw <- forkIO $ readWorker stanzaHandler onConClosed conS
     return $ Right ( killConnection [rdw, cp]
                    , conS
                    , rdw
                    )
   where
+    stopWrites = atomically $ do
+        _ <- takeTMVar writeSem
+        putTMVar writeSem $ \_ -> return $ Left XmppNoStream
     killConnection threads = liftIO $ do
-        _ <- atomically $ do
-            _ <- takeTMVar writeSem
-            putTMVar writeSem $ \_ -> return $ Left XmppNoStream
+        debugM "Pontarius.Xmpp" "killing connection"
+        stopWrites
+        debugM "Pontarius.Xmpp" "killing threads"
         _ <- forM threads killThread
         return ()
     -- Call the connection closed handlers.
@@ -115,7 +120,7 @@ startThreadsWith writeSem stanzaHandler eh con keepAlive = do
         return ()
 
 -- Acquires the write lock, pushes a space, and releases the lock.
--- | Sends a blank space every 30 seconds to keep the connection alive.
+-- | Sends a blank space every <delay> seconds to keep the connection alive.
 connPersist :: Maybe Int -> TMVar (BS.ByteString -> IO a) -> IO ()
 connPersist (Just delay) sem = forever $ do
     pushBS <- atomically $ takeTMVar sem
