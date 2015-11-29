@@ -17,6 +17,15 @@ semWrite sem bs = Ex.bracket (atomically $ takeTMVar sem)
                           (atomically . putTMVar sem)
                           ($ bs)
 
+writeXmppElem :: WriteSemaphore -> XmppElement -> IO (Either XmppFailure ())
+writeXmppElem sem a = do
+    let el = case a of
+                 XmppStanza s -> pickleElem xpStanza s
+                 XmppNonza n -> n
+        outData = renderElement $ nsHack el
+    debugOut outData
+    semWrite sem outData
+
 writeStanza :: WriteSemaphore -> Stanza -> IO (Either XmppFailure ())
 writeStanza sem a = do
     let outData = renderElement $ nsHack (pickleElem xpStanza a)

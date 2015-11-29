@@ -22,6 +22,17 @@ import           Network.Xmpp.Types
 xpNonemptyText :: PU Text NonemptyText
 xpNonemptyText = ("xpNonemptyText" , "") <?+> xpWrap Nonempty fromNonempty xpText
 
+xpStreamElement :: PU [Node] (Either StreamErrorInfo XmppElement)
+xpStreamElement = xpEither xpStreamError $
+                    xpWrap (\v -> case v of
+                                   Left l -> XmppStanza l
+                                   Right r -> XmppNonza r
+                           )
+                           ( \v -> case v of
+                                    XmppStanza l -> Left l
+                                    XmppNonza r -> Right r)
+                      $ xpEither xpStanza xpElemVerbatim
+
 xpStreamStanza :: PU [Node] (Either StreamErrorInfo Stanza)
 xpStreamStanza = xpEither xpStreamError xpStanza
 

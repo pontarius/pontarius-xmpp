@@ -104,8 +104,8 @@ handleRoster :: Maybe Jid
              -> StanzaHandler
 handleRoster mbBoundJid ref onUpdate out sta _ = do
     case sta of
-        IQRequestS (iqr@IQRequest{iqRequestPayload =
-                                       iqb@Element{elementName = en}})
+        XmppStanza (IQRequestS (iqr@IQRequest{iqRequestPayload =
+                                              iqb@Element{elementName = en}}))
             | nameNamespace en == Just "jabber:iq:roster" -> do
                 let doHandle = case (iqRequestFrom iqr, mbBoundJid) of
                         -- We don't need to check our own JID when the IQ
@@ -124,11 +124,11 @@ handleRoster mbBoundJid ref onUpdate out sta _ = do
                                    } -> do
                             handleUpdate v update
                             onUpdate update
-                            _ <- out $ result iqr
+                            _ <- out . XmppStanza $ result iqr
                             return []
                         _ -> do
                             errorM "Pontarius.Xmpp" "Invalid roster query"
-                            _ <- out $ badRequest iqr
+                            _ <- out . XmppStanza $ badRequest iqr
                             return []
                     -- Don't handle roster pushes from unauthorized sources
                     else return [(sta, [])]

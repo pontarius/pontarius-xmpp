@@ -239,6 +239,7 @@ restartStream = do
     startStream
 
 
+-- Creates a conduit from a StreamHandle
 sourceStreamHandle :: (MonadIO m, MonadError XmppFailure m)
                       => StreamHandle -> ConduitM i ByteString m ()
 sourceStreamHandle s = loopRead $ streamReceive s
@@ -395,11 +396,10 @@ pushElement x = do
     let outData = renderElement $ nsHack x
     debugOut outData
     lift $ send outData
-  where
-    -- HACK: We remove the "jabber:client" namespace because it is set as
-    -- default in the stream. This is to make isode's M-LINK server happy and
-    -- should be removed once jabber.org accepts prefix-free canonicalization
 
+-- HACK: We remove the "jabber:client" namespace because it is set as
+-- default in the stream. This is to make isode's M-LINK server happy and
+-- should be removed once jabber.org accepts prefix-free canonicalization
 nsHack :: Element -> Element
 nsHack e@(Element{elementName = n})
     | nameNamespace n == Just "jabber:client" =
@@ -472,6 +472,15 @@ pullUnpickle p = do
 pullStanza :: Stream -> IO (Either XmppFailure Stanza)
 pullStanza = withStream' $ do
     res <- pullUnpickle xpStreamStanza
+    case res of
+        Left e -> return $ Left e
+        Right (Left e) -> return $ Left $ StreamErrorFailure e
+        Right (Right r) -> return $ Right r
+
+-- | Pulls a stanza, nonza or stream error from the stream.
+pullXmppElement :: Stream -> IO (Either XmppFailure XmppElement)
+pullXmppElement = withStream' $ do
+    res <- pullUnpickle xpStreamElement
     case res of
         Left e -> return $ Left e
         Right (Left e) -> return $ Left $ StreamErrorFailure e

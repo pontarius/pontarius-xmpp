@@ -42,6 +42,7 @@ module Network.Xmpp.Types
     , SaslFailure(..)
     , StreamFeatures(..)
     , Stanza(..)
+    , XmppElement(..)
     , messageS
     , messageErrorS
     , presenceS
@@ -138,7 +139,11 @@ nonEmpty txt = if Text.all isSpace txt then Nothing else Just (Nonempty txt)
 text :: NonemptyText -> Text
 text (Nonempty txt) = txt
 
--- | The Xmpp communication primities (Message, Presence and Info/Query) are
+data XmppElement = XmppStanza !Stanza
+                 | XmppNonza  !Element
+                   deriving (Eq, Show)
+
+-- | The Xmpp communication primitives (Message, Presence and Info/Query) are
 -- called stanzas.
 data Stanza = IQRequestS     !IQRequest
             | IQResultS      !IQResult

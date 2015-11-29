@@ -21,11 +21,12 @@ import           Network.Xmpp.IM.PresenceTracker.Types
 import           Network.Xmpp.Sasl.Types
 import           Network.Xmpp.Types
 
-type StanzaHandler =  (Stanza -> IO (Either XmppFailure ()) ) -- ^ outgoing stanza
-                   -> Stanza       -- ^ stanza to handle
+type StanzaHandler = (XmppElement -> IO (Either XmppFailure ()) ) -- ^ outgoing
+                                                                  -- stanza
+                   -> XmppElement  -- ^ stanza to handle
                    -> [Annotation] -- ^ annotations added by previous handlers
-                   -> IO [(Stanza, [Annotation])]  -- ^ modified stanzas and
-                                                   -- /additional/ annotations
+                   -> IO [(XmppElement, [Annotation])]  -- ^ modified stanzas and
+                                                        -- /additional/ annotations
 
 type Resource = Text
 
@@ -56,17 +57,17 @@ getAnnotation = foldr (\(Annotation a) b -> maybe b Just $ cast a) Nothing . snd
 
 data Plugin' = Plugin'
     { -- | Resulting stanzas and additional Annotations
-      inHandler :: Stanza
+      inHandler :: XmppElement
                 -> [Annotation]
-                -> IO [(Stanza, [Annotation])]
-    , outHandler :: Stanza -> IO (Either XmppFailure ())
+                -> IO [(XmppElement, [Annotation])]
+    , outHandler :: XmppElement -> IO (Either XmppFailure ())
     -- | In order to allow plugins to tie the knot (Plugin / Session) we pass
     -- the plugin the completed Session once it exists
     , onSessionUp :: Session -> IO ()
     }
 
-type Plugin = (Stanza -> IO (Either XmppFailure ())) -- ^ pass stanza to next
-                                                     -- plugin
+type Plugin = (XmppElement -> IO (Either XmppFailure ())) -- ^ pass stanza to
+                                                          -- next plugin
               -> ErrorT XmppFailure IO Plugin'
 
 -- | Configuration for the @Session@ object.

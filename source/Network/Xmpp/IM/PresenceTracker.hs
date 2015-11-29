@@ -64,7 +64,7 @@ handlePresence :: Maybe (Jid -> PeerStatus -> PeerStatus -> IO ())
                -> StanzaHandler
 handlePresence onChange peers _ st _  = do
         let mbPr = do
-                pr <- st ^? _Presence -- Only act on presence stanzas
+                pr <- st ^? _Stanza . _Presence -- Only act on presence stanzas
                 fr <- pr ^? from . _Just . _isFull -- Only act on full JIDs
                 return (pr, fr)
         Foldable.forM_ mbPr $ \(pr, fr) ->

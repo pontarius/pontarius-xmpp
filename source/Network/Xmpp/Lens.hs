@@ -51,7 +51,9 @@ module Network.Xmpp.Lens
        , _isFull
        , _isBare
 
-         -- ** Stanzas
+         -- ** Stanzas and Nonzas
+       , _Stanza
+       , _Nonza
        , _IQRequest
        , _IQResult
        , _IQError
@@ -211,6 +213,17 @@ _isFull = prism' id (\j -> if isFull j then Just j else Nothing)
 
 _isBare :: Prism Jid Jid
 _isBare = prism' toBare (\j -> if isBare j then Just j else Nothing)
+
+_Stanza :: Prism XmppElement Stanza
+_Stanza = prism' XmppStanza (\v -> case v of
+                                    XmppStanza s -> Just s
+                                    _ -> Nothing)
+
+_Nonza :: Prism XmppElement Element
+_Nonza = prism' XmppNonza (\v -> case v of
+                                  XmppNonza n -> Just n
+                                  _ -> Nothing)
+
 
 class IsStanza s where
     -- | From-attribute of the stanza

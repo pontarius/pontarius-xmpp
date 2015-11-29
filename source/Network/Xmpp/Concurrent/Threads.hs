@@ -19,11 +19,11 @@ import           System.Log.Logger
 
 -- Worker to read stanzas from the stream and concurrently distribute them to
 -- all listener threads.
-readWorker :: (Stanza -> IO ())
+readWorker :: (XmppElement -> IO ())
            -> (XmppFailure -> IO ())
            -> TMVar Stream
            -> IO a
-readWorker onStanza onCClosed stateRef = forever . Ex.mask_ $ do
+readWorker onElement onCClosed stateRef = forever . Ex.mask_ $ do
     s' <- Ex.catches ( do
                         atomically $ do
                             s@(Stream con) <- readTMVar stateRef
@@ -44,7 +44,7 @@ readWorker onStanza onCClosed stateRef = forever . Ex.mask_ $ do
                    -- we don't know whether pull will
                    -- necessarily be interruptible
                              allowInterrupt
-                             res <- pullStanza s
+                             res <- pullXmppElement s
                              case res of
                                  Left e -> do
                                      errorM "Pontarius.Xmpp" $ "Read error: "
@@ -61,7 +61,7 @@ readWorker onStanza onCClosed stateRef = forever . Ex.mask_ $ do
             case res of
                 Nothing -> return () -- Caught an exception, nothing to
                                      -- do. TODO: Can this happen?
-                Just sta -> void $ onStanza sta
+                Just sta -> void $ onElement sta
   where
     -- Defining an Control.Exception.allowInterrupt equivalent for GHC 7
     -- compatibility.
@@ -82,7 +82,7 @@ readWorker onStanza onCClosed stateRef = forever . Ex.mask_ $ do
 -- stances, respectively, and an Action to stop the Threads and close the
 -- connection.
 startThreadsWith :: TMVar (BS.ByteString -> IO (Either XmppFailure ()))
-                 -> (Stanza -> IO ())
+                 -> (XmppElement -> IO ())
                  -> TMVar EventHandlers
                  -> Stream
                  -> Maybe Int

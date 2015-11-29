@@ -53,7 +53,12 @@ import           System.Random (randomRIO)
 import           Control.Monad.State.Strict
 
 
-runHandlers :: [Stanza -> [Annotation] -> IO [Annotated Stanza]] -> Stanza -> IO ()
+runHandlers :: [   XmppElement
+                -> [Annotation]
+                -> IO [Annotated XmppElement]
+               ]
+               -> XmppElement
+               -> IO ()
 runHandlers [] sta = do
     errorM "Pontarius.Xmpp" $
            "No stanza handlers set, discarding stanza" ++ show sta
@@ -66,17 +71,20 @@ runHandlers hs sta = go hs sta []
 
 toChan :: TChan (Annotated Stanza) -> StanzaHandler
 toChan stanzaC _ sta as = do
-    atomically $ writeTChan stanzaC (sta, as)
+    case sta of
+     XmppStanza s -> atomically $ writeTChan stanzaC (s, as)
+     _ -> return ()
     return [(sta, [])]
 
 handleIQ :: TVar IQHandlers
          -> StanzaHandler
-handleIQ iqHands out sta as = do
+handleIQ _ _  s@XmppNonza{} _ = return [(s, [])]
+handleIQ iqHands out s@(XmppStanza sta) as = do
         case sta of
             IQRequestS     i -> handleIQRequest iqHands i >> return []
             IQResultS      i -> handleIQResponse iqHands (Right i) >> return []
             IQErrorS       i -> handleIQResponse iqHands (Left i)  >> return []
-            _                -> return [(sta, [])]
+            _                -> return [(s, [])]
   where
     -- If the IQ request has a namespace, send it through the appropriate channel.
     handleIQRequest :: TVar IQHandlers -> IQRequest -> IO ()
@@ -106,7 +114,7 @@ handleIQ iqHands out sta as = do
                                       atomically $ putTMVar sentRef True
                                       return Nothing
                                   False -> do
-                                      didSend <- out response
+                                      didSend <- out $ XmppStanza response
                                       case didSend of
                                           Right () -> do
                                               atomically $ putTMVar sentRef True
@@ -116,7 +124,7 @@ handleIQ iqHands out sta as = do
                                               return $ Just er
                   writeTChan ch $ IQRequestTicket answerT iq as
                   return Nothing
-        maybe (return ()) (void . out) res
+        maybe (return ()) (void . out . XmppStanza) res
     serviceUnavailable (IQRequest iqid from _to lang _tp bd _attrs) =
         IQErrorS $ IQError iqid Nothing from lang err (Just bd) []
     err = StanzaError Cancel ServiceUnavailable Nothing Nothing
@@ -176,23 +184,23 @@ newSession stream config realm mbSasl = runErrorT $ do
     rosRef <- liftIO $ newTVarIO ros
     peers <- liftIO . newTVarIO $ Peers Map.empty
     rew <- lift $ newTVarIO 60
-    let out = writeStanza writeSem
+    let out = writeXmppElem writeSem
     boundJid <- liftIO $ withStream' (gets streamJid) stream
     let rosterH = if (enableRoster config)
                   then [handleRoster boundJid rosRef
                           (fromMaybe (\_ -> return ()) $ onRosterPush config)
-                          out]
+                          (out)]
                   else []
     let presenceH = if (enablePresenceTracking config)
                     then [handlePresence (onPresenceChange config) peers out]
                     else []
-    (sStanza, ps) <- initPlugins out $ plugins config
+    (sXmppElement, ps) <- initPlugins out $ plugins config
     let stanzaHandler = runHandlers $ List.concat
                         [ inHandler <$> ps
-                        , [ toChan stanzaChan sStanza]
+                        , [ toChan stanzaChan sXmppElement]
                         , presenceH
                         , rosterH
-                        , [ handleIQ iqHands sStanza]
+                        , [ handleIQ iqHands sXmppElement]
                         ]
     (kill, sState, reader) <- ErrorT $ startThreadsWith writeSem stanzaHandler
                                                         eh stream
@@ -209,7 +217,7 @@ newSession stream config realm mbSasl = runErrorT $ do
                        , conf = config
                        , rosterRef = rosRef
                        , presenceRef = peers
-                       , sendStanza' = sStanza
+                       , sendStanza' = sXmppElement . XmppStanza
                        , sRealm = realm
                        , sSaslCredentials = mbSasl
                        , reconnectWait = rew
