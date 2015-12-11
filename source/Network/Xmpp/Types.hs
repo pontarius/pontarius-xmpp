@@ -1173,7 +1173,7 @@ jidParts = do
         return bytes
     resourcePart = do
         _ <- AP.char '/'
-        AP.takeWhile1 (AP.notInClass ['@', '/'])
+        AP.takeText
 
 
 
