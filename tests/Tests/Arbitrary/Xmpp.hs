@@ -1,4 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Tests.Arbitrary.Xmpp where
 
 import           Control.Applicative ((<$>), (<*>))
@@ -30,29 +31,31 @@ instance Arbitrary Jid where
         Just jid <- tryJid `suchThat` isJust
         return jid
       where
-        tryJid = jidFromTexts <$> maybeGen (genString nodeprepProfile)
-                              <*> genString (SP.namePrepProfile False)
-                              <*> maybeGen (genString resourceprepProfile)
+        tryJid = jidFromTexts <$> maybeGen (genString nodeprepProfile False)
+                              <*> genString (SP.namePrepProfile False) False
+                              <*> maybeGen (genString resourceprepProfile True)
 
-        genString profile = Text.pack . take 1024 <$> listOf1 genChar
+        genString profile node = Text.pack . take 1024 <$> listOf1 genChar
           where
             genChar = arbitrary `suchThat` (not . isProhibited)
             prohibited = Ranges.toSet $ concat (SP.prohibited profile)
             isProhibited x = Ranges.member x prohibited
-                             || x `elem` "@/"
+                             || if node
+                                then False
+                                else x `elem` ['@','/']
 
     shrink (Jid lp dp rp) = [ Jid lp' dp  rp  | lp' <- shrinkMaybe shrink lp]
                          ++ [ Jid lp  dp' rp  | dp' <- shrink dp]
                          ++ [ Jid lp  dp  rp' | rp' <- shrinkMaybe shrink rp]
 
 
-string :: SP.StringPrepProfile -> Gen [Char]
-string profile = take 1024 <$> listOf1 genChar
-  where
-    genChar = arbitrary `suchThat` (not . isProhibited)
-    prohibited = Ranges.toSet $ concat (SP.prohibited profile)
-    isProhibited x = Ranges.member x prohibited
-                     || x `elem` "@/"
+-- string :: SP.StringPrepProfile -> Gen [Char]
+-- string profile = take 1024 <$> listOf1 genChar
+--   where
+--     genChar = arbitrary `suchThat` (not . isProhibited)
+--     prohibited = Ranges.toSet $ concat (SP.prohibited profile)
+--     isProhibited x = Ranges.member x prohibited
+--                      || x `elem` "@/"
 
 instance Arbitrary LangTag where
     arbitrary = LangTag <$> genTag <*> listOf genTag

@@ -1029,16 +1029,16 @@ parseJid s = case jidFromText $ Text.pack s of
 -- >>> resourcepart <$> jidFromText "foo@bar/quux"
 -- Just (Just "quux")
 --
+-- @ and / can occur in the domain part
+--
+-- >>> jidFromText "foo/bar@quux/foo"
+-- Just parseJid "foo/bar@quux/foo"
+--
 -- * Counterexamples
 --
 -- A JID must only have one \'\@\':
 --
 -- >>> jidFromText "foo@bar@quux"
--- Nothing
---
--- \'\@\' must come before \'/\':
---
--- >>> jidFromText "foo/bar@quux"
 -- Nothing
 --
 -- The domain part can\'t be empty:
@@ -1057,6 +1057,7 @@ parseJid s = case jidFromText $ Text.pack s of
 --
 -- >>> jidToTexts <$> jidFromText "bar/"
 -- Nothing
+--
 jidFromText :: Text -> Maybe Jid
 jidFromText t = do
     (l, d, r) <- eitherToMaybe $ AP.parseOnly jidParts t

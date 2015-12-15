@@ -15,6 +15,7 @@ main :: IO ()
 main = doctest $
     "-isource"
   : "-itests"
+  : "-w"
   : "-idist/build/autogen"
   : "-hide-all-packages"
   : "-XQuasiQuotes"
