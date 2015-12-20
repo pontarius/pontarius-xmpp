@@ -33,9 +33,15 @@ case_JidFromText = hspec . describe "jidFromText" $ do
                                           "bar.com"
                                           (Just "quux"))
     it "rejects multiple '@'" $  shouldReject "foo@bar@baz"
-    it "rejects multiple '/'" $  shouldReject "foo/bar/baz"
-    it "rejects multiple '/' after '@'" $ shouldReject  "quux@foo/bar/baz"
-    it "rejects '@' after '/'" $ shouldReject "foo/bar@baz"
+    it "parses multiple '/'" $  jidFromText "foo/bar/baz"
+                                `shouldBe`
+                                (Just (Jid Nothing "foo" (Just "bar/baz")))
+    it "parses multiple '/' after '@'" $ jidFromText  "quux@foo/bar/baz"
+                               `shouldBe`
+                               (Just (Jid (Just "quux") "foo" (Just "bar/baz")))
+    it "parses '@' after '/'" $ jidFromText "foo/bar@baz"
+                               `shouldBe`
+                               (Just (Jid Nothing "foo" (Just "bar@baz")))
     it "rejects empty local part" $ shouldReject "@bar/baz"
     it "rejects empty resource part" $ shouldReject "foo@bar/"
     it "rejects empty domain part" $ shouldReject "foo@/baz"
