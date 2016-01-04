@@ -1,3 +1,6 @@
+# 0.5.0 to 0.5.1
+* Fixed input logger choking on long non-ascii messages
+
 # 0.4.5 to 0.5.0
 * Support for the session element is now determined from stream features, the
   establishSession option was removed
