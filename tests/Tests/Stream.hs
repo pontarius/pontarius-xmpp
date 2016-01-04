@@ -3,13 +3,15 @@
 
 module Tests.Stream where
 
+import           Control.Monad.Trans
 import           Data.Conduit
 import qualified Data.Conduit.List as CL
 import           Data.XML.Types
 import           Test.Hspec
-import           Test.Tasty.TH
 import           Test.Tasty
+import           Test.Tasty.HUnit
 import           Test.Tasty.Hspec
+import           Test.Tasty.TH
 
 import           Network.Xmpp.Stream
 
@@ -27,7 +29,7 @@ junk = [ EventBeginDocument
 
 beginElem = EventBeginElement "foo" []
 
-case_ThrowOutJunk = do
+case_ThrowOutJunk = hspec . describe "throwOutJunk" $ do
     it "drops everything but EvenBeginElement" $ do
         res <- CL.sourceList junk $$ throwOutJunk >> await
         res `shouldBe` Nothing
@@ -36,5 +38,10 @@ case_ThrowOutJunk = do
                              $$ throwOutJunk >> CL.consume
         res `shouldBe` (beginElem : junk)
 
-testStreams :: TestTree
-testStreams = $testGroupGenerator
+case_LogInput = hspec . describe "logInput" $ do
+    it "Can handle split UTF8 codepoints" $ do
+        res <- CL.sourceList ["\209","\136"] $= logInput $$ CL.consume
+        res `shouldBe` ["\209","\136"]
+
+streamTests :: TestTree
+streamTests = $testGroupGenerator

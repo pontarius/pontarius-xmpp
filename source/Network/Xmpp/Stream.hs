@@ -31,6 +31,7 @@ import           Data.Ord
 import           Data.Text (Text)
 import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text
+import qualified Data.Text.Encoding.Error as Text
 import           Data.Void (Void)
 import           Data.XML.Pickle
 import           Data.XML.Types
@@ -240,22 +241,41 @@ restartStream = do
 
 
 -- Creates a conduit from a StreamHandle
-sourceStreamHandle :: (MonadIO m, MonadError XmppFailure m)
+sourceStreamHandleRaw :: (MonadIO m, MonadError XmppFailure m)
                       => StreamHandle -> ConduitM i ByteString m ()
-sourceStreamHandle s = loopRead $ streamReceive s
+sourceStreamHandleRaw s = forever . read $ streamReceive s
   where
-    loopRead rd = do
+    read rd = do
         bs' <- liftIO (rd 4096)
         bs <- case bs' of
             Left e -> throwError e
             Right r -> return r
-        if BS.null bs
-            then return ()
-            else do
-               liftIO $ debugM "Pontarius.Xmpp" $ "in: " ++
-                              (Text.unpack . Text.decodeUtf8 $ bs)
-               yield bs
-               loopRead rd
+        yield bs
+
+sourceStreamHandle :: (MonadIO m, MonadError XmppFailure m)
+                      => StreamHandle -> ConduitM i ByteString m ()
+sourceStreamHandle sh = sourceStreamHandleRaw sh $= logInput
+
+logInput :: MonadIO m => ConduitM ByteString ByteString m ()
+logInput = go Nothing
+  where
+    go mbDec = do
+        mbBs <- await
+        case mbBs of
+         Nothing -> return ()
+         Just bs -> do
+           let decode = case mbDec of
+                         Nothing -> Text.streamDecodeUtf8With Text.lenientDecode
+                         Just d -> d
+               (Text.Some out leftover cont) = decode bs
+               cont' = if BS.null leftover
+                       then Nothing
+                       else Just cont
+           unless (Text.null out) $
+               liftIO $ debugM "Pontarius.Xmpp"
+                                $ "in: " ++ Text.unpack out
+           yield bs
+           go cont'
 
 -- We buffer sources because we don't want to lose data when multiple
 -- xml-entities are sent with the same packet and we don't want to eternally
