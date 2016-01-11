@@ -70,6 +70,8 @@ type Plugin = (XmppElement -> IO (Either XmppFailure ())) -- ^ pass stanza to
                                                           -- next plugin
               -> ErrorT XmppFailure IO Plugin'
 
+type RosterPushCallback = (QueryItem -> IO ())
+
 -- | Configuration for the @Session@ object.
 data SessionConfiguration = SessionConfiguration
     { -- | Configuration for the @Stream@ object.
@@ -90,7 +92,7 @@ data SessionConfiguration = SessionConfiguration
     , initialRoster              :: IO (Maybe Roster)
       -- | Callback called on a roster Push. The callback is called after the
       -- roster is updated
-    , onRosterPush               :: Maybe (QueryItem -> IO ())
+    , onRosterPush               :: Maybe RosterPushCallback
       -- | Track incomming presence stancas.
     , enablePresenceTracking     :: Bool
       -- | Callback that is invoked when the presence status of a peer changes,

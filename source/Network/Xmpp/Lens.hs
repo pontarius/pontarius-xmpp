@@ -102,6 +102,7 @@ module Network.Xmpp.Lens
        , onConnectionClosedL
        , sessionStanzaIDsL
        , ensableRosterL
+       , onRosterPushL
        , pluginsL
        , onPresenceChangeL
          -- ** IM
@@ -551,6 +552,9 @@ sessionStanzaIDsL inj sc@SessionConfiguration{sessionStanzaIDs = x}
 ensableRosterL :: Lens SessionConfiguration Bool
 ensableRosterL inj sc@SessionConfiguration{enableRoster = x}
     = (\x' -> sc{enableRoster = x'}) <$> inj x
+
+onRosterPushL :: Lens SessionConfiguration (Maybe RosterPushCallback)
+onRosterPushL = mkLens onRosterPush (\orp x -> x{onRosterPush = orp})
 
 pluginsL :: Lens SessionConfiguration [Plugin]
 pluginsL inj sc@SessionConfiguration{plugins = x}

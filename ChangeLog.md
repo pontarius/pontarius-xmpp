@@ -1,3 +1,6 @@
+# 0.5.1 to 0.5.2
+* Added onrosterPushL lens
+
 # 0.5.0 to 0.5.1
 * Fixed input logger choking on long non-ascii messages
 
