@@ -100,7 +100,7 @@ initRoster session = do
 
 handleRoster :: Maybe Jid
              -> TVar Roster
-             -> (QueryItem -> IO ())
+             -> RosterPushCallback
              -> StanzaHandler
 handleRoster mbBoundJid ref onUpdate out sta _ = do
     case sta of
@@ -123,7 +123,6 @@ handleRoster mbBoundJid ref onUpdate out sta _ = do
                                    , queryItems = [update]
                                    } -> do
                             handleUpdate v update
-                            onUpdate update
                             _ <- out . XmppStanza $ result iqr
                             return []
                         _ -> do
@@ -134,10 +133,19 @@ handleRoster mbBoundJid ref onUpdate out sta _ = do
                     else return [(sta, [])]
         _ -> return [(sta, [])]
   where
-    handleUpdate v' update = atomically $ modifyTVar ref $ \(Roster v is) ->
-        Roster (v' `mplus` v) $ case qiSubscription update of
-            Just Remove -> Map.delete (qiJid update) is
-            _ -> Map.insert (qiJid update) (toItem update) is
+    handleUpdate v' update =
+        case qiSubscription update of
+         Just Remove -> do
+             let j = qiJid update
+             onUpdate $ RosterUpdateRemove j
+             updateRoster (Map.delete j)
+         _ -> do
+             let i = (toItem update)
+             onUpdate $ RosterUpdateAdd i
+             updateRoster $ Map.insert (qiJid update) i
+      where
+        updateRoster f = atomically . modifyTVar ref $
+                         \(Roster v is) -> Roster (v' `mplus` v) (f is)
 
     badRequest (IQRequest iqid from _to lang _tp bd _attrs) =
         IQErrorS $ IQError iqid Nothing from lang errBR (Just bd) []

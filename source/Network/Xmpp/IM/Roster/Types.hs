@@ -35,6 +35,10 @@ data Item = Item { riApproved :: Bool
                  , riGroups :: [Text]
                  } deriving Show
 
+data RosterUpdate = RosterUpdateRemove Jid
+                  | RosterUpdateAdd Item -- ^ New or updated item
+                  deriving Show
+
 data QueryItem = QueryItem { qiApproved :: Maybe Bool
                            , qiAsk :: Bool
                            , qiJid :: Jid

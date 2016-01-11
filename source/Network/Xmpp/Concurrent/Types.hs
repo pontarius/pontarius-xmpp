@@ -70,7 +70,7 @@ type Plugin = (XmppElement -> IO (Either XmppFailure ())) -- ^ pass stanza to
                                                           -- next plugin
               -> ErrorT XmppFailure IO Plugin'
 
-type RosterPushCallback = (QueryItem -> IO ())
+type RosterPushCallback = RosterUpdate -> IO ()
 
 -- | Configuration for the @Session@ object.
 data SessionConfiguration = SessionConfiguration

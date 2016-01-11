@@ -1,4 +1,5 @@
-# 0.5.1 to 0.5.2
+# 0.5.1 to 0.6.0
+* Changed roster update callback to take RosterUpdate type
 * Added onrosterPushL lens
 
 # 0.5.0 to 0.5.1

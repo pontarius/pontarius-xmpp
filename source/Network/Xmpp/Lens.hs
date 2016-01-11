@@ -597,8 +597,8 @@ verL inj r@Roster{ver = x} = (\x' -> r{ver = x'}) <$> inj x
 itemsL :: Lens Roster (Map.Map Jid Item)
 itemsL inj r@Roster{items = x} = (\x' -> r{items = x'}) <$> inj x
 
--- Service Discovery Item
-----------------------
+-- Item
+------------------
 
 riApprovedL :: Lens Item Bool
 riApprovedL inj i@Item{riApproved = x} = (\x' -> i{riApproved = x'}) <$> inj x
@@ -618,6 +618,21 @@ riSubscriptionL inj i@Item{riSubscription = x} =
 
 riGroupsL :: Lens Item [Text]
 riGroupsL inj i@Item{riGroups = x} = (\x' -> i{riGroups = x'}) <$> inj x
+
+-- Roster Update
+-------------------
+
+_RosterUpdateRemove :: Prism RosterUpdate Jid
+_RosterUpdateRemove = prism' RosterUpdateRemove fromRosterUpdateRemove
+  where
+    fromRosterUpdateRemove (RosterUpdateRemove jid) = Just jid
+    fromRosterUpdateRemove RosterUpdateAdd{} = Nothing
+
+_RosterUpdateAdd :: Prism RosterUpdate Item
+_RosterUpdateAdd = prism' RosterUpdateAdd fromRosterUpdateAdd
+  where
+    fromRosterUpdateAdd RosterUpdateRemove{} = Nothing
+    fromRosterUpdateAdd (RosterUpdateAdd item) = Just item
 
 
 -- QueryItem

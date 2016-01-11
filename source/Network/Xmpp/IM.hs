@@ -21,6 +21,7 @@ module Network.Xmpp.IM
   -- * Roster
   , Roster(..)
   , Item(..)
+  , RosterUpdate(..)
   , getRoster
   , getRosterSTM
   , rosterAdd
