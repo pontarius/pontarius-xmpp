@@ -1071,7 +1071,7 @@ jidFromText t = do
 -- >>> jidFromTexts (Just "foo") "bar" (Just "baz") == jidFromText "foo@bar/baz"
 -- True
 --
--- prop> jidFromTexts (localpart j) (domainpart j) (resourcepart j) == Just j
+-- prop> \j -> jidFromTexts (localpart j) (domainpart j) (resourcepart j) == Just j
 jidFromTexts :: Maybe Text -> Text -> Maybe Text -> Maybe Jid
 jidFromTexts l d r = do
     localPart <- case l of

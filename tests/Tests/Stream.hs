@@ -13,7 +13,7 @@ import           Test.Tasty.HUnit
 import           Test.Tasty.Hspec
 import           Test.Tasty.TH
 
-import           Network.Xmpp.Stream
+import           Network.Xmpp.Internal
 
 junk = [ EventBeginDocument
        , EventEndDocument
