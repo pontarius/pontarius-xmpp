@@ -188,7 +188,7 @@ newSession stream config realm mbSasl = runErrorT $ do
     boundJid <- liftIO $ withStream' (gets streamJid) stream
     let rosterH = if (enableRoster config)
                   then [handleRoster boundJid rosRef
-                          (fromMaybe (\_ -> return ()) $ onRosterPush config)
+                          (fromMaybe (\_ _ -> return ()) $ onRosterPush config)
                           (out)]
                   else []
     let presenceH = if (enablePresenceTracking config)

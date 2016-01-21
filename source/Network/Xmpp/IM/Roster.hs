@@ -133,19 +133,20 @@ handleRoster mbBoundJid ref onUpdate out sta _ = do
                     else return [(sta, [])]
         _ -> return [(sta, [])]
   where
-    handleUpdate v' update =
+    handleUpdate v' update = do
+        oldRoster <- atomically $ readTVar ref
         case qiSubscription update of
          Just Remove -> do
              let j = qiJid update
-             onUpdate $ RosterUpdateRemove j
+             onUpdate oldRoster $ RosterUpdateRemove j
              updateRoster (Map.delete j)
          _ -> do
              let i = (toItem update)
-             onUpdate $ RosterUpdateAdd i
+             onUpdate oldRoster $ RosterUpdateAdd i
              updateRoster $ Map.insert (qiJid update) i
       where
         updateRoster f = atomically . modifyTVar ref $
-                         \(Roster v is) -> Roster (v' `mplus` v) (f is)
+                           \(Roster v is) -> Roster (v' `mplus` v) (f is)
 
     badRequest (IQRequest iqid from _to lang _tp bd _attrs) =
         IQErrorS $ IQError iqid Nothing from lang errBR (Just bd) []
