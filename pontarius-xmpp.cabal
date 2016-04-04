@@ -1,4 +1,4 @@
-Name:          pontarius-xmpp
+Name:          ambiata-pontarius-xmpp
 Version:       0.5.1
 Cabal-Version: >= 1.9.2
 Build-Type:    Custom
@@ -135,7 +135,7 @@ Test-Suite tests
                , lens
                , mtl
                , network
-               , pontarius-xmpp
+               , ambiata-pontarius-xmpp
                , quickcheck-instances
                , ranges
                , smallcheck
@@ -189,7 +189,7 @@ Test-Suite runtests
                , hspec-expectations
                , mtl
                , network
-               , pontarius-xmpp
+               , ambiata-pontarius-xmpp
                , stm
                , text
                , xml-picklers
@@ -202,7 +202,7 @@ benchmark benchmarks
   type: exitcode-stdio-1.0
   build-depends: base
                , criterion
-               , pontarius-xmpp
+               , ambiata-pontarius-xmpp
   hs-source-dirs: benchmarks
   main-is: Bench.hs
   ghc-options: -O2

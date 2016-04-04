@@ -27,6 +27,7 @@ import qualified Data.Conduit.List as CL
 import           Data.IP
 import           Data.List
 import           Data.Maybe
+import           Data.Monoid (Monoid (..))
 import           Data.Ord
 import           Data.Text (Text)
 import qualified Data.Text as Text
