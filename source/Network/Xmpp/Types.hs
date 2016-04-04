@@ -95,6 +95,7 @@ import qualified Data.ByteString as BS
 import           Data.Char (isSpace)
 import           Data.Conduit
 import           Data.Default
+import           Data.Monoid (Monoid (..))
 import qualified Data.Set as Set
 import           Data.String (IsString, fromString)
 import           Data.Text (Text)
