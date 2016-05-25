@@ -894,16 +894,19 @@ instance Read Jid where
     readsPrec _ s = do
         -- Verifies that the first word is "parseJid", parses the second word and
         -- the remainder, if any, and produces these two values or fails.
-        let (s', r) = case lex s of
-                          [] -> error "Expected `parseJid \"<jid>\"'"
-                          [("parseJid", r')] -> case lex r' of
-                                              [] -> error "Expected `parseJid \"<jid>\"'"
-                                              [(s'', r'')] -> (s'', r'')
-                                              _ -> error "Expected `parseJid \"<jid>\"'"
-                          _ -> error "Expected `parseJid \"<jid>\"'"
-        -- Read the JID string (removes the quotes), validate, and return.
-        [(parseJid (read s' :: String), r)] -- May fail with "Prelude.read: no parse"
-                                            -- or the `parseJid' error message (see below)
+      case lex s of
+        [("parseJid", r')] ->
+          case lex r' of
+            [(s', r'')] ->
+              case (reads s') of
+                ((jidTxt,_):_) ->
+                  case jidFromText (Text.pack jidTxt) of
+                       Nothing -> []
+                       Just jid' -> [(jid', r'')]
+                _ -> []
+            _ -> []
+        _ -> []
+
 
 #if WITH_TEMPLATE_HASKELL
 
