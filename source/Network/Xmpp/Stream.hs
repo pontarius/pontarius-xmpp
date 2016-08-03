@@ -740,6 +740,9 @@ srvLookup realm resolvSeed = ErrorT $ do
               $ \resolver -> do
         srvResult <- lookupSRV resolver $ BSC8.pack $ "_xmpp-client._tcp." ++ (Text.unpack realm) ++ "."
         case fixDnsResult srvResult of
+            Just [] -> do
+                debugM "Pontarius.Xmpp" "No SRV result returned."
+                return Nothing
             Just [(_, _, _, ".")] -> do
                 debugM "Pontarius.Xmpp" $ "\".\" SRV result returned."
                 return $ Just []
