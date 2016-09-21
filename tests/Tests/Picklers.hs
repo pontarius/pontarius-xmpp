@@ -24,56 +24,56 @@ testPickler p x = case unpickle p (pickle p x) of
     Left e -> putStrLn $ ppUnpickleError e
     Right _ -> putStrLn "OK."
 
-prop_xpStreamStanza_invertibe :: Either StreamErrorInfo Stanza -> Bool
-prop_xpStreamStanza_invertibe         = tpsi xpStreamStanza
-prop_xpStanza_invertibe :: Stanza -> Bool
-prop_xpStanza_invertibe               = tpsi xpStanza
-prop_xpMessage_invertibe :: Message -> Bool
-prop_xpMessage_invertibe              = tpsi xpMessage
-prop_xpPresence_invertibe             = tpsi xpPresence
-prop_xpPresence_invertibe :: Presence -> Bool
-prop_xpIQRequest_invertibe            = tpsi xpIQRequest
-prop_xpIQRequest_invertibe :: IQRequest -> Bool
-prop_xpIQResult_invertibe             = tpsi xpIQResult
-prop_xpIQResult_invertibe :: IQResult -> Bool
-prop_xpErrorCondition_invertibe       = tpsi xpStanzaErrorCondition
-prop_xpErrorCondition_invertibe :: StanzaErrorCondition -> Bool
-prop_xpStanzaError_invertibe          = tpsi xpStanzaError
-prop_xpStanzaError_invertibe :: StanzaError -> Bool
-prop_xpMessageError_invertibe         = tpsi xpMessageError
-prop_xpMessageError_invertibe :: MessageError -> Bool
-prop_xpPresenceError_invertibe        = tpsi xpPresenceError
-prop_xpPresenceError_invertibe :: PresenceError -> Bool
-prop_xpIQError_invertibe              = tpsi xpIQError
-prop_xpIQError_invertibe :: IQError -> Bool
-prop_xpStreamError_invertibe          = tpsi xpStreamError
-prop_xpStreamError_invertibe :: StreamErrorInfo -> Bool
-prop_xpLangTag_invertibe              = tpsi xpLangTag
-prop_xpLangTag_invertibe :: Maybe LangTag -> Bool
-prop_xpLang_invertibe                 = tpsi xpLang
-prop_xpLang_invertibe :: LangTag -> Bool
-prop_xpStream_invertibe               = tpsi xpStream
-prop_xpStream_invertibe :: ( Text
+prop_xpStreamStanza_invertible :: Either StreamErrorInfo Stanza -> Bool
+prop_xpStreamStanza_invertible         = tpsi xpStreamStanza
+prop_xpStanza_invertible :: Stanza -> Bool
+prop_xpStanza_invertible               = tpsi xpStanza
+prop_xpMessage_invertible :: Message -> Bool
+prop_xpMessage_invertible              = tpsi xpMessage
+prop_xpPresence_invertible             = tpsi xpPresence
+prop_xpPresence_invertible :: Presence -> Bool
+prop_xpIQRequest_invertible            = tpsi xpIQRequest
+prop_xpIQRequest_invertible :: IQRequest -> Bool
+prop_xpIQResult_invertible             = tpsi xpIQResult
+prop_xpIQResult_invertible :: IQResult -> Bool
+prop_xpErrorCondition_invertible       = tpsi xpStanzaErrorCondition
+prop_xpErrorCondition_invertible :: StanzaErrorCondition -> Bool
+prop_xpStanzaError_invertible          = tpsi xpStanzaError
+prop_xpStanzaError_invertible :: StanzaError -> Bool
+prop_xpMessageError_invertible         = tpsi xpMessageError
+prop_xpMessageError_invertible :: MessageError -> Bool
+prop_xpPresenceError_invertible        = tpsi xpPresenceError
+prop_xpPresenceError_invertible :: PresenceError -> Bool
+prop_xpIQError_invertible              = tpsi xpIQError
+prop_xpIQError_invertible :: IQError -> Bool
+prop_xpStreamError_invertible          = tpsi xpStreamError
+prop_xpStreamError_invertible :: StreamErrorInfo -> Bool
+prop_xpLangTag_invertible              = tpsi xpLangTag
+prop_xpLangTag_invertible :: Maybe LangTag -> Bool
+prop_xpLang_invertible                 = tpsi xpLang
+prop_xpLang_invertible :: LangTag -> Bool
+prop_xpStream_invertible               = tpsi xpStream
+prop_xpStream_invertible :: ( Text
                            , Maybe Jid
                            , Maybe Jid
                            , Maybe Text
                            , Maybe LangTag )
                            -> Bool
-prop_xpJid_invertibe                  = tpsi xpJid
-prop_xpJid_invertibe :: Jid -> Bool
-prop_xpIQRequestType_invertibe        = tpsi xpIQRequestType
-prop_xpIQRequestType_invertibe :: IQRequestType -> Bool
-prop_xpMessageType_invertibe          = tpsi xpMessageType
-prop_xpMessageType_invertibe :: MessageType -> Bool
-prop_xpPresenceType_invertibe         = tpsi xpPresenceType
-prop_xpPresenceType_invertibe :: PresenceType -> Bool
-prop_xpStanzaErrorType_invertibe      = tpsi xpStanzaErrorType
-prop_xpStanzaErrorType_invertibe :: StanzaErrorType -> Bool
-prop_xpStanzaErrorCondition_invertibe = tpsi xpStanzaErrorCondition
-prop_xpStanzaErrorCondition_invertibe :: StanzaErrorCondition -> Bool
-prop_xpStreamErrorCondition_invertibe = tpsi xpStreamErrorCondition
-prop_xpStreamErrorCondition_invertibe :: StreamErrorCondition -> Bool
--- prop_xpStreamFeatures_invertibe = testPicklerInvertible xpStreamFeatures
+prop_xpJid_invertible                  = tpsi xpJid
+prop_xpJid_invertible :: Jid -> Bool
+prop_xpIQRequestType_invertible        = tpsi xpIQRequestType
+prop_xpIQRequestType_invertible :: IQRequestType -> Bool
+prop_xpMessageType_invertible          = tpsi xpMessageType
+prop_xpMessageType_invertible :: MessageType -> Bool
+prop_xpPresenceType_invertible         = tpsi xpPresenceType
+prop_xpPresenceType_invertible :: PresenceType -> Bool
+prop_xpStanzaErrorType_invertible      = tpsi xpStanzaErrorType
+prop_xpStanzaErrorType_invertible :: StanzaErrorType -> Bool
+prop_xpStanzaErrorCondition_invertible = tpsi xpStanzaErrorCondition
+prop_xpStanzaErrorCondition_invertible :: StanzaErrorCondition -> Bool
+prop_xpStreamErrorCondition_invertible = tpsi xpStreamErrorCondition
+prop_xpStreamErrorCondition_invertible :: StreamErrorCondition -> Bool
+-- prop_xpStreamFeatures_invertible = testPicklerInvertible xpStreamFeatures
 
 picklerTests :: TestTree
 picklerTests = $testGroupGenerator

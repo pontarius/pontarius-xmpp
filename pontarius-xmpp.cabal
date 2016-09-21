@@ -178,6 +178,9 @@ Test-Suite runtests
   hs-source-dirs: tests
   main-is: Run.hs
   other-modules: Run.Payload
+               , Run.SendReceive
+               , Run.Google
+               , Run.Config
   GHC-Options: -Wall -threaded
   Build-Depends: base
                , HUnit
