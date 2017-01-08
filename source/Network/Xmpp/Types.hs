@@ -109,7 +109,7 @@ import qualified Language.Haskell.TH.Syntax as TH
 #endif
 import           Network
 import           Network.DNS
-import           Network.TLS hiding (Version)
+import           Network.TLS hiding (Version, HostName)
 import           Network.TLS.Extra
 import qualified Text.StringPrep as SP
 import qualified Text.StringPrep.Profiles as SP
