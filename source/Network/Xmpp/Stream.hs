@@ -33,6 +33,7 @@ import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text
 import qualified Data.Text.Encoding.Error as Text
 import           Data.Void (Void)
+import           Data.Word (Word16)
 import           Data.XML.Pickle
 import           Data.XML.Types
 import qualified GHC.IO.Exception as GIE
@@ -734,7 +735,7 @@ rethrowErrorCall action = do
 
 -- Provides a list of A(AAA) names and port numbers upon a successful
 -- DNS-SRV request, or `Nothing' if the DNS-SRV request failed.
-srvLookup :: Text -> ResolvSeed -> ErrorT XmppFailure IO (Maybe [(Domain, Int)])
+srvLookup :: Text -> ResolvSeed -> ErrorT XmppFailure IO (Maybe [(Domain, Word16)])
 srvLookup realm resolvSeed = ErrorT $ do
     result <- Ex.try $ rethrowErrorCall $ withResolver resolvSeed
               $ \resolver -> do
@@ -764,13 +765,13 @@ srvLookup realm resolvSeed = ErrorT $ do
     -- 2782. It sorts the SRV results in order of priority, and then
     -- uses a random process to order the records with the same
     -- priority based on their weight.
-    orderSrvResult :: [(Int, Int, Int, Domain)] -> IO [(Int, Int, Int, Domain)]
+    orderSrvResult :: [(Word16, Word16, Word16, Domain)] -> IO [(Word16, Word16, Word16, Domain)]
     orderSrvResult srvResult = do
         -- Order the result set by priority.
         let srvResult' = sortBy (comparing (\(priority, _, _, _) -> priority)) srvResult
         -- Group elements in sublists based on their priority. The
-        -- type is `[[(Int, Int, Int, Domain)]]'.
-        let srvResult'' = Data.List.groupBy (\(priority, _, _, _) (priority', _, _, _) -> priority == priority') srvResult' :: [[(Int, Int, Int, Domain)]]
+        -- type is `[[(Word16, Word16, Word16, Domain)]]'.
+        let srvResult'' = Data.List.groupBy (\(priority, _, _, _) (priority', _, _, _) -> priority == priority') srvResult' :: [[(Word16, Word16, Word16, Domain)]]
         -- For each sublist, put records with a weight of zero first.
         let srvResult''' = Data.List.map (\sublist -> let (a, b) = partition (\(_, weight, _, _) -> weight == 0) sublist in Data.List.concat [a, b]) srvResult''
         -- Order each sublist.
@@ -778,7 +779,7 @@ srvLookup realm resolvSeed = ErrorT $ do
         -- Concatinated the results.
         return $ Data.List.concat srvResult''''
       where
-        orderSublist :: [(Int, Int, Int, Domain)] -> IO [(Int, Int, Int, Domain)]
+        orderSublist :: [(Word16, Word16, Word16, Domain)] -> IO [(Word16, Word16, Word16, Domain)]
         orderSublist [] = return []
         orderSublist sublist = do
             -- Compute the running sum, as well as the total sum of
