@@ -23,15 +23,15 @@ xpNonemptyText :: PU Text NonemptyText
 xpNonemptyText = ("xpNonemptyText" , "") <?+> xpWrap Nonempty fromNonempty xpText
 
 xpStreamElement :: PU [Node] (Either StreamErrorInfo XmppElement)
-xpStreamElement = xpEither xpStreamError $
-                    xpWrap (\v -> case v of
-                                   Left l -> XmppStanza l
-                                   Right r -> XmppNonza r
-                           )
-                           ( \v -> case v of
-                                    XmppStanza l -> Left l
-                                    XmppNonza r -> Right r)
-                      $ xpEither xpStanza xpElemVerbatim
+xpStreamElement = xpEither xpStreamError $ xpAlt elemSel
+    [ xpWrap XmppStanza     (\(XmppStanza     x) -> x) xpStanza
+    , xpWrap XmppNonza      (\(XmppNonza      x) -> x) xpElemVerbatim
+    ]
+  where
+    -- Selector for which pickler to execute above.
+    elemSel :: XmppElement -> Int
+    elemSel (XmppStanza     _) = 0
+    elemSel (XmppNonza      _) = 1
 
 xpStreamStanza :: PU [Node] (Either StreamErrorInfo Stanza)
 xpStreamStanza = xpEither xpStreamError xpStanza
