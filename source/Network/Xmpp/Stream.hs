@@ -283,7 +283,7 @@ logInput = go Nothing
 bufferSrc :: Source (ErrorT XmppFailure IO) o
           -> IO (ConduitM i o (ErrorT XmppFailure IO) ())
 bufferSrc src = do
-    ref <- newTMVarIO $ DCI.newResumableSource src
+    ref <- newTMVarIO $ DCI.sealConduitT src
     let go = do
             dt <- liftIO $ Ex.bracketOnError
                       (atomically $ takeTMVar ref)
@@ -304,7 +304,7 @@ bufferSrc src = do
                 Right (Just d) -> yield d >> go
     return go
   where
-    zeroResumableSource = DCI.newResumableSource zeroSource
+    zeroResumableSource = DCI.sealConduitT zeroSource
 
 -- Reads the (partial) stream:stream and the server features from the stream.
 -- Returns the (unvalidated) stream attributes, the unparsed element, or
