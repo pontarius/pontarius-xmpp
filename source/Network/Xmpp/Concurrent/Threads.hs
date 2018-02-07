@@ -9,7 +9,7 @@ import           Control.Concurrent
 import           Control.Concurrent.STM
 import qualified Control.Exception.Lifted as Ex
 import           Control.Monad
-import           Control.Monad.Error
+import           Control.Monad.Except
 import qualified Data.ByteString as BS
 import           GHC.IO (unsafeUnmask)
 import           Network.Xmpp.Concurrent.Types

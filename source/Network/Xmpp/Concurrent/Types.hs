@@ -7,7 +7,7 @@ module Network.Xmpp.Concurrent.Types where
 import           Control.Concurrent
 import           Control.Concurrent.STM
 import qualified Control.Exception.Lifted as Ex
-import           Control.Monad.Error
+import           Control.Monad.Except
 import qualified Data.ByteString as BS
 import           Data.Default
 import qualified Data.Map as Map
@@ -68,7 +68,7 @@ data Plugin' = Plugin'
 
 type Plugin = (XmppElement -> IO (Either XmppFailure ())) -- ^ pass stanza to
                                                           -- next plugin
-              -> ErrorT XmppFailure IO Plugin'
+              -> ExceptT XmppFailure IO Plugin'
 
 type RosterPushCallback = Roster -> RosterUpdate -> IO ()
 

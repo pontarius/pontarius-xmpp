@@ -15,7 +15,7 @@ import           Control.Concurrent.STM
 import qualified Control.Exception as Ex
 import qualified Control.Exception.Lifted as ExL
 import           Control.Monad
-import           Control.Monad.Error
+import           Control.Monad.Except
 import           Control.Monad.State.Strict
 import           Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
@@ -82,8 +82,8 @@ streamUnpickleElem p x = do
         Right r -> return r
 
 -- This is the conduit sink that handles the stream XML events. We extend it
--- with ErrorT capabilities.
-type StreamSink a = ConduitM Event Void (ErrorT XmppFailure IO) a
+-- with ExceptT capabilities.
+type StreamSink a = ConduitM Event Void (ExceptT XmppFailure IO) a
 
 -- Discards all events before the first EventBeginElement.
 throwOutJunk :: Monad m => ConduitM Event a m ()
@@ -110,7 +110,7 @@ openElementFromEvents = do
 -- generated, the connection to the server will be closed, and a XmppFailure
 -- will be produced.
 startStream :: StateT StreamState IO (Either XmppFailure ())
-startStream = runErrorT $ do
+startStream = runExceptT $ do
     lift $ lift $ debugM "Pontarius.Xmpp" "Starting stream..."
     st <- lift $ get
     -- Set the `from' (which is also the expected to) attribute depending on the
@@ -128,15 +128,15 @@ startStream = runErrorT $ do
             lift $ lift $ errorM "Pontarius.Xmpp" "Server sent no hostname."
             throwError XmppOtherFailure
         Just address -> do
-            ErrorT $ pushXmlDecl
-            ErrorT . pushOpenElement . streamNSHack $
+            ExceptT $ pushXmlDecl
+            ExceptT . pushOpenElement . streamNSHack $
                 pickleElem xpStream ( "1.0"
                                     , expectedTo
                                     , Just (Jid Nothing (Nonempty address) Nothing)
                                     , Nothing
                                     , preferredLang $ streamConfiguration st
                                     )
-    response <- ErrorT $ runEventsSink $ streamS expectedTo
+    response <- ExceptT $ runEventsSink $ streamS expectedTo
     case response of
       Right (ver, from, to, sid, lt, features)
         | versionFromText ver == Nothing -> closeStreamWithError
@@ -181,14 +181,14 @@ startStream = runErrorT $ do
         | (isJust $ namePrefix name) && (fromJust (namePrefix name) /= "stream") ->
             closeStreamWithError StreamBadNamespacePrefix Nothing
                 "Root name prefix set and not stream"
-        | otherwise -> ErrorT $ checkchildren (flattenAttrs attrs)
+        | otherwise -> ExceptT $ checkchildren (flattenAttrs attrs)
   where
     -- HACK: We include the default namespace to make isode's M-LINK server happy.
     streamNSHack e = e{elementAttributes = elementAttributes e
                                            ++ [( "xmlns"
                                                , [ContentText "jabber:client"])]}
     closeStreamWithError  :: StreamErrorCondition -> Maybe Element -> String
-                          -> ErrorT XmppFailure (StateT StreamState IO) ()
+                          -> ExceptT XmppFailure (StateT StreamState IO) ()
     closeStreamWithError sec el msg = do
         void . lift . pushElement . pickleElem xpStreamError
             $ StreamErrorInfo sec Nothing el
@@ -200,19 +200,19 @@ startStream = runErrorT $ do
             ver' = lookup "version" children
             xl   = lookup xmlLang   children
           in case () of () | Just Nothing == fmap jidFromText to' ->
-                               runErrorT $ closeStreamWithError
+                               runExceptT $ closeStreamWithError
                                    StreamBadNamespacePrefix Nothing
                                    "stream to not a valid JID"
                            | Nothing == ver' ->
-                               runErrorT $ closeStreamWithError
+                               runExceptT $ closeStreamWithError
                                    StreamUnsupportedVersion Nothing
                                    "stream no version"
                            | Just (Nothing :: Maybe LangTag) == (safeRead <$> xl) ->
-                               runErrorT $ closeStreamWithError
+                               runExceptT $ closeStreamWithError
                                    StreamInvalidXml Nothing
                                    "stream no language tag"
                            | otherwise ->
-                               runErrorT $ closeStreamWithError
+                               runExceptT $ closeStreamWithError
                                    StreamBadFormat Nothing
                                    ""
     safeRead x = case reads $ Text.unpack x of
@@ -281,8 +281,8 @@ logInput = go Nothing
 -- We buffer sources because we don't want to lose data when multiple
 -- xml-entities are sent with the same packet and we don't want to eternally
 -- block the StreamState while waiting for data to arrive
-bufferSrc :: Source (ErrorT XmppFailure IO) o
-          -> IO (ConduitM i o (ErrorT XmppFailure IO) ())
+bufferSrc :: Source (ExceptT XmppFailure IO) o
+          -> IO (ConduitM i o (ExceptT XmppFailure IO) ())
 bufferSrc src = do
     ref <- newTMVarIO $ DCI.sealConduitT src
     let go = do
@@ -290,7 +290,7 @@ bufferSrc src = do
                       (atomically $ takeTMVar ref)
                       (\_ -> atomically . putTMVar ref $ zeroResumableSource)
                       (\s -> do
-                            res <- runErrorT (s $$++ await)
+                            res <- runExceptT (s $$++ await)
                             case res of
                                 Left e -> do
                                     atomically $ putTMVar ref zeroResumableSource
@@ -349,10 +349,10 @@ streamS _expectedTo = do -- TODO: check expectedTo
 -- | Connects to the XMPP server and opens the XMPP stream against the given
 -- realm.
 openStream :: HostName -> StreamConfiguration -> IO (Either XmppFailure (Stream))
-openStream realm config = runErrorT $ do
+openStream realm config = runExceptT $ do
     lift $ debugM "Pontarius.Xmpp" "Opening stream..."
     stream' <- createStream realm config
-    ErrorT . liftIO $ withStream startStream stream'
+    ExceptT . liftIO $ withStream startStream stream'
     return stream'
 
 -- | Send \"</stream:stream>\" and wait for the server to finish processing and
@@ -455,11 +455,11 @@ pushOpenElement e = do
 
 -- `Connect-and-resumes' the given sink to the stream source, and pulls a
 -- `b' value.
-runEventsSink :: Sink Event (ErrorT XmppFailure IO) b
+runEventsSink :: Sink Event (ExceptT XmppFailure IO) b
               -> StateT StreamState IO (Either XmppFailure b)
 runEventsSink snk = do -- TODO: Wrap exceptions?
     src <- gets streamEventSource
-    lift . runErrorT $ src $$ snk
+    lift . runExceptT $ src $$ snk
 
 pullElement :: StateT StreamState IO (Either XmppFailure Element)
 pullElement = do
@@ -543,7 +543,7 @@ xmppNoStream = StreamState {
     , streamConfiguration = def
     }
 
-zeroSource :: Source (ErrorT XmppFailure IO) a
+zeroSource :: Source (ExceptT XmppFailure IO) a
 zeroSource = do
     liftIO $ debugM "Pontarius.Xmpp" "zeroSource"
     throwError XmppNoStream
@@ -559,11 +559,11 @@ handleToStreamHandle h = StreamHandle { streamSend = \d ->
                                       , streamClose = hClose h
                                       }
 
-createStream :: HostName -> StreamConfiguration -> ErrorT XmppFailure IO (Stream)
+createStream :: HostName -> StreamConfiguration -> ExceptT XmppFailure IO (Stream)
 createStream realm config = do
     result <- connect realm config
     case result of
-        Just hand -> ErrorT $ do
+        Just hand -> ExceptT $ do
             debugM "Pontarius.Xmpp" "Acquired handle."
             debugM "Pontarius.Xmpp" "Setting NoBuffering mode on handle."
             eSource <- liftIO . bufferSrc $
@@ -598,7 +598,7 @@ createStream realm config = do
     maybeSetTlsHost host = over tlsIdentL (updateHost host)
 
 -- Connects using the specified method. Returns the Handle acquired, if any.
-connect :: HostName -> StreamConfiguration -> ErrorT XmppFailure IO
+connect :: HostName -> StreamConfiguration -> ExceptT XmppFailure IO
            (Maybe StreamHandle)
 connect realm config = do
     case connectionDetails config of
@@ -626,7 +626,7 @@ connect realm config = do
                     return . Just $ handleToStreamHandle h'
         UseConnection mkC -> Just <$> mkC
 
-connectSrv :: ResolvConf -> String -> ErrorT XmppFailure IO (Maybe Handle)
+connectSrv :: ResolvConf -> String -> ExceptT XmppFailure IO (Maybe Handle)
 connectSrv config host = do
     case checkHostName (Text.pack host) of
         Just host' -> do
@@ -735,8 +735,8 @@ rethrowErrorCall action = do
 
 -- Provides a list of A(AAA) names and port numbers upon a successful
 -- DNS-SRV request, or `Nothing' if the DNS-SRV request failed.
-srvLookup :: Text -> ResolvSeed -> ErrorT XmppFailure IO (Maybe [(Domain, Word16)])
-srvLookup realm resolvSeed = ErrorT $ do
+srvLookup :: Text -> ResolvSeed -> ExceptT XmppFailure IO (Maybe [(Domain, Word16)])
+srvLookup realm resolvSeed = ExceptT $ do
     result <- Ex.try $ rethrowErrorCall $ withResolver resolvSeed
               $ \resolver -> do
         srvResult <- lookupSRV resolver $ BSC8.pack $ "_xmpp-client._tcp." ++ (Text.unpack realm) ++ "."
@@ -818,8 +818,8 @@ pushIQ :: Text
        -> Element
        -> Stream
        -> IO (Either XmppFailure (Either IQError IQResult))
-pushIQ iqID to tp lang body stream = runErrorT $ do
-    ErrorT $ pushStanza
+pushIQ iqID to tp lang body stream = runExceptT $ do
+    ExceptT $ pushStanza
         (IQRequestS $ IQRequest iqID Nothing to lang tp body []) stream
     res <- lift $ pullStanza stream
     case res of

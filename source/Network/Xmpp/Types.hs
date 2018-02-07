@@ -89,7 +89,7 @@ module Network.Xmpp.Types
 import           Control.Applicative ((<$>), (<|>), many)
 import           Control.Concurrent.STM
 import           Control.Exception
-import           Control.Monad.Error
+import           Control.Monad.Except
 import qualified Data.Attoparsec.Text as AP
 import qualified Data.ByteString as BS
 import           Data.Char (isSpace)
@@ -623,7 +623,6 @@ data XmppFailure = StreamErrorFailure StreamErrorInfo -- ^ An error XML stream
                  deriving (Show, Eq, Typeable)
 
 instance Exception XmppFailure
-instance Error XmppFailure where noMsg = XmppOtherFailure
 
 -- | Signals a SASL authentication error condition.
 data AuthFailure = -- | No mechanism offered by the server was matched
@@ -640,9 +639,6 @@ data AuthFailure = -- | No mechanism offered by the server was matched
                    -- in the log
                  | AuthOtherFailure
                  deriving (Eq, Show)
-
-instance Error AuthFailure where
-    noMsg = AuthOtherFailure
 
 -- =============================================================================
 --  XML TYPES
@@ -791,7 +787,7 @@ data StreamState = StreamState
       -- | Functions to send, receive, flush, and close the stream
     , streamHandle :: StreamHandle
       -- | Event conduit source, and its associated finalizer
-    , streamEventSource :: Source (ErrorT XmppFailure IO) Event
+    , streamEventSource :: Source (ExceptT XmppFailure IO) Event
       -- | Stream features advertised by the server
     , streamFeatures :: !StreamFeatures -- TODO: Maybe?
       -- | The hostname or IP specified for the connection
@@ -1229,7 +1225,7 @@ data ConnectionDetails = UseRealm -- ^ Use realm to resolv host. This is the
                                   -- default.
                        | UseSrv HostName -- ^ Use this hostname for a SRV lookup
                        | UseHost HostName PortNumber -- ^ Use specified host
-                       | UseConnection (ErrorT XmppFailure IO StreamHandle)
+                       | UseConnection (ExceptT XmppFailure IO StreamHandle)
                          -- ^ Use a custom method to create a StreamHandle. This
                          -- will also be used by reconnect. For example, to
                          -- establish TLS before starting the stream as done by

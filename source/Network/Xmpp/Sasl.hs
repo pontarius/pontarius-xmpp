@@ -14,7 +14,7 @@ module Network.Xmpp.Sasl
     , auth
     ) where
 
-import           Control.Monad.Error
+import           Control.Monad.Except
 import           Control.Monad.State.Strict
 import           Data.Text (Text)
 import           Data.XML.Pickle
@@ -48,10 +48,10 @@ xmppSasl handlers stream = do
                     Closed -> do
                         lift $ errorM "Pontarius.Xmpp" "xmppSasl: Stream state closed."
                         return . Left $ XmppNoStream
-                    _ -> runErrorT $ do
+                    _ -> runExceptT $ do
                            -- TODO: Log details about handler? SaslHandler "show" instance?
                            lift $ lift $ debugM "Pontarius.Xmpp" "xmppSasl: Performing handler..."
-                           r <- ErrorT handler
+                           r <- ExceptT handler
                            case r of
                                Just ae -> do
                                    lift $ lift $ errorM "Pontarius.Xmpp" $
@@ -60,7 +60,7 @@ xmppSasl handlers stream = do
                                    return $ Just ae
                                Nothing -> do
                                    lift $ lift $ debugM "Pontarius.Xmpp" "xmppSasl: Authentication successful, restarting stream."
-                                   _ <- ErrorT restartStream
+                                   _ <- ExceptT restartStream
                                    lift $ lift $ debugM "Pontarius.Xmpp" "xmppSasl: Stream restarted."
                                    return Nothing
 
@@ -70,12 +70,12 @@ auth :: [SaslHandler]
      -> Maybe Text
      -> Stream
      -> IO (Either XmppFailure (Maybe AuthFailure))
-auth mechanisms resource con = runErrorT $ do
-    mbAuthFail <- ErrorT $ xmppSasl mechanisms con
+auth mechanisms resource con = runExceptT $ do
+    mbAuthFail <- ExceptT $ xmppSasl mechanisms con
     case mbAuthFail of
         Nothing -> do
-            _jid <- ErrorT $ xmppBind resource con
-            ErrorT $ flip withStream' con $ do
+            _jid <- ExceptT $ xmppBind resource con
+            ExceptT $ flip withStream' con $ do
                 s <- get
 
                 case sendStreamElement s of
@@ -103,9 +103,9 @@ bindBody = pickleElem $
 -- Sends a (synchronous) IQ set request for a (`Just') given or server-generated
 -- resource and extract the JID from the non-error response.
 xmppBind  :: Maybe Text -> Stream -> IO (Either XmppFailure Jid)
-xmppBind rsrc c = runErrorT $ do
+xmppBind rsrc c = runExceptT $ do
     lift $ debugM "Pontarius.Xmpp" "Attempts to bind..."
-    answer <- ErrorT $ pushIQ "bind" Nothing Set Nothing (bindBody rsrc) c
+    answer <- ExceptT $ pushIQ "bind" Nothing Set Nothing (bindBody rsrc) c
     case answer of
         Right IQResult{iqResultPayload = Just b} -> do
             lift $ debugM "Pontarius.Xmpp" "xmppBind: IQ result received; unpickling JID..."

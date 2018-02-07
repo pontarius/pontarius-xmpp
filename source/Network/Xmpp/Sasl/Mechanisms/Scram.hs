@@ -7,7 +7,7 @@ module Network.Xmpp.Sasl.Mechanisms.Scram
   where
 
 import           Control.Applicative ((<$>))
-import           Control.Monad.Error
+import           Control.Monad.Except
 import           Control.Monad.State.Strict
 import qualified Crypto.Classes          as Crypto
 import qualified Crypto.HMAC             as Crypto
@@ -37,7 +37,7 @@ scram :: (Crypto.Hash ctx hash)
       -> Text.Text       -- ^ Authentication ID (user name)
       -> Maybe Text.Text -- ^ Authorization ID
       -> Text.Text       -- ^ Password
-      -> ErrorT AuthFailure (StateT StreamState IO) ()
+      -> ExceptT AuthFailure (StateT StreamState IO) ()
 scram hToken authcid authzid password = do
     (ac, az, pw) <- prepCredentials authcid authzid password
     scramhelper ac az pw
@@ -86,7 +86,7 @@ scram hToken authcid authzid password = do
 
         fromPairs :: Pairs
                   -> BS.ByteString
-                  -> ErrorT AuthFailure (StateT StreamState IO) (BS.ByteString, BS.ByteString, Integer)
+                  -> ExceptT AuthFailure (StateT StreamState IO) (BS.ByteString, BS.ByteString, Integer)
         fromPairs prs cnonce | Just nonce <- lookup "r" prs
                              , cnonce `BS.isPrefixOf` nonce
                              , Just salt' <- lookup "s" prs
@@ -154,7 +154,7 @@ scramSha1 :: Username  -- ^ username
 scramSha1 authcid authzid passwd =
     ( "SCRAM-SHA-1"
     , do
-          r <- runErrorT $ scram (hashToken :: Crypto.SHA1) authcid authzid passwd
+          r <- runExceptT $ scram (hashToken :: Crypto.SHA1) authcid authzid passwd
           case r of
               Left (AuthStreamFailure e) -> return $ Left e
               Left e -> return $ Right $ Just e

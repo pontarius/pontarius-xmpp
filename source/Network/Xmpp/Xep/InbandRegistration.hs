@@ -11,7 +11,7 @@ module Network.Xmpp.Xep.InbandRegistration where
 import           Control.Applicative((<$>))
 import           Control.Arrow(left)
 import           Control.Exception
-import           Control.Monad.Error
+import           Control.Monad.Except
 import           Control.Monad.State
 
 import           Data.Either (partitionEithers)
@@ -35,8 +35,6 @@ data IbrError = IbrNotSupported
               | IbrTimeout
 
                 deriving (Show)
-instance Error IbrError
-
 
 data Query = Query { instructions :: Maybe Text.Text
                    , registered   :: Bool
@@ -82,8 +80,6 @@ data RegisterError = IbrError IbrError
                    | AlreadyRegistered
                      deriving (Show)
 
-instance Error RegisterError
-
 mapError f = mapErrorT (liftM $ left f)
 
 -- | Retrieve the necessary fields and fill them in to register an account with
@@ -91,8 +87,8 @@ mapError f = mapErrorT (liftM $ left f)
 registerWith :: [(Field, Text.Text)]
              -> Stream
              -> IO  (Either RegisterError Query)
-registerWith givenFields con = runErrorT $ do
-    fs <- mapError IbrError . ErrorT $ requestFields con
+registerWith givenFields con = runExceptT $ do
+    fs <- mapError IbrError . ExceptT $ requestFields con
     when (registered fs) . throwError $ AlreadyRegistered
     let res = flip map (fields fs) $ \(field,_) ->
             case lookup field givenFields of
@@ -101,18 +97,18 @@ registerWith givenFields con = runErrorT $ do
     fields <- case partitionEithers res of
         ([],fs) -> return fs
         (fs,_) -> throwError $ MissingFields fs
-    result <- mapError IbrError . ErrorT $ query Set (emptyQuery {fields}) con
+    result <- mapError IbrError . ExceptT $ query Set (emptyQuery {fields}) con
     return result
 
 
 
-createAccountWith host hostname port fields = runErrorT $ do
+createAccountWith host hostname port fields = runExceptT $ do
       con' <- liftIO $ connectTcp host port hostname
       con <- case con' of
           Left e -> throwError $ IbrError IbrNoConnection
           Right r -> return r
       lift $ startTLS exampleParams con
-      ErrorT $ registerWith fields con
+      ExceptT $ registerWith fields con
 
 deleteAccount host hostname port username password = do
     con <- simpleConnect host port hostname username password Nothing
@@ -127,8 +123,8 @@ unregister = query Set $ emptyQuery {remove = True}
 unregister' :: Session -> IO (Either IbrError Query)
 unregister' = query' Set $ emptyQuery {remove = True}
 
-requestFields con = runErrorT $ do
-    qr <- ErrorT $ query Get emptyQuery con
+requestFields con = runExceptT $ do
+    qr <- ExceptT $ query Get emptyQuery con
     return $ qr
 
 xpQuery :: PU [XML.Node] Query

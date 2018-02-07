@@ -5,7 +5,7 @@ module Network.Xmpp.Sasl.Mechanisms.DigestMd5
     ( digestMd5
     ) where
 
-import           Control.Monad.Error
+import           Control.Monad.Except
 import           Control.Monad.State.Strict
 import qualified Crypto.Classes as CC
 import qualified Data.Binary as Binary
@@ -26,13 +26,13 @@ import           Network.Xmpp.Types
 xmppDigestMd5 ::  Text -- ^ Authentication identity (authzid or username)
                -> Maybe Text -- ^ Authorization identity (authcid)
                -> Text -- ^ Password (authzid)
-               -> ErrorT AuthFailure (StateT StreamState IO) ()
+               -> ExceptT AuthFailure (StateT StreamState IO) ()
 xmppDigestMd5 authcid' authzid' password' = do
     (ac, az, pw) <- prepCredentials authcid' authzid' password'
     Just address <- gets streamAddress
     xmppDigestMd5' address ac az pw
   where
-    xmppDigestMd5' :: Text -> Text -> Maybe Text -> Text -> ErrorT AuthFailure (StateT StreamState IO) ()
+    xmppDigestMd5' :: Text -> Text -> Maybe Text -> Text -> ExceptT AuthFailure (StateT StreamState IO) ()
     xmppDigestMd5' hostname authcid _authzid password = do -- TODO: use authzid?
         -- Push element and receive the challenge.
         _ <- saslInit "DIGEST-MD5" Nothing -- TODO: Check boolean?
@@ -114,7 +114,7 @@ digestMd5 :: Username -- ^ Authentication identity (authcid or username)
 digestMd5 authcid authzid password =
     ( "DIGEST-MD5"
     , do
-          r <- runErrorT $ xmppDigestMd5 authcid authzid password
+          r <- runExceptT $ xmppDigestMd5 authcid authzid password
           case r of
               Left (AuthStreamFailure e) -> return $ Left e
               Left e -> return $ Right $ Just e

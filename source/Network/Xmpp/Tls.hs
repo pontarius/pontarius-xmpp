@@ -9,7 +9,7 @@ module Network.Xmpp.Tls where
 import                 Control.Applicative ((<$>))
 import qualified       Control.Exception.Lifted as Ex
 import                 Control.Monad
-import                 Control.Monad.Error
+import                 Control.Monad.Except
 import                 Control.Monad.State.Strict
 import "crypto-random" Crypto.Random
 import qualified       Data.ByteString as BS
@@ -56,7 +56,7 @@ tls con = fmap join -- We can have Left values both from exceptions and the
                     -- error monad. Join unifies them into one error layer
           . wrapExceptions
           . flip withStream con
-          . runErrorT $ do
+          . runExceptT $ do
     conf <- gets streamConfiguration
     sState <- gets streamConnectionState
     case sState of
@@ -85,7 +85,7 @@ tls con = fmap join -- We can have Left values both from exceptions and the
     startTls = do
         liftIO $ infoM "Pontarius.Xmpp.Tls" "Running StartTLS"
         params <- gets $ tlsParams . streamConfiguration
-        ErrorT $ pushElement starttlsE
+        ExceptT $ pushElement starttlsE
         answer <- lift $ pullElement
         case answer of
             Left e -> throwError e
@@ -173,7 +173,7 @@ connectTls :: ResolvConf -- ^ Resolv conf to use (try 'defaultResolvConf' as a
            -> ClientParams  -- ^ TLS parameters to use when securing the connection
            -> String     -- ^ Host to use when connecting (will be resolved
                          -- using SRV records)
-           -> ErrorT XmppFailure IO StreamHandle
+           -> ExceptT XmppFailure IO StreamHandle
 connectTls config params host = do
     h <- connectSrv config host >>= \h' -> case h' of
         Nothing -> throwError TcpConnectionFailure

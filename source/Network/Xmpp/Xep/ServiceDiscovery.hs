@@ -17,7 +17,7 @@ module Network.Xmpp.Xep.ServiceDiscovery
   where
 
 import           Control.Applicative ((<$>))
-import           Control.Monad.Error
+import           Control.Monad.Except
 import qualified Data.Map as Map
 import qualified Data.Text as Text
 import           Data.XML.Pickle
@@ -35,8 +35,6 @@ data DiscoError = DiscoNoQueryElement
                 | DiscoXmlError Element UnpickleError
 
                 deriving (Show)
-
-instance Error DiscoError
 
 -- Identity
 ---------------------

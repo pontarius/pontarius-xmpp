@@ -8,7 +8,7 @@ module Network.Xmpp.Sasl.Mechanisms.Plain
     ( plain
     ) where
 
-import           Control.Monad.Error
+import           Control.Monad.Except
 import           Control.Monad.State.Strict
 import qualified Data.ByteString as BS
 import qualified Data.Text as Text
@@ -21,7 +21,7 @@ import           Network.Xmpp.Types
 xmppPlain :: Text.Text -- ^ Password
           -> Maybe Text.Text -- ^ Authorization identity (authzid)
           -> Text.Text -- ^ Authentication identity (authcid)
-          -> ErrorT AuthFailure (StateT StreamState IO) ()
+          -> ExceptT AuthFailure (StateT StreamState IO) ()
 xmppPlain authcid' authzid' password  = do
     (ac, az, pw) <- prepCredentials authcid' authzid' password
     _ <- saslInit "PLAIN" ( Just $ plainMessage ac az pw)
@@ -51,7 +51,7 @@ plain :: Username -- ^ authentication ID (username)
 plain authcid authzid passwd =
     ( "PLAIN"
     , do
-          r <- runErrorT $ xmppPlain authcid authzid passwd
+          r <- runExceptT $ xmppPlain authcid authzid passwd
           case r of
               Left (AuthStreamFailure e) -> return $ Left e
               Left e -> return $ Right $ Just e

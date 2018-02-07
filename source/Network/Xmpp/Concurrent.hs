@@ -24,7 +24,7 @@ import           Control.Concurrent (threadDelay)
 import           Control.Concurrent.STM
 import qualified Control.Exception as Ex
 import           Control.Monad
-import           Control.Monad.Error
+import           Control.Monad.Except
 import qualified Data.List as List
 import qualified Data.Map as Map
 import           Data.Maybe
@@ -168,7 +168,7 @@ newSession :: Stream
            -> HostName
            -> Maybe (ConnectionState -> [SaslHandler] , Maybe Text)
            -> IO (Either XmppFailure Session)
-newSession stream config realm mbSasl = runErrorT $ do
+newSession stream config realm mbSasl = runExceptT $ do
     write' <- liftIO $ withStream' (gets $ streamSend . streamHandle) stream
     writeSem <- liftIO $ newTMVarIO write'
     stanzaChan <- lift newTChanIO
@@ -202,7 +202,7 @@ newSession stream config realm mbSasl = runErrorT $ do
                         , rosterH
                         , [ handleIQ iqHands sXmppElement]
                         ]
-    (kill, sState, reader) <- ErrorT $ startThreadsWith writeSem stanzaHandler
+    (kill, sState, reader) <- ExceptT $ startThreadsWith writeSem stanzaHandler
                                                         eh stream
                                                         (keepAlive config)
     idGen <- liftIO $ sessionStanzaIDs config
@@ -249,13 +249,13 @@ connectStream realm config mbSasl = do
         (\stream' -> case stream' of
               Left e -> return $ Left e
               Right stream -> do
-                  res <- runErrorT $ do
-                      ErrorT $ tls stream
+                  res <- runExceptT $ do
+                      ExceptT $ tls stream
                       cs <- liftIO $ withStream (gets streamConnectionState)
                                                 stream
                       mbAuthError <- case mbSasl of
                           Nothing -> return Nothing
-                          Just (handlers, resource) -> ErrorT $ auth (handlers cs)
+                          Just (handlers, resource) -> ExceptT $ auth (handlers cs)
                                                                 resource stream
                       case mbAuthError of
                           Nothing -> return ()
@@ -278,9 +278,9 @@ session :: HostName                          -- ^ The hostname / realm
         -> AuthData
         -> SessionConfiguration              -- ^ configuration details
         -> IO (Either XmppFailure Session)
-session realm mbSasl config = runErrorT $ do
-    stream <- ErrorT $ connectStream realm config mbSasl
-    ses <- ErrorT $ newSession stream config realm mbSasl
+session realm mbSasl config = runExceptT $ do
+    stream <- ExceptT $ connectStream realm config mbSasl
+    ses <- ExceptT $ newSession stream config realm mbSasl
     liftIO $ when (enableRoster config) $ initRoster ses
     return ses
 
