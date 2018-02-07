@@ -32,6 +32,11 @@ Flag with-th {
   Default:     True
 }
 
+custom-setup
+  setup-depends:   base
+                 , Cabal >= 2.0.1.0
+                 , filepath
+
 Library
   hs-source-dirs: source
   Exposed: True
