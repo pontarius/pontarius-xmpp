@@ -51,7 +51,7 @@ Library
                , cryptohash           >=0.6.1
                , cryptohash-cryptoapi >=0.1
                , data-default         >=0.2
-               , dns                  >=0.3.0
+               , dns                  >=3.0
                , exceptions           >=0.6
                , hslogger             >=1.1.0
                , iproute              >=1.2.4
@@ -88,7 +88,7 @@ Library
                  , Network.Xmpp.IM
                  , Network.Xmpp.Internal
                  , Network.Xmpp.Lens
-  Other-modules:   Network.Xmpp.Concurrent
+                 , Network.Xmpp.Concurrent
                  , Network.Xmpp.Concurrent.Basic
                  , Network.Xmpp.Concurrent.IQ
                  , Network.Xmpp.Concurrent.Message
@@ -101,7 +101,6 @@ Library
                  , Network.Xmpp.IM.PresenceTracker
                  , Network.Xmpp.IM.Roster
                  , Network.Xmpp.IM.Roster.Types
-                 , Network.Xmpp.IM.PresenceTracker
                  , Network.Xmpp.IM.PresenceTracker.Types
                  , Network.Xmpp.Marshal
                  , Network.Xmpp.Sasl
