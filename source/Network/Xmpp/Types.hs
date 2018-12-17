@@ -95,6 +95,7 @@ import qualified Data.ByteString as BS
 import           Data.Char (isSpace)
 import           Data.Conduit
 import           Data.Default
+import           Data.Semigroup as Sem
 import qualified Data.Set as Set
 import           Data.String (IsString, fromString)
 import           Data.Text (Text)
@@ -735,16 +736,8 @@ data StreamFeatures = StreamFeatures
       -- TODO: All feature elements instead?
     } deriving (Eq, Show)
 
-instance Monoid StreamFeatures where
-    mempty = StreamFeatures
-               { streamFeaturesTls         = Nothing
-               , streamFeaturesMechanisms  = []
-               , streamFeaturesRosterVer   = Nothing
-               , streamFeaturesPreApproval = False
-               , streamFeaturesSession     = Nothing
-               , streamFeaturesOther       = []
-               }
-    mappend sf1 sf2 =
+instance Sem.Semigroup StreamFeatures where
+    sf1 <> sf2 =
         StreamFeatures
                { streamFeaturesTls = mplusOn streamFeaturesTls
                , streamFeaturesMechanisms  = mplusOn streamFeaturesMechanisms
@@ -758,6 +751,17 @@ instance Monoid StreamFeatures where
                }
       where
         mplusOn f = f sf1 `mplus` f sf2
+
+instance Monoid StreamFeatures where
+    mempty = StreamFeatures
+               { streamFeaturesTls         = Nothing
+               , streamFeaturesMechanisms  = []
+               , streamFeaturesRosterVer   = Nothing
+               , streamFeaturesPreApproval = False
+               , streamFeaturesSession     = Nothing
+               , streamFeaturesOther       = []
+               }
+    mappend = (<>)
 
 -- | Signals the state of the stream connection.
 data ConnectionState
