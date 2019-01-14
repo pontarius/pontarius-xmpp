@@ -12,6 +12,7 @@ import           Control.Monad
 import           Control.Monad.Except
 import           Control.Monad.Trans
 import qualified Data.Map as Map
+import qualified Data.Map.Strict as Map.Strict
 import           Data.Maybe
 import           Data.Text (Text)
 import           Data.XML.Pickle
@@ -112,7 +113,7 @@ listenIQ tp ns session = do
     atomically $ do
         (byNS, byID) <- readTVar handlers
         iqCh <- newTChan
-        let (present, byNS') = Map.insertLookupWithKey'
+        let (present, byNS') = Map.Strict.insertLookupWithKey
                 (\_ _ old -> old)
                 (tp, ns)
                 iqCh
