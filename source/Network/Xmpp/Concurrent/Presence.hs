@@ -49,5 +49,5 @@ sendPresence p session = sendStanza (PresenceS checkedP) session
     -- potential instant messaging and presence contact, the value of the 'to'
     -- attribute MUST be a bare JID rather than a full JID
     checkedP = case presenceType p of
-        Subscribe -> p & to . _Just %~ toBare
+        Subscribe -> p & to . some_ %~ toBare
         _ -> p

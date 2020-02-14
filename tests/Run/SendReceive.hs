@@ -13,7 +13,7 @@ import qualified Data.Configurator as Conf
 import qualified Data.Configurator.Types as Conf
 import           Data.Maybe
 import qualified Data.Text as Text
-import           Network
+import           Network.Socket
 import           Network.Xmpp
 import           System.Exit
 import           System.Log.Logger

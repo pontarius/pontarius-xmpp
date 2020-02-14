@@ -28,7 +28,7 @@ instance Arbitrary NonemptyText where
 
 instance Arbitrary Jid where
     arbitrary = do
-        Just jid <- tryJid `suchThat` isJust
+        ~(Just jid) <- tryJid `suchThat` isJust
         return jid
       where
         tryJid = jidFromTexts <$> maybeGen (genString nodeprepProfile False)

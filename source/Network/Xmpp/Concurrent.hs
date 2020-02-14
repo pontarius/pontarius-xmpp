@@ -30,7 +30,7 @@ import qualified Data.Map as Map
 import           Data.Maybe
 import           Data.Text as Text
 import           Data.XML.Types
-import           Network
+import           Network.Socket
 import           Network.Xmpp.Concurrent.Basic
 import           Network.Xmpp.Concurrent.IQ
 import           Network.Xmpp.Concurrent.Message
