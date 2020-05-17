@@ -1,13 +1,12 @@
-Welcome to Pontarius XMPP!
-==========================
+Pontarius XMPP
+==============
 
-Pontarius XMPP is an active work in progress to build a Haskell XMPP client
-library that implements the capabilities of [RFC 6120
-("XMPP CORE")](http://tools.ietf.org/html/rfc6120), [RFC 6121 ("XMPP
-IM")](http://tools.ietf.org/html/rfc6121), and [RFC 6122 ("XMPP
-ADDR")](http://tools.ietf.org/html/rfc6122). Pontarius XMPP is part of [the
-Pontarius project](http://www.pontarius.org/), an effort to produce free and
-open source, uncentralized, and privacy-aware software solutions.
+Pontarius XMPP is a Haskell XMPP client library that implements the capabilities
+of [RFC 6120 ("XMPP CORE")](http://tools.ietf.org/html/rfc6120), [RFC 6121
+("XMPP IM")](http://tools.ietf.org/html/rfc6121), and [RFC 6122 ("XMPP
+ADDR")](http://tools.ietf.org/html/rfc6122). Pontarius XMPP was part of the
+Pontarius project, an effort to produce free and open source, uncentralized, and
+privacy-aware software solutions.
 
 While in alpha, Pontarius XMPP works quite well and fulfills most requirements
 of the RFCs.
@@ -111,11 +110,3 @@ Additional XMPP threads can be created using <code>dupSession</code> and
 
 For a public domain example of a simple Pontarius XMPP (Cabal) project, refer to
 the examples/echoclient directory.
-
-More information
-----------------
-
-Feel free to [contact Jon Kristensen](http://www.jonkri.com/contact/) if you
-have any questions or comments.
-
-You are also welcome to join the #pontarius IRC channel at Freenode.
