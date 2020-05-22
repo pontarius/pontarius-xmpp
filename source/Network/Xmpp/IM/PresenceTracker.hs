@@ -9,8 +9,8 @@ import qualified Data.Foldable as Foldable
 import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import           Data.Maybe
-import           Lens.Family2
-import           Lens.Family2.Stock
+import           Lens.Family2 hiding (Prism)
+import           Lens.Family2.Stock hiding (from)
 import           Network.Xmpp.Concurrent.Types
 import           Network.Xmpp.IM.Presence
 import           Network.Xmpp.Lens hiding (Lens, Traversal)
@@ -57,7 +57,7 @@ peerStatusL j = _peers . at (toBare j)  . maybeMap . at j . _PeerStatus
 
 peerMapPeerAvailable :: Jid -> Peers -> Bool
 peerMapPeerAvailable j | isFull j = not . nullOf (peerStatusL j . _PeerAvailable)
-                       | otherwise = not . nullOf (_peers . at j . _Just)
+                       | otherwise = not . nullOf (_peers . at j . some_)
 
 handlePresence :: Maybe (Jid -> PeerStatus -> PeerStatus -> IO ())
                -> TVar Peers
@@ -65,7 +65,7 @@ handlePresence :: Maybe (Jid -> PeerStatus -> PeerStatus -> IO ())
 handlePresence onChange peers _ st _  = do
         let mbPr = do
                 pr <- st ^? _Stanza . _Presence -- Only act on presence stanzas
-                fr <- pr ^? from . _Just . _isFull -- Only act on full JIDs
+                fr <- pr ^? from . some_ . _isFull -- Only act on full JIDs
                 return (pr, fr)
         Foldable.forM_ mbPr $ \(pr, fr) ->
             case presenceType pr of
