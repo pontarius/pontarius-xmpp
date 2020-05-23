@@ -1276,10 +1276,11 @@ xmppDefaultParamsStrong = (defaultParamsClient "" BS.empty)
                         }
 
 -- | Default parameters for TLS
+-- @ciphersuite_all@ can be used to allow insecure ciphers
 xmppDefaultParams :: ClientParams
 xmppDefaultParams = (defaultParamsClient "" BS.empty)
                         { clientSupported = def
-                            { supportedCiphers = ciphersuite_all
+                            { supportedCiphers = ciphersuite_default
                             }
                         }
 
