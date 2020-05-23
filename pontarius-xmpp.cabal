@@ -1,23 +1,23 @@
 Name:          pontarius-xmpp
-Version:       0.5.6
+Version:       0.5.6.1
 Cabal-Version: >= 1.9.2
 Build-Type:    Custom
 License:       BSD3
 License-File:  LICENSE.md
 Copyright:     Dmitry Astapov, Pierre Kovalev, Mahdi Abdinejadi, Jon Kristensen,
-               IETF Trust, Philipp Balzarek
+               IETF Trust, Philipp Balzarek, Sergey Alirzaev
 Author:        Philipp Balzarek
-Maintainer:    info@jonkri.com
+Maintainer:    l29ah@cock.li
 Stability:     alpha
-Homepage:      https://github.com/pontarius/pontarius-xmpp/
-Bug-Reports:   https://github.com/pontarius/pontarius-xmpp/issues/
+Homepage:      https://github.com/l29ah/pontarius-xmpp/
+Bug-Reports:   https://github.com/l29ah/pontarius-xmpp/issues/
 Synopsis:      An XMPP client library
 Description:   Pontarius XMPP is a work in progress implementation of RFC 6120
                ("XMPP CORE"), RFC 6121 ("XMPP IM"), and RFC 6122 ("XMPP ADDR").
                While in alpha, Pontarius XMPP works quite well and fulfills most
                requirements of the RFCs.
 Category:      Network
-Tested-With:   GHC ==7.10.1
+Tested-With:   GHC == 8.6.5
 
 Extra-Source-Files: README.md
                   , ChangeLog.md
@@ -216,4 +216,9 @@ benchmark benchmarks
 
 Source-Repository head
   Type: git
-  Location: git://github.com/pontarius/pontarius-xmpp.git
+  Location: https://github.com/l29ah/pontarius-xmpp.git
+
+Source-Repository this
+  Type: git
+  Location: https://github.com/l29ah/pontarius-xmpp.git
+  Tag: 0.5.6.1
