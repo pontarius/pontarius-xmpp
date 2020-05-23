@@ -21,7 +21,6 @@ main = doctest $
   : "-XQuasiQuotes"
   : "-XOverloadedStrings"
   : "-DWITH_TEMPLATE_HASKELL"
-  : "-optP-includedist/build/autogen/cabal_macros.h"
   : map ("-package="++) deps
     ++ sources
 

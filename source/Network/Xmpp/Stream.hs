@@ -37,7 +37,7 @@ import           Data.Word (Word16)
 import           Data.XML.Pickle
 import           Data.XML.Types
 import qualified GHC.IO.Exception as GIE
-import           Network
+import           Network.Socket hiding (Stream,connect)
 import           Network.DNS hiding (encode, lookup)
 import qualified Network.Socket as S
 import           Network.Socket (AddrInfo)
@@ -654,17 +654,6 @@ connectSrv config host = do
                     "The hostname could not be validated."
                 throwError XmppIllegalTcpDetails
   where for = flip fmap
-
-showPort :: PortID -> String
-#if MIN_VERSION_network(2, 4, 1)
-showPort = show
-#else
-showPort (PortNumber x) = "PortNumber " ++ show x
-showPort (Service x) = "Service " ++ show x
-#if !defined(mingw32_HOST_OS) && !defined(__MINGW32__)
-showPort (UnixSocket x) = "UnixSocket " ++ show x
-#endif
-#endif
 
 connectHandle :: AddrInfo -> IO Handle
 connectHandle addrInfo = do

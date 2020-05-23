@@ -15,7 +15,7 @@ import           Data.Text (Text)
 import qualified Data.Text as Text
 import           Data.Typeable
 import           Data.XML.Types (Element)
-import           Network
+import           Network.Socket
 import           Network.Xmpp.IM.Roster.Types
 import           Network.Xmpp.IM.PresenceTracker.Types
 import           Network.Xmpp.Sasl.Types

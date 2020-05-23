@@ -108,7 +108,7 @@ import           Language.Haskell.TH
 import           Language.Haskell.TH.Quote
 import qualified Language.Haskell.TH.Syntax as TH
 #endif
-import           Network
+import           Network.Socket
 import           Network.DNS
 import           Network.TLS hiding (Version, HostName)
 import           Network.TLS.Extra
@@ -945,9 +945,9 @@ jid = QuasiQuoter { quoteExp = \s -> do
                           case jidFromText t of
                               Nothing -> fail $ "Could not parse JID " ++ s
                               Just j -> TH.lift j
-                  , quotePat = fail "Jid patterns aren't implemented"
-                  , quoteType = fail "jid QQ can't be used in type context"
-                  , quoteDec  = fail "jid QQ can't be used in declaration context"
+                  , quotePat = error "Jid patterns aren't implemented"
+                  , quoteType = error "jid QQ can't be used in type context"
+                  , quoteDec  = error "jid QQ can't be used in declaration context"
                   }
 
 -- | Synonym for 'jid'
@@ -1000,11 +1000,11 @@ langTagQ = QuasiQuoter {quoteExp = \s -> case langTagFromText $ Text.pack  s of
                                                       map textE (subtags lt))
                                         |]
 
-                       , quotePat = fail $ "LanguageTag patterns aren't"
+                       , quotePat = error $ "LanguageTag patterns aren't"
                                          ++ " implemented"
-                       , quoteType = fail $ "LanguageTag QQ can't be used"
+                       , quoteType = error $ "LanguageTag QQ can't be used"
                                            ++ " in type context"
-                       , quoteDec  = fail $ "LanguageTag QQ can't be used"
+                       , quoteDec  = error $ "LanguageTag QQ can't be used"
                                            ++ " in declaration context"
 
                        }
