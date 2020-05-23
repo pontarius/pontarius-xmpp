@@ -9,7 +9,6 @@ Cabal-Version:  >= 1.6
 Build-Type:     Simple
 License:        OtherLicense
 Copyright:      Mahdi Abdinejadi, Jon Kristensen, Philipp Balzarek
-Maintainer:     info@jonkri.com
 Synopsis:       Echo client test program for Pontarius XMPP
 
 Executable echoclient

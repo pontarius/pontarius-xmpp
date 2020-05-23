@@ -1,7 +1,6 @@
 -- |
 -- Module:      $Header$
 --
--- Maintainer:  info@jonkri.com
 -- Stability:   unstable
 -- Portability: portable
 --
