@@ -281,7 +281,7 @@ logInput = go Nothing
 -- We buffer sources because we don't want to lose data when multiple
 -- xml-entities are sent with the same packet and we don't want to eternally
 -- block the StreamState while waiting for data to arrive
-bufferSrc :: Source (ExceptT XmppFailure IO) o
+bufferSrc :: ConduitT () o (ExceptT XmppFailure IO) ()
           -> IO (ConduitM i o (ExceptT XmppFailure IO) ())
 bufferSrc src = do
     ref <- newTMVarIO $ DCI.sealConduitT src
@@ -455,7 +455,7 @@ pushOpenElement e = do
 
 -- `Connect-and-resumes' the given sink to the stream source, and pulls a
 -- `b' value.
-runEventsSink :: Sink Event (ExceptT XmppFailure IO) b
+runEventsSink :: ConduitT Event Void (ExceptT XmppFailure IO) b
               -> StateT StreamState IO (Either XmppFailure b)
 runEventsSink snk = do -- TODO: Wrap exceptions?
     src <- gets streamEventSource
@@ -543,7 +543,7 @@ xmppNoStream = StreamState {
     , streamConfiguration = def
     }
 
-zeroSource :: Source (ExceptT XmppFailure IO) a
+zeroSource :: ConduitT () a (ExceptT XmppFailure IO) ()
 zeroSource = do
     liftIO $ debugM "Pontarius.Xmpp" "zeroSource"
     throwError XmppNoStream
@@ -587,7 +587,7 @@ createStream realm config = do
             lift $ debugM "Pontarius.Xmpp" "Did not acquire handle."
             throwError TcpConnectionFailure
   where
-    logConduit :: MonadIO m => Conduit ByteString m ByteString
+    logConduit :: MonadIO m => ConduitT ByteString ByteString m ()
     logConduit = CL.mapM $ \d -> do
         liftIO . debugM "Pontarius.Xmpp" $ "In: " ++ (BSC8.unpack d) ++
             "."
@@ -835,7 +835,7 @@ debugConduit = forever $ do
             yield s
         Nothing -> return ()
 
-elements :: MonadError XmppFailure m => Conduit Event m Element
+elements :: MonadError XmppFailure m => ConduitT Event Element m ()
 elements = do
         x <- await
         case x of

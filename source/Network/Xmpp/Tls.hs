@@ -116,8 +116,8 @@ client params backend = contextNew backend params
 tlsinit :: (MonadIO m, MonadIO m1) =>
         ClientParams
      -> Backend
-     -> m ( Source m1 BS.ByteString
-          , Sink BS.ByteString m1 ()
+     -> m ( ConduitT () BS.ByteString m1 ()
+          , ConduitT BS.ByteString Void m1 ()
           , BS.ByteString -> IO ()
           , Int -> m1 BS.ByteString
           , Context

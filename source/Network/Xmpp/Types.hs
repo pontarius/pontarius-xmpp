@@ -791,7 +791,7 @@ data StreamState = StreamState
       -- | Functions to send, receive, flush, and close the stream
     , streamHandle :: StreamHandle
       -- | Event conduit source, and its associated finalizer
-    , streamEventSource :: Source (ExceptT XmppFailure IO) Event
+    , streamEventSource :: ConduitT () Event (ExceptT XmppFailure IO) ()
       -- | Stream features advertised by the server
     , streamFeatures :: !StreamFeatures -- TODO: Maybe?
       -- | The hostname or IP specified for the connection
