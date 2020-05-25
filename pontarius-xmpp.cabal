@@ -1,5 +1,5 @@
 Name:          pontarius-xmpp
-Version:       0.5.6.1
+Version:       0.5.6.2
 Cabal-Version: >= 1.10
 Build-Type:    Custom
 License:       BSD3
@@ -226,4 +226,4 @@ Source-Repository head
 Source-Repository this
   Type: git
   Location: https://github.com/l29ah/pontarius-xmpp.git
-  Tag: 0.5.6.1
+  Tag: 0.5.6.2
