@@ -90,7 +90,7 @@ filterMessages :: (MessageError -> Bool)
 filterMessages f g s = either (Left . fst) (Right . fst) <$>
                           filterMessagesA (f . fst) (g . fst) s
 
--- | Send a message stanza. Returns @False@ when the 'Message' could not be
+-- | Send a message stanza. Returns @Left@ when the 'Message' could not be
 -- sent.
 sendMessage :: Message -> Session -> IO (Either XmppFailure ())
 sendMessage m session = sendStanza (MessageS m) session
